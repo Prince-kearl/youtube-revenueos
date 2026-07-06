@@ -17,7 +17,7 @@ export function StatCard({
   up?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
           {icon}

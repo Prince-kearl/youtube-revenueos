@@ -33,7 +33,7 @@ function LinkTracking() {
         <input placeholder="Search links..." className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-sm outline-none focus:border-primary" />
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -79,7 +79,7 @@ function LinkTracking() {
 
 function Summary({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-2xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>

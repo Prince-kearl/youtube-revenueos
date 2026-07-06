@@ -39,7 +39,7 @@ function Reports() {
       <h2 className="mt-6 text-lg font-semibold">Key Insights</h2>
       <div className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {insights.map((it) => (
-          <div key={it.title} className="rounded-2xl border border-border bg-card p-5">
+          <div key={it.title} className="rounded-xl border border-border bg-card p-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
               <it.icon className="h-5 w-5" />
             </div>
@@ -53,7 +53,7 @@ function Reports() {
       <h2 className="mt-8 text-lg font-semibold">Available Reports</h2>
       <div className="mt-3 space-y-4">
         {reports.map((r) => (
-          <div key={r.title} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5">
+          <div key={r.title} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
             <div className="flex items-start gap-4">
               <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${badgeColor[r.color]}`}>
                 <FileText className="h-5 w-5" />
@@ -78,7 +78,7 @@ function Reports() {
         ))}
       </div>
 
-      <div className="mt-8 rounded-2xl border border-border bg-card p-5">
+      <div className="mt-8 rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold">Custom Report</h2>
         <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
           <div>

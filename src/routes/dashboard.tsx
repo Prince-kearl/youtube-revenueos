@@ -36,7 +36,7 @@ function Dashboard() {
 
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold">Revenue Trends</h3>
@@ -79,7 +79,7 @@ function Dashboard() {
         </div>
 
         {/* Live Alerts */}
-        <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
             <button className="text-muted-foreground hover:text-foreground">
@@ -107,7 +107,7 @@ function Dashboard() {
 
       {/* Top videos + Revenue split */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
             <button className="text-sm font-medium text-primary hover:underline">View all</button>
@@ -144,7 +144,7 @@ function Dashboard() {
         </div>
 
         {/* Revenue split */}
-        <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-lg font-semibold">Revenue Split</h3>
           <div className="mt-5 space-y-4">
             {revenueSplit.map((r) => (

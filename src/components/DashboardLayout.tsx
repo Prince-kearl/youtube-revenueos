@@ -49,14 +49,19 @@ export function DashboardLayout({ title, children }: { title: string; children: 
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${
                   active
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
                 }`}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                <span
+                  className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${
+                    active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"
+                  }`}
+                />
+                <Icon className="relative h-[18px] w-[18px] shrink-0" />
+                {!collapsed && <span className="relative">{item.label}</span>}
               </Link>
             );
           })}
@@ -82,7 +87,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
       <div className={`transition-all duration-200 ${collapsed ? "pl-20" : "pl-[210px]"}`}>
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur">
-          <h2 className="text-[15px] font-medium">{title}</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
           <div className="flex items-center gap-3">
             <div className="relative hidden items-center md:flex">
               <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />

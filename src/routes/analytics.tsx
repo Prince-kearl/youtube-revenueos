@@ -32,7 +32,7 @@ function Analytics() {
         <StatCard icon={<Globe className="h-5 w-5" />} value="48" label="Countries" change="4%" up />
       </div>
 
-      <div className="mt-5 rounded-2xl border border-border bg-card p-5">
+      <div className="mt-5 rounded-xl border border-border bg-card p-5">
         <div className="flex gap-2 rounded-lg bg-accent/50 p-1 text-sm w-fit">
           {tabs.map((t) => (
             <button

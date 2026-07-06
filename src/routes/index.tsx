@@ -19,7 +19,7 @@ function Login() {
         </div>
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-2xl">
         <h1 className="text-3xl font-extrabold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-muted-foreground">Sign in to your creator dashboard</p>
 

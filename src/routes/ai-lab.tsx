@@ -59,7 +59,7 @@ function AILab() {
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Left column */}
         <div className="space-y-5">
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="font-semibold">Select Video</h3>
             <button className="mt-3 flex w-full items-center justify-between rounded-xl border border-border bg-accent/30 px-4 py-3 text-sm">
               How I Made $100K on YouTube
@@ -67,7 +67,7 @@ function AILab() {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4 text-brand-blue" /> Transcript</h3>
               <span className="rounded-md bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">Auto-imported</span>
@@ -77,7 +77,7 @@ function AILab() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="font-semibold">Generation Settings</h3>
 
             <p className="mt-4 text-sm text-muted-foreground">Brand Voice</p>
@@ -124,7 +124,7 @@ function AILab() {
         </div>
 
         {/* Right column */}
-        <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" /> Generated Description</h3>
             <div className="flex items-center gap-1.5 text-muted-foreground">
