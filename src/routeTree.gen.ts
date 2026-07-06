@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as DestinationsRouteImport } from './routes/destinations'
@@ -22,6 +23,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
   path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/destinations'
     | '/link-tracking'
     | '/reports'
+    | '/settings'
     | '/videos'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/destinations'
     | '/link-tracking'
     | '/reports'
+    | '/settings'
     | '/videos'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/destinations'
     | '/link-tracking'
     | '/reports'
+    | '/settings'
     | '/videos'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   DestinationsRoute: typeof DestinationsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
   VideosRoute: typeof VideosRoute
 }
 
@@ -154,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/videos'
       fullPath: '/videos'
       preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   DestinationsRoute: DestinationsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
   VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
