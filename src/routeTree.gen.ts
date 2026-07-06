@@ -9,8 +9,62 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideosRouteImport } from './routes/videos'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
+import { Route as DestinationsRouteImport } from './routes/destinations'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as BrandDealsRouteImport } from './routes/brand-deals'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AiLabRouteImport } from './routes/ai-lab'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LinkTrackingRoute = LinkTrackingRouteImport.update({
+  id: '/link-tracking',
+  path: '/link-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DestinationsRoute = DestinationsRouteImport.update({
+  id: '/destinations',
+  path: '/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandDealsRoute = BrandDealsRouteImport.update({
+  id: '/brand-deals',
+  path: '/brand-deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiLabRoute = AiLabRouteImport.update({
+  id: '/ai-lab',
+  path: '/ai-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +73,158 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
+  '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
+  '/dashboard': typeof DashboardRoute
+  '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
+  '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
+  '/dashboard': typeof DashboardRoute
+  '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
+  '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
+  '/dashboard': typeof DashboardRoute
+  '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ai-lab'
+    | '/analytics'
+    | '/brand-deals'
+    | '/dashboard'
+    | '/destinations'
+    | '/link-tracking'
+    | '/reports'
+    | '/settings'
+    | '/videos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ai-lab'
+    | '/analytics'
+    | '/brand-deals'
+    | '/dashboard'
+    | '/destinations'
+    | '/link-tracking'
+    | '/reports'
+    | '/settings'
+    | '/videos'
+  id:
+    | '__root__'
+    | '/'
+    | '/ai-lab'
+    | '/analytics'
+    | '/brand-deals'
+    | '/dashboard'
+    | '/destinations'
+    | '/link-tracking'
+    | '/reports'
+    | '/settings'
+    | '/videos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiLabRoute: typeof AiLabRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  BrandDealsRoute: typeof BrandDealsRoute
+  DashboardRoute: typeof DashboardRoute
+  DestinationsRoute: typeof DestinationsRoute
+  LinkTrackingRoute: typeof LinkTrackingRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
+  VideosRoute: typeof VideosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/link-tracking': {
+      id: '/link-tracking'
+      path: '/link-tracking'
+      fullPath: '/link-tracking'
+      preLoaderRoute: typeof LinkTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/destinations': {
+      id: '/destinations'
+      path: '/destinations'
+      fullPath: '/destinations'
+      preLoaderRoute: typeof DestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brand-deals': {
+      id: '/brand-deals'
+      path: '/brand-deals'
+      fullPath: '/brand-deals'
+      preLoaderRoute: typeof BrandDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-lab': {
+      id: '/ai-lab'
+      path: '/ai-lab'
+      fullPath: '/ai-lab'
+      preLoaderRoute: typeof AiLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +237,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiLabRoute: AiLabRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  BrandDealsRoute: BrandDealsRoute,
+  DashboardRoute: DashboardRoute,
+  DestinationsRoute: DestinationsRoute,
+  LinkTrackingRoute: LinkTrackingRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
+  VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
