@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
+import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
   path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LinkTrackingRoute = LinkTrackingRouteImport.update({
+  id: '/link-tracking',
+  path: '/link-tracking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DestinationsRoute = DestinationsRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRoutesById {
@@ -61,19 +69,33 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/link-tracking': typeof LinkTrackingRoute
   '/videos': typeof VideosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/analytics' | '/dashboard' | '/destinations' | '/videos'
+  fullPaths:
+    | '/'
+    | '/analytics'
+    | '/dashboard'
+    | '/destinations'
+    | '/link-tracking'
+    | '/videos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analytics' | '/dashboard' | '/destinations' | '/videos'
+  to:
+    | '/'
+    | '/analytics'
+    | '/dashboard'
+    | '/destinations'
+    | '/link-tracking'
+    | '/videos'
   id:
     | '__root__'
     | '/'
     | '/analytics'
     | '/dashboard'
     | '/destinations'
+    | '/link-tracking'
     | '/videos'
   fileRoutesById: FileRoutesById
 }
@@ -82,6 +104,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
+  LinkTrackingRoute: typeof LinkTrackingRoute
   VideosRoute: typeof VideosRoute
 }
 
@@ -92,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/videos'
       fullPath: '/videos'
       preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/link-tracking': {
+      id: '/link-tracking'
+      path: '/link-tracking'
+      fullPath: '/link-tracking'
+      preLoaderRoute: typeof LinkTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/destinations': {
@@ -130,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
+  LinkTrackingRoute: LinkTrackingRoute,
   VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
