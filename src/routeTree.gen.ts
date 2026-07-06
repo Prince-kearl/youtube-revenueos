@@ -15,6 +15,7 @@ import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AiLabRouteImport } from './routes/ai-lab'
 import { Route as IndexRouteImport } from './routes/index'
 
 const VideosRoute = VideosRouteImport.update({
@@ -47,6 +48,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiLabRoute = AiLabRouteImport.update({
+  id: '/ai-lab',
+  path: '/ai-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -55,6 +61,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
     | '/dashboard'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
     | '/dashboard'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
     | '/dashboard'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BrandDealsRoute: typeof BrandDealsRoute
   DashboardRoute: typeof DashboardRoute
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-lab': {
+      id: '/ai-lab'
+      path: '/ai-lab'
+      fullPath: '/ai-lab'
+      preLoaderRoute: typeof AiLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   BrandDealsRoute: BrandDealsRoute,
   DashboardRoute: DashboardRoute,
