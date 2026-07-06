@@ -13,6 +13,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrandDealsRoute = BrandDealsRouteImport.update({
+  id: '/brand-deals',
+  path: '/brand-deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/brand-deals': typeof BrandDealsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analytics'
+    | '/brand-deals'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analytics'
+    | '/brand-deals'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analytics'
+    | '/brand-deals'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  BrandDealsRoute: typeof BrandDealsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brand-deals': {
+      id: '/brand-deals'
+      path: '/brand-deals'
+      fullPath: '/brand-deals'
+      preLoaderRoute: typeof BrandDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analytics': {
       id: '/analytics'
       path: '/analytics'
@@ -158,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyticsRoute: AnalyticsRoute,
+  BrandDealsRoute: BrandDealsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
