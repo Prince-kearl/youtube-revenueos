@@ -28,9 +28,9 @@ function BrandDeals() {
         <StatCard icon={<MoreHorizontal className="h-5 w-5" />} value="$16.1K" label="Avg Deal Size" />
       </div>
 
-      <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
+      <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {dealStages.map((stage) => (
-          <div key={stage.name} className="w-[290px] shrink-0">
+          <div key={stage.name} className="min-w-0">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: stage.color }} />

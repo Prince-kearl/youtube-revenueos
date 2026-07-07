@@ -3,13 +3,14 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
-  Bell, Maximize2, HelpCircle, Youtube,
+  Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/videos", label: "Videos", icon: Video },
+  { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/ai-lab", label: "AI Lab", icon: Sparkles },
   { to: "/destinations", label: "Destinations", icon: MapPin },
   { to: "/link-tracking", label: "Link Tracking", icon: Link2 },

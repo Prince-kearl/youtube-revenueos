@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -19,6 +20,7 @@ import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -33,6 +35,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LinkTrackingRoute = LinkTrackingRouteImport.update({
@@ -70,6 +77,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGenerateRoute = ApiGenerateRouteImport.update({
+  id: '/api/generate',
+  path: '/api/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,9 +91,11 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
+  '/api/generate': typeof ApiGenerateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,9 +105,11 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
+  '/api/generate': typeof ApiGenerateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,9 +120,11 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
+  '/api/generate': typeof ApiGenerateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,9 +136,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
+    | '/projects'
     | '/reports'
     | '/settings'
     | '/videos'
+    | '/api/generate'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,9 +150,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
+    | '/projects'
     | '/reports'
     | '/settings'
     | '/videos'
+    | '/api/generate'
   id:
     | '__root__'
     | '/'
@@ -142,9 +164,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
+    | '/projects'
     | '/reports'
     | '/settings'
     | '/videos'
+    | '/api/generate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -155,9 +179,11 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
+  ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   VideosRoute: typeof VideosRoute
+  ApiGenerateRoute: typeof ApiGenerateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/link-tracking': {
@@ -232,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/generate': {
+      id: '/api/generate'
+      path: '/api/generate'
+      fullPath: '/api/generate'
+      preLoaderRoute: typeof ApiGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -243,9 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
+  ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   VideosRoute: VideosRoute,
+  ApiGenerateRoute: ApiGenerateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -69,10 +69,10 @@
   --warning: #f59e0b;
   --info: #3b82f6;
   --brand-red: #ff0000;
-  --brand-purple: #8a8a8a;
-  --brand-green: #7f7f7f;
-  --brand-blue: #6c6c6c;
-  --brand-amber: #9a9a9a;
+  --brand-purple: #8b5cf6; /* Cool purple for Brand Deals */
+  --brand-blue: #22d3ee;   /* Soft cyan for AdSense */
+  --brand-green: #34d399;  /* Teal for Memberships */
+  --brand-amber: #60a5fa;  /* Soft blue for Affiliates */
 }
 
 @layer base {

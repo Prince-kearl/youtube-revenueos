@@ -1,0 +1,125 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Sparkles, Plus, Loader2, ArrowRight, FileText, Workflow, Code2 } from "lucide-react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { createGenerationJob, listGenerationJobs, type GenerationJob } from "@/lib/mock-generation";
+
+export const Route = createFileRoute("/projects")({
+  component: ProjectsPage,
+});
+
+function ProjectsPage() {
+  const [title, setTitle] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [jobs, setJobs] = useState<GenerationJob[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setJobs(listGenerationJobs());
+  }, []);
+
+  const canSubmit = useMemo(() => title.trim().length > 0 && prompt.trim().length > 0, [title, prompt]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canSubmit) return;
+
+    setIsSubmitting(true);
+    const created = createGenerationJob({
+      title: title.trim(),
+      prompt: prompt.trim(),
+      references: ["reference sketch", "product brief"],
+    });
+    setJobs((current) => [created, ...current]);
+    setTitle("");
+    setPrompt("");
+
+    setTimeout(() => {
+      setJobs(listGenerationJobs());
+      setIsSubmitting(false);
+    }, 1400);
+  }
+
+  return (
+    <DashboardLayout title="Projects">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Create prompts, queue AI generation, and review starter outputs.</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+          <Sparkles className="h-4 w-4" /> Mock AI generation ready
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-lg font-semibold">Create a new project</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Describe the product idea and queue a mock generation run.</p>
+
+          <label className="mt-5 block text-sm font-medium">Project title</label>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="e.g. Creator CRM"
+            className="mt-2 w-full rounded-xl border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+
+          <label className="mt-4 block text-sm font-medium">Prompt</label>
+          <textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            rows={5}
+            placeholder="Design a modern analytics workspace for creators to manage revenue and brand deals."
+            className="mt-2 w-full resize-none rounded-xl border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+
+          <button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isSubmitting ? "Generating..." : "Generate project"}
+          </button>
+        </form>
+
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recent jobs</h2>
+            <span className="rounded-md bg-accent px-2.5 py-1 text-xs text-muted-foreground">Mock queue</span>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {jobs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                No jobs yet. Create a project to see the mock generation workflow.
+              </div>
+            ) : (
+              jobs.map((job) => (
+                <div key={job.jobId} className="rounded-xl border border-border bg-accent/20 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{job.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{job.prompt}</p>
+                    </div>
+                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-medium capitalize text-foreground">
+                      {job.status}
+                    </span>
+                  </div>
+                  {job.output ? (
+                    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2"><FileText className="h-4 w-4" />{job.output.summary}</div>
+                      <div className="flex items-center gap-2"><Workflow className="h-4 w-4" />{job.output.wireframes[0]}</div>
+                      <div className="flex items-center gap-2"><Code2 className="h-4 w-4" />{job.output.developerHandoff[0]}</div>
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}
