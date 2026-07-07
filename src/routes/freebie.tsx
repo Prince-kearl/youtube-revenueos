@@ -68,13 +68,13 @@ function Freebie() {
           </h3>
           <div className="mt-4 space-y-4">
             <Field label="Product / service">
-              <input className="input" placeholder="e.g. Dropshipping course" defaultValue="Dropshipping course" />
+              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Dropshipping course" defaultValue="Dropshipping course" />
             </Field>
             <Field label="Target audience">
-              <input className="input" placeholder="e.g. Beginner e-commerce creators" defaultValue="Beginner e-commerce creators" />
+              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Beginner e-commerce creators" defaultValue="Beginner e-commerce creators" />
             </Field>
             <Field label="Brand tone">
-              <input className="input" placeholder="e.g. Direct, no-fluff, practical" defaultValue="Direct, no-fluff, practical" />
+              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Direct, no-fluff, practical" defaultValue="Direct, no-fluff, practical" />
             </Field>
             <Field label="Format">
               <div className="flex flex-wrap gap-2">
