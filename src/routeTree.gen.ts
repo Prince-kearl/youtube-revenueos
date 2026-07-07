@@ -19,6 +19,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
+import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 
@@ -72,6 +73,11 @@ const AiLabRoute = AiLabRouteImport.update({
   path: '/ai-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AddVideoRoute = AddVideoRouteImport.update({
+  id: '/add-video',
+  path: '/add-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -85,6 +91,7 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
@@ -114,6 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/add-video'
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/add-video'
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/add-video'
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
@@ -173,6 +185,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AddVideoRoute: typeof AddVideoRoute
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BrandDealsRoute: typeof BrandDealsRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AiLabRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/add-video': {
+      id: '/add-video'
+      path: '/add-video'
+      fullPath: '/add-video'
+      preLoaderRoute: typeof AddVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -277,6 +297,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AddVideoRoute: AddVideoRoute,
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   BrandDealsRoute: BrandDealsRoute,
