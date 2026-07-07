@@ -14,11 +14,17 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
+import { Route as FreebieRouteImport } from './routes/freebie'
+import { Route as EmailRouteImport } from './routes/email'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CommentsRouteImport } from './routes/comments'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
+import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
+import { Route as AffiliateRouteImport } from './routes/affiliate'
+import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 
@@ -47,6 +53,16 @@ const LinkTrackingRoute = LinkTrackingRouteImport.update({
   path: '/link-tracking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FreebieRoute = FreebieRouteImport.update({
+  id: '/freebie',
+  path: '/freebie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DestinationsRoute = DestinationsRouteImport.update({
   id: '/destinations',
   path: '/destinations',
@@ -57,9 +73,19 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommentsRoute = CommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrandDealsRoute = BrandDealsRouteImport.update({
   id: '/brand-deals',
   path: '/brand-deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AudienceRoute = AudienceRouteImport.update({
+  id: '/audience',
+  path: '/audience',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
@@ -70,6 +96,16 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
 const AiLabRoute = AiLabRouteImport.update({
   id: '/ai-lab',
   path: '/ai-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AffiliateRoute = AffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddVideoRoute = AddVideoRouteImport.update({
+  id: '/add-video',
+  path: '/add-video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -85,11 +121,17 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
+  '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -99,11 +141,17 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
+  '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -114,11 +162,17 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
+  '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -130,11 +184,17 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
+    | '/freebie'
     | '/link-tracking'
     | '/projects'
     | '/reports'
@@ -144,11 +204,17 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
+    | '/freebie'
     | '/link-tracking'
     | '/projects'
     | '/reports'
@@ -158,11 +224,17 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
+    | '/freebie'
     | '/link-tracking'
     | '/projects'
     | '/reports'
@@ -173,11 +245,17 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AddVideoRoute: typeof AddVideoRoute
+  AffiliateRoute: typeof AffiliateRoute
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  AudienceRoute: typeof AudienceRoute
   BrandDealsRoute: typeof BrandDealsRoute
+  CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
+  EmailRoute: typeof EmailRoute
+  FreebieRoute: typeof FreebieRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
@@ -223,6 +301,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LinkTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/freebie': {
+      id: '/freebie'
+      path: '/freebie'
+      fullPath: '/freebie'
+      preLoaderRoute: typeof FreebieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/destinations': {
       id: '/destinations'
       path: '/destinations'
@@ -237,11 +329,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/comments': {
+      id: '/comments'
+      path: '/comments'
+      fullPath: '/comments'
+      preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/brand-deals': {
       id: '/brand-deals'
       path: '/brand-deals'
       fullPath: '/brand-deals'
       preLoaderRoute: typeof BrandDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audience': {
+      id: '/audience'
+      path: '/audience'
+      fullPath: '/audience'
+      preLoaderRoute: typeof AudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analytics': {
@@ -256,6 +362,20 @@ declare module '@tanstack/react-router' {
       path: '/ai-lab'
       fullPath: '/ai-lab'
       preLoaderRoute: typeof AiLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/affiliate': {
+      id: '/affiliate'
+      path: '/affiliate'
+      fullPath: '/affiliate'
+      preLoaderRoute: typeof AffiliateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/add-video': {
+      id: '/add-video'
+      path: '/add-video'
+      fullPath: '/add-video'
+      preLoaderRoute: typeof AddVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -277,11 +397,17 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AddVideoRoute: AddVideoRoute,
+  AffiliateRoute: AffiliateRoute,
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
+  AudienceRoute: AudienceRoute,
   BrandDealsRoute: BrandDealsRoute,
+  CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
+  EmailRoute: EmailRoute,
+  FreebieRoute: FreebieRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
@@ -292,13 +418,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
