@@ -16,6 +16,7 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CommentsRouteImport } from './routes/comments'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
@@ -58,6 +59,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommentsRoute = CommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrandDealsRoute = BrandDealsRouteImport.update({
   id: '/brand-deals',
   path: '/brand-deals',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/link-tracking': typeof LinkTrackingRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/brand-deals'
+    | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/link-tracking'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BrandDealsRoute: typeof BrandDealsRoute
+  CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/comments': {
+      id: '/comments'
+      path: '/comments'
+      fullPath: '/comments'
+      preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/brand-deals': {
       id: '/brand-deals'
       path: '/brand-deals'
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   BrandDealsRoute: BrandDealsRoute,
+  CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
