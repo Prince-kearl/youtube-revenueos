@@ -18,6 +18,7 @@ import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommentsRouteImport } from './routes/comments'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
+import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
 import { Route as AddVideoRouteImport } from './routes/add-video'
@@ -69,6 +70,11 @@ const BrandDealsRoute = BrandDealsRouteImport.update({
   path: '/brand-deals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AudienceRoute = AudienceRouteImport.update({
+  id: '/audience',
+  path: '/audience',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/add-video': typeof AddVideoRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
+  '/audience': typeof AudienceRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/add-video'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/add-video'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/add-video'
     | '/ai-lab'
     | '/analytics'
+    | '/audience'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   AddVideoRoute: typeof AddVideoRoute
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  AudienceRoute: typeof AudienceRoute
   BrandDealsRoute: typeof BrandDealsRoute
   CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandDealsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audience': {
+      id: '/audience'
+      path: '/audience'
+      fullPath: '/audience'
+      preLoaderRoute: typeof AudienceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analytics': {
       id: '/analytics'
       path: '/analytics'
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   AddVideoRoute: AddVideoRoute,
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
+  AudienceRoute: AudienceRoute,
   BrandDealsRoute: BrandDealsRoute,
   CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
