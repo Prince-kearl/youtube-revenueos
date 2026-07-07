@@ -15,6 +15,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as FreebieRouteImport } from './routes/freebie'
+import { Route as EmailRouteImport } from './routes/email'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommentsRouteImport } from './routes/comments'
@@ -55,6 +56,11 @@ const LinkTrackingRoute = LinkTrackingRouteImport.update({
 const FreebieRoute = FreebieRouteImport.update({
   id: '/freebie',
   path: '/freebie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DestinationsRoute = DestinationsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
+  '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
     | '/freebie'
     | '/link-tracking'
     | '/projects'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
     | '/freebie'
     | '/link-tracking'
     | '/projects'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/comments'
     | '/dashboard'
     | '/destinations'
+    | '/email'
     | '/freebie'
     | '/link-tracking'
     | '/projects'
@@ -242,6 +254,7 @@ export interface RootRouteChildren {
   CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
+  EmailRoute: typeof EmailRoute
   FreebieRoute: typeof FreebieRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -293,6 +306,13 @@ declare module '@tanstack/react-router' {
       path: '/freebie'
       fullPath: '/freebie'
       preLoaderRoute: typeof FreebieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/destinations': {
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
+  EmailRoute: EmailRoute,
   FreebieRoute: FreebieRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   ProjectsRoute: ProjectsRoute,
