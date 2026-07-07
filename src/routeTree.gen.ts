@@ -21,6 +21,7 @@ import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
+import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
@@ -85,6 +86,11 @@ const AiLabRoute = AiLabRouteImport.update({
   path: '/ai-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AffiliateRoute = AffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddVideoRoute = AddVideoRouteImport.update({
   id: '/add-video',
   path: '/add-video',
@@ -104,6 +110,7 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/add-video'
+    | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddVideoRoute: typeof AddVideoRoute
+  AffiliateRoute: typeof AffiliateRoute
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   AudienceRoute: typeof AudienceRoute
@@ -311,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AiLabRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/affiliate': {
+      id: '/affiliate'
+      path: '/affiliate'
+      fullPath: '/affiliate'
+      preLoaderRoute: typeof AffiliateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/add-video': {
       id: '/add-video'
       path: '/add-video'
@@ -338,6 +358,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddVideoRoute: AddVideoRoute,
+  AffiliateRoute: AffiliateRoute,
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   AudienceRoute: AudienceRoute,
