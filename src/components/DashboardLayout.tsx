@@ -50,7 +50,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-2">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {nav.map((item) => {
             const active = pathname === item.to;
             const Icon = item.icon;
