@@ -4,21 +4,29 @@ import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
+  MessageSquare, Users, Gift, Handshake, Mail,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/add-video", label: "Add Video", icon: Plus },
   { to: "/videos", label: "Videos", icon: Video },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/ai-lab", label: "AI Lab", icon: Sparkles },
   { to: "/destinations", label: "Destinations", icon: MapPin },
   { to: "/link-tracking", label: "Link Tracking", icon: Link2 },
+  { to: "/comments", label: "Comment Automation", icon: MessageSquare },
+  { to: "/audience", label: "Audience", icon: Users },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/affiliate", label: "Affiliate", icon: Handshake },
+  { to: "/freebie", label: "AI Freebie", icon: Gift },
+  { to: "/email", label: "Email", icon: Mail },
   { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
+
 
 export function DashboardLayout({ title, children }: { title: string; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
