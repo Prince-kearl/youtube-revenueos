@@ -9,9 +9,11 @@ import {
   Shield,
   Camera,
   Check,
+  LayoutDashboard,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
+import { useChannelSettings } from "@/lib/channel-settings";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -19,6 +21,7 @@ export const Route = createFileRoute("/settings")({
 
 const menu = [
   { label: "Profile", icon: User },
+  { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
   { label: "Notifications", icon: Bell },
