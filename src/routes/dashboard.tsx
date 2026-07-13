@@ -4,15 +4,16 @@ import {
 } from "recharts";
 import {
   DollarSign, TrendingUp, Eye, Handshake, RefreshCw, MessageSquare,
-  CheckCircle2, AlertTriangle, Zap, Clock,
+  CheckCircle2, AlertTriangle, Zap, Clock, Youtube, Users, ExternalLink, Play,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
-import { alerts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { alerts, channel, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
+
 
 const alertIcons = { message: MessageSquare, check: CheckCircle2, dollar: DollarSign, alert: AlertTriangle, zap: Zap, clock: Clock };
 const alertColor: Record<string, string> = {
