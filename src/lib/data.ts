@@ -10,10 +10,10 @@ export const channel = {
 };
 
 export const recentPosts = [
-  { title: "How I Made $100K on YouTube", date: "Dec 12, 2024", views: "892K", duration: "14:22" },
-  { title: "The Creator Business Blueprint", date: "Nov 28, 2024", views: "641K", duration: "22:07" },
-  { title: "YouTube Monetization Deep Dive", date: "Nov 15, 2024", views: "428K", duration: "18:45" },
-  { title: "AI Tools for Content Creators", date: "Oct 30, 2024", views: "380K", duration: "11:30" },
+  { title: "How I Made $100K on YouTube", date: "Dec 12, 2024", views: "892K", duration: "14:22", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+  { title: "The Creator Business Blueprint", date: "Nov 28, 2024", views: "641K", duration: "22:07", url: "https://www.youtube.com/watch?v=9bZkp7q19f0" },
+  { title: "YouTube Monetization Deep Dive", date: "Nov 15, 2024", views: "428K", duration: "18:45", url: "https://www.youtube.com/watch?v=kJQP7kiw5Fk" },
+  { title: "AI Tools for Content Creators", date: "Oct 30, 2024", views: "380K", duration: "11:30", url: "https://www.youtube.com/watch?v=3JZ_D3ELwOQ" },
 ];
 
 

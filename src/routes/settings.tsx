@@ -9,9 +9,11 @@ import {
   Shield,
   Camera,
   Check,
+  LayoutDashboard,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
+import { useChannelSettings } from "@/lib/channel-settings";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -19,6 +21,7 @@ export const Route = createFileRoute("/settings")({
 
 const menu = [
   { label: "Profile", icon: User },
+  { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
   { label: "Notifications", icon: Bell },
@@ -59,6 +62,8 @@ function Settings() {
 
 function renderPanel(active: string) {
   switch (active) {
+    case "Dashboard Banner":
+      return <DashboardBannerPanel />;
     case "Connected Accounts":
       return <ConnectedAccountsPanel />;
     case "YouTube Integration":
@@ -328,3 +333,86 @@ function Field({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+function DashboardBannerPanel() {
+  const { settings, update } = useChannelSettings();
+  const [saved, setSaved] = useState(false);
+
+  const toggles: { key: "showAvatar" | "showSubscribers" | "showVisitButton" | "showRecentPosts"; label: string; description: string }[] = [
+    { key: "showAvatar", label: "Channel avatar", description: "Show your channel profile picture on the banner." },
+    { key: "showSubscribers", label: "Subscriber count", description: "Display your subscriber total next to the name." },
+    { key: "showVisitButton", label: "Visit channel button", description: "Show the red button that opens your channel." },
+    { key: "showRecentPosts", label: "Recently added posts", description: "Show the preview grid of recent videos." },
+  ];
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Dashboard Banner</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Paste your channel URL and choose what appears on the dashboard banner.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm text-muted-foreground">Channel Name</label>
+          <input
+            value={settings.name}
+            onChange={(e) => update({ name: e.target.value })}
+            placeholder="@YourChannel"
+            className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm text-muted-foreground">Subscriber Count</label>
+          <input
+            value={settings.subscribers}
+            onChange={(e) => update({ subscribers: e.target.value })}
+            placeholder="1.24M"
+            className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm text-muted-foreground">Channel URL</label>
+          <input
+            value={settings.url}
+            onChange={(e) => update({ url: e.target.value })}
+            placeholder="https://www.youtube.com/@YourChannel"
+            className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm text-muted-foreground">Avatar Image URL</label>
+          <input
+            value={settings.avatar}
+            onChange={(e) => update({ avatar: e.target.value })}
+            placeholder="https://..."
+            className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {toggles.map((t) => (
+          <div key={t.key} className="flex flex-col gap-3 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">{t.label}</p>
+              <p className="text-sm text-muted-foreground">{t.description}</p>
+            </div>
+            <Switch checked={settings[t.key]} onCheckedChange={(v) => update({ [t.key]: v })} />
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={() => {
+          setSaved(true);
+          window.setTimeout(() => setSaved(false), 2000);
+        }}
+        className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        {saved ? <><Check className="h-4 w-4" /> Saved</> : "Save Changes"}
+      </button>
+    </div>
+  );
+}
+

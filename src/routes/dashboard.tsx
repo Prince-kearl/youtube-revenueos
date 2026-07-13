@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -8,7 +9,8 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
-import { alerts, channel, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { alerts, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { useChannelSettings } from "@/lib/channel-settings";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -25,68 +27,67 @@ const alertColor: Record<string, string> = {
 };
 
 function Dashboard() {
+  const { settings } = useChannelSettings();
   return (
     <DashboardLayout title="Dashboard">
       {/* Channel banner */}
       <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-center gap-4">
-          <div className="relative shrink-0">
-            <img src={channel.avatar} alt={channel.name} className="h-14 w-14 rounded-full object-cover" />
-            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-red ring-2 ring-card">
-              <Youtube className="h-3.5 w-3.5 text-white" fill="white" strokeWidth={1.5} />
-            </span>
-          </div>
+          {settings.showAvatar && (
+            <div className="relative shrink-0">
+              <img src={settings.avatar} alt={settings.name} className="h-14 w-14 rounded-full object-cover" />
+              <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-red ring-2 ring-card">
+                <Youtube className="h-3.5 w-3.5 text-white" fill="white" strokeWidth={1.5} />
+              </span>
+            </div>
+          )}
           <div>
-            <p className="text-lg font-semibold leading-tight">{channel.name}</p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span className="font-medium text-foreground">{channel.subscribers}</span> {channel.subscribersLabel}
-            </p>
+            <p className="text-lg font-semibold leading-tight">{settings.name}</p>
+            {settings.showSubscribers && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span className="font-medium text-foreground">{settings.subscribers}</span> subscribers
+              </p>
+            )}
           </div>
         </div>
-        <a
-          href={channel.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-medium text-white transition-colors hover:bg-brand-red/90"
-        >
-          <Youtube className="h-4 w-4" fill="white" strokeWidth={1.5} />
-          Visit Channel
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+        {settings.showVisitButton && (
+          <a
+            href={settings.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-medium text-white transition-colors hover:bg-brand-red/90"
+          >
+            <Youtube className="h-4 w-4" fill="white" strokeWidth={1.5} />
+            Visit Channel
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
       </div>
 
       {/* Recently added posts */}
-      <div className="mb-5 rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Recently Added Posts</h3>
-          <a href={channel.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
-            View channel
-          </a>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {recentPosts.map((p) => (
-            <a
-              key={p.title}
-              href={channel.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary"
-            >
-              <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110">
-                  <Play className="h-4 w-4 text-white" fill="white" />
-                </span>
-                <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{p.duration}</span>
-              </div>
-              <div className="p-3">
-                <p className="line-clamp-2 text-sm font-medium leading-snug">{p.title}</p>
-                <p className="mt-1.5 text-xs text-muted-foreground">{p.views} views • {p.date}</p>
-              </div>
+      {settings.showRecentPosts && (
+        <div className="mb-5 rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Recently Added Posts</h3>
+            <a href={settings.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+              View channel
             </a>
-          ))}
+          </div>
+
+          {/* Desktop grid */}
+          <div className="mt-4 hidden grid-cols-1 gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
+            {recentPosts.map((p) => (
+              <PostCard key={p.title} post={p} />
+            ))}
+          </div>
+
+          {/* Mobile horizontal autoslide carousel */}
+          <RecentPostsCarousel />
         </div>
-      </div>
+      )}
+
+
 
       {/* Stat cards */}
 
@@ -237,6 +238,64 @@ function Dashboard() {
     </DashboardLayout>
   );
 }
+
+type Post = (typeof recentPosts)[number];
+
+function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
+  return (
+    <a
+      href={post.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`group block overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary ${compact ? "w-40 shrink-0" : ""}`}
+    >
+      <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
+        <span className={`flex items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110 ${compact ? "h-8 w-8" : "h-10 w-10"}`}>
+          <Play className={compact ? "h-3 w-3 text-white" : "h-4 w-4 text-white"} fill="white" />
+        </span>
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{post.duration}</span>
+      </div>
+      <div className={compact ? "p-2.5" : "p-3"}>
+        <p className={`line-clamp-2 font-medium leading-snug ${compact ? "text-xs" : "text-sm"}`}>{post.title}</p>
+        <p className={`mt-1 text-muted-foreground ${compact ? "text-[10px]" : "text-xs"}`}>{post.views} views • {post.date}</p>
+      </div>
+    </a>
+  );
+}
+
+function RecentPostsCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = window.setInterval(() => {
+      if (paused) return;
+      const card = el.querySelector<HTMLElement>("[data-card]");
+      const step = card ? card.offsetWidth + 12 : 172;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      el.scrollTo({ left: atEnd ? 0 : el.scrollLeft + step, behavior: "smooth" });
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [paused]);
+
+  return (
+    <div
+      ref={scrollRef}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
+      className="mt-4 flex gap-3 overflow-x-auto pb-1 sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {recentPosts.map((p) => (
+        <div key={p.title} data-card>
+          <PostCard post={p} compact />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function Legend({ color, label }: { color: string; label: string }) {
   return (
