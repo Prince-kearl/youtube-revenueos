@@ -62,6 +62,8 @@ function Settings() {
 
 function renderPanel(active: string) {
   switch (active) {
+    case "Dashboard Banner":
+      return <DashboardBannerPanel />;
     case "Connected Accounts":
       return <ConnectedAccountsPanel />;
     case "YouTube Integration":
