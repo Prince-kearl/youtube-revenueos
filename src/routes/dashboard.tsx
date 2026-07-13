@@ -239,6 +239,64 @@ function Dashboard() {
   );
 }
 
+type Post = (typeof recentPosts)[number];
+
+function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
+  return (
+    <a
+      href={post.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`group block overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary ${compact ? "w-40 shrink-0" : ""}`}
+    >
+      <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
+        <span className={`flex items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110 ${compact ? "h-8 w-8" : "h-10 w-10"}`}>
+          <Play className={compact ? "h-3 w-3 text-white" : "h-4 w-4 text-white"} fill="white" />
+        </span>
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{post.duration}</span>
+      </div>
+      <div className={compact ? "p-2.5" : "p-3"}>
+        <p className={`line-clamp-2 font-medium leading-snug ${compact ? "text-xs" : "text-sm"}`}>{post.title}</p>
+        <p className={`mt-1 text-muted-foreground ${compact ? "text-[10px]" : "text-xs"}`}>{post.views} views • {post.date}</p>
+      </div>
+    </a>
+  );
+}
+
+function RecentPostsCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = window.setInterval(() => {
+      if (paused) return;
+      const card = el.querySelector<HTMLElement>("[data-card]");
+      const step = card ? card.offsetWidth + 12 : 172;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      el.scrollTo({ left: atEnd ? 0 : el.scrollLeft + step, behavior: "smooth" });
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [paused]);
+
+  return (
+    <div
+      ref={scrollRef}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
+      className="mt-4 flex gap-3 overflow-x-auto pb-1 sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {recentPosts.map((p) => (
+        <div key={p.title} data-card>
+          <PostCard post={p} compact />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 text-muted-foreground">
