@@ -4,15 +4,16 @@ import {
 } from "recharts";
 import {
   DollarSign, TrendingUp, Eye, Handshake, RefreshCw, MessageSquare,
-  CheckCircle2, AlertTriangle, Zap, Clock,
+  CheckCircle2, AlertTriangle, Zap, Clock, Youtube, Users, ExternalLink, Play,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
-import { alerts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { alerts, channel, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
+
 
 const alertIcons = { message: MessageSquare, check: CheckCircle2, dollar: DollarSign, alert: AlertTriangle, zap: Zap, clock: Clock };
 const alertColor: Record<string, string> = {
@@ -26,7 +27,69 @@ const alertColor: Record<string, string> = {
 function Dashboard() {
   return (
     <DashboardLayout title="Dashboard">
+      {/* Channel banner */}
+      <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            <img src={channel.avatar} alt={channel.name} className="h-14 w-14 rounded-full object-cover" />
+            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-red ring-2 ring-card">
+              <Youtube className="h-3.5 w-3.5 text-white" fill="white" strokeWidth={1.5} />
+            </span>
+          </div>
+          <div>
+            <p className="text-lg font-semibold leading-tight">{channel.name}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span className="font-medium text-foreground">{channel.subscribers}</span> {channel.subscribersLabel}
+            </p>
+          </div>
+        </div>
+        <a
+          href={channel.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-medium text-white transition-colors hover:bg-brand-red/90"
+        >
+          <Youtube className="h-4 w-4" fill="white" strokeWidth={1.5} />
+          Visit Channel
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </div>
+
+      {/* Recently added posts */}
+      <div className="mb-5 rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Recently Added Posts</h3>
+          <a href={channel.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+            View channel
+          </a>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {recentPosts.map((p) => (
+            <a
+              key={p.title}
+              href={channel.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary"
+            >
+              <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110">
+                  <Play className="h-4 w-4 text-white" fill="white" />
+                </span>
+                <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{p.duration}</span>
+              </div>
+              <div className="p-3">
+                <p className="line-clamp-2 text-sm font-medium leading-snug">{p.title}</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{p.views} views • {p.date}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
       {/* Stat cards */}
+
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<DollarSign className="h-5 w-5" />} value="$142,800" label="Total Revenue" sub="vs last year" change="18.4%" up />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} value="$44,300" label="Monthly Revenue" sub="vs last month" change="12.7%" up />

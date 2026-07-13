@@ -1,5 +1,22 @@
 // Shared mock data for the RevenueOS clone.
 
+export const channel = {
+  name: "@YourChannel",
+  handle: "YourChannel",
+  url: "https://www.youtube.com/@YourChannel",
+  avatar: "https://i.pravatar.cc/128?img=13",
+  subscribers: "1.24M",
+  subscribersLabel: "subscribers",
+};
+
+export const recentPosts = [
+  { title: "How I Made $100K on YouTube", date: "Dec 12, 2024", views: "892K", duration: "14:22" },
+  { title: "The Creator Business Blueprint", date: "Nov 28, 2024", views: "641K", duration: "22:07" },
+  { title: "YouTube Monetization Deep Dive", date: "Nov 15, 2024", views: "428K", duration: "18:45" },
+  { title: "AI Tools for Content Creators", date: "Oct 30, 2024", views: "380K", duration: "11:30" },
+];
+
+
 export const topVideos = [
   { rank: 1, title: "How I Made $100K on YouTube", date: "Dec 12, 2024", views: "892,400", viewsShort: "892K", revenue: "$12,400", ctr: "5.2%", cpm: "$8.40", likes: "24.1K", status: "Top Performer", change: "14.2%", up: true },
   { rank: 2, title: "The Creator Business Blueprint", date: "Nov 28, 2024", views: "641,200", viewsShort: "641K", revenue: "$8,900", ctr: "4.8%", cpm: "$7.20", likes: "18.6K", status: "High Revenue", change: "8.7%", up: true },
