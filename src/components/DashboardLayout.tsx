@@ -7,6 +7,7 @@ import {
   MessageSquare, Users, Gift, Handshake, Mail,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { cn } from "@/lib/utils";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,9 +35,9 @@ export function DashboardLayout({ title, children }: { title: string; children: 
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col border-r border-border bg-sidebar transition-all duration-200 ${
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-sidebar transition-all duration-200 md:flex ${
           collapsed ? "w-20" : "w-[210px]"
         }`}
       >
@@ -93,12 +94,18 @@ export function DashboardLayout({ title, children }: { title: string; children: 
       </aside>
 
       {/* Main */}
-      <div className={`transition-all duration-200 ${collapsed ? "pl-20" : "pl-[210px]"}`}>
+      <div className={`transition-all duration-200 ${collapsed ? "md:pl-20" : "md:pl-[210px]"}`}>
         {/* Topbar */}
-        <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur">
-          <h2 className="text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative hidden items-center md:flex">
+        <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
+          {/* Mobile logo */}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="md:hidden">
+              <Logo collapsed />
+            </div>
+            <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="relative hidden items-center lg:flex">
               <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
               <input
                 placeholder="Search..."
@@ -106,8 +113,8 @@ export function DashboardLayout({ title, children }: { title: string; children: 
               />
               <kbd className="absolute right-2 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
             </div>
-            <button className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-              <Plus className="h-4 w-4" /> Quick Add Deal
+            <button className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:px-3.5">
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Quick Add Deal</span>
             </button>
             <button className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground">
               <Bell className="h-[18px] w-[18px]" />
@@ -121,19 +128,49 @@ export function DashboardLayout({ title, children }: { title: string; children: 
               />
               <span className="hidden text-sm font-medium sm:block">Alex Chen</span>
             </div>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground">
+            <button className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:flex">
               <Maximize2 className="h-[18px] w-[18px]" />
             </button>
           </div>
         </header>
 
-        <main className="p-6">{children}</main>
+        <main className="p-4 pb-28 sm:p-6 md:pb-6">{children}</main>
       </div>
 
-      {/* Help FAB */}
-      <button className="fixed bottom-6 right-6 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl transition-transform hover:scale-105">
+      {/* Help FAB — desktop only (mobile bottom nav takes over) */}
+      <button className="fixed bottom-6 right-6 z-30 hidden h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl transition-transform hover:scale-105 md:flex">
         <HelpCircle className="h-5 w-5" />
       </button>
+
+      {/* Mobile floating pill nav (inspired by Kearl Devs Studio) */}
+      <nav
+        aria-label="Primary"
+        className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="flex items-center gap-1 overflow-x-auto rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {nav.map((item) => {
+            const active = pathname === item.to;
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-label={item.label}
+                title={item.label}
+                className={cn(
+                  "group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
