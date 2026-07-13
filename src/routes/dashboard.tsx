@@ -87,7 +87,7 @@ function Dashboard() {
         </div>
       )}
 
-      </div>
+
 
       {/* Stat cards */}
 
