@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -8,7 +9,8 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
-import { alerts, channel, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { alerts, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { useChannelSettings } from "@/lib/channel-settings";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
