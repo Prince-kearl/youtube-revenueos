@@ -74,6 +74,10 @@ function renderPanel(active: string) {
       return <ConnectedAccountsPanel />;
     case "YouTube Integration":
       return <YouTubeIntegrationPanel />;
+    case "OAuth Scopes":
+      return <OAuthScopesPanel />;
+    case "Compliance & Data":
+      return <CompliancePanel />;
     case "Notifications":
       return <NotificationsPanel />;
     case "Billing":
