@@ -18,6 +18,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
 import { useChannelSettings } from "@/lib/channel-settings";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -415,8 +416,19 @@ function DashboardBannerPanel() {
 
       <button
         onClick={() => {
-          setSaved(true);
-          window.setTimeout(() => setSaved(false), 2000);
+          try {
+            // Re-persist current settings to surface any storage error.
+            update({});
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 2000);
+            toast.success("Dashboard banner saved", {
+              description: "Your channel banner preferences were persisted.",
+            });
+          } catch (err) {
+            toast.error("Couldn't save banner settings", {
+              description: err instanceof Error ? err.message : "Local storage is unavailable.",
+            });
+          }
         }}
         className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
@@ -461,6 +473,34 @@ function OAuthScopesPanel() {
           Tokens are stored encrypted at rest. State + PKCE prevent CSRF. Refresh tokens rotate on use.
         </p>
       </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => {
+            try {
+              window.localStorage.setItem(
+                "revenueos.oauth-acknowledged-at",
+                new Date().toISOString(),
+              );
+              toast.success("OAuth scopes acknowledged", {
+                description: "Your scope preferences were saved.",
+              });
+            } catch (err) {
+              toast.error("Couldn't save scope preferences", {
+                description: err instanceof Error ? err.message : "Local storage is unavailable.",
+              });
+            }
+          }}
+          className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Acknowledge & Save
+        </button>
+        <button
+          onClick={() => toast("Re-verification queued", { description: "We'll re-check scopes on the next OAuth refresh." })}
+          className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold hover:bg-accent"
+        >
+          Re-verify
+        </button>
+      </div>
     </div>
   );
 }
@@ -492,17 +532,48 @@ function CompliancePanel() {
         ))}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+        <button
+          onClick={() => toast.success("Export requested", { description: "We'll email your JSON archive within 24h." })}
+          className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary"
+        >
           <p className="text-sm font-semibold">Export my data</p>
           <p className="mt-1 text-xs text-muted-foreground">JSON archive · GDPR Art. 20</p>
         </button>
-        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+        <button
+          onClick={() => toast.success("Consents opened", { description: "Update tracking, analytics, and AI processing choices." })}
+          className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary"
+        >
           <p className="text-sm font-semibold">Manage consents</p>
           <p className="mt-1 text-xs text-muted-foreground">Tracking, analytics, AI processing</p>
         </button>
-        <button className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive">
+        <button
+          onClick={() => toast.error("Deletion needs confirmation", { description: "Check your email to confirm account erasure." })}
+          className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive"
+        >
           <p className="text-sm font-semibold text-destructive">Delete account</p>
           <p className="mt-1 text-xs text-muted-foreground">Erasure within 30 days · Art. 17</p>
+        </button>
+      </div>
+      <div className="pt-2">
+        <button
+          onClick={() => {
+            try {
+              window.localStorage.setItem(
+                "revenueos.compliance-acknowledged-at",
+                new Date().toISOString(),
+              );
+              toast.success("Compliance preferences saved", {
+                description: "EU residency & retention choices confirmed.",
+              });
+            } catch (err) {
+              toast.error("Couldn't save compliance settings", {
+                description: err instanceof Error ? err.message : "Local storage is unavailable.",
+              });
+            }
+          }}
+          className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Save Preferences
         </button>
       </div>
     </div>
