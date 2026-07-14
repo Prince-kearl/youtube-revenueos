@@ -10,6 +10,10 @@ import {
   Camera,
   Check,
   LayoutDashboard,
+  KeyRound,
+  Globe,
+  Lock,
+  ScrollText,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +28,8 @@ const menu = [
   { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
+  { label: "OAuth Scopes", icon: KeyRound },
+  { label: "Compliance & Data", icon: Globe },
   { label: "Notifications", icon: Bell },
   { label: "Billing", icon: CreditCard },
   { label: "Security", icon: Shield },
@@ -68,6 +74,10 @@ function renderPanel(active: string) {
       return <ConnectedAccountsPanel />;
     case "YouTube Integration":
       return <YouTubeIntegrationPanel />;
+    case "OAuth Scopes":
+      return <OAuthScopesPanel />;
+    case "Compliance & Data":
+      return <CompliancePanel />;
     case "Notifications":
       return <NotificationsPanel />;
     case "Billing":
@@ -415,4 +425,88 @@ function DashboardBannerPanel() {
     </div>
   );
 }
+
+function OAuthScopesPanel() {
+  const scopes = [
+    { name: "youtube.force-ssl", purpose: "Read private channel details and post comment replies.", status: "Granted", required: true },
+    { name: "yt-analytics.readonly", purpose: "Fetch views, watch time, CTR, retention, and demographics.", status: "Granted", required: true },
+    { name: "yt-analytics-monetary.readonly", purpose: "Estimated revenue and RPM per video.", status: "Granted", required: true },
+    { name: "userinfo.email + profile", purpose: "Basic Google account linking.", status: "Granted", required: true },
+    { name: "youtubepartner", purpose: "Not requested — dropped in v3.0 (typical creators don't hold it).", status: "Omitted", required: false },
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">OAuth Scopes</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          YROOS uses the minimum scopes for revenue attribution. Verification review runs 8–16 weeks — start early.
+        </p>
+      </div>
+      <div className="space-y-3">
+        {scopes.map((s) => (
+          <div key={s.name} className="flex flex-col gap-2 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <code className="text-sm font-semibold">{s.name}</code>
+              <p className="mt-1 text-sm text-muted-foreground">{s.purpose}</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+              s.status === "Granted" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+            }`}>{s.status}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+        <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <p className="text-muted-foreground">
+          Tokens are stored encrypted at rest. State + PKCE prevent CSRF. Refresh tokens rotate on use.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CompliancePanel() {
+  const controls = [
+    { icon: Globe, label: "EU data residency", value: "Hetzner Nuremberg + Helsinki (ISO 27001)" },
+    { icon: Lock, label: "Encryption", value: "TLS 1.3 in transit · AES-256 at rest" },
+    { icon: ScrollText, label: "Audit logging", value: "All admin & API events — 12 month retention" },
+    { icon: Shield, label: "Regulatory alignment", value: "GDPR · NIS2 · Dutch Cybersecurity Act" },
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Compliance & Data</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          YROOS is designed EU-first. Data never leaves the region unless you export it.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {controls.map((c) => (
+          <div key={c.label} className="rounded-xl border border-border bg-accent/20 p-4">
+            <div className="flex items-center gap-2 text-primary">
+              <c.icon className="h-4 w-4" />
+              <p className="text-sm font-semibold">{c.label}</p>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{c.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+          <p className="text-sm font-semibold">Export my data</p>
+          <p className="mt-1 text-xs text-muted-foreground">JSON archive · GDPR Art. 20</p>
+        </button>
+        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+          <p className="text-sm font-semibold">Manage consents</p>
+          <p className="mt-1 text-xs text-muted-foreground">Tracking, analytics, AI processing</p>
+        </button>
+        <button className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive">
+          <p className="text-sm font-semibold text-destructive">Delete account</p>
+          <p className="mt-1 text-xs text-muted-foreground">Erasure within 30 days · Art. 17</p>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 

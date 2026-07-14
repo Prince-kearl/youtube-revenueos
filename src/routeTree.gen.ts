@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
@@ -36,6 +37,11 @@ const VideosRoute = VideosRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/link-tracking': typeof LinkTrackingRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/link-tracking'
     | '/projects'
     | '/reports'
+    | '/roadmap'
     | '/settings'
     | '/videos'
     | '/api/generate'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/link-tracking'
     | '/projects'
     | '/reports'
+    | '/roadmap'
     | '/settings'
     | '/videos'
     | '/api/generate'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/link-tracking'
     | '/projects'
     | '/reports'
+    | '/roadmap'
     | '/settings'
     | '/videos'
     | '/api/generate'
@@ -259,6 +271,7 @@ export interface RootRouteChildren {
   LinkTrackingRoute: typeof LinkTrackingRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
+  RoadmapRoute: typeof RoadmapRoute
   SettingsRoute: typeof SettingsRoute
   VideosRoute: typeof VideosRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -411,6 +431,7 @@ const rootRouteChildren: RootRouteChildren = {
   LinkTrackingRoute: LinkTrackingRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
+  RoadmapRoute: RoadmapRoute,
   SettingsRoute: SettingsRoute,
   VideosRoute: VideosRoute,
   ApiGenerateRoute: ApiGenerateRoute,
@@ -418,13 +439,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -25,6 +25,14 @@ function Analytics() {
         <p className="mt-1 text-sm text-muted-foreground">Multi-dimensional revenue analysis</p>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand-amber/30 bg-brand-amber/5 px-4 py-3 text-xs">
+        <span className="inline-flex h-2 w-2 rounded-full bg-brand-amber" />
+        <span className="font-semibold text-brand-amber">Data freshness</span>
+        <span className="text-muted-foreground">
+          YouTube Analytics: 24–72h lag · Revenue metrics: ~48h · Clicks &amp; Stripe attribution: real-time
+        </span>
+      </div>
+
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<DollarSign className="h-5 w-5" />} value="$0.052" label="Revenue/View" change="8.4%" up />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} value="$9.84" label="Avg CPM" change="12.1%" up />
