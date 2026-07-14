@@ -473,6 +473,34 @@ function OAuthScopesPanel() {
           Tokens are stored encrypted at rest. State + PKCE prevent CSRF. Refresh tokens rotate on use.
         </p>
       </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => {
+            try {
+              window.localStorage.setItem(
+                "revenueos.oauth-acknowledged-at",
+                new Date().toISOString(),
+              );
+              toast.success("OAuth scopes acknowledged", {
+                description: "Your scope preferences were saved.",
+              });
+            } catch (err) {
+              toast.error("Couldn't save scope preferences", {
+                description: err instanceof Error ? err.message : "Local storage is unavailable.",
+              });
+            }
+          }}
+          className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Acknowledge & Save
+        </button>
+        <button
+          onClick={() => toast("Re-verification queued", { description: "We'll re-check scopes on the next OAuth refresh." })}
+          className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold hover:bg-accent"
+        >
+          Re-verify
+        </button>
+      </div>
     </div>
   );
 }
