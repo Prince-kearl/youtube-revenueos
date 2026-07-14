@@ -416,8 +416,19 @@ function DashboardBannerPanel() {
 
       <button
         onClick={() => {
-          setSaved(true);
-          window.setTimeout(() => setSaved(false), 2000);
+          try {
+            // Re-persist current settings to surface any storage error.
+            update({});
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 2000);
+            toast.success("Dashboard banner saved", {
+              description: "Your channel banner preferences were persisted.",
+            });
+          } catch (err) {
+            toast.error("Couldn't save banner settings", {
+              description: err instanceof Error ? err.message : "Local storage is unavailable.",
+            });
+          }
         }}
         className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
