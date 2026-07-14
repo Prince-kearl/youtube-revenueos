@@ -18,6 +18,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
 import { useChannelSettings } from "@/lib/channel-settings";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
