@@ -532,17 +532,48 @@ function CompliancePanel() {
         ))}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+        <button
+          onClick={() => toast.success("Export requested", { description: "We'll email your JSON archive within 24h." })}
+          className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary"
+        >
           <p className="text-sm font-semibold">Export my data</p>
           <p className="mt-1 text-xs text-muted-foreground">JSON archive · GDPR Art. 20</p>
         </button>
-        <button className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary">
+        <button
+          onClick={() => toast.success("Consents opened", { description: "Update tracking, analytics, and AI processing choices." })}
+          className="rounded-xl border border-border bg-accent/20 p-4 text-left hover:border-primary"
+        >
           <p className="text-sm font-semibold">Manage consents</p>
           <p className="mt-1 text-xs text-muted-foreground">Tracking, analytics, AI processing</p>
         </button>
-        <button className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive">
+        <button
+          onClick={() => toast.error("Deletion needs confirmation", { description: "Check your email to confirm account erasure." })}
+          className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive"
+        >
           <p className="text-sm font-semibold text-destructive">Delete account</p>
           <p className="mt-1 text-xs text-muted-foreground">Erasure within 30 days · Art. 17</p>
+        </button>
+      </div>
+      <div className="pt-2">
+        <button
+          onClick={() => {
+            try {
+              window.localStorage.setItem(
+                "revenueos.compliance-acknowledged-at",
+                new Date().toISOString(),
+              );
+              toast.success("Compliance preferences saved", {
+                description: "EU residency & retention choices confirmed.",
+              });
+            } catch (err) {
+              toast.error("Couldn't save compliance settings", {
+                description: err instanceof Error ? err.message : "Local storage is unavailable.",
+              });
+            }
+          }}
+          className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Save Preferences
         </button>
       </div>
     </div>
