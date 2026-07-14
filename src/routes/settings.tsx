@@ -10,6 +10,10 @@ import {
   Camera,
   Check,
   LayoutDashboard,
+  KeyRound,
+  Globe,
+  Lock,
+  ScrollText,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +28,8 @@ const menu = [
   { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
+  { label: "OAuth Scopes", icon: KeyRound },
+  { label: "Compliance & Data", icon: Globe },
   { label: "Notifications", icon: Bell },
   { label: "Billing", icon: CreditCard },
   { label: "Security", icon: Shield },
