@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail,
+  MessageSquare, Users, Gift, Handshake, Mail, Rocket,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const nav = [
   { to: "/email", label: "Email", icon: Mail },
   { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp },
   { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/roadmap", label: "Roadmap", icon: Rocket },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
