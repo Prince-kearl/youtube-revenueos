@@ -106,8 +106,31 @@ function AddVideo() {
           })}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Transcript source: YouTube captions (free) with OpenAI Whisper fallback. Analytics data has a ~48-hour delay.
+          Transcript source: <span className="font-semibold">paste your own (fastest)</span> or run OpenAI Whisper via yt-dlp worker. YouTube caption download is disabled (v3.0). Analytics lag: 24–72h.
         </p>
+      </div>
+
+      {/* Transcript paste — Phase 1 primary path */}
+      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="flex items-center gap-2 text-lg font-semibold">
+              <FileText className="h-5 w-5 text-brand-blue" /> Transcript
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Paste your transcript for instant AI structuring — or leave empty to queue a Whisper job.
+            </p>
+          </div>
+          <span className="rounded-full bg-brand-blue/15 px-3 py-1 text-[11px] font-semibold text-brand-blue">Phase 1 · Manual</span>
+        </div>
+        <textarea
+          rows={5}
+          placeholder="00:00 In this video I show you exactly how..."
+          className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          <span>Claude Sonnet extracts scenes, product mentions, CTAs, and hashtag candidates.</span>
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
