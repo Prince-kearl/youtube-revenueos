@@ -61,8 +61,10 @@ export function useChannelSettings() {
     const next = { ...read(), ...patch };
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore quota errors */
+    } catch (err) {
+      setSettings(next);
+      emit();
+      throw err;
     }
     setSettings(next);
     emit();
