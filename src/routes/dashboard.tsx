@@ -134,7 +134,7 @@ function Dashboard() {
 
           <div className="mt-4 h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueTrend}>
+              <AreaChart data={trend}>
                 <defs>
                   <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
