@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useDeals, useNotifications, useProfile, Notification } from "@/lib/stores";
+import { useDeals, useNotifications, useProfile } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
 import { DealDialog } from "@/components/modals";
 
