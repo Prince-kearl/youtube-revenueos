@@ -29,6 +29,16 @@ const alertColor: Record<string, string> = {
 
 function Dashboard() {
   const { settings } = useChannelSettings();
+  const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
+  const trend = useMemo(() => {
+    const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
+    return revenueTrend.slice(-n);
+  }, [range]);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = () => {
+    setRefreshing(true);
+    setTimeout(() => { setRefreshing(false); toast.success("Alerts refreshed"); }, 700);
+  };
   return (
     <DashboardLayout title="Dashboard">
       {/* Channel banner */}
