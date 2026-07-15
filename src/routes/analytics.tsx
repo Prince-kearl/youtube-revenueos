@@ -85,7 +85,7 @@ function Analytics() {
             <h3 className="text-lg font-semibold">Revenue by Source</h3>
             <div className="mt-4 h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsBars} barCategoryGap="30%">
+                <BarChart data={bars} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={(v) => `$${v}k`} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
