@@ -6,7 +6,7 @@ import {
   Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
   MessageSquare, Users, Gift, Handshake, Mail, Rocket,
   CheckCircle2, DollarSign, AlertTriangle, Zap, Clock, LogOut, User as UserIcon,
-  Send, X,
+  Send,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
