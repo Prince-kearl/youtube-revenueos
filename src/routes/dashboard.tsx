@@ -118,8 +118,8 @@ function Dashboard() {
               <p className="text-sm text-muted-foreground">All revenue streams over time</p>
             </div>
             <div className="flex rounded-lg bg-accent p-1 text-xs">
-              {["3M", "6M", "12M"].map((t) => (
-                <button key={t} className={`rounded-md px-3 py-1 font-medium ${t === "12M" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              {(["3M", "6M", "12M"] as const).map((t) => (
+                <button key={t} onClick={() => setRange(t)} className={`rounded-md px-3 py-1 font-medium ${t === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                   {t}
                 </button>
               ))}
