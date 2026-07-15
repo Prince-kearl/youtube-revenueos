@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -7,6 +7,7 @@ import {
   DollarSign, TrendingUp, Eye, Handshake, RefreshCw, MessageSquare,
   CheckCircle2, AlertTriangle, Zap, Clock, Youtube, Users, ExternalLink, Play,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
 import { alerts, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
