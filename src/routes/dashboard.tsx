@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
@@ -7,6 +7,7 @@ import {
   DollarSign, TrendingUp, Eye, Handshake, RefreshCw, MessageSquare,
   CheckCircle2, AlertTriangle, Zap, Clock, Youtube, Users, ExternalLink, Play,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
 import { alerts, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
@@ -28,6 +29,16 @@ const alertColor: Record<string, string> = {
 
 function Dashboard() {
   const { settings } = useChannelSettings();
+  const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
+  const trend = useMemo(() => {
+    const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
+    return revenueTrend.slice(-n);
+  }, [range]);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = () => {
+    setRefreshing(true);
+    setTimeout(() => { setRefreshing(false); toast.success("Alerts refreshed"); }, 700);
+  };
   return (
     <DashboardLayout title="Dashboard">
       {/* Channel banner */}
@@ -107,8 +118,8 @@ function Dashboard() {
               <p className="text-sm text-muted-foreground">All revenue streams over time</p>
             </div>
             <div className="flex rounded-lg bg-accent p-1 text-xs">
-              {["3M", "6M", "12M"].map((t) => (
-                <button key={t} className={`rounded-md px-3 py-1 font-medium ${t === "12M" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              {(["3M", "6M", "12M"] as const).map((t) => (
+                <button key={t} onClick={() => setRange(t)} className={`rounded-md px-3 py-1 font-medium ${t === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                   {t}
                 </button>
               ))}
@@ -123,7 +134,7 @@ function Dashboard() {
 
           <div className="mt-4 h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueTrend}>
+              <AreaChart data={trend}>
                 <defs>
                   <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
@@ -146,8 +157,8 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
-            <button className="text-muted-foreground hover:text-foreground">
-              <RefreshCw className="h-4 w-4" />
+            <button onClick={refresh} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
           <div className="mt-4 space-y-2.5">
@@ -174,7 +185,7 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
-            <button className="text-sm font-medium text-primary hover:underline">View all</button>
+            <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
           <table className="mt-4 w-full text-sm">
             <thead>
