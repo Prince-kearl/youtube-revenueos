@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
   PieChart, Pie, Cell,
 } from "recharts";
-import { DollarSign, TrendingUp, Eye, Globe } from "lucide-react";
+import { DollarSign, TrendingUp, Eye, Globe, Download } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
 import { analyticsBars, revenueSplit } from "@/lib/data";
@@ -14,15 +15,39 @@ export const Route = createFileRoute("/analytics")({
 });
 
 const tabs = ["Revenue Sources", "Geo Heatmap", "CPM Trends"];
+const ranges = ["7D", "30D", "90D", "12M"] as const;
 
 function Analytics() {
   const [tab, setTab] = useState("Revenue Sources");
+  const [range, setRange] = useState<(typeof ranges)[number]>("12M");
+  const bars = useMemo(() => {
+    const n = range === "7D" ? 1 : range === "30D" ? 2 : range === "90D" ? 3 : analyticsBars.length;
+    return analyticsBars.slice(-n);
+  }, [range]);
+  const exportPdf = () => {
+    toast.success("Preparing PDF — use your browser's Save as PDF");
+    setTimeout(() => window.print(), 300);
+  };
 
   return (
     <DashboardLayout title="Analytics">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Analytics Engine</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Multi-dimensional revenue analysis</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Analytics Engine</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Multi-dimensional revenue analysis</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg bg-accent p-1 text-xs">
+            {ranges.map((r) => (
+              <button key={r} onClick={() => setRange(r)} className={`rounded-md px-3 py-1 font-medium ${r === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <button onClick={exportPdf} className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium hover:bg-accent print:hidden">
+            <Download className="h-4 w-4" /> Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand-amber/30 bg-brand-amber/5 px-4 py-3 text-xs">
