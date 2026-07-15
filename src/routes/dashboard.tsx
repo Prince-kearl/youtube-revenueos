@@ -157,8 +157,8 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
-            <button className="text-muted-foreground hover:text-foreground">
-              <RefreshCw className="h-4 w-4" />
+            <button onClick={refresh} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
           <div className="mt-4 space-y-2.5">
