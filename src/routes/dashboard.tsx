@@ -185,7 +185,7 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
-            <button className="text-sm font-medium text-primary hover:underline">View all</button>
+            <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
           <table className="mt-4 w-full text-sm">
             <thead>
