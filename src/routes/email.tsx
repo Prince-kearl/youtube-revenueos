@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import {
-  Mail, MailOpen, MousePointerClick, AlertOctagon, Plus,
+  Mail, MailOpen, MousePointerClick, AlertOctagon, Plus, Trash2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
+import { useCampaigns, Campaign } from "@/lib/stores";
+import { CampaignDialog, ConfirmDialog } from "@/components/modals";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/email")({
   component: EmailSender,
@@ -15,13 +19,6 @@ const funnel = [
   { stage: "Opened", value: 5934, color: "var(--color-brand-green)" },
   { stage: "Clicked", value: 2218, color: "var(--color-brand-amber)" },
   { stage: "Converted", value: 486, color: "var(--color-success)" },
-];
-
-const campaigns = [
-  { name: "Welcome — Freebie Delivery", sent: "4,210", open: "62.4%", click: "24.1%", status: "Sending" },
-  { name: "Day 2 — Value Drop", sent: "3,980", open: "48.9%", click: "18.7%", status: "Sent" },
-  { name: "Day 5 — Offer", sent: "3,640", open: "41.2%", click: "12.4%", status: "Sent" },
-  { name: "December Broadcast", sent: "650", open: "39.8%", click: "9.6%", status: "Scheduled" },
 ];
 
 const activity = [
@@ -42,10 +39,14 @@ const statusColor: Record<string, string> = {
   Sending: "bg-brand-blue/15 text-brand-blue",
   Sent: "bg-success/15 text-success",
   Scheduled: "bg-warning/15 text-warning",
+  Draft: "bg-accent text-muted-foreground",
 };
 
 function EmailSender() {
   const max = funnel[0].value;
+  const [campaigns, setCampaigns] = useCampaigns();
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<Campaign | null>(null);
 
   return (
     <DashboardLayout title="Email">
@@ -56,7 +57,7 @@ function EmailSender() {
             High-deliverability broadcasts and drip sequences tied directly to your freebie funnels.
           </p>
         </div>
-        <button className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> New Campaign
         </button>
       </div>
@@ -69,7 +70,6 @@ function EmailSender() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Funnel */}
         <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <h3 className="text-lg font-semibold">Conversion Funnel</h3>
           <div className="mt-5 space-y-3">
@@ -90,7 +90,6 @@ function EmailSender() {
           </div>
         </div>
 
-        {/* Live activity */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-lg font-semibold">Live Activity</h3>
           <div className="mt-4 space-y-2.5">
@@ -110,9 +109,8 @@ function EmailSender() {
         </div>
       </div>
 
-      {/* Campaigns table */}
       <div className="mt-5 rounded-xl border border-border bg-card">
-        <div className="border-b border-border p-5">
+        <div className="flex items-center justify-between border-b border-border p-5">
           <h3 className="text-lg font-semibold">Campaigns</h3>
         </div>
         <div className="overflow-x-auto">
@@ -124,11 +122,12 @@ function EmailSender() {
                 <th className="px-5 py-3 font-medium">Open Rate</th>
                 <th className="px-5 py-3 font-medium">Click Rate</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {campaigns.map((c) => (
-                <tr key={c.name} className="border-b border-border last:border-0">
+                <tr key={c.id} className="border-b border-border last:border-0">
                   <td className="px-5 py-3.5 font-medium">{c.name}</td>
                   <td className="px-5 py-3.5 text-muted-foreground">{c.sent}</td>
                   <td className="px-5 py-3.5 font-semibold">{c.open}</td>
@@ -136,12 +135,21 @@ function EmailSender() {
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
                   </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <button onClick={() => setDeleting(c)} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                  </td>
                 </tr>
               ))}
+              {campaigns.length === 0 && (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">No campaigns yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <CampaignDialog open={creating} onOpenChange={setCreating} onSave={(c) => setCampaigns((p) => [c, ...p])} />
+      <ConfirmDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)} title={`Delete "${deleting?.name}"?`} onConfirm={() => { if (deleting) { setCampaigns((p) => p.filter((x) => x.id !== deleting.id)); toast.success("Campaign deleted"); } setDeleting(null); }} />
     </DashboardLayout>
   );
 }
