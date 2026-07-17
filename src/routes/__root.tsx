@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Tubify — Turn Your Channel into a Sales Engine" },
       { name: "description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
-      { name: "author", content: "YouTube Revenue OS" },
+      { name: "author", content: "Tubify" },
       { property: "og:title", content: "Tubify — Turn Your Channel into a Sales Engine" },
       { property: "og:description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
       { property: "og:type", content: "website" },

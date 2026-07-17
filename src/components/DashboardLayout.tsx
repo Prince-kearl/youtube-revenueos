@@ -291,7 +291,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
 
 function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [msgs, setMsgs] = useState<{ id: string; role: "user" | "bot"; text: string }[]>([
-    { id: uid(), role: "bot", text: "Hi! I'm your YROOS assistant. Ask about revenue trends, deals, links, or how to use any feature." },
+    { id: uid(), role: "bot", text: "Hi! I'm your Tubify assistant. Ask about revenue trends, deals, links, or how to use any feature." },
   ]);
   const [input, setInput] = useState("");
   const suggestions = useMemo(() => [

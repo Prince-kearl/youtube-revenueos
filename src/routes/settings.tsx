@@ -451,7 +451,7 @@ function OAuthScopesPanel() {
       <div>
         <h3 className="text-lg font-semibold">OAuth Scopes</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          YROOS uses the minimum scopes for revenue attribution. Verification review runs 8–16 weeks — start early.
+          Tubify uses the minimum scopes for revenue attribution. Verification review runs 8–16 weeks — start early.
         </p>
       </div>
       <div className="space-y-3">
@@ -517,7 +517,7 @@ function CompliancePanel() {
       <div>
         <h3 className="text-lg font-semibold">Compliance & Data</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          YROOS is designed EU-first. Data never leaves the region unless you export it.
+          Tubify is designed EU-first. Data never leaves the region unless you export it.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

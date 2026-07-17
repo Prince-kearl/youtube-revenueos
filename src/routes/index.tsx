@@ -108,7 +108,7 @@ function Login() {
 
       <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
         <Zap className="h-4 w-4 text-brand-amber" fill="currentColor" />
-        YROOS — turn your YouTube channel into a sales engine
+        Tubify — turn your YouTube channel into a sales engine
       </p>
     </div>
   );

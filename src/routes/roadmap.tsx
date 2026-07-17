@@ -8,9 +8,9 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
     meta: [
-      { title: "Roadmap — YouTube Revenue OS" },
-      { name: "description", content: "The YROOS v3.0 engineering roadmap: phases, milestones, and compliance posture." },
-      { property: "og:title", content: "Roadmap — YouTube Revenue OS" },
+      { title: "Roadmap — Tubify" },
+      { name: "description", content: "The Tubify v3.0 engineering roadmap: phases, milestones, and compliance posture." },
+      { property: "og:title", content: "Roadmap — Tubify" },
       { property: "og:description", content: "Phased delivery plan, from video ingestion through Phase 5 GA4/Meta integration." },
     ],
   }),
@@ -116,7 +116,7 @@ function Roadmap() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Roadmap</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            YROOS v3.0 phased delivery plan · EU-hosted (Hetzner ISO 27001) · GDPR / NIS2 / Dutch Cybersecurity Act aligned
+            Tubify v3.0 phased delivery plan · EU-hosted (Hetzner ISO 27001) · GDPR / NIS2 / Dutch Cybersecurity Act aligned
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
