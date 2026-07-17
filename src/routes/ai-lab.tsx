@@ -24,7 +24,7 @@ In this video, I reveal the exact strategies that helped me generate $100,000+ i
 
 📌 RESOURCES MENTIONED:
 → Free Creator Business Toolkit: https://creator.io/toolkit
-→ My Course (Revenue OS): https://creator.io/course
+→ My Course (Tubify): https://creator.io/course
 → Newsletter (Weekly insights): https://creator.io/newsletter
 → 1:1 Coaching: https://creator.io/coaching
 
