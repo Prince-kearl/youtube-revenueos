@@ -42,7 +42,7 @@ function LinkTracking() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Summary value={String(links.length)} label="Total Links" />
         <Summary value={totalClicks.toLocaleString()} label="Total Clicks" />
         <Summary value={totalConv.toLocaleString()} label="Total Conversions" />
@@ -54,7 +54,7 @@ function LinkTracking() {
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search links..." className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-sm outline-none focus:border-primary" />
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="mt-5 overflow-x-auto rounded-xl border border-border bg-card">
         {filtered.length === 0 ? (
           <p className="p-10 text-center text-sm text-muted-foreground">
             {query ? "No links match your search." : "No links yet — click Create Link to add one."}

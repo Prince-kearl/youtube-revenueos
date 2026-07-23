@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as FreebieRouteImport } from './routes/freebie'
 import { Route as EmailRouteImport } from './routes/email'
@@ -21,6 +22,7 @@ import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommentsRouteImport } from './routes/comments'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
+import { Route as BillingRouteImport } from './routes/billing'
 import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
@@ -52,6 +54,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LinkTrackingRoute = LinkTrackingRouteImport.update({
@@ -87,6 +94,11 @@ const CommentsRoute = CommentsRouteImport.update({
 const BrandDealsRoute = BrandDealsRouteImport.update({
   id: '/brand-deals',
   path: '/brand-deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AudienceRoute = AudienceRouteImport.update({
@@ -132,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
+  '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -139,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -153,6 +167,7 @@ export interface FileRoutesByTo {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
+  '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -160,6 +175,7 @@ export interface FileRoutesByTo {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -175,6 +191,7 @@ export interface FileRoutesById {
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
+  '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
@@ -182,6 +199,7 @@ export interface FileRoutesById {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/link-tracking': typeof LinkTrackingRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -198,6 +216,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/audience'
+    | '/billing'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -205,6 +224,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/link-tracking'
+    | '/notifications'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -219,6 +239,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/audience'
+    | '/billing'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -226,6 +247,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/link-tracking'
+    | '/notifications'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -240,6 +262,7 @@ export interface FileRouteTypes {
     | '/ai-lab'
     | '/analytics'
     | '/audience'
+    | '/billing'
     | '/brand-deals'
     | '/comments'
     | '/dashboard'
@@ -247,6 +270,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/link-tracking'
+    | '/notifications'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -262,6 +286,7 @@ export interface RootRouteChildren {
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   AudienceRoute: typeof AudienceRoute
+  BillingRoute: typeof BillingRoute
   BrandDealsRoute: typeof BrandDealsRoute
   CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
@@ -269,6 +294,7 @@ export interface RootRouteChildren {
   EmailRoute: typeof EmailRoute
   FreebieRoute: typeof FreebieRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   RoadmapRoute: typeof RoadmapRoute
@@ -312,6 +338,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/link-tracking': {
@@ -361,6 +394,13 @@ declare module '@tanstack/react-router' {
       path: '/brand-deals'
       fullPath: '/brand-deals'
       preLoaderRoute: typeof BrandDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audience': {
@@ -422,6 +462,7 @@ const rootRouteChildren: RootRouteChildren = {
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   AudienceRoute: AudienceRoute,
+  BillingRoute: BillingRoute,
   BrandDealsRoute: BrandDealsRoute,
   CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
@@ -429,6 +470,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailRoute: EmailRoute,
   FreebieRoute: FreebieRoute,
   LinkTrackingRoute: LinkTrackingRoute,
+  NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   RoadmapRoute: RoadmapRoute,
@@ -439,3 +481,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

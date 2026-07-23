@@ -62,7 +62,7 @@ function EmailSender() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={<MailOpen className="h-5 w-5" />} value="49.0%" label="Open Rate" change="3.4%" up />
         <StatCard icon={<MousePointerClick className="h-5 w-5" />} value="18.3%" label="Click Rate" change="1.9%" up />
         <StatCard icon={<AlertOctagon className="h-5 w-5" />} value="3.0%" label="Bounce Rate" change="0.4%" up={false} />

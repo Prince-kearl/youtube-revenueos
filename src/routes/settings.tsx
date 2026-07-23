@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   User,
@@ -46,8 +46,30 @@ function Settings() {
         <p className="mt-1 text-sm text-muted-foreground">Manage your account and preferences</p>
       </div>
 
+      {/* Mobile tab nav */}
+      <div className="mt-5 lg:hidden">
+        <div className="flex items-stretch border border-border bg-card p-1">
+          {menu.map((m) => {
+            const isActive = active === m.label;
+            return (
+              <button
+                key={m.label}
+                onClick={() => setActive(m.label)}
+                aria-label={m.label}
+                title={m.label}
+                className={`flex h-10 min-w-0 flex-1 items-center justify-center transition-colors ${
+                  isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                <m.icon className="h-[18px] w-[18px]" strokeWidth={2} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
-        <div className="space-y-1">
+        <div className="hidden space-y-1 lg:block">
           {menu.map((m) => (
             <button
               key={m.label}
@@ -297,9 +319,12 @@ function BillingPanel() {
           <p className="font-semibold">Payment Method</p>
           <p className="text-sm text-muted-foreground">Visa ending in 4242 · Expires 04/27</p>
         </div>
-        <button className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:mt-0">
-          Update
-        </button>
+        <Link
+          to="/billing"
+          className="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:mt-0"
+        >
+          Update Billing Plan
+        </Link>
       </div>
     </div>
   );

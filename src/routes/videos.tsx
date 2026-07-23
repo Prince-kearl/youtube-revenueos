@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Search, ArrowUpDown, Filter, Eye, ThumbsUp } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Search, ArrowUpDown, Filter, Eye, ThumbsUp, Plus } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ChangeCell, StatusBadge } from "@/components/ui-bits";
 import { topVideos } from "@/lib/data";
@@ -16,10 +16,10 @@ function Videos() {
           <h1 className="text-3xl font-bold tracking-tight">Videos</h1>
           <p className="mt-1 text-sm text-muted-foreground">7 videos synced</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Search videos..." className="h-9 w-56 rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary" />
+            <input placeholder="Search videos..." className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary" />
           </div>
           <button className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
             <ArrowUpDown className="h-4 w-4" /> Sort: Revenue
@@ -27,10 +27,13 @@ function Videos() {
           <button className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
             <Filter className="h-4 w-4" /> Filter
           </button>
+          <Link to="/add-video" className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            <Plus className="h-4 w-4" /> Add Video
+          </Link>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

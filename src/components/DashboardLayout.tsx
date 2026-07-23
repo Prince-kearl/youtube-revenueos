@@ -5,7 +5,7 @@ import {
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
   MessageSquare, Users, Gift, Handshake, Mail, Rocket,
-  CheckCircle2, DollarSign, AlertTriangle, Zap, Clock, LogOut, User as UserIcon,
+  LogOut, User as UserIcon,
   Send,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -25,10 +25,10 @@ import { toast } from "sonner";
 import { useDeals, useNotifications, useProfile } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
 import { DealDialog } from "@/components/modals";
+import { NotificationRow } from "@/components/NotificationRow";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/add-video", label: "Add Video", icon: Plus },
   { to: "/videos", label: "Videos", icon: Video },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/ai-lab", label: "AI Lab", icon: Sparkles },
@@ -46,15 +46,6 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const notifIcons = { message: MessageSquare, check: CheckCircle2, dollar: DollarSign, alert: AlertTriangle, zap: Zap, clock: Clock };
-const notifColor: Record<string, string> = {
-  purple: "bg-brand-purple/15 text-brand-purple",
-  green: "bg-brand-green/15 text-brand-green",
-  amber: "bg-brand-amber/15 text-brand-amber",
-  red: "bg-brand-red/15 text-brand-red",
-  blue: "bg-brand-blue/15 text-brand-blue",
-};
-
 export function DashboardLayout({ title, children }: { title: string; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -65,7 +56,8 @@ export function DashboardLayout({ title, children }: { title: string; children: 
   const [profile] = useProfile();
   const [notifs, setNotifs] = useNotifications();
   const [, setDeals] = useDeals();
-  const unread = notifs.filter((n) => !n.read).length;
+  const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const unread = notifs.filter((n) => !n.read && !n.archived).length;
 
   // Cmd/Ctrl+K search
   useEffect(() => {
@@ -120,7 +112,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
 
         <div className="p-3">
           <div className="flex items-center gap-3 rounded-xl bg-accent/50 px-3 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-red">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Youtube className="h-4 w-4 text-white" fill="white" strokeWidth={1.5} />
             </div>
             {!collapsed && (
@@ -167,29 +159,26 @@ export function DashboardLayout({ title, children }: { title: string; children: 
                     <button onClick={clearNotifs} className="text-xs text-muted-foreground hover:text-destructive">Clear</button>
                   </div>
                 </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {notifs.length === 0 ? (
+                <div className="max-h-80 space-y-1.5 overflow-y-auto p-1.5">
+                  {visibleNotifs.length === 0 ? (
                     <p className="p-6 text-center text-xs text-muted-foreground">No notifications</p>
-                  ) : notifs.map((n) => {
-                    const Icon = notifIcons[n.icon];
-                    return (
-                      <button
-                        key={n.id}
-                        onClick={() => setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))}
-                        className={`flex w-full items-start gap-3 border-b border-border p-3 text-left last:border-0 hover:bg-accent/50 ${!n.read ? "bg-primary/5" : ""}`}
-                      >
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${notifColor[n.color]}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-snug">{n.title}</p>
-                          <p className="text-xs text-muted-foreground">{n.time}</p>
-                        </div>
-                        {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
-                      </button>
-                    );
-                  })}
+                  ) : visibleNotifs.map((n) => (
+                    <NotificationRow
+                      key={n.id}
+                      notification={n}
+                      onMarkRead={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))}
+                      onTogglePin={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)))}
+                      onToggleArchive={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)))}
+                      onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
+                    />
+                  ))}
                 </div>
+                <Link
+                  to="/notifications"
+                  className="block border-t border-border p-3 text-center text-sm font-medium text-primary hover:underline"
+                >
+                  View all notifications
+                </Link>
               </PopoverContent>
             </Popover>
 
@@ -197,7 +186,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-accent">
-                  <img src={profile.avatar} alt={profile.name} className="h-8 w-8 rounded-lg object-cover" />
+                  <img src={profile.avatar} alt={profile.name} className="h-8 w-8 rounded-full object-cover" />
                   <span className="hidden text-sm font-medium sm:block">{profile.name}</span>
                 </button>
               </DropdownMenuTrigger>
@@ -211,7 +200,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
                   <UserIcon className="mr-2 h-4 w-4" /> Profile & Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
-                  <HelpCircle className="mr-2 h-4 w-4" /> Help & AI Assistant
+                  <HelpCircle className="mr-2 h-4 w-4" /> Help & Tubi
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={signOut} className="text-destructive focus:text-destructive">
@@ -269,14 +258,14 @@ export function DashboardLayout({ title, children }: { title: string; children: 
             <CommandItem value="new deal" onSelect={() => { setCmdOpen(false); setDealOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" /> New brand deal
             </CommandItem>
-            <CommandItem value="help ai assistant" onSelect={() => { setCmdOpen(false); setHelpOpen(true); }}>
-              <HelpCircle className="mr-2 h-4 w-4" /> Open AI Assistant
+            <CommandItem value="help tubi assistant" onSelect={() => { setCmdOpen(false); setHelpOpen(true); }}>
+              <HelpCircle className="mr-2 h-4 w-4" /> Open Tubi
             </CommandItem>
           </CommandGroup>
         </CommandList>
       </CommandDialog>
 
-      {/* Help / AI Assistant panel */}
+      {/* Help / Tubi assistant panel */}
       <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} />
 
       {/* Quick add deal */}
@@ -291,7 +280,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
 
 function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [msgs, setMsgs] = useState<{ id: string; role: "user" | "bot"; text: string }[]>([
-    { id: uid(), role: "bot", text: "Hi! I'm your Tubify assistant. Ask about revenue trends, deals, links, or how to use any feature." },
+    { id: uid(), role: "bot", text: "Hi! I'm Tubi, your assistant. Ask about revenue trends, deals, links, or how to use any feature." },
   ]);
   const [input, setInput] = useState("");
   const suggestions = useMemo(() => [
@@ -316,7 +305,10 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col sm:max-w-md">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> AI Assistant</SheetTitle>
+          <SheetTitle className="flex items-center gap-2">
+            <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
+            <span className="text-primary">Tubi</span>
+          </SheetTitle>
           <SheetDescription>Frontend preview — answers are canned demo copy.</SheetDescription>
         </SheetHeader>
         <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">

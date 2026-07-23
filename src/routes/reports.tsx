@@ -37,7 +37,7 @@ function Reports() {
       </div>
 
       <h2 className="mt-6 text-lg font-semibold">Key Insights</h2>
-      <div className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {insights.map((it) => (
           <div key={it.title} className="rounded-xl border border-border bg-card p-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">

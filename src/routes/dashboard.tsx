@@ -4,28 +4,20 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
 import {
-  DollarSign, TrendingUp, Eye, Handshake, RefreshCw, MessageSquare,
-  CheckCircle2, AlertTriangle, Zap, Clock, Youtube, Users, ExternalLink, Play,
+  DollarSign, TrendingUp, Eye, Handshake, RefreshCw,
+  Youtube, Users, ExternalLink, Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
-import { alerts, recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
+import { NotificationRow } from "@/components/NotificationRow";
+import { recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 import { useChannelSettings } from "@/lib/channel-settings";
+import { useNotifications } from "@/lib/stores";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
-
-
-const alertIcons = { message: MessageSquare, check: CheckCircle2, dollar: DollarSign, alert: AlertTriangle, zap: Zap, clock: Clock };
-const alertColor: Record<string, string> = {
-  purple: "bg-brand-purple/15 text-brand-purple",
-  green: "bg-brand-green/15 text-brand-green",
-  amber: "bg-brand-amber/15 text-brand-amber",
-  red: "bg-brand-red/15 text-brand-red",
-  blue: "bg-brand-blue/15 text-brand-blue",
-};
 
 function Dashboard() {
   const { settings } = useChannelSettings();
@@ -34,6 +26,8 @@ function Dashboard() {
     const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
     return revenueTrend.slice(-n);
   }, [range]);
+  const [notifs, setNotifs] = useNotifications();
+  const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
@@ -67,7 +61,7 @@ function Dashboard() {
             href={settings.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 text-sm font-medium text-white transition-colors hover:bg-brand-red/90"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90"
           >
             <Youtube className="h-4 w-4" fill="white" strokeWidth={1.5} />
             Visit Channel
@@ -87,7 +81,7 @@ function Dashboard() {
           </div>
 
           {/* Desktop grid */}
-          <div className="mt-4 hidden grid-cols-1 gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 hidden grid-cols-4 gap-3 sm:grid">
             {recentPosts.map((p) => (
               <PostCard key={p.title} post={p} />
             ))}
@@ -102,7 +96,7 @@ function Dashboard() {
 
       {/* Stat cards */}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={<DollarSign className="h-5 w-5" />} value="$142,800" label="Total Revenue" sub="vs last year" change="18.4%" up />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} value="$44,300" label="Monthly Revenue" sub="vs last month" change="12.7%" up />
         <StatCard icon={<Eye className="h-5 w-5" />} value="8.4M" label="Total Views" sub="vs last month" change="9.2%" up />
@@ -154,29 +148,28 @@ function Dashboard() {
         </div>
 
         {/* Live Alerts */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+        <div className="flex h-full flex-col rounded-xl border border-border bg-card p-5">
+          <div className="flex shrink-0 items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
             <button onClick={refresh} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
-          <div className="mt-4 space-y-2.5">
-            {alerts.map((a, i) => {
-              const Icon = alertIcons[a.icon as keyof typeof alertIcons];
-              return (
-                <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-accent/30 p-3">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${alertColor[a.color]}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium leading-snug">{a.title}</p>
-                    <p className="text-xs text-muted-foreground">{a.time}</p>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mt-4 flex-1 space-y-2.5">
+            {visibleNotifs.slice(0, 3).map((n) => (
+              <NotificationRow
+                key={n.id}
+                notification={n}
+                onMarkRead={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))}
+                onTogglePin={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)))}
+                onToggleArchive={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)))}
+                onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
+              />
+            ))}
           </div>
+          <Link to="/notifications" className="mt-3 shrink-0 self-start text-sm font-medium text-primary hover:underline">
+            View all alerts
+          </Link>
         </div>
       </div>
 
@@ -187,35 +180,37 @@ function Dashboard() {
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
-          <table className="mt-4 w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="pb-3 font-medium">Video</th>
-                <th className="pb-3 font-medium">Views</th>
-                <th className="pb-3 font-medium">Revenue</th>
-                <th className="pb-3 text-right font-medium">Change</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topVideos.slice(0, 5).map((v) => (
-                <tr key={v.rank} className="border-t border-border">
-                  <td className="py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground">{v.rank}</span>
-                      <span className="font-medium">{v.title}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 text-muted-foreground">{v.viewsShort}</td>
-                  <td className="py-3 font-semibold">{v.revenue}</td>
-                  <td className="py-3">
-                    <div className="flex justify-end">
-                      <ChangeCell change={v.change} up={v.up} />
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="mt-4 w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="pb-3 font-medium">Video</th>
+                  <th className="pb-3 font-medium">Views</th>
+                  <th className="pb-3 font-medium">Revenue</th>
+                  <th className="pb-3 text-right font-medium">Change</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {topVideos.slice(0, 5).map((v) => (
+                  <tr key={v.rank} className="border-t border-border">
+                    <td className="py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">{v.rank}</span>
+                        <span className="font-medium whitespace-nowrap">{v.title}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 text-muted-foreground">{v.viewsShort}</td>
+                    <td className="py-3 font-semibold">{v.revenue}</td>
+                    <td className="py-3">
+                      <div className="flex justify-end">
+                        <ChangeCell change={v.change} up={v.up} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Revenue split */}
@@ -261,14 +256,14 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
       className={`group block overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary ${compact ? "w-40 shrink-0" : ""}`}
     >
       <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
-        <span className={`flex items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110 ${compact ? "h-8 w-8" : "h-10 w-10"}`}>
-          <Play className={compact ? "h-3 w-3 text-white" : "h-4 w-4 text-white"} fill="white" />
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110">
+          <Play className="h-3 w-3 text-white" fill="white" />
         </span>
         <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{post.duration}</span>
       </div>
-      <div className={compact ? "p-2.5" : "p-3"}>
-        <p className={`line-clamp-2 font-medium leading-snug ${compact ? "text-xs" : "text-sm"}`}>{post.title}</p>
-        <p className={`mt-1 text-muted-foreground ${compact ? "text-[10px]" : "text-xs"}`}>{post.views} views • {post.date}</p>
+      <div className="p-2.5">
+        <p className="line-clamp-2 text-xs font-medium leading-snug">{post.title}</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">{post.views} views • {post.date}</p>
       </div>
     </a>
   );

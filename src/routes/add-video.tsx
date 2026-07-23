@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Youtube, Sparkles, FileText, Link2, Copy, Check, RefreshCw,
-  Clock, Hash, Wand2, ChevronRight,
+  Clock, Hash, Wand2, ChevronRight, ArrowLeft,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 
@@ -59,6 +59,9 @@ function AddVideo() {
 
   return (
     <DashboardLayout title="Add Video">
+      <Link to="/videos" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Back to Videos
+      </Link>
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Add a Video</h1>
         <p className="mt-1 text-sm text-muted-foreground">

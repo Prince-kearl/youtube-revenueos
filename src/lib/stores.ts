@@ -133,13 +133,16 @@ export interface Notification {
   title: string;
   time: string;
   read: boolean;
+  pinned: boolean;
+  archived: boolean;
 }
 const seedNotifs = (): Notification[] => [
-  { id: uid(), icon: "message", color: "purple", title: "TechCorp deal expires in 3 days", time: "Now", read: false },
-  { id: uid(), icon: "check", color: "green", title: '"AI Tools" hit 500K views 🎉', time: "1h", read: false },
-  { id: uid(), icon: "dollar", color: "amber", title: "AdSense: $4,820 payout incoming", time: "2h", read: false },
-  { id: uid(), icon: "alert", color: "red", title: "CPM drop detected — 3 videos", time: "3h", read: true },
-  { id: uid(), icon: "zap", color: "purple", title: "AI optimization ready for 7 videos", time: "5h", read: true },
+  { id: uid(), icon: "message", color: "purple", title: "TechCorp deal expires in 3 days", time: "Now", read: false, pinned: false, archived: false },
+  { id: uid(), icon: "check", color: "green", title: '"AI Tools" hit 500K views 🎉', time: "1h", read: false, pinned: false, archived: false },
+  { id: uid(), icon: "dollar", color: "amber", title: "AdSense: $4,820 payout incoming", time: "2h", read: false, pinned: false, archived: false },
+  { id: uid(), icon: "alert", color: "red", title: "CPM drop detected — 3 videos", time: "3h", read: true, pinned: false, archived: false },
+  { id: uid(), icon: "zap", color: "purple", title: "AI optimization ready for 7 videos", time: "5h", read: true, pinned: false, archived: false },
+  { id: uid(), icon: "clock", color: "blue", title: "HealthBrand follow-up scheduled", time: "6h", read: true, pinned: false, archived: false },
 ];
 export const useNotifications = () => useLocalStore<Notification[]>("yroos.notifs", seedNotifs());
 

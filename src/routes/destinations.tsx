@@ -54,7 +54,7 @@ function Destinations() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Summary value={String(destinations.length)} label="Total Destinations" />
         <Summary value={sumStr(destinations.map((d) => d.clicks))} label="Total Clicks" />
         <Summary value={"—"} label="Total Conversions" />
@@ -106,7 +106,7 @@ function Destinations() {
           </button>
         </div>
       ) : (
-        <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+        <div className="mt-5 overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

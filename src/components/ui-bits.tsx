@@ -17,9 +17,9 @@ export function StatCard({
   up?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-primary [&_svg]:h-4 [&_svg]:w-4">
           {icon}
         </div>
         {change && (
@@ -33,7 +33,7 @@ export function StatCard({
           </span>
         )}
       </div>
-      <p className="mt-4 text-2xl font-bold tracking-tight">{value}</p>
+      <p className="mt-3 text-xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-sm text-foreground">{label}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>

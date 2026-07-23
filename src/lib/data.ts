@@ -27,15 +27,6 @@ export const topVideos = [
   { rank: 7, title: "How to Pitch Brands as a Small Creator", date: "Sep 12, 2024", views: "198,400", viewsShort: "198K", revenue: "$2,900", ctr: "3.2%", cpm: "$5.40", likes: "6.1K", status: "Declining", change: "8.4%", up: false },
 ];
 
-export const alerts = [
-  { icon: "message", color: "purple", title: "TechCorp deal expires in 3 days", time: "Now" },
-  { icon: "check", color: "green", title: '"AI Tools" hit 500K views 🎉', time: "1h" },
-  { icon: "dollar", color: "amber", title: "AdSense: $4,820 payout incoming", time: "2h" },
-  { icon: "alert", color: "red", title: "CPM drop detected — 3 videos", time: "3h" },
-  { icon: "zap", color: "purple", title: "AI optimization ready for 7 videos", time: "5h" },
-  { icon: "clock", color: "blue", title: "HealthBrand follow-up scheduled", time: "6h" },
-];
-
 export const revenueSplit = [
   { label: "Brand Deals", amount: "$27,466", pct: 62, color: "var(--color-brand-purple)" },
   { label: "AdSense", amount: "$9,303", pct: 21, color: "var(--color-brand-blue)" },
@@ -65,6 +56,28 @@ export const analyticsBars = [
   { month: "Oct", brand: 24, adsense: 6, memberships: 4, affiliates: 2 },
   { month: "Nov", brand: 22, adsense: 5, memberships: 3, affiliates: 2 },
   { month: "Dec", brand: 30, adsense: 8, memberships: 5, affiliates: 3 },
+];
+
+export const geoRevenue = [
+  { country: "United States", code: "US", views: 3.8, revenue: 68400, pct: 41 },
+  { country: "United Kingdom", code: "GB", views: 1.2, revenue: 19800, pct: 12 },
+  { country: "Canada", code: "CA", views: 0.9, revenue: 14200, pct: 9 },
+  { country: "India", code: "IN", views: 1.4, revenue: 9600, pct: 6 },
+  { country: "Australia", code: "AU", views: 0.6, revenue: 9200, pct: 6 },
+  { country: "Germany", code: "DE", views: 0.5, revenue: 7800, pct: 5 },
+  { country: "Netherlands", code: "NL", views: 0.3, revenue: 5400, pct: 3 },
+  { country: "Philippines", code: "PH", views: 0.7, revenue: 4100, pct: 3 },
+  { country: "Brazil", code: "BR", views: 0.5, revenue: 3600, pct: 2 },
+  { country: "Other", code: "—", views: 2.1, revenue: 9800, pct: 6 },
+];
+
+export const cpmTrend = [
+  { month: "Jul", cpm: 6.2 },
+  { month: "Aug", cpm: 6.8 },
+  { month: "Sep", cpm: 7.4 },
+  { month: "Oct", cpm: 8.9 },
+  { month: "Nov", cpm: 9.3 },
+  { month: "Dec", cpm: 10.1 },
 ];
 
 export const destinations = [
@@ -127,3 +140,40 @@ export const reports = [
   { title: "October Revenue Report", range: "Oct 1 – 31, 2024", color: "purple", badges: ["$36,000 revenue", "Best CPM month: $8.40", "2 deals closed"] },
   { title: "Q3 2024 Quarterly Summary", range: "Jul – Sep 2024", color: "amber", badges: ["$98,500 revenue", "12.4M total views", "6 brand deals"] },
 ];
+
+const TXN_SOURCES = ["AdSense", "Brand Deal", "Memberships", "Affiliates"] as const;
+const TXN_METHODS = ["Bank Transfer", "Direct Deposit", "Wire Transfer", "PayPal"] as const;
+const TXN_STATUSES = ["Received", "Processed", "Pending", "Failed"] as const;
+const TXN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const TXN_SOURCE_BASE: Record<(typeof TXN_SOURCES)[number], number> = {
+  AdSense: 2200, "Brand Deal": 8400, Memberships: 1100, Affiliates: 600,
+};
+
+export type RevenueTransaction = {
+  id: string;
+  amount: number;
+  source: (typeof TXN_SOURCES)[number];
+  video: string;
+  method: (typeof TXN_METHODS)[number];
+  date: string;
+  status: (typeof TXN_STATUSES)[number];
+};
+
+export const revenueTransactions: RevenueTransaction[] = Array.from({ length: 50 }, (_, i) => {
+  const source = TXN_SOURCES[i % TXN_SOURCES.length];
+  const status = TXN_STATUSES[(i + Math.floor(i / TXN_SOURCES.length)) % TXN_STATUSES.length];
+  const method = TXN_METHODS[(i * 2) % TXN_METHODS.length];
+  const video = topVideos[i % topVideos.length].title;
+  const month = TXN_MONTHS[(11 - Math.floor(i / 4)) % 12];
+  const day = ((i * 7) % 27) + 1;
+  const amount = TXN_SOURCE_BASE[source] + ((i * 173) % 4200);
+  return {
+    id: `TXN-2024${String(401 + i)}`,
+    amount,
+    source,
+    video,
+    method,
+    date: `${month} ${day}`,
+    status,
+  };
+});

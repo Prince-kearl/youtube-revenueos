@@ -48,7 +48,7 @@ function BrandDeals() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={<TrendingUp className="h-5 w-5" />} value={fmtK(stats.pipeline)} label="Pipeline Value" />
         <StatCard icon={<Users className="h-5 w-5" />} value={String(stats.active)} label="Active Deals" />
         <StatCard icon={<DollarSign className="h-5 w-5" />} value={fmtK(stats.closed)} label="Closed Revenue" />

@@ -87,11 +87,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Tubify — Turn Your Channel into a Sales Engine" },
       { name: "twitter:description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/kPn7cM2H3DdmARiVTK6yHw5W9Sj1/social-images/social-1784138391285-social_logo_icon.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/kPn7cM2H3DdmARiVTK6yHw5W9Sj1/social-images/social-1784138391285-social_logo_icon.webp" },
+      { property: "og:image", content: "/logo.png" },
+      { name: "twitter:image", content: "/logo.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/png", href: "/logo.png" },
+      { rel: "apple-touch-icon", href: "/logo.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
