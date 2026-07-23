@@ -106,37 +106,72 @@ function Destinations() {
           </button>
         </div>
       ) : (
-        <div className="mt-5 overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-3 py-3 font-medium">URL</th>
-                <th className="px-3 py-3 font-medium">Clicks</th>
-                <th className="px-3 py-3 font-medium">CVR</th>
-                <th className="px-3 py-3 font-medium">Revenue</th>
-                <th className="px-3 py-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {destinations.map((d) => (
-                <tr key={d.id} className="border-b border-border last:border-0 hover:bg-accent/30">
-                  <td className="px-4 py-3 font-medium">{d.name}</td>
-                  <td className="px-3 py-3 text-muted-foreground truncate max-w-[240px]">{d.url}</td>
-                  <td className="px-3 py-3">{d.clicks}</td>
-                  <td className="px-3 py-3">{d.cvr}</td>
-                  <td className="px-3 py-3">{d.revenue}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex justify-end gap-2 text-muted-foreground">
-                      <button onClick={() => setEditing(d)} className="hover:text-foreground"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => setDeleting(d)} className="hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  </td>
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="mt-5 space-y-3 sm:hidden">
+            {destinations.map((d) => (
+              <div key={d.id} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{d.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{d.url}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2 text-muted-foreground">
+                    <button onClick={() => setEditing(d)} aria-label="Edit" className="hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => setDeleting(d)} aria-label="Delete" className="hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Clicks</p>
+                    <p className="mt-0.5 font-medium">{d.clicks}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">CVR</p>
+                    <p className="mt-0.5 font-medium">{d.cvr}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Revenue</p>
+                    <p className="mt-0.5 font-medium">{d.revenue}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="mt-5 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-3 py-3 font-medium">URL</th>
+                  <th className="px-3 py-3 font-medium">Clicks</th>
+                  <th className="px-3 py-3 font-medium">CVR</th>
+                  <th className="px-3 py-3 font-medium">Revenue</th>
+                  <th className="px-3 py-3 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {destinations.map((d) => (
+                  <tr key={d.id} className="border-b border-border last:border-0 hover:bg-accent/30">
+                    <td className="px-4 py-3 font-medium">{d.name}</td>
+                    <td className="px-3 py-3 text-muted-foreground truncate max-w-[240px]">{d.url}</td>
+                    <td className="px-3 py-3">{d.clicks}</td>
+                    <td className="px-3 py-3">{d.cvr}</td>
+                    <td className="px-3 py-3">{d.revenue}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex justify-end gap-2 text-muted-foreground">
+                        <button onClick={() => setEditing(d)} className="hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => setDeleting(d)} className="hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <DestinationDialog open={creating} onOpenChange={setCreating} onSave={save} />

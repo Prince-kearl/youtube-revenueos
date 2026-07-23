@@ -54,56 +54,103 @@ function LinkTracking() {
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search links..." className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-sm outline-none focus:border-primary" />
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-xl border border-border bg-card">
-        {filtered.length === 0 ? (
+      {filtered.length === 0 ? (
+        <div className="mt-5 rounded-xl border border-border bg-card">
           <p className="p-10 text-center text-sm text-muted-foreground">
             {query ? "No links match your search." : "No links yet — click Create Link to add one."}
           </p>
-        ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-5 py-4 font-medium">Short Link</th>
-              <th className="px-3 py-4 font-medium">Source Video</th>
-              <th className="px-3 py-4 font-medium">Clicks</th>
-              <th className="px-3 py-4 font-medium">Unique</th>
-              <th className="px-3 py-4 font-medium">Conv.</th>
-              <th className="px-3 py-4 font-medium">CVR</th>
-              <th className="px-3 py-4 font-medium">Revenue</th>
-              <th className="px-3 py-4 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((l) => (
-              <tr key={l.id} className="border-b border-border last:border-0 hover:bg-accent/30">
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
-                    <div>
-                      <p className="font-medium text-brand-purple">{l.short}</p>
-                      <p className="text-xs text-muted-foreground">{l.full}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-4 text-muted-foreground">{l.source}</td>
-                <td className="px-3 py-4">{l.clicks}</td>
-                <td className="px-3 py-4 text-muted-foreground">{l.unique}</td>
-                <td className="px-3 py-4">{l.conversions}</td>
-                <td className="px-3 py-4 font-semibold">{l.cvr}</td>
-                <td className="px-3 py-4 font-semibold">{l.revenue}</td>
-                <td className="px-3 py-4">
-                  <div className="flex items-center justify-end gap-2 text-muted-foreground">
-                    <ChangeCell change={l.change} up={l.up} />
-                    <button onClick={() => copy(l.short)} className="hover:text-foreground" aria-label="Copy"><Copy className="h-4 w-4" /></button>
-                    <button onClick={() => setDeleting(l)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                </td>
+        </div>
+      ) : (
+      <>
+        {/* Mobile: stacked cards */}
+        <div className="mt-5 space-y-3 sm:hidden">
+          {filtered.map((l) => (
+            <div key={l.id} className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-brand-purple">{l.short}</p>
+                  <p className="truncate text-xs text-muted-foreground">{l.full}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Source: {l.source}</p>
+              <div className="mt-3 grid grid-cols-4 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
+                <div>
+                  <p className="text-muted-foreground">Clicks</p>
+                  <p className="mt-0.5 font-medium">{l.clicks}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Unique</p>
+                  <p className="mt-0.5 font-medium">{l.unique}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Conv.</p>
+                  <p className="mt-0.5 font-medium">{l.conversions}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">CVR</p>
+                  <p className="mt-0.5 font-medium">{l.cvr}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-sm font-semibold">{l.revenue}</span>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <ChangeCell change={l.change} up={l.up} />
+                  <button onClick={() => copy(l.short)} className="hover:text-foreground" aria-label="Copy"><Copy className="h-4 w-4" /></button>
+                  <button onClick={() => setDeleting(l)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="mt-5 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-5 py-4 font-medium">Short Link</th>
+                <th className="px-3 py-4 font-medium">Source Video</th>
+                <th className="px-3 py-4 font-medium">Clicks</th>
+                <th className="px-3 py-4 font-medium">Unique</th>
+                <th className="px-3 py-4 font-medium">Conv.</th>
+                <th className="px-3 py-4 font-medium">CVR</th>
+                <th className="px-3 py-4 font-medium">Revenue</th>
+                <th className="px-3 py-4 text-right font-medium">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        )}
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map((l) => (
+                <tr key={l.id} className="border-b border-border last:border-0 hover:bg-accent/30">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
+                      <div>
+                        <p className="font-medium text-brand-purple">{l.short}</p>
+                        <p className="text-xs text-muted-foreground">{l.full}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-muted-foreground">{l.source}</td>
+                  <td className="px-3 py-4">{l.clicks}</td>
+                  <td className="px-3 py-4 text-muted-foreground">{l.unique}</td>
+                  <td className="px-3 py-4">{l.conversions}</td>
+                  <td className="px-3 py-4 font-semibold">{l.cvr}</td>
+                  <td className="px-3 py-4 font-semibold">{l.revenue}</td>
+                  <td className="px-3 py-4">
+                    <div className="flex items-center justify-end gap-2 text-muted-foreground">
+                      <ChangeCell change={l.change} up={l.up} />
+                      <button onClick={() => copy(l.short)} className="hover:text-foreground" aria-label="Copy"><Copy className="h-4 w-4" /></button>
+                      <button onClick={() => setDeleting(l)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+      )}
 
       <LinkDialog open={creating} onOpenChange={setCreating} onSave={(l) => setLinks((p) => [l, ...p])} />
       <ConfirmDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)} title={`Delete ${deleting?.short}?`} onConfirm={() => { if (deleting) { setLinks((p) => p.filter((x) => x.id !== deleting.id)); toast.success("Link deleted"); } setDeleting(null); }} />

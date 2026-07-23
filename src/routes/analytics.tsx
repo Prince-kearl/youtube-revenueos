@@ -366,7 +366,40 @@ function RevenueTransactionsTable() {
         </Select>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Mobile: stacked cards */}
+      <div className="space-y-3 sm:hidden">
+        {paged.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No transactions match your filters.</p>
+        ) : paged.map((t) => {
+          const meta = statusMeta[t.status];
+          const StatusIcon = meta.icon;
+          return (
+            <div key={t.id} className="rounded-xl border border-border p-4">
+              <div className="flex items-start gap-3">
+                <Checkbox className="mt-0.5" checked={selected.has(t.id)} onCheckedChange={() => toggleOne(t.id)} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{t.id}</span>
+                    <span className="font-semibold">${t.amount.toLocaleString()}</span>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{t.video}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-md bg-accent px-2 py-1 font-medium">{t.source}</span>
+                    <span>{t.method}</span>
+                    <span>· {t.date}</span>
+                  </div>
+                  <span className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${meta.className}`}>
+                    <StatusIcon className="h-3.5 w-3.5" /> {t.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

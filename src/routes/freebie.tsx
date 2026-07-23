@@ -131,7 +131,22 @@ function Freebie() {
         <div className="border-b border-border p-5">
           <h3 className="text-lg font-semibold">Lead Performance</h3>
         </div>
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        <div className="space-y-3 p-5 sm:hidden">
+          {magnets.map((m) => (
+            <div key={m.title} className="rounded-xl border border-border p-4">
+              <p className="font-medium">{m.title}</p>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="inline-flex rounded-md bg-brand-purple/15 px-2 py-0.5 text-[11px] font-medium text-brand-purple">{m.format}</span>
+                <span className="text-xs text-muted-foreground">{m.downloads} downloads</span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-brand-green">{m.optin} opt-in rate</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">

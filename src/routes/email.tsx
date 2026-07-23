@@ -113,39 +113,69 @@ function EmailSender() {
         <div className="flex items-center justify-between border-b border-border p-5">
           <h3 className="text-lg font-semibold">Campaigns</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Campaign</th>
-                <th className="px-5 py-3 font-medium">Sent</th>
-                <th className="px-5 py-3 font-medium">Open Rate</th>
-                <th className="px-5 py-3 font-medium">Click Rate</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((c) => (
-                <tr key={c.id} className="border-b border-border last:border-0">
-                  <td className="px-5 py-3.5 font-medium">{c.name}</td>
-                  <td className="px-5 py-3.5 text-muted-foreground">{c.sent}</td>
-                  <td className="px-5 py-3.5 font-semibold">{c.open}</td>
-                  <td className="px-5 py-3.5 font-semibold">{c.click}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button onClick={() => setDeleting(c)} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
-                  </td>
+        {campaigns.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-muted-foreground">No campaigns yet.</p>
+        ) : (
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="space-y-3 p-5 sm:hidden">
+            {campaigns.map((c) => (
+              <div key={c.id} className="rounded-xl border border-border p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 truncate font-medium">{c.name}</p>
+                  <button onClick={() => setDeleting(c)} className="shrink-0 text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
+                  <span className="text-xs text-muted-foreground">{c.sent} sent</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Open Rate</p>
+                    <p className="mt-0.5 font-medium">{c.open}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Click Rate</p>
+                    <p className="mt-0.5 font-medium">{c.click}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="px-5 py-3 font-medium">Campaign</th>
+                  <th className="px-5 py-3 font-medium">Sent</th>
+                  <th className="px-5 py-3 font-medium">Open Rate</th>
+                  <th className="px-5 py-3 font-medium">Click Rate</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-              {campaigns.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">No campaigns yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {campaigns.map((c) => (
+                  <tr key={c.id} className="border-b border-border last:border-0">
+                    <td className="px-5 py-3.5 font-medium">{c.name}</td>
+                    <td className="px-5 py-3.5 text-muted-foreground">{c.sent}</td>
+                    <td className="px-5 py-3.5 font-semibold">{c.open}</td>
+                    <td className="px-5 py-3.5 font-semibold">{c.click}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button onClick={() => setDeleting(c)} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+        )}
       </div>
 
       <CampaignDialog open={creating} onOpenChange={setCreating} onSave={(c) => setCampaigns((p) => [c, ...p])} />

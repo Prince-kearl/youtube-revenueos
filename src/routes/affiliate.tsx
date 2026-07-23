@@ -115,7 +115,24 @@ function Affiliate() {
         <div className="border-b border-border p-5">
           <h3 className="text-lg font-semibold">Recent Referrals</h3>
         </div>
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        <div className="space-y-3 p-5 sm:hidden">
+          {referrals.map((r) => (
+            <div key={r.user} className="rounded-xl border border-border p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 flex-1 truncate font-medium">{r.user}</p>
+                <span className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium ${r.status === "Converted" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>
+                  {r.status}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{r.plan} · {r.date}</p>
+              <p className="mt-2 text-sm font-semibold">{r.commission}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">

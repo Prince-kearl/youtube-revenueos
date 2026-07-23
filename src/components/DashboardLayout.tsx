@@ -6,7 +6,7 @@ import {
   Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
   MessageSquare, Users, Gift, Handshake, Mail, Rocket,
   LogOut, User as UserIcon,
-  Send,
+  Send, Menu,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -46,8 +46,21 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+const primaryMobileNav = nav.filter((item) =>
+  (["/dashboard", "/videos", "/comments", "/analytics"] as string[]).includes(item.to),
+);
+
+const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
+  { label: "Overview", items: ["/dashboard"] },
+  { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
+  { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/audience", "/analytics"] },
+  { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals"] },
+  { label: "General", items: ["/reports", "/roadmap", "/settings"] },
+];
+
 export function DashboardLayout({ title, children }: { title: string; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
@@ -96,18 +109,28 @@ export function DashboardLayout({ title, children }: { title: string; children: 
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-          {nav.map((item) => {
-            const active = pathname === item.to;
-            const Icon = item.icon;
-            return (
-              <Link key={item.to} to={item.to} className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
-                <span className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"}`} />
-                <Icon className="relative h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span className="relative">{item.label}</span>}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              {!collapsed && (
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{group.label}</p>
+              )}
+              <div className="space-y-1">
+                {group.items.map((to) => {
+                  const item = nav.find((n) => n.to === to)!;
+                  const active = pathname === item.to;
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.to} to={item.to} title={collapsed ? item.label : undefined} className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
+                      <span className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"}`} />
+                      <Icon className="relative h-[18px] w-[18px] shrink-0" />
+                      {!collapsed && <span className="relative">{item.label}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="p-3">
@@ -138,7 +161,10 @@ export function DashboardLayout({ title, children }: { title: string; children: 
               <span className="flex h-9 w-64 items-center rounded-lg border border-border bg-card pl-9 pr-12 text-sm text-muted-foreground">Search...</span>
               <kbd className="absolute right-2 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
             </button>
-            <button onClick={() => setDealOpen(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:px-3.5">
+            <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
+              <Search className="h-[18px] w-[18px]" />
+            </button>
+            <button onClick={() => setDealOpen(true)} className="hidden h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:flex sm:px-3.5">
               <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Quick Add Deal</span>
             </button>
 
@@ -228,9 +254,9 @@ export function DashboardLayout({ title, children }: { title: string; children: 
       </button>
 
       {/* Mobile pill nav */}
-      <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="flex items-center gap-1 overflow-x-auto rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {nav.map((item) => {
+      <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%-1.5rem)] -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+          {primaryMobileNav.map((item) => {
             const active = pathname === item.to;
             const Icon = item.icon;
             return (
@@ -239,8 +265,49 @@ export function DashboardLayout({ title, children }: { title: string; children: 
               </Link>
             );
           })}
+          <button
+            onClick={() => setMoreOpen(true)}
+            aria-label="More"
+            title="More"
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+              !primaryMobileNav.some((item) => item.to === pathname) && nav.some((item) => item.to === pathname)
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+          >
+            <Menu className="h-[18px] w-[18px]" strokeWidth={2} />
+          </button>
         </div>
       </nav>
+
+      {/* Mobile "more" nav sheet */}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden">
+          <SheetHeader>
+            <SheetTitle>All Features</SheetTitle>
+          </SheetHeader>
+          <div className="mt-2 grid grid-cols-4 gap-4">
+            {nav.map((item) => {
+              const active = pathname === item.to;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex flex-col items-center gap-1.5 text-center"
+                >
+                  <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
+                    <Icon className="h-5 w-5" strokeWidth={2} />
+                  </span>
+                  <span className={cn("text-xs leading-tight", active ? "font-semibold text-primary" : "text-muted-foreground")}>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Global command search */}
       <CommandDialog open={cmdOpen} onOpenChange={setCmdOpen}>

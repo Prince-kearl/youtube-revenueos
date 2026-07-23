@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import {
   DollarSign, TrendingUp, Eye, Handshake, RefreshCw,
-  Youtube, Users, ExternalLink, Play,
+  Youtube, Users, ExternalLink, Play, CheckCircle2, Circle, X, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -13,7 +13,7 @@ import { StatCard, ChangeCell } from "@/components/ui-bits";
 import { NotificationRow } from "@/components/NotificationRow";
 import { recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 import { useChannelSettings } from "@/lib/channel-settings";
-import { useNotifications } from "@/lib/stores";
+import { useNotifications, useOnboarding } from "@/lib/stores";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -35,6 +35,8 @@ function Dashboard() {
   };
   return (
     <DashboardLayout title="Dashboard">
+      <GettingStarted />
+
       {/* Channel banner */}
       <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-center gap-4">
@@ -180,7 +182,25 @@ function Dashboard() {
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile: stacked cards */}
+          <div className="mt-4 space-y-2.5 sm:hidden">
+            {topVideos.slice(0, 5).map((v) => (
+              <div key={v.rank} className="rounded-lg border border-border p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{v.rank}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{v.title}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{v.viewsShort} views</span>
+                  <span className="font-semibold">{v.revenue}</span>
+                  <ChangeCell change={v.change} up={v.up} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto sm:block">
             <table className="mt-4 w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -309,5 +329,70 @@ function Legend({ color, label }: { color: string; label: string }) {
       <span className="h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
+  );
+}
+
+const onboardingSteps = [
+  { id: "banner", label: "Set up your dashboard banner", desc: "Add your channel name, avatar, and subscriber count.", to: "/settings" },
+  { id: "video", label: "Add your first video", desc: "Paste a YouTube URL to auto-generate an AI description.", to: "/add-video" },
+  { id: "comments", label: "Create a comment automation rule", desc: "Auto-reply to comments asking for links or info.", to: "/comments" },
+  { id: "link", label: "Create a tracked link", desc: "Track clicks and revenue from your video descriptions.", to: "/link-tracking" },
+  { id: "channel", label: "Connect your YouTube channel", desc: "Sync real analytics and revenue data.", to: "/settings" },
+] as const;
+
+function GettingStarted() {
+  const [onboarding, setOnboarding] = useOnboarding();
+
+  if (onboarding.dismissed) return null;
+
+  const doneCount = onboarding.completedSteps.length;
+  const allDone = doneCount === onboardingSteps.length;
+
+  const toggleStep = (id: string) => {
+    setOnboarding((prev) => ({
+      ...prev,
+      completedSteps: prev.completedSteps.includes(id)
+        ? prev.completedSteps.filter((s) => s !== id)
+        : [...prev.completedSteps, id],
+    }));
+  };
+  const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
+
+  return (
+    <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <div>
+            <h3 className="font-semibold">{allDone ? "You're all set! 🎉" : "Getting started"}</h3>
+            <p className="text-xs text-muted-foreground">{doneCount} of {onboardingSteps.length} steps complete</p>
+          </div>
+        </div>
+        <button onClick={dismiss} className="text-muted-foreground hover:text-foreground" aria-label="Dismiss getting started checklist">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-accent">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(doneCount / onboardingSteps.length) * 100}%` }} />
+      </div>
+
+      <div className="mt-4 space-y-1">
+        {onboardingSteps.map((step) => {
+          const done = onboarding.completedSteps.includes(step.id);
+          return (
+            <div key={step.id} className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent/40">
+              <button onClick={() => toggleStep(step.id)} aria-label={done ? "Mark as not done" : "Mark as done"} className="shrink-0">
+                {done ? <CheckCircle2 className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+              </button>
+              <Link to={step.to} className="min-w-0 flex-1">
+                <p className={`text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}>{step.label}</p>
+                <p className="text-xs text-muted-foreground">{step.desc}</p>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

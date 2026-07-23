@@ -33,7 +33,45 @@ function Videos() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-card">
+      {/* Mobile: stacked cards */}
+      <div className="mt-6 space-y-3 sm:hidden">
+        {topVideos.map((v) => (
+          <div key={v.rank} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-red/40 to-brand-purple/40 text-[9px] font-bold text-white/70">
+                ▶
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{v.title}</p>
+                <p className="text-xs text-muted-foreground">{v.date}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground"><Eye className="h-3.5 w-3.5" />{v.views}</span>
+              <span className="text-sm font-semibold">{v.revenue}</span>
+              <ChangeCell change={v.change} up={v.up} />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
+              <div>
+                <p className="text-muted-foreground">CTR</p>
+                <p className="mt-0.5 font-medium">{v.ctr}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">CPM</p>
+                <p className="mt-0.5 font-medium">{v.cpm}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Likes</p>
+                <p className="mt-0.5 flex items-center justify-center gap-1 font-medium"><ThumbsUp className="h-3 w-3" />{v.likes}</p>
+              </div>
+            </div>
+            <div className="mt-3"><StatusBadge status={v.status} /></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

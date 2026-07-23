@@ -162,3 +162,11 @@ const seedProfile = (): Profile => ({
   timezone: "Europe/Berlin",
 });
 export const useProfile = () => useLocalStore<Profile>("yroos.profile", seedProfile());
+
+// ============ ONBOARDING ============
+export interface OnboardingState {
+  dismissed: boolean;
+  completedSteps: string[];
+}
+const seedOnboarding = (): OnboardingState => ({ dismissed: false, completedSteps: [] });
+export const useOnboarding = () => useLocalStore<OnboardingState>("yroos.onboarding", seedOnboarding());
