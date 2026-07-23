@@ -17,7 +17,7 @@ function Videos() {
           <p className="mt-1 text-sm text-muted-foreground">7 videos synced</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input placeholder="Search videos..." className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary" />
           </div>

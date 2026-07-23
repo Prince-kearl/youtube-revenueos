@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import {
   DEAL_STAGES, DealStage, Deal, Destination, TrackLink, CommentRule, Campaign, DEST_COLORS, DEST_ICONS,
+  TeamMember, TeamRole,
 } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 
@@ -154,38 +155,53 @@ export function DestinationDialog({
 
 // ---------- Link ----------
 export function LinkDialog({
-  open, onOpenChange, onSave,
+  open, onOpenChange, initial, onSave,
 }: {
-  open: boolean; onOpenChange: (v: boolean) => void; onSave: (l: TrackLink) => void;
+  open: boolean; onOpenChange: (v: boolean) => void; initial?: TrackLink | null; onSave: (l: TrackLink) => void;
 }) {
   const [full, setFull] = useState("");
   const [source, setSource] = useState("");
   const [slug, setSlug] = useState("");
 
   useEffect(() => {
-    if (open) { setFull(""); setSource(""); setSlug(""); }
-  }, [open]);
+    if (!open) return;
+    if (initial) {
+      setFull(/^https?:\/\//.test(initial.full) ? initial.full : `https://${initial.full}`);
+      setSource(initial.source === "Untagged" ? "" : initial.source);
+      setSlug(initial.short.replace(/^rvos\.io\//, ""));
+    } else {
+      setFull(""); setSource(""); setSlug("");
+    }
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!full.trim()) return toast.error("Destination URL is required");
     try { new URL(full); } catch { return toast.error("Please enter a valid URL"); }
-    const s = slug.trim() || Math.random().toString(36).slice(2, 8);
+    const s = slug.trim() || initial?.short.replace(/^rvos\.io\//, "") || Math.random().toString(36).slice(2, 8);
     onSave({
-      id: uid(), short: `rvos.io/${s}`, full: full.replace(/^https?:\/\//, ""),
-      source: source || "Untagged", clicks: "0", unique: "0", conversions: "0",
-      cvr: "0%", revenue: "N/A", change: "0%", up: true,
+      id: initial?.id ?? uid(),
+      short: `rvos.io/${s}`,
+      full: full.replace(/^https?:\/\//, ""),
+      source: source || "Untagged",
+      clicks: initial?.clicks ?? "0",
+      unique: initial?.unique ?? "0",
+      conversions: initial?.conversions ?? "0",
+      cvr: initial?.cvr ?? "0%",
+      revenue: initial?.revenue ?? "N/A",
+      change: initial?.change ?? "0%",
+      up: initial?.up ?? true,
     });
     onOpenChange(false);
-    toast.success("Link created");
+    toast.success(initial ? "Link updated" : "Link created");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Tracking Link</DialogTitle>
-          <DialogDescription>Generate a short URL that captures clicks and conversions.</DialogDescription>
+          <DialogTitle>{initial ? "Edit Tracking Link" : "Create Tracking Link"}</DialogTitle>
+          <DialogDescription>{initial ? "Update the destination, source, or slug." : "Generate a short URL that captures clicks and conversions."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Destination URL"><Input type="url" value={full} onChange={(e) => setFull(e.target.value)} placeholder="https://…" required /></Field>
@@ -193,7 +209,7 @@ export function LinkDialog({
           <Field label="Custom slug (optional)"><Input value={slug} onChange={(e) => setSlug(e.target.value.replace(/[^a-z0-9-]/gi, ""))} placeholder="course" /></Field>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">Create</Button>
+            <Button type="submit">{initial ? "Save" : "Create"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -276,27 +292,38 @@ export function RuleDialog({
 
 // ---------- Campaign ----------
 export function CampaignDialog({
-  open, onOpenChange, onSave,
+  open, onOpenChange, initial, onSave,
 }: {
-  open: boolean; onOpenChange: (v: boolean) => void; onSave: (c: Campaign) => void;
+  open: boolean; onOpenChange: (v: boolean) => void; initial?: Campaign | null; onSave: (c: Campaign) => void;
 }) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<Campaign["status"]>("Draft");
-  useEffect(() => { if (open) { setName(""); setStatus("Draft"); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? "");
+    setStatus(initial?.status ?? "Draft");
+  }, [open, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Campaign name is required");
-    onSave({ id: uid(), name, sent: "0", open: "0%", click: "0%", status });
+    onSave({
+      id: initial?.id ?? uid(),
+      name,
+      sent: initial?.sent ?? "0",
+      open: initial?.open ?? "0%",
+      click: initial?.click ?? "0%",
+      status,
+    });
     onOpenChange(false);
-    toast.success("Campaign created");
+    toast.success(initial ? "Campaign updated" : "Campaign created");
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>New Campaign</DialogTitle>
-          <DialogDescription>Create an email broadcast or drip step.</DialogDescription>
+          <DialogTitle>{initial ? "Edit Campaign" : "New Campaign"}</DialogTitle>
+          <DialogDescription>{initial ? "Update the campaign name or status." : "Create an email broadcast or drip step."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></Field>
@@ -313,7 +340,70 @@ export function CampaignDialog({
           </Field>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">Create</Button>
+            <Button type="submit">{initial ? "Save" : "Create"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Team ----------
+const TEAM_ROLES: TeamRole[] = ["Owner", "Manager", "Setter", "Editor"];
+
+export function TeamMemberDialog({
+  open, onOpenChange, initial, onSave,
+}: {
+  open: boolean; onOpenChange: (v: boolean) => void; initial?: TeamMember | null; onSave: (m: TeamMember) => void;
+}) {
+  const [form, setForm] = useState<TeamMember>({
+    id: "", name: "", email: "", avatar: "", role: "Setter", commission: 0, leadShare: 0, status: "Invited",
+  });
+  useEffect(() => {
+    if (open) {
+      setForm(
+        initial ?? {
+          id: uid(), name: "", email: "",
+          avatar: `https://i.pravatar.cc/64?img=${Math.floor(Math.random() * 70) + 1}`,
+          role: "Setter", commission: 10, leadShare: 0, status: "Invited",
+        },
+      );
+    }
+  }, [open, initial]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) return toast.error("Name is required");
+    if (!form.email.trim()) return toast.error("Email is required");
+    if (form.leadShare < 0 || form.leadShare > 100) return toast.error("Lead share must be 0–100%");
+    onSave({ ...form, id: form.id || uid() });
+    onOpenChange(false);
+    toast.success(initial ? "Team member updated" : "Invite sent");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{initial ? "Edit Team Member" : "Invite Team Member"}</DialogTitle>
+          <DialogDescription>Assign a role, lead share, and commission for the pipeline.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <Field label="Full name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={80} /></Field>
+          <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required maxLength={120} /></Field>
+          <Field label="Role">
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as TeamRole })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{TEAM_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Lead share %"><Input type="number" min={0} max={100} value={form.leadShare} onChange={(e) => setForm({ ...form, leadShare: Number(e.target.value) })} /></Field>
+            <Field label="Commission %"><Input type="number" min={0} max={100} value={form.commission} onChange={(e) => setForm({ ...form, commission: Number(e.target.value) })} /></Field>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit">{initial ? "Save" : "Send Invite"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

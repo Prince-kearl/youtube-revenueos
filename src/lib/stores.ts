@@ -1,5 +1,6 @@
 import { useLocalStore, uid } from "./local-store";
 import { dealStages as seedDealStages, destinations as seedDestinations, links as seedLinks } from "./data";
+import type { GenerationJob } from "./mock-generation";
 
 // ============ DEALS ============
 export type DealStage = "Prospect" | "Pitched" | "Negotiating" | "Contracted" | "Completed";
@@ -170,3 +171,26 @@ export interface OnboardingState {
 }
 const seedOnboarding = (): OnboardingState => ({ dismissed: false, completedSteps: [] });
 export const useOnboarding = () => useLocalStore<OnboardingState>("yroos.onboarding", seedOnboarding());
+
+// ============ PROJECTS (AI generation jobs) ============
+export const useProjectJobs = () => useLocalStore<GenerationJob[]>("yroos.projects", []);
+
+// ============ TEAM ============
+export type TeamRole = "Owner" | "Manager" | "Setter" | "Editor";
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: TeamRole;
+  commission: number;
+  leadShare: number;
+  status: "Active" | "Invited";
+}
+const seedTeam = (): TeamMember[] => [
+  { id: uid(), name: "Alex Chen", email: "alex@creator.io", avatar: "https://i.pravatar.cc/64?img=13", role: "Owner", commission: 0, leadShare: 40, status: "Active" },
+  { id: uid(), name: "Jamie Rivera", email: "jamie@creator.io", avatar: "https://i.pravatar.cc/64?img=32", role: "Setter", commission: 10, leadShare: 35, status: "Active" },
+  { id: uid(), name: "Morgan Lee", email: "morgan@creator.io", avatar: "https://i.pravatar.cc/64?img=45", role: "Editor", commission: 0, leadShare: 0, status: "Active" },
+  { id: uid(), name: "Sam Patel", email: "sam@newhire.io", avatar: "https://i.pravatar.cc/64?img=5", role: "Setter", commission: 10, leadShare: 25, status: "Invited" },
+];
+export const useTeam = () => useLocalStore<TeamMember[]>("yroos.team", seedTeam());

@@ -3,8 +3,8 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
-  Bell, Maximize2, HelpCircle, Youtube, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail, Rocket,
+  Bell, HelpCircle, Youtube, FolderKanban,
+  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus,
   LogOut, User as UserIcon,
   Send, Menu,
 } from "lucide-react";
@@ -41,6 +41,7 @@ const nav = [
   { to: "/freebie", label: "AI Freebie", icon: Gift },
   { to: "/email", label: "Email", icon: Mail },
   { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp },
+  { to: "/team", label: "Team", icon: UserPlus },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/roadmap", label: "Roadmap", icon: Rocket },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -54,7 +55,7 @@ const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Overview", items: ["/dashboard"] },
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
   { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/audience", "/analytics"] },
-  { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals"] },
+  { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
   { label: "General", items: ["/reports", "/roadmap", "/settings"] },
 ];
 
@@ -164,10 +165,6 @@ export function DashboardLayout({ title, children }: { title: string; children: 
             <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
               <Search className="h-[18px] w-[18px]" />
             </button>
-            <button onClick={() => setDealOpen(true)} className="hidden h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:flex sm:px-3.5">
-              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Quick Add Deal</span>
-            </button>
-
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
@@ -234,14 +231,6 @@ export function DashboardLayout({ title, children }: { title: string; children: 
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <button
-              onClick={() => document.documentElement.requestFullscreen?.().catch(() => toast.error("Fullscreen not supported"))}
-              className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:flex"
-              aria-label="Fullscreen"
-            >
-              <Maximize2 className="h-[18px] w-[18px]" />
-            </button>
           </div>
         </header>
 

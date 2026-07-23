@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Plus, Copy, Trash2 } from "lucide-react";
+import { Search, Plus, Copy, Pencil, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ChangeCell } from "@/components/ui-bits";
 import { useLinks, TrackLink } from "@/lib/stores";
@@ -15,7 +15,11 @@ function LinkTracking() {
   const [links, setLinks] = useLinks();
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<TrackLink | null>(null);
   const [deleting, setDeleting] = useState<TrackLink | null>(null);
+
+  const save = (l: TrackLink) =>
+    setLinks((prev) => (prev.some((x) => x.id === l.id) ? prev.map((x) => (x.id === l.id ? l : x)) : [l, ...prev]));
 
   const filtered = links.filter((l) =>
     (l.short + l.full + l.source).toLowerCase().includes(query.toLowerCase()),
@@ -97,6 +101,7 @@ function LinkTracking() {
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <ChangeCell change={l.change} up={l.up} />
                   <button onClick={() => copy(l.short)} className="hover:text-foreground" aria-label="Copy"><Copy className="h-4 w-4" /></button>
+                  <button onClick={() => setEditing(l)} className="hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => setDeleting(l)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
@@ -141,6 +146,7 @@ function LinkTracking() {
                     <div className="flex items-center justify-end gap-2 text-muted-foreground">
                       <ChangeCell change={l.change} up={l.up} />
                       <button onClick={() => copy(l.short)} className="hover:text-foreground" aria-label="Copy"><Copy className="h-4 w-4" /></button>
+                      <button onClick={() => setEditing(l)} className="hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
                       <button onClick={() => setDeleting(l)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
@@ -152,7 +158,8 @@ function LinkTracking() {
       </>
       )}
 
-      <LinkDialog open={creating} onOpenChange={setCreating} onSave={(l) => setLinks((p) => [l, ...p])} />
+      <LinkDialog open={creating} onOpenChange={setCreating} onSave={save} />
+      <LinkDialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)} initial={editing} onSave={save} />
       <ConfirmDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)} title={`Delete ${deleting?.short}?`} onConfirm={() => { if (deleting) { setLinks((p) => p.filter((x) => x.id !== deleting.id)); toast.success("Link deleted"); } setDeleting(null); }} />
     </DashboardLayout>
   );

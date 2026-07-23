@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Sparkles, Plus, Loader2, ArrowRight, FileText, Workflow, Code2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Sparkles, Loader2, FileText, Workflow, Code2, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { createGenerationJob, listGenerationJobs, type GenerationJob } from "@/lib/mock-generation";
+import { ConfirmDialog } from "@/components/modals";
+import { createGenerationJob, getGenerationJob, type GenerationJob } from "@/lib/mock-generation";
+import { useProjectJobs } from "@/lib/stores";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -11,12 +14,9 @@ export const Route = createFileRoute("/projects")({
 function ProjectsPage() {
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [jobs, setJobs] = useState<GenerationJob[]>([]);
+  const [jobs, setJobs] = useProjectJobs();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    setJobs(listGenerationJobs());
-  }, []);
+  const [deleting, setDeleting] = useState<GenerationJob | null>(null);
 
   const canSubmit = useMemo(() => title.trim().length > 0 && prompt.trim().length > 0, [title, prompt]);
 
@@ -35,10 +35,16 @@ function ProjectsPage() {
     setPrompt("");
 
     setTimeout(() => {
-      setJobs(listGenerationJobs());
+      const updated = getGenerationJob(created.jobId);
+      if (updated) setJobs((current) => current.map((j) => (j.jobId === updated.jobId ? updated : j)));
       setIsSubmitting(false);
     }, 1400);
   }
+
+  const removeJob = (job: GenerationJob) => {
+    setJobs((current) => current.filter((j) => j.jobId !== job.jobId));
+    toast.success("Project removed");
+  };
 
   return (
     <DashboardLayout title="Projects">
@@ -99,13 +105,18 @@ function ProjectsPage() {
               jobs.map((job) => (
                 <div key={job.jobId} className="rounded-xl border border-border bg-accent/20 p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="font-semibold">{job.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{job.prompt}</p>
                     </div>
-                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-medium capitalize text-foreground">
-                      {job.status}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-medium capitalize text-foreground">
+                        {job.status}
+                      </span>
+                      <button onClick={() => setDeleting(job)} className="text-muted-foreground hover:text-destructive" aria-label="Delete project">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   {job.output ? (
                     <div className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -120,6 +131,14 @@ function ProjectsPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(v) => !v && setDeleting(null)}
+        title={`Delete "${deleting?.title}"?`}
+        description="This removes the project and its generated output. This cannot be undone."
+        onConfirm={() => { if (deleting) removeJob(deleting); setDeleting(null); }}
+      />
     </DashboardLayout>
   );
 }

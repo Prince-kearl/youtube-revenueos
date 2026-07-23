@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-  Mail, MailOpen, MousePointerClick, AlertOctagon, Plus, Trash2,
+  Mail, MailOpen, MousePointerClick, AlertOctagon, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
@@ -46,7 +46,11 @@ function EmailSender() {
   const max = funnel[0].value;
   const [campaigns, setCampaigns] = useCampaigns();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Campaign | null>(null);
   const [deleting, setDeleting] = useState<Campaign | null>(null);
+
+  const save = (c: Campaign) =>
+    setCampaigns((prev) => (prev.some((x) => x.id === c.id) ? prev.map((x) => (x.id === c.id ? c : x)) : [c, ...prev]));
 
   return (
     <DashboardLayout title="Email">
@@ -123,7 +127,10 @@ function EmailSender() {
               <div key={c.id} className="rounded-xl border border-border p-4">
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 flex-1 truncate font-medium">{c.name}</p>
-                  <button onClick={() => setDeleting(c)} className="shrink-0 text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                  <div className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                    <button onClick={() => setEditing(c)} className="hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => setDeleting(c)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                  </div>
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
@@ -166,8 +173,11 @@ function EmailSender() {
                     <td className="px-5 py-3.5">
                       <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[c.status]}`}>{c.status}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button onClick={() => setDeleting(c)} className="text-muted-foreground hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-2 text-muted-foreground">
+                        <button onClick={() => setEditing(c)} className="hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => setDeleting(c)} className="hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -178,7 +188,8 @@ function EmailSender() {
         )}
       </div>
 
-      <CampaignDialog open={creating} onOpenChange={setCreating} onSave={(c) => setCampaigns((p) => [c, ...p])} />
+      <CampaignDialog open={creating} onOpenChange={setCreating} onSave={save} />
+      <CampaignDialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)} initial={editing} onSave={save} />
       <ConfirmDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)} title={`Delete "${deleting?.name}"?`} onConfirm={() => { if (deleting) { setCampaigns((p) => p.filter((x) => x.id !== deleting.id)); toast.success("Campaign deleted"); } setDeleting(null); }} />
     </DashboardLayout>
   );
