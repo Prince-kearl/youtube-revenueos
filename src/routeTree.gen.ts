@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -43,6 +44,11 @@ const VideosRoute = VideosRouteImport.update({
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roadmap'
     | '/settings'
+    | '/support'
     | '/team'
     | '/videos'
     | '/api/generate'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roadmap'
     | '/settings'
+    | '/support'
     | '/team'
     | '/videos'
     | '/api/generate'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/roadmap'
     | '/settings'
+    | '/support'
     | '/team'
     | '/videos'
     | '/api/generate'
@@ -350,6 +362,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   RoadmapRoute: typeof RoadmapRoute
   SettingsRoute: typeof SettingsRoute
+  SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
   VideosRoute: typeof VideosRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
@@ -369,6 +382,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -558,6 +578,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   RoadmapRoute: RoadmapRoute,
   SettingsRoute: SettingsRoute,
+  SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
   VideosRoute: VideosRoute,
   ApiGenerateRoute: ApiGenerateRoute,

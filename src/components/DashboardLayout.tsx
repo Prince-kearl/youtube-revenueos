@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, HelpCircle, Youtube, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText,
+  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText, LifeBuoy,
   LogOut, User as UserIcon,
   Send, Menu, Shield, Crown, Target, Pencil, Lock, ShieldAlert, ShieldCheck,
 } from "lucide-react";
@@ -48,6 +48,7 @@ const nav = [
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/roadmap", label: "Roadmap", icon: Rocket },
   { to: "/changelog", label: "Changelog", icon: ScrollText },
+  { to: "/support", label: "Support", icon: LifeBuoy },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/admin", label: "Admin Console", icon: Shield },
 ] as const;
@@ -61,7 +62,7 @@ const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
   { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/audience", "/analytics"] },
   { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
-  { label: "General", items: ["/reports", "/roadmap", "/changelog", "/settings"] },
+  { label: "General", items: ["/reports", "/roadmap", "/changelog", "/support", "/settings"] },
   { label: "Platform", items: ["/admin"] },
 ];
 
@@ -493,6 +494,9 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
           <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask anything…" />
           <Button type="submit" size="icon"><Send className="h-4 w-4" /></Button>
         </form>
+        <Link to="/support" onClick={() => onOpenChange(false)} className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+          <LifeBuoy className="h-3.5 w-3.5" /> Need a human? Report a problem →
+        </Link>
       </SheetContent>
     </Sheet>
   );

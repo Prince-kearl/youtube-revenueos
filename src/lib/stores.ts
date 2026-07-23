@@ -205,7 +205,7 @@ export const PLATFORM_ROLES: PlatformRole[] = ["Superadmin", "Owner", "Manager",
 export const useViewerRole = () => useLocalStore<PlatformRole>("yroos.viewerRole", "Owner" as PlatformRole);
 
 // Routes every role can always reach — personal/account-level pages, not workspace data.
-const OPEN_ROUTES = ["/dashboard", "/roadmap", "/changelog", "/settings", "/notifications"];
+const OPEN_ROUTES = ["/dashboard", "/roadmap", "/changelog", "/settings", "/notifications", "/support"];
 
 // Everything else is an allowlist per role. Owner and Superadmin get full workspace access;
 // Superadmin additionally gets /admin, gated separately below.
@@ -449,14 +449,27 @@ export const useAnnouncements = () => useLocalStore<Announcement[]>("yroos.annou
 // ============ SUPPORT ============
 export type TicketStatus = "Open" | "Pending" | "Resolved";
 export type TicketPriority = "Low" | "Medium" | "High" | "Urgent";
-export interface SupportTicket { id: string; subject: string; org: string; requester: string; priority: TicketPriority; status: TicketStatus; created: string; lastReply: string }
+export type TicketSource = "App" | "Landing Page";
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  message: string;
+  org: string;
+  requester: string;
+  email: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  source: TicketSource;
+  created: string;
+  lastReply: string;
+}
 const seedTickets = (): SupportTicket[] => [
-  { id: uid(), subject: "Stripe webhook not attributing a sale", org: "RideRatchet Media", requester: "Priya Nair", priority: "Urgent", status: "Open", created: "2026-07-21", lastReply: "2026-07-21" },
-  { id: uid(), subject: "Can't invite a 6th teammate on Pro", org: "Glow Up Beauty Co", requester: "Maya Osei", priority: "Medium", status: "Open", created: "2026-07-20", lastReply: "2026-07-20" },
-  { id: uid(), subject: "Comment automation replied twice", org: "Northlight Gaming", requester: "Devon Marsh", priority: "High", status: "Pending", created: "2026-07-18", lastReply: "2026-07-19" },
-  { id: uid(), subject: "Request: export brand deals to CSV", org: "Wanderlens Travel", requester: "Sofia Ramos", priority: "Low", status: "Pending", created: "2026-07-15", lastReply: "2026-07-17" },
-  { id: uid(), subject: "Billing charged after cancellation", org: "Bytesize Learning", requester: "Hiro Tanaka", priority: "Urgent", status: "Resolved", created: "2026-07-05", lastReply: "2026-07-06" },
-  { id: uid(), subject: "How do I verify my creator badge?", org: "Kitchen with Kofi", requester: "Kofi Boateng", priority: "Low", status: "Resolved", created: "2026-07-11", lastReply: "2026-07-12" },
+  { id: uid(), subject: "Stripe webhook not attributing a sale", message: "Two brand deal payments went through on Stripe but never showed up in the Revenue Transactions table. I checked the webhook logs and they're firing, but nothing's landing in the app.", org: "RideRatchet Media", requester: "Priya Nair", email: "priya@rideratchet.io", priority: "Urgent", status: "Open", source: "App", created: "2026-07-21", lastReply: "2026-07-21" },
+  { id: uid(), subject: "Can't invite a 6th teammate on Pro", message: "Trying to invite a new setter but the Team page says we're at our seat limit. We're on Pro — thought that included 5 seats, can we get one more or do we need to upgrade?", org: "Glow Up Beauty Co", requester: "Maya Osei", email: "maya@glowup.co", priority: "Medium", status: "Open", source: "App", created: "2026-07-20", lastReply: "2026-07-20" },
+  { id: uid(), subject: "Comment automation replied twice", message: "One of our auto-reply rules fired twice on the same comment within a minute. Looks like a duplicate-trigger bug rather than something on my end.", org: "Northlight Gaming", requester: "Devon Marsh", email: "devon@northlight.gg", priority: "High", status: "Pending", source: "App", created: "2026-07-18", lastReply: "2026-07-19" },
+  { id: uid(), subject: "Request: export brand deals to CSV", message: "Would love a CSV export button on the Brand Deals board, same as the one on the Analytics transactions table. Right now I'm copying rows by hand for our monthly report.", org: "Wanderlens Travel", requester: "Sofia Ramos", email: "sofia@wanderlens.com", priority: "Low", status: "Pending", source: "App", created: "2026-07-15", lastReply: "2026-07-17" },
+  { id: uid(), subject: "Billing charged after cancellation", message: "I cancelled my subscription on the 30th but got charged again on the 4th. Can someone check my account and refund the extra charge?", org: "Bytesize Learning", requester: "Hiro Tanaka", email: "hiro@bytesize.dev", priority: "Urgent", status: "Resolved", source: "Landing Page", created: "2026-07-05", lastReply: "2026-07-06" },
+  { id: uid(), subject: "How do I verify my creator badge?", message: "Saw other channels have a verified creator badge next to their name. How do I apply for that on my account?", org: "Kitchen with Kofi", requester: "Kofi Boateng", email: "kofi@kwk.tv", priority: "Low", status: "Resolved", source: "App", created: "2026-07-11", lastReply: "2026-07-12" },
 ];
 export const useSupportTickets = () => useLocalStore<SupportTicket[]>("yroos.tickets", seedTickets());
 

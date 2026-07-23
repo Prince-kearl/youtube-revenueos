@@ -1,10 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
-  ArrowRight, Play, Youtube, MessageSquare, Link2, DollarSign, Sparkles, TrendingUp,
+  ArrowRight, Play, Youtube, MessageSquare, Link2, DollarSign, Sparkles, TrendingUp, Send, LifeBuoy,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from "@/components/ui/accordion";
+import { useSupportTickets } from "@/lib/stores";
+import { uid } from "@/lib/local-store";
 
 export const Route = createFileRoute("/landing")({
   component: Landing,
@@ -26,6 +30,7 @@ function Landing() {
       <BuiltForCreators />
       <StatsSection />
       <FaqSection />
+      <ContactSection />
       <FinalCta />
       <FooterSection />
     </div>
@@ -45,6 +50,7 @@ function NavBar() {
           <a href="#stats" className="hover:text-foreground">Results</a>
           <Link to="/changelog" className="hover:text-foreground">Changelog</Link>
           <a href="#faq" className="hover:text-foreground">FAQ</a>
+          <a href="#contact" className="hover:text-foreground">Contact</a>
         </nav>
         <div className="flex items-center gap-2">
           <Link to="/" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Log In</Link>
@@ -280,6 +286,82 @@ function FaqSection() {
   );
 }
 
+function ContactSection() {
+  const [, setTickets] = useSupportTickets();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !message.trim()) return toast.error("Please fill in every field");
+    const today = new Date().toISOString().slice(0, 10);
+    setTickets((prev) => [
+      {
+        id: uid(),
+        subject: message.length > 60 ? `${message.slice(0, 57)}…` : message,
+        message,
+        org: "Not signed in",
+        requester: name,
+        email,
+        priority: "Medium",
+        status: "Open",
+        source: "Landing Page",
+        created: today,
+        lastReply: today,
+      },
+      ...prev,
+    ]);
+    setSent(true);
+    toast.success("Thanks — we got it!", { description: "Someone from the Tubify team will follow up by email." });
+  };
+
+  return (
+    <section id="contact" className="mx-auto max-w-2xl px-6 py-16">
+      <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <LifeBuoy className="h-3.5 w-3.5" /> Contact
+      </span>
+      <h2 className="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl">Found a problem? Have a question?</h2>
+      <p className="mx-auto mt-3 max-w-md text-center text-muted-foreground">
+        Tell us what's going on — this goes straight to the Tubify team, whether or not you have an account yet.
+      </p>
+
+      <div className="mt-8 rounded-xl border-2 border-foreground/10 bg-white p-6 sm:p-8">
+        {sent ? (
+          <div className="py-6 text-center">
+            <p className="font-semibold">Message sent.</p>
+            <p className="mt-1 text-sm text-muted-foreground">We'll get back to you at {email}.</p>
+            <button onClick={() => { setSent(false); setName(""); setEmail(""); setMessage(""); }} className="mt-4 text-sm font-medium text-primary hover:underline">
+              Send another message
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} required className="h-11 w-full rounded-lg border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11 w-full rounded-lg border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">What's going on?</label>
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={4} className="w-full rounded-lg border border-border bg-accent/10 px-3 py-2.5 text-sm outline-none focus:border-primary" />
+            </div>
+            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <Send className="h-4 w-4" /> Send Message
+            </button>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function FinalCta() {
   return (
     <section className="mx-auto max-w-4xl px-6 pb-16">
@@ -331,6 +413,7 @@ function FooterSection() {
         <div>
           <p className="text-sm font-semibold">Contact</p>
           <p className="mt-3 text-sm text-background/60">hey@tubify.app</p>
+          <a href="#contact" className="mt-2 inline-block text-sm text-background/60 hover:text-background">Report a problem →</a>
         </div>
       </div>
       <div className="border-t border-white/10 px-6 py-5 text-center text-xs text-background/40">

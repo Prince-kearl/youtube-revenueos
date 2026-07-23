@@ -16,6 +16,10 @@ const priorityColor: Record<TicketPriority, string> = {
   High: "bg-warning/15 text-warning",
   Urgent: "bg-destructive/15 text-destructive",
 };
+const sourceColor: Record<string, string> = {
+  App: "bg-brand-purple/15 text-brand-purple",
+  "Landing Page": "bg-brand-amber/15 text-brand-amber",
+};
 
 export function SupportSection() {
   const [tickets, setTickets] = useSupportTickets();
@@ -57,11 +61,13 @@ export function SupportSection() {
         {filtered.map((t) => (
           <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate font-medium">{t.subject}</p>
                 <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${priorityColor[t.priority]}`}>{t.priority}</span>
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${sourceColor[t.source]}`}>{t.source}</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t.requester} · {t.org} · opened {t.created} · last reply {t.lastReply}</p>
+              <p className="mt-1 max-w-xl truncate text-sm text-muted-foreground">{t.message}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t.requester} · {t.email} · {t.org} · opened {t.created} · last reply {t.lastReply}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[t.status]}`}>{t.status}</span>
