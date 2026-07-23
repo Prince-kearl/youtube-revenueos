@@ -4,9 +4,9 @@ import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, HelpCircle, Youtube, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus,
+  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText,
   LogOut, User as UserIcon,
-  Send, Menu,
+  Send, Menu, Shield, Crown, Target, Pencil, Lock, ShieldAlert, ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useDeals, useNotifications, useProfile } from "@/lib/stores";
+import {
+  useDeals, useNotifications, useProfile, useViewerRole, useFeatureFlags,
+  canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
+} from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
@@ -44,7 +47,9 @@ const nav = [
   { to: "/team", label: "Team", icon: UserPlus },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/roadmap", label: "Roadmap", icon: Rocket },
+  { to: "/changelog", label: "Changelog", icon: ScrollText },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/admin", label: "Admin Console", icon: Shield },
 ] as const;
 
 const primaryMobileNav = nav.filter((item) =>
@@ -56,10 +61,23 @@ const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
   { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/audience", "/analytics"] },
   { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
-  { label: "General", items: ["/reports", "/roadmap", "/settings"] },
+  { label: "General", items: ["/reports", "/roadmap", "/changelog", "/settings"] },
+  { label: "Platform", items: ["/admin"] },
 ];
 
-export function DashboardLayout({ title, children }: { title: string; children: ReactNode }) {
+const ROLE_META: Record<PlatformRole, { icon: typeof Shield; color: string }> = {
+  Superadmin: { icon: Shield, color: "text-brand-purple bg-brand-purple/10" },
+  Owner: { icon: Crown, color: "text-primary bg-primary/10" },
+  Manager: { icon: Users, color: "text-brand-green bg-brand-green/10" },
+  Setter: { icon: Target, color: "text-brand-amber bg-brand-amber/10" },
+  Editor: { icon: Pencil, color: "text-muted-foreground bg-accent" },
+};
+
+const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
+  (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(([key, meta]) => [meta.route, key]),
+);
+
+export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -70,8 +88,31 @@ export function DashboardLayout({ title, children }: { title: string; children: 
   const [profile] = useProfile();
   const [notifs, setNotifs] = useNotifications();
   const [, setDeals] = useDeals();
+  const [viewerRole, setViewerRole] = useViewerRole();
+  const [flags] = useFeatureFlags();
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
+
+  const isLocked = (to: string) => {
+    const feature = ROUTE_FEATURE[to];
+    return !!feature && !flags[feature] && viewerRole !== "Superadmin";
+  };
+  const visibleNav = nav.filter((item) => canAccessRoute(viewerRole, item.to));
+  const visibleNavGroups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((to) => canAccessRoute(viewerRole, to)) }))
+    .filter((g) => g.items.length > 0);
+  const visiblePrimaryMobileNav = primaryMobileNav.filter((item) => canAccessRoute(viewerRole, item.to));
+  const routeAllowed = canAccessRoute(viewerRole, pathname);
+  const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
+  const pageBlocked = !routeAllowed || (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin");
+
+  const switchRole = (role: PlatformRole) => {
+    setViewerRole(role);
+    if (!canAccessRoute(role, pathname)) {
+      navigate({ to: "/dashboard" });
+    }
+    toast.success(`Viewing as ${role}`, { description: "This switches the RBAC demo — nothing else changes." });
+  };
 
   // Cmd/Ctrl+K search
   useEffect(() => {
@@ -98,62 +139,66 @@ export function DashboardLayout({ title, children }: { title: string; children: 
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-sidebar transition-all duration-200 md:flex ${
-          collapsed ? "w-20" : "w-[210px]"
-        }`}
-      >
-        <div className="flex items-center justify-between px-4 py-5">
-          <Logo collapsed={collapsed} />
-          <button onClick={() => setCollapsed((c) => !c)} className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-            <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
-          {navGroups.map((group) => (
-            <div key={group.label}>
-              {!collapsed && (
-                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{group.label}</p>
-              )}
-              <div className="space-y-1">
-                {group.items.map((to) => {
-                  const item = nav.find((n) => n.to === to)!;
-                  const active = pathname === item.to;
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.to} to={item.to} title={collapsed ? item.label : undefined} className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
-                      <span className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"}`} />
-                      <Icon className="relative h-[18px] w-[18px] shrink-0" />
-                      {!collapsed && <span className="relative">{item.label}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="p-3">
-          <div className="flex items-center gap-3 rounded-xl bg-accent/50 px-3 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <Youtube className="h-4 w-4 text-white" fill="white" strokeWidth={1.5} />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-muted-foreground">Connected</p>
-                <p className="truncate text-sm font-semibold">@YourChannel</p>
-              </div>
-            )}
-            {!collapsed && <span className="h-2 w-2 shrink-0 rounded-full bg-success" />}
+      {!hideAppNav && (
+        <aside
+          className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-sidebar transition-all duration-200 md:flex ${
+            collapsed ? "w-20" : "w-[210px]"
+          }`}
+        >
+          <div className="flex items-center justify-between px-4 py-5">
+            <Logo collapsed={collapsed} />
+            <button onClick={() => setCollapsed((c) => !c)} className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+            </button>
           </div>
-        </div>
-      </aside>
 
-      <div className={`transition-all duration-200 ${collapsed ? "md:pl-20" : "md:pl-[210px]"}`}>
+          <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
+            {visibleNavGroups.map((group) => (
+              <div key={group.label}>
+                {!collapsed && (
+                  <p className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${group.label === "Platform" ? "text-brand-purple/70" : "text-muted-foreground/60"}`}>{group.label}</p>
+                )}
+                <div className="space-y-1">
+                  {group.items.map((to) => {
+                    const item = nav.find((n) => n.to === to)!;
+                    const active = pathname === item.to;
+                    const locked = isLocked(item.to);
+                    const Icon = item.icon;
+                    return (
+                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-primary/10 text-primary" : locked ? "text-muted-foreground/40 hover:bg-accent" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
+                        <span className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"}`} />
+                        <Icon className="relative h-[18px] w-[18px] shrink-0" />
+                        {!collapsed && <span className="relative flex-1">{item.label}</span>}
+                        {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          <div className="p-3">
+            <div className="flex items-center gap-3 rounded-xl bg-accent/50 px-3 py-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+                <Youtube className="h-4 w-4 text-white" fill="white" strokeWidth={1.5} />
+              </div>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted-foreground">Connected</p>
+                  <p className="truncate text-sm font-semibold">@YourChannel</p>
+                </div>
+              )}
+              {!collapsed && <span className="h-2 w-2 shrink-0 rounded-full bg-success" />}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      <div className={`transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-20" : "md:pl-[210px]"}`}>
         <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="md:hidden"><Logo collapsed /></div>
+            <div className={hideAppNav ? "" : "md:hidden"}><Logo collapsed /></div>
             <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -165,6 +210,35 @@ export function DashboardLayout({ title, children }: { title: string; children: 
             <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
               <Search className="h-[18px] w-[18px]" />
             </button>
+
+            {/* RBAC demo role switcher */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  title="Demo control — switch roles to preview RBAC"
+                  className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
+                >
+                  {(() => { const RoleIcon = ROLE_META[viewerRole].icon; return <RoleIcon className="h-3.5 w-3.5" />; })()}
+                  <span className="hidden sm:inline">Viewing as {viewerRole}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Preview as role</DropdownMenuLabel>
+                <p className="px-2 pb-2 text-xs text-muted-foreground">Demo control — switches nav access &amp; permissions live.</p>
+                <DropdownMenuSeparator />
+                {PLATFORM_ROLES.map((role) => {
+                  const RoleIcon = ROLE_META[role].icon;
+                  return (
+                    <DropdownMenuItem key={role} onSelect={() => switchRole(role)} className={role === viewerRole ? "bg-accent" : undefined}>
+                      <RoleIcon className="mr-2 h-4 w-4" />
+                      <span className="flex-1">{role}</span>
+                      {role === viewerRole && <ShieldCheck className="h-4 w-4 text-primary" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
@@ -234,7 +308,35 @@ export function DashboardLayout({ title, children }: { title: string; children: 
           </div>
         </header>
 
-        <main className="p-4 pb-28 sm:p-6 md:pb-6">{children}</main>
+        <main className="p-4 pb-28 sm:p-6 md:pb-6">
+          {pageBlocked ? (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
+                {routeAllowed ? <Lock className="h-6 w-6" /> : <ShieldAlert className="h-6 w-6" />}
+              </span>
+              {routeAllowed ? (
+                <>
+                  <h2 className="mt-4 text-lg font-semibold">This feature has been disabled</h2>
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    A Superadmin has temporarily turned off {lockedFeatureOnPage ? FEATURE_META[lockedFeatureOnPage].label : "this feature"} for all users.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="mt-4 text-lg font-semibold">Access restricted</h2>
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    Your role ({viewerRole}) doesn't have permission to view this page. Ask an Owner or Superadmin for access.
+                  </p>
+                </>
+              )}
+              <button onClick={() => navigate({ to: "/dashboard" })} className="mt-5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                Back to Dashboard
+              </button>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
 
       {/* Help FAB */}
@@ -243,60 +345,66 @@ export function DashboardLayout({ title, children }: { title: string; children: 
       </button>
 
       {/* Mobile pill nav */}
-      <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%-1.5rem)] -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
-          {primaryMobileNav.map((item) => {
-            const active = pathname === item.to;
-            const Icon = item.icon;
-            return (
-              <Link key={item.to} to={item.to} aria-label={item.label} title={item.label} className={cn("group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all", active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
-                <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-              </Link>
-            );
-          })}
-          <button
-            onClick={() => setMoreOpen(true)}
-            aria-label="More"
-            title="More"
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-              !primaryMobileNav.some((item) => item.to === pathname) && nav.some((item) => item.to === pathname)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <Menu className="h-[18px] w-[18px]" strokeWidth={2} />
-          </button>
-        </div>
-      </nav>
+      {!hideAppNav && (
+        <>
+          <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%-1.5rem)] -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+            <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+              {visiblePrimaryMobileNav.map((item) => {
+                const active = pathname === item.to;
+                const Icon = item.icon;
+                return (
+                  <Link key={item.to} to={item.to} aria-label={item.label} title={item.label} className={cn("group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all", active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                  </Link>
+                );
+              })}
+              <button
+                onClick={() => setMoreOpen(true)}
+                aria-label="More"
+                title="More"
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+                  !visiblePrimaryMobileNav.some((item) => item.to === pathname) && visibleNav.some((item) => item.to === pathname)
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <Menu className="h-[18px] w-[18px]" strokeWidth={2} />
+              </button>
+            </div>
+          </nav>
 
-      {/* Mobile "more" nav sheet */}
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden">
-          <SheetHeader>
-            <SheetTitle>All Features</SheetTitle>
-          </SheetHeader>
-          <div className="mt-2 grid grid-cols-4 gap-4">
-            {nav.map((item) => {
-              const active = pathname === item.to;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMoreOpen(false)}
-                  className="flex flex-col items-center gap-1.5 text-center"
-                >
-                  <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground")}>
-                    <Icon className="h-5 w-5" strokeWidth={2} />
-                  </span>
-                  <span className={cn("text-xs leading-tight", active ? "font-semibold text-primary" : "text-muted-foreground")}>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
+          {/* Mobile "more" nav sheet */}
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+            <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden">
+              <SheetHeader>
+                <SheetTitle>All Features</SheetTitle>
+              </SheetHeader>
+              <div className="mt-2 grid grid-cols-4 gap-4">
+                {visibleNav.map((item) => {
+                  const active = pathname === item.to;
+                  const locked = isLocked(item.to);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMoreOpen(false)}
+                      className="relative flex flex-col items-center gap-1.5 text-center"
+                    >
+                      <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : locked ? "bg-accent text-muted-foreground/40" : "bg-accent text-muted-foreground")}>
+                        <Icon className="h-5 w-5" strokeWidth={2} />
+                      </span>
+                      {locked && <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />}
+                      <span className={cn("text-xs leading-tight", active ? "font-semibold text-primary" : "text-muted-foreground")}>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
 
       {/* Global command search */}
       <CommandDialog open={cmdOpen} onOpenChange={setCmdOpen}>
@@ -304,7 +412,7 @@ export function DashboardLayout({ title, children }: { title: string; children: 
         <CommandList>
           <CommandEmpty>No results.</CommandEmpty>
           <CommandGroup heading="Pages">
-            {nav.map((item) => (
+            {visibleNav.map((item) => (
               <CommandItem key={item.to} value={item.label} onSelect={() => { setCmdOpen(false); navigate({ to: item.to }); }}>
                 <item.icon className="mr-2 h-4 w-4" /> {item.label}
               </CommandItem>

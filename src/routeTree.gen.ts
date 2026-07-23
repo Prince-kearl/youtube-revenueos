@@ -17,17 +17,20 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
+import { Route as LandingRouteImport } from './routes/landing'
 import { Route as FreebieRouteImport } from './routes/freebie'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommentsRouteImport } from './routes/comments'
+import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as BrandDealsRouteImport } from './routes/brand-deals'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AiLabRouteImport } from './routes/ai-lab'
 import { Route as AffiliateRouteImport } from './routes/affiliate'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
@@ -72,6 +75,11 @@ const LinkTrackingRoute = LinkTrackingRouteImport.update({
   path: '/link-tracking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FreebieRoute = FreebieRouteImport.update({
   id: '/freebie',
   path: '/freebie',
@@ -95,6 +103,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const CommentsRoute = CommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BrandDealsRoute = BrandDealsRouteImport.update({
@@ -127,6 +140,11 @@ const AffiliateRoute = AffiliateRouteImport.update({
   path: '/affiliate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddVideoRoute = AddVideoRouteImport.update({
   id: '/add-video',
   path: '/add-video',
@@ -146,17 +164,20 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/admin': typeof AdminRoute
   '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
   '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/changelog': typeof ChangelogRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
+  '/landing': typeof LandingRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -170,17 +191,20 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/admin': typeof AdminRoute
   '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
   '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/changelog': typeof ChangelogRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
+  '/landing': typeof LandingRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -195,17 +219,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/add-video': typeof AddVideoRoute
+  '/admin': typeof AdminRoute
   '/affiliate': typeof AffiliateRoute
   '/ai-lab': typeof AiLabRoute
   '/analytics': typeof AnalyticsRoute
   '/audience': typeof AudienceRoute
   '/billing': typeof BillingRoute
   '/brand-deals': typeof BrandDealsRoute
+  '/changelog': typeof ChangelogRoute
   '/comments': typeof CommentsRoute
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
+  '/landing': typeof LandingRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -221,17 +248,20 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/add-video'
+    | '/admin'
     | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
     | '/billing'
     | '/brand-deals'
+    | '/changelog'
     | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/email'
     | '/freebie'
+    | '/landing'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -245,17 +275,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/add-video'
+    | '/admin'
     | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
     | '/billing'
     | '/brand-deals'
+    | '/changelog'
     | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/email'
     | '/freebie'
+    | '/landing'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -269,17 +302,20 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/add-video'
+    | '/admin'
     | '/affiliate'
     | '/ai-lab'
     | '/analytics'
     | '/audience'
     | '/billing'
     | '/brand-deals'
+    | '/changelog'
     | '/comments'
     | '/dashboard'
     | '/destinations'
     | '/email'
     | '/freebie'
+    | '/landing'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -294,17 +330,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddVideoRoute: typeof AddVideoRoute
+  AdminRoute: typeof AdminRoute
   AffiliateRoute: typeof AffiliateRoute
   AiLabRoute: typeof AiLabRoute
   AnalyticsRoute: typeof AnalyticsRoute
   AudienceRoute: typeof AudienceRoute
   BillingRoute: typeof BillingRoute
   BrandDealsRoute: typeof BrandDealsRoute
+  ChangelogRoute: typeof ChangelogRoute
   CommentsRoute: typeof CommentsRoute
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
   EmailRoute: typeof EmailRoute
   FreebieRoute: typeof FreebieRoute
+  LandingRoute: typeof LandingRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -374,6 +413,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LinkTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/freebie': {
       id: '/freebie'
       path: '/freebie'
@@ -407,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/comments'
       fullPath: '/comments'
       preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/brand-deals': {
@@ -451,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AffiliateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/add-video': {
       id: '/add-video'
       path: '/add-video'
@@ -478,17 +538,20 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddVideoRoute: AddVideoRoute,
+  AdminRoute: AdminRoute,
   AffiliateRoute: AffiliateRoute,
   AiLabRoute: AiLabRoute,
   AnalyticsRoute: AnalyticsRoute,
   AudienceRoute: AudienceRoute,
   BillingRoute: BillingRoute,
   BrandDealsRoute: BrandDealsRoute,
+  ChangelogRoute: ChangelogRoute,
   CommentsRoute: CommentsRoute,
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
   EmailRoute: EmailRoute,
   FreebieRoute: FreebieRoute,
+  LandingRoute: LandingRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,
