@@ -101,3 +101,13 @@
     border-radius: 999px;
   }
 }
+
+/* iOS Safari auto-zooms the page on focus for any field under 16px — most inputs in this app
+   use text-sm (14px). Kept unlayered (outside @layer) so it beats Tailwind's utility classes,
+   which otherwise win over anything inside @layer base regardless of source order. Scoped to
+   phone-width viewports so tablet/desktop sizing is untouched. */
+@media (max-width: 639px) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
