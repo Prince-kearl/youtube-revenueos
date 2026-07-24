@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
-  MessageSquare, Plus, AtSign, HelpCircle, Zap, AlertTriangle, Check, Pencil, Trash2, Eye, Search, X,
+  MessageSquare, Plus, AtSign, HelpCircle, Zap, AlertTriangle, Check, Pencil, Trash2, Eye, Search, X, Inbox,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { useCommentRules, CommentRule } from "@/lib/stores";
+import { useCommentRules, useLeads, CommentRule } from "@/lib/stores";
 import { RuleDialog, ConfirmDialog } from "@/components/modals";
 import { toast } from "sonner";
 
@@ -71,6 +71,7 @@ function matchRule(comment: string, rules: CommentRule[]): CommentRule | undefin
 
 function Comments() {
   const [rules, setRules] = useCommentRules();
+  const [leads] = useLeads();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CommentRule | null>(null);
   const [deleting, setDeleting] = useState<CommentRule | null>(null);
@@ -97,6 +98,9 @@ function Comments() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/leads" className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
+            <Inbox className="h-4 w-4" /> Lead Inbox
+          </Link>
           <button onClick={() => setViewingComments(true)} className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
             <Eye className="h-4 w-4" /> View All Comments
           </button>
@@ -110,7 +114,9 @@ function Comments() {
         <StatCard icon={<Zap className="h-5 w-5" />} value={String(rules.reduce((a, r) => a + r.fired, 0))} label="Auto-replies (30d)" change="18.2%" up />
         <StatCard icon={<MessageSquare className="h-5 w-5" />} value={String(rules.filter((r) => r.active).length)} label="Active Rules" />
         <StatCard icon={<AtSign className="h-5 w-5" />} value="118" label="IG Handles Detected" change="9.4%" up />
-        <StatCard icon={<Check className="h-5 w-5" />} value="487" label="Leads Created" change="12.1%" up />
+        <Link to="/leads">
+          <StatCard icon={<Check className="h-5 w-5" />} value={String(leads.length)} label="Leads Created" sub="View in Lead Inbox →" />
+        </Link>
       </div>
 
       <div className="mt-5 rounded-xl border border-border bg-card p-5">

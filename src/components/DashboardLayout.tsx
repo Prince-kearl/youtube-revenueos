@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
   Bell, HelpCircle, Youtube, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText, LifeBuoy,
+  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText, LifeBuoy, Inbox,
   LogOut, User as UserIcon,
   Send, Menu, Shield, Crown, Target, Pencil, Lock, ShieldAlert, ShieldCheck,
 } from "lucide-react";
@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  useDeals, useNotifications, useProfile, useViewerRole, useFeatureFlags,
+  useDeals, useNotifications, useProfile, useViewerRole, useFeatureFlags, useSidebarCollapsed,
   canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
 } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
@@ -38,6 +38,7 @@ const nav = [
   { to: "/destinations", label: "Destinations", icon: MapPin },
   { to: "/link-tracking", label: "Link Tracking", icon: Link2 },
   { to: "/comments", label: "Comment Automation", icon: MessageSquare },
+  { to: "/leads", label: "Lead Inbox", icon: Inbox },
   { to: "/audience", label: "Audience", icon: Users },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/affiliate", label: "Affiliate", icon: Handshake },
@@ -60,7 +61,7 @@ const primaryMobileNav = nav.filter((item) =>
 const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Overview", items: ["/dashboard"] },
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
-  { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/audience", "/analytics"] },
+  { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/leads", "/audience", "/analytics"] },
   { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
   { label: "General", items: ["/reports", "/roadmap", "/changelog", "/support", "/settings"] },
   { label: "Platform", items: ["/admin"] },
@@ -79,7 +80,7 @@ const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
 );
 
 export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [moreOpen, setMoreOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);

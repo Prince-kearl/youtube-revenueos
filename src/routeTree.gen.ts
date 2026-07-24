@@ -18,6 +18,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
+import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as FreebieRouteImport } from './routes/freebie'
 import { Route as EmailRouteImport } from './routes/email'
@@ -79,6 +80,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const LinkTrackingRoute = LinkTrackingRouteImport.update({
   id: '/link-tracking',
   path: '/link-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LandingRoute = LandingRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
+  '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
+  '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/email': typeof EmailRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
+  '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/landing'
+    | '/leads'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/landing'
+    | '/leads'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/freebie'
     | '/landing'
+    | '/leads'
     | '/link-tracking'
     | '/notifications'
     | '/projects'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   EmailRoute: typeof EmailRoute
   FreebieRoute: typeof FreebieRoute
   LandingRoute: typeof LandingRoute
+  LeadsRoute: typeof LeadsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -431,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/link-tracking'
       fullPath: '/link-tracking'
       preLoaderRoute: typeof LinkTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/landing': {
@@ -572,6 +592,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailRoute: EmailRoute,
   FreebieRoute: FreebieRoute,
   LandingRoute: LandingRoute,
+  LeadsRoute: LeadsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,

@@ -109,6 +109,149 @@ const seedRules = (): CommentRule[] => [
 ];
 export const useCommentRules = () => useLocalStore<CommentRule[]>("yroos.rules", seedRules());
 
+// ============ LEADS (unified inbox) ============
+// A lead is created when a comment automation rule fires on a viewer's comment. Instagram/YouTube
+// policy only allows a business to send the FIRST message once the person has messaged them —
+// `canMessage` tracks whether that's happened yet, and the inbox UI gates free-form DMs on it.
+export type LeadStatus = "New Lead" | "In Contact" | "Qualified" | "Unqualified" | "Call Booked" | "Won";
+export type LeadChannel = "Instagram" | "YouTube Comment" | "Email";
+export interface LeadAttachment {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  durationSec?: number;
+}
+export interface LeadMessage {
+  id: string;
+  from: "lead" | "you" | "system";
+  kind?: "comment" | "dm";
+  text: string;
+  time: string;
+  attachment?: LeadAttachment;
+  pinned?: boolean;
+}
+export interface Lead {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  channel: LeadChannel;
+  status: LeadStatus;
+  assignedTo: string;
+  tags: string[];
+  unread: boolean;
+  canMessage: boolean;
+  sourceVideo: string;
+  sourceComment: string;
+  messages: LeadMessage[];
+  painPoints: string[];
+  desiredOutcomes: string[];
+  summaryAge: string;
+  updatedAt: string;
+  pinned?: boolean;
+  muted?: boolean;
+  favorite?: boolean;
+  archived?: boolean;
+}
+const seedLeads = (): Lead[] => [
+  {
+    id: uid(), name: "Priya Nair", handle: "@priyanair.fit", avatar: "https://i.pravatar.cc/64?img=48",
+    channel: "Instagram", status: "In Contact", assignedTo: "", tags: ["Warm", "Coach"], unread: true, canMessage: true,
+    sourceVideo: "How I Made $100K on YouTube", sourceComment: "Can you send me the link?? Need this for my channel 🙏",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from a comment on \"How I Made $100K on YouTube\"", time: "Mon 9:02 AM" },
+      { id: uid(), from: "you", kind: "comment", text: "Thanks! Grab everything in the pinned comment 👉 the free training link is there.", time: "Mon 9:03 AM" },
+      { id: uid(), from: "lead", kind: "dm", text: "Hey! Just grabbed the guide, this is exactly what I needed for my fitness channel. Do you help people set up the automation too?", time: "Mon 9:40 AM" },
+      { id: uid(), from: "you", kind: "dm", text: "Glad it's useful! Yep, that's actually what Tubify does end to end. What's your channel size right now?", time: "Mon 9:52 AM" },
+      { id: uid(), from: "lead", kind: "dm", text: "About 40k subs, growing pretty fast the last 2 months", time: "Mon 10:10 AM" },
+    ],
+    painPoints: ["Manually replying to every comment asking for links", "No way to track which comments turn into real leads"],
+    desiredOutcomes: ["Automate the first reply without sounding robotic", "See revenue tied back to specific videos"],
+    summaryAge: "12m ago", updatedAt: "2026-07-21T10:10:00",
+  },
+  {
+    id: uid(), name: "devon.creates", handle: "@devon.creates", avatar: "https://i.pravatar.cc/64?img=22",
+    channel: "Instagram", status: "Qualified", assignedTo: "", tags: ["Gaming"], unread: true, canMessage: true,
+    sourceVideo: "AI Tools for Content Creators", sourceComment: "yo @devon.creates check this out",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from an @handle drop on \"AI Tools for Content Creators\"", time: "Sun 6:14 PM" },
+      { id: uid(), from: "you", kind: "comment", text: "Just DM'd you on Instagram! Check your requests 📩", time: "Sun 6:15 PM" },
+      { id: uid(), from: "lead", kind: "dm", text: "oh nice, yeah I've been meaning to clean up how I track sponsorships, right now it's just a spreadsheet lol", time: "Sun 7:02 PM" },
+      { id: uid(), from: "you", kind: "dm", text: "That's exactly what the Brand Deals board fixes. Want me to walk you through it on a quick call?", time: "Sun 7:15 PM" },
+      { id: uid(), from: "lead", kind: "dm", text: "yeah could work, I'm free most evenings", time: "Sun 7:20 PM" },
+    ],
+    painPoints: ["Tracking sponsorships in a spreadsheet", "No visibility into which deals are actually closing"],
+    desiredOutcomes: ["A simple pipeline view for brand deals", "Stop losing track of follow-ups"],
+    summaryAge: "1h ago", updatedAt: "2026-07-20T19:20:00",
+  },
+  {
+    id: uid(), name: "Sofia Ramos", handle: "@wanderlens.sofia", avatar: "https://i.pravatar.cc/64?img=36",
+    channel: "Instagram", status: "Call Booked", assignedTo: "", tags: ["Travel", "Hot"], unread: false, canMessage: true,
+    sourceVideo: "The Creator Business Blueprint", sourceComment: "how do I get the vsl you mentioned?",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from a purchase-intent question on \"The Creator Business Blueprint\"", time: "Jul 15, 2:00 PM" },
+      { id: uid(), from: "you", kind: "comment", text: "Great question — yes, it works for beginners. Full breakdown here: link in bio", time: "Jul 15, 2:01 PM" },
+      { id: uid(), from: "lead", kind: "dm", text: "watched the whole thing, this is really well put together. what would it cost for a team of 3?", time: "Jul 16, 9:14 AM" },
+      { id: uid(), from: "you", kind: "dm", text: "Pro plan covers 5 seats at $79/mo, so you'd have room to grow into it. Want to hop on a call to see it live?", time: "Jul 16, 9:30 AM" },
+      { id: uid(), from: "lead", kind: "dm", text: "yes let's do it, Thursday afternoon works", time: "Jul 16, 9:41 AM" },
+      { id: uid(), from: "system", text: "Status update: Call Booked", time: "Jul 16, 9:42 AM" },
+    ],
+    painPoints: ["Managing a 3-person editing team without a shared system", "Unsure which plan fits their team size"],
+    desiredOutcomes: ["Get the whole team onto one shared workspace", "Book a live walkthrough before committing"],
+    summaryAge: "3h ago", updatedAt: "2026-07-16T09:42:00",
+  },
+  {
+    id: uid(), name: "Kofi Boateng", handle: "@kwk.kofi", avatar: "https://i.pravatar.cc/64?img=11",
+    channel: "YouTube Comment", status: "New Lead", assignedTo: "", tags: [], unread: true, canMessage: false,
+    sourceVideo: "How I Made $100K on YouTube", sourceComment: "link please, need this for my cooking channel",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from a comment on \"How I Made $100K on YouTube\"", time: "Today 8:12 AM" },
+      { id: uid(), from: "you", kind: "comment", text: "Thanks! Grab everything in the pinned comment 👉 the free training link is there.", time: "Today 8:13 AM" },
+    ],
+    painPoints: [], desiredOutcomes: [], summaryAge: "—",
+    updatedAt: "2026-07-22T08:13:00",
+  },
+  {
+    id: uid(), name: "Maya Osei", handle: "@glowup.maya", avatar: "https://i.pravatar.cc/64?img=41",
+    channel: "Instagram", status: "Unqualified", assignedTo: "", tags: ["Beauty"], unread: false, canMessage: true,
+    sourceVideo: "AI Tools for Content Creators", sourceComment: "@glowup.maya you need to see this",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from an @handle drop on \"AI Tools for Content Creators\"", time: "Jul 10, 11:00 AM" },
+      { id: uid(), from: "you", kind: "comment", text: "Just DM'd you on Instagram! Check your requests 📩", time: "Jul 10, 11:01 AM" },
+      { id: uid(), from: "lead", kind: "dm", text: "thanks but I think I'm all set with my current setup for now", time: "Jul 10, 3:40 PM" },
+      { id: uid(), from: "you", kind: "dm", text: "No worries at all — I'll leave the door open if priorities shift. Appreciate you checking it out!", time: "Jul 10, 3:52 PM" },
+    ],
+    painPoints: ["Already has a system she's happy with"], desiredOutcomes: [],
+    summaryAge: "2d ago", updatedAt: "2026-07-10T15:40:00",
+  },
+  {
+    id: uid(), name: "Hiro Tanaka", handle: "@bytesize.hiro", avatar: "https://i.pravatar.cc/64?img=15",
+    channel: "Instagram", status: "Won", assignedTo: "", tags: ["EdTech", "VIP"], unread: false, canMessage: true,
+    sourceVideo: "The Creator Business Blueprint", sourceComment: "how do I get the vsl you mentioned?",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from a purchase-intent question on \"The Creator Business Blueprint\"", time: "Jun 28, 1:00 PM" },
+      { id: uid(), from: "you", kind: "comment", text: "Great question — yes, it works for beginners. Full breakdown here: link in bio", time: "Jun 28, 1:02 PM" },
+      { id: uid(), from: "lead", kind: "dm", text: "just signed up on the Starter plan, excited to get going", time: "Jun 29, 10:00 AM" },
+      { id: uid(), from: "system", text: "Status update: Won", time: "Jun 29, 10:05 AM" },
+    ],
+    painPoints: [], desiredOutcomes: ["Get set up quickly and start seeing revenue data"],
+    summaryAge: "3w ago", updatedAt: "2026-06-29T10:05:00",
+  },
+  {
+    id: uid(), name: "Northlight Gaming Fan", handle: "@nl.viewer22", avatar: "https://i.pravatar.cc/64?img=60",
+    channel: "YouTube Comment", status: "New Lead", assignedTo: "", tags: [], unread: true, canMessage: false,
+    sourceVideo: "AI Tools for Content Creators", sourceComment: "how do you track which video actually makes money??",
+    messages: [
+      { id: uid(), from: "system", text: "Captured from an AI-detected question on \"AI Tools for Content Creators\"", time: "Yesterday 4:30 PM" },
+      { id: uid(), from: "you", kind: "comment", text: "Great question — yes, it works for beginners. Full breakdown here: link in bio", time: "Yesterday 4:31 PM" },
+    ],
+    painPoints: [], desiredOutcomes: [], summaryAge: "—",
+    updatedAt: "2026-07-21T16:31:00",
+  },
+];
+export const useLeads = () => useLocalStore<Lead[]>("yroos.leads", seedLeads());
+
 // ============ CAMPAIGNS ============
 export interface Campaign {
   id: string;
@@ -195,6 +338,11 @@ const seedTeam = (): TeamMember[] => [
 ];
 export const useTeam = () => useLocalStore<TeamMember[]>("yroos.team", seedTeam());
 
+// ============ UI PREFERENCES ============
+// Persisted so the collapsed state survives navigating between pages — DashboardLayout
+// remounts on every route change, so a plain useState would silently reset it each time.
+export const useSidebarCollapsed = () => useLocalStore<boolean>("yroos.sidebarCollapsed", false);
+
 // ============ RBAC ============
 // Superadmin is a platform-level role (Tubify staff) that sits above every workspace's
 // own Owner/Manager/Setter/Editor roles. The viewer role is switchable here purely so this
@@ -214,10 +362,10 @@ const ROLE_ROUTES: Record<TeamRole, string[] | "all"> = {
   Manager: [
     ...OPEN_ROUTES,
     "/videos", "/projects", "/ai-lab", "/destinations", "/link-tracking",
-    "/comments", "/audience", "/analytics", "/affiliate", "/freebie",
+    "/comments", "/leads", "/audience", "/analytics", "/affiliate", "/freebie",
     "/email", "/brand-deals", "/team", "/reports",
   ],
-  Setter: [...OPEN_ROUTES, "/comments", "/audience", "/brand-deals", "/link-tracking"],
+  Setter: [...OPEN_ROUTES, "/comments", "/leads", "/audience", "/brand-deals", "/link-tracking"],
   Editor: [...OPEN_ROUTES, "/videos", "/projects", "/ai-lab", "/destinations", "/link-tracking"],
 };
 
@@ -232,11 +380,12 @@ export function canAccessRoute(role: PlatformRole, path: string): boolean {
 export const ROLE_ROUTE_MATRIX = ROLE_ROUTES;
 
 // ============ FEATURE FLAGS (platform-wide kill switches, Superadmin-controlled) ============
-export type FeatureKey = "aiLab" | "commentAutomation" | "affiliate" | "freebie" | "email" | "brandDeals";
+export type FeatureKey = "aiLab" | "commentAutomation" | "leads" | "affiliate" | "freebie" | "email" | "brandDeals";
 
 export const FEATURE_META: Record<FeatureKey, { label: string; route: string; description: string }> = {
   aiLab: { label: "AI Lab", route: "/ai-lab", description: "AI-generated video descriptions and tracked-link injection." },
   commentAutomation: { label: "Comment Automation", route: "/comments", description: "Auto-reply rules and lead capture from YouTube comments." },
+  leads: { label: "Lead Inbox", route: "/leads", description: "Unified inbox for leads captured from comments and DMs." },
   brandDeals: { label: "Brand Deals", route: "/brand-deals", description: "Deal pipeline board for sponsorships and partnerships." },
   affiliate: { label: "Affiliate", route: "/affiliate", description: "Referral link tracking and commission payouts." },
   freebie: { label: "AI Freebie", route: "/freebie", description: "AI-generated lead-magnet freebies for the audience." },
@@ -244,7 +393,7 @@ export const FEATURE_META: Record<FeatureKey, { label: string; route: string; de
 };
 
 const seedFeatureFlags = (): Record<FeatureKey, boolean> => ({
-  aiLab: true, commentAutomation: true, brandDeals: true, affiliate: true, freebie: true, email: true,
+  aiLab: true, commentAutomation: true, leads: true, brandDeals: true, affiliate: true, freebie: true, email: true,
 });
 export const useFeatureFlags = () => useLocalStore<Record<FeatureKey, boolean>>("yroos.featureFlags", seedFeatureFlags());
 
