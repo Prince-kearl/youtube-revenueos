@@ -205,6 +205,27 @@ function LeadInbox() {
   const chunksRef = useRef<Blob[]>([]);
   const recordingStartRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  // iOS Safari's position:fixed is unreliable during keyboard show/hide (long-documented WebKit
+  // quirk — fixed elements can end up floating in the wrong spot instead of tracking the real
+  // visible area). Rather than trust CSS to react correctly, compute the keyboard's height
+  // directly from visualViewport and drive the mobile thread overlay's position with real pixels.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(inset);
+    };
+    handler();
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => {
+      vv.removeEventListener("resize", handler);
+      vv.removeEventListener("scroll", handler);
+    };
+  }, []);
 
   const sorted = useMemo(
     () =>
@@ -396,7 +417,7 @@ function LeadInbox() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(var(--app-vvh,100dvh)_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(100dvh_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
         {/* Thread list */}
         <div className={cn("flex min-h-0 flex-col border-border lg:border-r", mobileView === "list" ? "flex" : "hidden lg:flex")}>
           <div className="shrink-0 space-y-2 border-b border-border p-3">
@@ -471,8 +492,17 @@ function LeadInbox() {
           </div>
         </div>
 
-        {/* Conversation */}
-        <div className={cn("flex min-h-0 min-w-0 flex-col", mobileView === "thread" ? "flex" : "hidden lg:flex")}>
+        {/* Conversation — on mobile this becomes a true full-screen fixed overlay so it isn't
+            subject to the page's own scroll/height, and its bottom edge is positioned with
+            JS-measured keyboard height (see keyboardInset) instead of CSS viewport units, which
+            iOS doesn't reliably apply to position:fixed elements during keyboard show/hide. */}
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-col lg:static lg:inset-auto lg:z-auto lg:flex",
+            mobileView === "thread" ? "fixed inset-x-0 top-0 z-[60] flex bg-card" : "hidden lg:flex",
+          )}
+          style={mobileView === "thread" ? { bottom: keyboardInset } : undefined}
+        >
           {!selected ? (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">Select a lead to see the conversation.</div>
           ) : (

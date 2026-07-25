@@ -94,25 +94,6 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const [flags] = useFeatureFlags();
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
-  // iOS Safari doesn't resize the layout viewport when the on-screen keyboard opens — only
-  // window.visualViewport reliably reflects it. Track it as a CSS var so pages (e.g. the Lead
-  // Inbox) can size their scroll area against the real visible height instead of the full
-  // screen height, keeping content above the keyboard. The floating mobile nav stays fixed at
-  // the bottom regardless — it isn't hidden for this.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const handler = () => {
-      document.documentElement.style.setProperty("--app-vvh", `${vv.height}px`);
-    };
-    handler();
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-    };
-  }, []);
 
   const isLocked = (to: string) => {
     const feature = ROUTE_FEATURE[to];
