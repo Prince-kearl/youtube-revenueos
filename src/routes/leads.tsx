@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import { useLeads, useTeam, type Lead, type LeadAttachment, type LeadStatus } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -205,27 +206,7 @@ function LeadInbox() {
   const chunksRef = useRef<Blob[]>([]);
   const recordingStartRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [keyboardInset, setKeyboardInset] = useState(0);
-
-  // iOS Safari's position:fixed is unreliable during keyboard show/hide (long-documented WebKit
-  // quirk — fixed elements can end up floating in the wrong spot instead of tracking the real
-  // visible area). Rather than trust CSS to react correctly, compute the keyboard's height
-  // directly from visualViewport and drive the mobile thread overlay's position with real pixels.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const handler = () => {
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      setKeyboardInset(inset);
-    };
-    handler();
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-    };
-  }, []);
+  const keyboardInset = useKeyboardInset();
 
   const sorted = useMemo(
     () =>

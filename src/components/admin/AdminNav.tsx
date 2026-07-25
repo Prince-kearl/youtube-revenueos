@@ -4,6 +4,7 @@ import {
   BarChart3, Megaphone, Settings, Lock, ScrollText, LifeBuoy, Server, Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export type AdminSection =
@@ -41,6 +42,7 @@ const primaryItems = ALL_ITEMS.filter((i) => PRIMARY_KEYS.includes(i.key));
 
 export function AdminNav({ active, onSelect }: { active: AdminSection; onSelect: (s: AdminSection) => void }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const keyboardOpen = useKeyboardInset() > 150;
 
   return (
     <>
@@ -69,7 +71,7 @@ export function AdminNav({ active, onSelect }: { active: AdminSection; onSelect:
       </nav>
 
       {/* Mobile pill nav — same floating design as the workspace nav, fixed above the content */}
-      <nav aria-label="Admin" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 lg:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav aria-label="Admin" className={cn("fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 lg:hidden print:hidden", keyboardOpen && "hidden")} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
           {primaryItems.map((item) => (
             <button

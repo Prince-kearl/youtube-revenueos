@@ -27,6 +27,7 @@ import {
   canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
 } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
 
@@ -92,6 +93,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const [, setDeals] = useDeals();
   const [viewerRole, setViewerRole] = useViewerRole();
   const [flags] = useFeatureFlags();
+  const keyboardOpen = useKeyboardInset() > 150;
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
 
@@ -349,7 +351,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       {/* Mobile pill nav */}
       {!hideAppNav && (
         <>
-          <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <nav aria-label="Primary" className={cn("fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden", keyboardOpen && "hidden")} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
               {visiblePrimaryMobileNav.map((item) => {
                 const active = pathname === item.to;
