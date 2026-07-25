@@ -94,6 +94,29 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const [flags] = useFeatureFlags();
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // iOS Safari doesn't resize the layout viewport (or respect interactive-widget) when the
+  // on-screen keyboard opens — only window.visualViewport reliably reflects it. Track it here
+  // so pages can size against the real visible height, and hide the floating mobile nav (and
+  // the bottom padding reserved for it) while the keyboard is up instead of leaving a gap.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      const deficit = window.innerHeight - vv.height;
+      setKeyboardOpen(deficit > 150);
+      document.documentElement.style.setProperty("--app-vvh", `${vv.height}px`);
+      document.documentElement.style.setProperty("--nav-reserve", deficit > 150 ? "16px" : "112px");
+    };
+    handler();
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => {
+      vv.removeEventListener("resize", handler);
+      vv.removeEventListener("scroll", handler);
+    };
+  }, []);
 
   const isLocked = (to: string) => {
     const feature = ROUTE_FEATURE[to];
@@ -310,7 +333,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
           </div>
         </header>
 
-        <main className="p-4 pb-28 sm:p-6 md:pb-6">
+        <main className={cn("p-4 sm:p-6", keyboardOpen ? "pb-4" : "pb-28 md:pb-6")}>
           {pageBlocked ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
@@ -349,7 +372,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       {/* Mobile pill nav */}
       {!hideAppNav && (
         <>
-          <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%-1.5rem)] -translate-x-1/2 md:hidden print:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <nav aria-label="Primary" className={cn("fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%-1.5rem)] -translate-x-1/2 md:hidden print:hidden", keyboardOpen && "hidden")} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
               {visiblePrimaryMobileNav.map((item) => {
                 const active = pathname === item.to;

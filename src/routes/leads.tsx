@@ -396,7 +396,7 @@ function LeadInbox() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(100dvh-212px)] lg:h-[calc(100dvh-210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(var(--app-vvh,100dvh)-100px-var(--nav-reserve,112px))] lg:h-[calc(100dvh-210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
         {/* Thread list */}
         <div className={cn("flex min-h-0 flex-col border-border lg:border-r", mobileView === "list" ? "flex" : "hidden lg:flex")}>
           <div className="shrink-0 space-y-2 border-b border-border p-3">
@@ -566,7 +566,7 @@ function LeadInbox() {
                       {suggestions.map((s, i) => (
                         <div
                           key={s.label}
-                          className="w-60 shrink-0 rounded-lg bg-gradient-to-br from-primary via-brand-purple to-brand-amber p-[1.5px] shadow-[0_0_14px_-3px_var(--color-primary)]"
+                          className="animate-gradient-flow w-60 shrink-0 rounded-lg bg-gradient-to-r from-primary via-brand-purple to-brand-amber bg-[length:200%_200%] p-[1.5px] shadow-[0_0_14px_-3px_var(--color-primary)]"
                         >
                           <button
                             onClick={() => setDraft(s.text)}

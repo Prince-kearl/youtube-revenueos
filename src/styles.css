@@ -111,3 +111,13 @@
     font-size: 16px;
   }
 }
+
+/* Flowing gradient border, e.g. the AI suggestion cards in the Lead Inbox — the wrapper
+   needs bg-[length:200%_200%] alongside this so the position shift actually reads as motion. */
+@keyframes gradient-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient-flow {
+  animation: gradient-flow 4s ease infinite;
+}
