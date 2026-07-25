@@ -396,7 +396,7 @@ function LeadInbox() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(var(--app-vvh,100dvh)-100px-var(--nav-reserve,112px))] lg:h-[calc(100dvh-210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(var(--app-vvh,100dvh)_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
         {/* Thread list */}
         <div className={cn("flex min-h-0 flex-col border-border lg:border-r", mobileView === "list" ? "flex" : "hidden lg:flex")}>
           <div className="shrink-0 space-y-2 border-b border-border p-3">
