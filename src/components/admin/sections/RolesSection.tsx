@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/modals";
 import { useCustomRoles, PERMISSION_MODULES, type CustomRole, type PermissionModule } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export function RolesSection() {
   const [roles, setRoles] = useCustomRoles();
@@ -42,14 +43,15 @@ export function RolesSection() {
           <h1 className="text-2xl font-bold tracking-tight">Roles &amp; Permissions</h1>
           <p className="mt-1 text-sm text-muted-foreground">Create custom roles and control exactly which modules each one can reach.</p>
         </div>
-        <button onClick={() => setEditing("new")} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setEditing("new")} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> Create Role
         </button>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {roles.map((role) => (
-          <div key={role.id} className="rounded-xl border border-border bg-card p-5">
+          <div key={role.id} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-purple/10 text-brand-purple"><ShieldCheck className="h-4 w-4" /></span>
@@ -63,10 +65,10 @@ export function RolesSection() {
               {role.permissions.length > 4 && <span className="rounded-md bg-accent px-2 py-0.5 text-[10px] font-medium text-muted-foreground">+{role.permissions.length - 4} more</span>}
             </div>
             <div className="mt-4 flex gap-2 border-t border-border pt-3">
-              <button onClick={() => setEditing(role)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-1.5 text-xs font-medium hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-              <button onClick={() => clone(role)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-1.5 text-xs font-medium hover:bg-accent"><Copy className="h-3.5 w-3.5" /> Clone</button>
+              <button onClick={() => setEditing(role)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-1.5 text-xs font-medium hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+              <button onClick={() => clone(role)} className="flex flex-1 items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-1.5 text-xs font-medium hover:bg-accent"><Copy className="h-3.5 w-3.5" /> Clone</button>
               {!role.isSystem && (
-                <button onClick={() => setDeleting(role)} className="flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button onClick={() => setDeleting(role)} className="flex items-center justify-center rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
               )}
             </div>
           </div>

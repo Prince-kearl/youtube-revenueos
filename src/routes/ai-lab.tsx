@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Sparkles, Zap, FileText, ChevronDown, RefreshCw, Pencil, Copy } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/ai-lab")({
   component: AILab,
@@ -59,15 +60,17 @@ function AILab() {
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Left column */}
         <div className="space-y-5">
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h3 className="font-semibold">Select Video</h3>
-            <button className="mt-3 flex w-full items-center justify-between rounded-xl border border-border bg-accent/30 px-4 py-3 text-sm">
+            <button className="mt-3 flex w-full items-center justify-between rounded-[var(--button-radius)] border border-border bg-accent/30 px-4 py-3 text-sm">
               How I Made $100K on YouTube
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4 text-brand-blue" /> Transcript</h3>
               <span className="rounded-md bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">Auto-imported</span>
@@ -77,7 +80,8 @@ function AILab() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h3 className="font-semibold">Generation Settings</h3>
 
             <p className="mt-4 text-sm text-muted-foreground">Brand Voice</p>
@@ -117,20 +121,21 @@ function AILab() {
               className="mt-2 w-full resize-none rounded-xl border border-border bg-accent/20 p-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
             />
 
-            <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
               <Sparkles className="h-4 w-4" /> Generate Description
             </button>
           </div>
         </div>
 
         {/* Right column */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" /> Generated Description</h3>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <button className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-accent hover:text-foreground"><RefreshCw className="h-4 w-4" /></button>
-              <button className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-accent hover:text-foreground"><Pencil className="h-4 w-4" /></button>
-              <button className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm hover:text-foreground"><Copy className="h-3.5 w-3.5" /> Copy</button>
+              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground"><RefreshCw className="h-4 w-4" /></button>
+              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+              <button className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground"><Copy className="h-3.5 w-3.5" /> Copy</button>
             </div>
           </div>
 

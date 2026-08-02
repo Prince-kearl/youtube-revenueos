@@ -44,7 +44,7 @@ export function NotificationRow({
   return (
     <>
       <div className={`group flex items-start gap-3 rounded-xl border border-border p-3 ${notification.read ? "bg-accent/30" : "bg-primary/5"}`}>
-        <button onClick={openDetail} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${notifColor[notification.color]}`} aria-label="Open notification">
+        <button onClick={openDetail} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--button-radius)] ${notifColor[notification.color]}`} aria-label="Open notification">
           <Icon className="h-4 w-4" />
         </button>
         <button onClick={openDetail} className="min-w-0 flex-1 text-left">

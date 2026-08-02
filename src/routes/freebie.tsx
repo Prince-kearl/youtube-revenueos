@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sparkles, Download, FileText, Gift, Users, Percent } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/freebie")({
   component: Freebie,
@@ -62,19 +63,20 @@ function Freebie() {
       {/* Freebie studio — split screen */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Input form */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Sparkles className="h-5 w-5 text-brand-purple" /> Build your freebie
           </h3>
           <div className="mt-4 space-y-4">
             <Field label="Product / service">
-              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Dropshipping course" defaultValue="Dropshipping course" />
+              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Dropshipping course" defaultValue="Dropshipping course" />
             </Field>
             <Field label="Target audience">
-              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Beginner e-commerce creators" defaultValue="Beginner e-commerce creators" />
+              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Beginner e-commerce creators" defaultValue="Beginner e-commerce creators" />
             </Field>
             <Field label="Brand tone">
-              <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Direct, no-fluff, practical" defaultValue="Direct, no-fluff, practical" />
+              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Direct, no-fluff, practical" defaultValue="Direct, no-fluff, practical" />
             </Field>
             <Field label="Format">
               <div className="flex flex-wrap gap-2">
@@ -104,12 +106,13 @@ function Freebie() {
         </div>
 
         {/* Live preview */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-lg font-semibold">
               <FileText className="h-5 w-5" /> Live Preview
             </h3>
-            <button className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground">
+            <button className="flex h-9 items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 text-sm text-muted-foreground hover:text-foreground">
               <Download className="h-3.5 w-3.5" /> PDF
             </button>
           </div>
@@ -127,7 +130,8 @@ function Freebie() {
       </div>
 
       {/* Lead performance tracker */}
-      <div className="mt-5 rounded-xl border border-border bg-card">
+      <div className="relative mt-5 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="border-b border-border p-5">
           <h3 className="text-lg font-semibold">Lead Performance</h3>
         </div>

@@ -13,6 +13,7 @@ import {
   type AiModelConfig, type PromptTemplate, type ModerationItem, type ModerationStatus,
 } from "@/lib/stores";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const modStatusColor: Record<ModerationStatus, string> = {
   Pending: "bg-warning/15 text-warning",
@@ -67,7 +68,8 @@ export function AiManagementSection() {
       <h3 className="mt-6 text-sm font-semibold">AI Models</h3>
       <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {models.map((m) => (
-          <div key={m.id} className="rounded-xl border border-border bg-card p-5">
+          <div key={m.id} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between">
               <div>
                 <p className="flex items-center gap-1.5 font-semibold">{m.name} {m.isDefault && <Star className="h-3.5 w-3.5 fill-brand-amber text-brand-amber" />}</p>
@@ -82,27 +84,29 @@ export function AiManagementSection() {
               <div><p className="text-muted-foreground">Cost / 1K</p><p className="mt-0.5 font-semibold">${m.costPer1kTokens.toFixed(3)}</p></div>
             </div>
             {!m.isDefault && m.enabled && (
-              <button onClick={() => setDefault(m)} className="mt-3 w-full rounded-lg border border-border py-1.5 text-xs font-medium hover:bg-accent">Set as default</button>
+              <button onClick={() => setDefault(m)} className="mt-3 w-full rounded-[var(--button-radius)] border border-border py-1.5 text-xs font-medium hover:bg-accent">Set as default</button>
             )}
           </div>
         ))}
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Prompt Templates</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card">
+      <div className="relative mt-3 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {prompts.map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{p.name}</p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{p.module} · updated {p.updated}</p>
             </div>
-            <button onClick={() => setEditingPrompt(p)} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+            <button onClick={() => setEditingPrompt(p)} className="flex shrink-0 items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Pencil className="h-3.5 w-3.5" /> Edit</button>
           </div>
         ))}
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Content Moderation Queue</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card">
+      <div className="relative mt-3 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {queue.map((item) => (
           <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="min-w-0 flex-1">
@@ -115,8 +119,8 @@ export function AiManagementSection() {
             </div>
             {item.status === "Pending" && (
               <div className="flex shrink-0 gap-1.5">
-                <button onClick={() => moderate(item, "Approved")} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-success hover:bg-success/10"><Check className="h-3.5 w-3.5" /> Approve</button>
-                <button onClick={() => moderate(item, "Removed")} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"><X className="h-3.5 w-3.5" /> Remove</button>
+                <button onClick={() => moderate(item, "Approved")} className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium text-success hover:bg-success/10"><Check className="h-3.5 w-3.5" /> Approve</button>
+                <button onClick={() => moderate(item, "Removed")} className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"><X className="h-3.5 w-3.5" /> Remove</button>
               </div>
             )}
           </div>

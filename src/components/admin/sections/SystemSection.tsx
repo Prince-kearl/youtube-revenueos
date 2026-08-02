@@ -8,6 +8,7 @@ import {
   FEATURE_META, type FeatureKey,
 } from "@/lib/stores";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const integrationColor: Record<string, string> = {
   Connected: "bg-success/15 text-success",
@@ -37,7 +38,8 @@ export function SystemSection() {
       <p className="mt-1 text-sm text-muted-foreground">Feature rollout, integrations, and global platform configuration.</p>
 
       <h3 className="mt-6 text-sm font-semibold">Feature Flags</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-3 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <p className="text-sm text-muted-foreground">Turn a feature off and every workspace loses access to it immediately — no deploy required.</p>
         <div className="mt-4 divide-y divide-border">
           {(Object.keys(FEATURE_META) as FeatureKey[]).map((key) => {
@@ -62,7 +64,8 @@ export function SystemSection() {
       <h3 className="mt-6 text-sm font-semibold">Integrations</h3>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {integrations.map((i) => (
-          <div key={i.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+          <div key={i.id} className="relative flex items-center justify-between gap-3 rounded-xl card-gradient-outline p-4">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-muted-foreground"><Plug className="h-4 w-4" /></span>
               <div className="min-w-0">
@@ -72,15 +75,16 @@ export function SystemSection() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className={`rounded-md px-2 py-1 text-[10px] font-medium ${integrationColor[i.status]}`}>{i.status}</span>
-              <button onClick={() => testConnection(i.name)} title="Test connection" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><RefreshCw className="h-3.5 w-3.5" /></button>
-              <button onClick={() => rotateKey(i.name)} className="rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent">Rotate key</button>
+              <button onClick={() => testConnection(i.name)} title="Test connection" className="rounded-[var(--button-radius)] p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><RefreshCw className="h-3.5 w-3.5" /></button>
+              <button onClick={() => rotateKey(i.name)} className="rounded-[var(--button-radius)] border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent">Rotate key</button>
             </div>
           </div>
         ))}
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Email Templates</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card">
+      <div className="relative mt-3 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {templates.map((t) => (
           <div key={t.id} className="flex items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="flex items-center gap-3">
@@ -90,13 +94,14 @@ export function SystemSection() {
                 <p className="text-xs text-muted-foreground">{t.subject}</p>
               </div>
             </div>
-            <button onClick={() => toast("Template editor isn't wired up in this preview")} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent">Edit</button>
+            <button onClick={() => toast("Template editor isn't wired up in this preview")} className="rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent">Edit</button>
           </div>
         ))}
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Global Settings</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-3 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Product name"><Input value={settings.productName} onChange={(e) => setSettings({ ...settings, productName: e.target.value })} onBlur={commitSettings} /></Field>
           <Field label="Support email"><Input value={settings.supportEmail} onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })} onBlur={commitSettings} /></Field>

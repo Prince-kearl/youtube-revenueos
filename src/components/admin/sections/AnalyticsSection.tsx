@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import { FileDown, TrendingDown, Filter, Repeat } from "lucide-react";
 import { StatCard } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const funnel = [
   { stage: "Visited landing page", value: 18400 },
@@ -29,7 +30,7 @@ export function AnalyticsSection() {
         </div>
         <div className="flex gap-1.5">
           {["CSV", "Excel", "PDF"].map((f) => (
-            <button key={f} onClick={() => exportAs(f)} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent">
+            <button key={f} onClick={() => exportAs(f)} className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent">
               <FileDown className="h-3.5 w-3.5" /> {f}
             </button>
           ))}
@@ -44,7 +45,8 @@ export function AnalyticsSection() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-sm font-semibold">Conversion Funnel</h3>
           <div className="mt-4 space-y-3">
             {funnel.map((f, i) => {
@@ -61,7 +63,8 @@ export function AnalyticsSection() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-sm font-semibold">Retention by Cohort Month</h3>
           <div className="mt-4 space-y-3">
             {retention.map((r) => (
@@ -75,7 +78,8 @@ export function AnalyticsSection() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-sm font-semibold">Feature Adoption</h3>
           <p className="mt-1 text-xs text-muted-foreground">Share of organizations that have used each feature in the last 30 days.</p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

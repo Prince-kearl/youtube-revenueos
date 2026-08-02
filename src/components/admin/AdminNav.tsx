@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   LayoutDashboard, Users, ShieldCheck, Building2, Sparkles, CreditCard,
-  BarChart3, Megaphone, Settings, Lock, ScrollText, LifeBuoy, Server, Menu,
+  BarChart3, Megaphone, Settings, Lock, ScrollText, LifeBuoy, Server, Menu, Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 
 export type AdminSection =
   | "dashboard" | "users" | "roles" | "organizations" | "ai" | "billing"
-  | "analytics" | "communications" | "system" | "security" | "audit" | "support" | "infrastructure";
+  | "analytics" | "communications" | "content" | "system" | "security" | "audit" | "support" | "infrastructure";
 
 export const ADMIN_NAV: { label: string; items: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[] }[] = [
   { label: "Overview", items: [{ key: "dashboard", label: "Dashboard", icon: LayoutDashboard }] },
@@ -26,6 +26,9 @@ export const ADMIN_NAV: { label: string; items: { key: AdminSection; label: stri
     { key: "billing", label: "Billing", icon: CreditCard },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "communications", label: "Communications", icon: Megaphone },
+  ] },
+  { label: "Content", items: [
+    { key: "content", label: "Customization", icon: Palette },
   ] },
   { label: "Operations", items: [
     { key: "system", label: "System", icon: Settings },

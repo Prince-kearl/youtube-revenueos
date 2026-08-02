@@ -4,6 +4,7 @@ import {
   BarChart3, Handshake, Globe, Lock, ScrollText,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
@@ -131,7 +132,7 @@ function Roadmap() {
           const style = statusStyles[p.status];
           const Icon = p.icon;
           return (
-            <div key={p.id} className={`rounded-xl border border-border bg-card p-5 ring-1 ${style.ring}`}>
+            <div key={p.id} className={`rounded-xl card-gradient-outline p-5 ring-1 ${style.ring}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -159,7 +160,8 @@ function Roadmap() {
         })}
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h3 className="flex items-center gap-2 text-lg font-semibold">
           <ScrollText className="h-5 w-5 text-brand-purple" /> Milestones
         </h3>

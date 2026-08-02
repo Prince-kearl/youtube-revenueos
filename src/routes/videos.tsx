@@ -3,6 +3,7 @@ import { Search, ArrowUpDown, Filter, Eye, ThumbsUp, Plus } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ChangeCell, StatusBadge } from "@/components/ui-bits";
 import { topVideos } from "@/lib/data";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/videos")({
   component: Videos,
@@ -19,15 +20,15 @@ function Videos() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Search videos..." className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary" />
+            <input placeholder="Search videos..." className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary" />
           </div>
-          <button className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
+          <button className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
             <ArrowUpDown className="h-4 w-4" /> Sort: Revenue
           </button>
-          <button className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
+          <button className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3 text-sm text-muted-foreground hover:text-foreground">
             <Filter className="h-4 w-4" /> Filter
           </button>
-          <Link to="/add-video" className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <Link to="/add-video" className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Add Video
           </Link>
         </div>
@@ -36,7 +37,8 @@ function Videos() {
       {/* Mobile: stacked cards */}
       <div className="mt-6 space-y-3 sm:hidden">
         {topVideos.map((v) => (
-          <div key={v.rank} className="rounded-xl border border-border bg-card p-4">
+          <div key={v.rank} className="relative rounded-xl card-gradient-outline p-4">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-red/40 to-brand-purple/40 text-[9px] font-bold text-white/70">
                 ▶
@@ -71,7 +73,8 @@ function Videos() {
       </div>
 
       {/* Desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+      <div className="relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

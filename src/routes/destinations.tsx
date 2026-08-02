@@ -8,6 +8,7 @@ import { Tag } from "@/components/ui-bits";
 import { useDestinations, Destination } from "@/lib/stores";
 import { DestinationDialog, ConfirmDialog } from "@/components/modals";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/destinations")({
   component: Destinations,
@@ -43,12 +44,12 @@ function Destinations() {
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg border border-border bg-card p-1 text-sm">
             {(["Cards", "List"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`rounded-md px-3 py-1 font-medium ${view === v ? "bg-accent text-foreground" : "text-muted-foreground"}`}>
+              <button key={v} onClick={() => setView(v)} className={`rounded-[var(--button-radius)] px-3 py-1 font-medium ${view === v ? "bg-accent text-foreground" : "text-muted-foreground"}`}>
                 {v}
               </button>
             ))}
           </div>
-          <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" /> Add Destination
           </button>
         </div>
@@ -64,7 +65,7 @@ function Destinations() {
       {destinations.length === 0 && (
         <div className="mt-5 rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">No destinations yet.</p>
-          <button onClick={() => setCreating(true)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground">
+          <button onClick={() => setCreating(true)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground">
             <Plus className="h-4 w-4" /> Add your first destination
           </button>
         </div>
@@ -75,7 +76,8 @@ function Destinations() {
           {destinations.map((d) => {
             const Icon = icons[d.icon as keyof typeof icons] ?? Link2;
             return (
-              <div key={d.id} className="rounded-xl border border-border bg-card p-5">
+              <div key={d.id} className="relative rounded-xl card-gradient-outline p-5">
+                <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg[d.tagColor] ?? iconBg.purple}`}>
@@ -100,7 +102,7 @@ function Destinations() {
               </div>
             );
           })}
-          <button onClick={() => setCreating(true)} className="flex min-h-[196px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
+          <button onClick={() => setCreating(true)} className="flex min-h-[196px] flex-col items-center justify-center gap-3 rounded-[var(--button-radius)] border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent"><Plus className="h-5 w-5" /></div>
             Add new destination
           </button>
@@ -110,7 +112,8 @@ function Destinations() {
           {/* Mobile: stacked cards */}
           <div className="mt-5 space-y-3 sm:hidden">
             {destinations.map((d) => (
-              <div key={d.id} className="rounded-xl border border-border bg-card p-4">
+              <div key={d.id} className="relative rounded-xl card-gradient-outline p-4">
+                <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{d.name}</p>
@@ -140,7 +143,8 @@ function Destinations() {
           </div>
 
           {/* Desktop: table */}
-          <div className="mt-5 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+          <div className="relative mt-5 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -188,7 +192,8 @@ function sumStr(vals: string[]) {
 
 function Summary({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative rounded-xl card-gradient-outline p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <p className="text-2xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProfile, useSupportTickets, type TicketPriority, type TicketStatus } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const statusColor: Record<TicketStatus, string> = {
   Open: "bg-destructive/15 text-destructive",
@@ -74,7 +75,8 @@ function Support() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-5">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="font-semibold">Report a problem</h3>
           <p className="mt-1 text-sm text-muted-foreground">Bug, billing issue, or anything else — tell us what's going on.</p>
           <form onSubmit={submit} className="mt-4 space-y-3">
@@ -95,13 +97,14 @@ function Support() {
                 </SelectContent>
               </Select>
             </div>
-            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
               <Send className="h-4 w-4" /> Send Report
             </button>
           </form>
         </div>
 
-        <div className="rounded-xl border border-border bg-card lg:col-span-3">
+        <div className="relative rounded-xl card-gradient-outline lg:col-span-3">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="p-5 pb-0 font-semibold">Your reports</h3>
           <div className="mt-3">
             {mine.length === 0 && <p className="p-5 pt-2 text-sm text-muted-foreground">Nothing reported yet — anything you send will show up here with its status.</p>}

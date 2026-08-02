@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { StatCard } from "@/components/ui-bits";
 import { useTenants } from "@/lib/stores";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const userGrowth = [
   { month: "Feb", users: 2180 }, { month: "Mar", users: 2410 }, { month: "Apr", users: 2650 },
@@ -130,7 +131,8 @@ export function ExecutiveDashboard() {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative rounded-xl card-gradient-outline p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-sm font-semibold">{title}</h3>
       <div className="mt-3 h-56">{children}</div>
     </div>
@@ -139,7 +141,8 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function BreakdownCard({ title, rows }: { title: string; rows: { label: string; pct: number }[] }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative rounded-xl card-gradient-outline p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-sm font-semibold">{title}</h3>
       <div className="mt-4 space-y-3">
         {rows.map((r) => (

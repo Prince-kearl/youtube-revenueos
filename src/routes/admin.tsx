@@ -11,6 +11,7 @@ import { AiManagementSection } from "@/components/admin/sections/AiManagementSec
 import { BillingSection } from "@/components/admin/sections/BillingSection";
 import { AnalyticsSection } from "@/components/admin/sections/AnalyticsSection";
 import { CommunicationsSection } from "@/components/admin/sections/CommunicationsSection";
+import { ContentSection } from "@/components/admin/sections/content/ContentSection";
 import { SystemSection } from "@/components/admin/sections/SystemSection";
 import { SecuritySection } from "@/components/admin/sections/SecuritySection";
 import { AuditLogSection } from "@/components/admin/sections/AuditLogSection";
@@ -30,6 +31,7 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
   billing: BillingSection,
   analytics: AnalyticsSection,
   communications: CommunicationsSection,
+  content: ContentSection,
   system: SystemSection,
   security: SecuritySection,
   audit: AuditLogSection,
@@ -51,7 +53,7 @@ function AdminConsole() {
             <p className="text-xs text-muted-foreground">Command center for the entire platform — visible only to Superadmins.</p>
           </div>
         </div>
-        <Link to="/dashboard" className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+        <Link to="/dashboard" className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Exit to Workspace
         </Link>
       </div>

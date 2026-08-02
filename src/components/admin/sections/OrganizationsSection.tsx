@@ -15,6 +15,7 @@ import {
   type Tenant, type TenantPlan, type TenantStatus,
 } from "@/lib/stores";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const statusColor: Record<TenantStatus, string> = {
   Active: "bg-success/15 text-success",
@@ -67,12 +68,13 @@ export function OrganizationsSection() {
 
       <div className="relative mt-5 max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search organizations…" className="h-9 w-full rounded-lg border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search organizations…" className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary" />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {filtered.map((t) => (
-          <div key={t.id} className="rounded-xl border border-border bg-card p-5">
+          <div key={t.id} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-3">
                 <img src={t.avatar} alt={t.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />

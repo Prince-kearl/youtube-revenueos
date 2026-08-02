@@ -8,6 +8,7 @@ import {
   type PaymentStatus, type TenantPlan,
 } from "@/lib/stores";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const paymentColor: Record<PaymentStatus, string> = {
   Paid: "bg-success/15 text-success",
@@ -54,7 +55,8 @@ export function BillingSection() {
       <h3 className="mt-6 text-sm font-semibold">Plans</h3>
       <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {plans.map((p) => (
-          <div key={p.id} className="rounded-xl border border-border bg-card p-5">
+          <div key={p.id} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <p className="font-semibold">{p.id}</p>
             <div className="mt-2 flex items-center gap-1">
               <span className="text-muted-foreground">$</span>
@@ -77,7 +79,8 @@ export function BillingSection() {
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Coupons</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card">
+      <div className="relative mt-3 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {coupons.map((c) => (
           <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="flex items-center gap-3">
@@ -87,7 +90,7 @@ export function BillingSection() {
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>{c.redemptions}/{c.maxRedemptions} redeemed</span>
               <span>expires {c.expires}</span>
-              <button onClick={() => toggleCoupon(c.id)} className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium ${c.active ? "bg-success/15 text-success" : "bg-accent text-muted-foreground"}`}>
+              <button onClick={() => toggleCoupon(c.id)} className={`flex items-center gap-1 rounded-[var(--button-radius)] px-2 py-1 font-medium ${c.active ? "bg-success/15 text-success" : "bg-accent text-muted-foreground"}`}>
                 <Power className="h-3 w-3" /> {c.active ? "Active" : "Inactive"}
               </button>
             </div>

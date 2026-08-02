@@ -14,6 +14,7 @@ import { StatCard } from "@/components/ui-bits";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { analyticsBars, revenueSplit, geoRevenue, cpmTrend, revenueTransactions, type RevenueTransaction } from "@/lib/data";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/analytics")({
   component: Analytics,
@@ -60,12 +61,12 @@ function Analytics() {
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg bg-accent p-1 text-xs">
             {ranges.map((r) => (
-              <button key={r} onClick={() => setRange(r)} className={`rounded-md px-3 py-1 font-medium ${r === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              <button key={r} onClick={() => setRange(r)} className={`rounded-[var(--button-radius)] px-3 py-1 font-medium ${r === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                 {r}
               </button>
             ))}
           </div>
-          <button onClick={exportPdf} className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium hover:bg-accent print:hidden">
+          <button onClick={exportPdf} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3 text-sm font-medium hover:bg-accent print:hidden">
             <Download className="h-4 w-4" /> Export PDF
           </button>
         </div>
@@ -86,7 +87,8 @@ function Analytics() {
         <StatCard icon={<Globe className="h-5 w-5" />} value="48" label="Countries" change="4%" up />
       </div>
 
-      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex gap-2 rounded-lg bg-accent/50 p-1 text-sm w-fit">
           {tabs.map((t) => (
             <button
@@ -173,7 +175,8 @@ function Analytics() {
                 {sortedGeoRevenue.map((g, i) => {
                   const intensity = g.pct / maxGeoPct;
                   return (
-                    <div key={g.country} className="rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-sm">
+                    <div key={g.country} className="relative rounded-xl card-gradient-outline p-4 transition-shadow hover:shadow-sm">
+                      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
                       <div className="flex items-start justify-between">
                         <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-[11px] font-bold ${geoBadgeColors[i % geoBadgeColors.length]}`}>
                           {g.code}
@@ -336,10 +339,11 @@ function RevenueTransactionsTable() {
   }, [totalPages]);
 
   return (
-    <div className="mt-5 rounded-xl border border-border bg-card">
+    <div className="relative mt-5 rounded-xl card-gradient-outline">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
         <h3 className="text-lg font-semibold">Revenue Transactions</h3>
-        <button onClick={exportCsv} className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium hover:bg-accent">
+        <button onClick={exportCsv} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3 text-sm font-medium hover:bg-accent">
           <Download className="h-4 w-4" /> Export{selected.size > 0 ? ` (${selected.size})` : ""}
         </button>
       </div>

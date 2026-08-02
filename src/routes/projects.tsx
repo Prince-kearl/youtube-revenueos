@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/modals";
 import { createGenerationJob, getGenerationJob, type GenerationJob } from "@/lib/mock-generation";
 import { useProjectJobs } from "@/lib/stores";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/projects")({
   component: ProjectsPage,
@@ -59,7 +60,7 @@ function ProjectsPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card p-5">
+        <form onSubmit={handleSubmit} className="rounded-xl card-gradient-outline p-5">
           <h2 className="text-lg font-semibold">Create a new project</h2>
           <p className="mt-1 text-sm text-muted-foreground">Describe the product idea and queue a mock generation run.</p>
 
@@ -90,7 +91,8 @@ function ProjectsPage() {
           </button>
         </form>
 
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Recent jobs</h2>
             <span className="rounded-md bg-accent px-2.5 py-1 text-xs text-muted-foreground">Mock queue</span>

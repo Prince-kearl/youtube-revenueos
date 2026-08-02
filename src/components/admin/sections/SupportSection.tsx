@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/ui-bits";
 import { useSupportTickets, useKbArticles, type SupportTicket, type TicketStatus, type TicketPriority } from "@/lib/stores";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const statusColor: Record<TicketStatus, string> = {
   Open: "bg-destructive/15 text-destructive",
@@ -53,11 +54,12 @@ export function SupportSection() {
 
       <div className="mt-5 flex flex-wrap gap-1.5">
         {(["All", "Open", "Pending", "Resolved"] as const).map((s) => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{s}</button>
+          <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-[var(--button-radius)] px-3 py-1.5 text-xs font-medium ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{s}</button>
         ))}
       </div>
 
-      <div className="mt-4 rounded-xl border border-border bg-card">
+      <div className="relative mt-4 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {filtered.map((t) => (
           <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="min-w-0">
@@ -71,8 +73,8 @@ export function SupportSection() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[t.status]}`}>{t.status}</span>
-              <button onClick={() => impersonateFromTicket(t)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Eye className="h-3.5 w-3.5" /> Impersonate</button>
-              {t.status !== "Resolved" && <button onClick={() => resolve(t)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-success hover:bg-success/10"><CheckCircle2 className="h-3.5 w-3.5" /> Resolve</button>}
+              <button onClick={() => impersonateFromTicket(t)} className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Eye className="h-3.5 w-3.5" /> Impersonate</button>
+              {t.status !== "Resolved" && <button onClick={() => resolve(t)} className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium text-success hover:bg-success/10"><CheckCircle2 className="h-3.5 w-3.5" /> Resolve</button>}
             </div>
           </div>
         ))}
@@ -80,7 +82,8 @@ export function SupportSection() {
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">Knowledge Base</h3>
-      <div className="mt-3 rounded-xl border border-border bg-card">
+      <div className="relative mt-3 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {kb.map((a) => (
           <div key={a.id} className="flex items-center justify-between gap-3 border-b border-border p-4 last:border-0">
             <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { NotificationRow } from "@/components/NotificationRow";
 import { useNotifications } from "@/lib/stores";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/notifications")({
   component: Notifications,
@@ -54,7 +55,8 @@ function Notifications() {
         ))}
       </div>
 
-      <div className="mt-4 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-4 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {shown.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">
             {tab === "archived" ? "No archived notifications" : "No notifications"}

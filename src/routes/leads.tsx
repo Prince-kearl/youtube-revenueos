@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useLeads, useTeam, type Lead, type LeadAttachment, type LeadStatus } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -398,18 +399,19 @@ function LeadInbox() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card h-[calc(100dvh_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+      <div className="relative mt-4 grid grid-cols-1 overflow-hidden rounded-xl card-gradient-outline h-[calc(100dvh_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {/* Thread list */}
         <div className={cn("flex min-h-0 flex-col border-border lg:border-r", mobileView === "list" ? "flex" : "hidden lg:flex")}>
           <div className="shrink-0 space-y-2 border-b border-border p-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search leads…" className="h-9 w-full rounded-lg border border-border bg-accent/20 pl-8 pr-3 text-sm outline-none focus:border-primary" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search leads…" className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 pl-8 pr-3 text-sm outline-none focus:border-primary" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 {(["All", "Unread", "Favourites"] as const).map((f) => (
-                  <button key={f} onClick={() => setFilter(f)} className={cn("rounded-lg px-2.5 py-1 text-xs font-medium", filter === f ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground")}>
+                  <button key={f} onClick={() => setFilter(f)} className={cn("rounded-[var(--button-radius)] px-2.5 py-1 text-xs font-medium", filter === f ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground")}>
                     {f}{f === "Unread" && unreadCount > 0 ? ` [${unreadCount}]` : ""}
                   </button>
                 ))}
@@ -495,7 +497,7 @@ function LeadInbox() {
                   <p className="truncate text-sm font-semibold">{selected.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{selected.handle}</p>
                 </div>
-                <button onClick={() => setMobileView("profile")} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent lg:hidden">Details</button>
+                <button onClick={() => setMobileView("profile")} className="rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent lg:hidden">Details</button>
               </div>
 
               {pinnedMessages.length > 0 && (
@@ -566,8 +568,8 @@ function LeadInbox() {
                     <p>Instagram/YouTube policy doesn't allow starting a DM first — {selected.name} needs to message you before you can reply directly. You can still reply to their public comment below.</p>
                   </div>
                   <div className="mt-2 flex gap-2">
-                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Reply to their comment…" className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
-                    <button onClick={() => send("comment")} className="flex h-10 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Send className="h-4 w-4" /></button>
+                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Reply to their comment…" className="h-10 min-w-0 flex-1 rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
+                    <button onClick={() => send("comment")} className="flex h-10 items-center gap-1.5 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Send className="h-4 w-4" /></button>
                   </div>
                 </div>
               ) : (
@@ -616,16 +618,16 @@ function LeadInbox() {
                   <form onSubmit={(e) => { e.preventDefault(); send("dm", pendingFile ?? undefined); }} className="flex items-center gap-1.5">
                     <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
                     <div className="flex shrink-0 items-center">
-                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={recording} title="Attach a file" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={recording} title="Attach a file" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
                         <Paperclip className="h-4 w-4" />
                       </button>
-                      <button type="button" onClick={() => (recording ? stopRecording() : startRecording())} title={recording ? "Stop recording" : "Record a voice message"} className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", recording ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
+                      <button type="button" onClick={() => (recording ? stopRecording() : startRecording())} title={recording ? "Stop recording" : "Record a voice message"} className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--button-radius)]", recording ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
                         {recording ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
                       </button>
                     </div>
                     {recording && <span className="shrink-0 font-mono text-xs text-destructive">{formatDuration(recordingSeconds)}</span>}
-                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={recording ? "Recording…" : "Write a message…"} disabled={recording} className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary disabled:opacity-60" />
-                    <button type="submit" disabled={recording || (!draft.trim() && !pendingFile)} className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"><Send className="h-4 w-4" /></button>
+                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={recording ? "Recording…" : "Write a message…"} disabled={recording} className="h-10 min-w-0 flex-1 rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary disabled:opacity-60" />
+                    <button type="submit" disabled={recording || (!draft.trim() && !pendingFile)} className="flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"><Send className="h-4 w-4" /></button>
                   </form>
                 </div>
               )}
@@ -678,7 +680,7 @@ function LeadInbox() {
                     </span>
                   ))}
                   <div className="flex items-center gap-1">
-                    <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())} placeholder="Add tag" className="h-7 w-20 rounded-md border border-border bg-accent/10 px-2 text-xs outline-none focus:border-primary" />
+                    <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())} placeholder="Add tag" className="h-7 w-20 rounded-[var(--input-radius)] border border-border bg-accent/10 px-2 text-xs outline-none focus:border-primary" />
                     <button onClick={addTag} className="text-muted-foreground hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button>
                   </div>
                 </div>

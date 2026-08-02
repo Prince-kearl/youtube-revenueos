@@ -23,7 +23,7 @@ export function AuditLogSection() {
 
       <div className="mt-5 flex flex-wrap gap-1.5">
         {modules.map((m) => (
-          <button key={m} onClick={() => setModuleFilter(m)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${moduleFilter === m ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{m}</button>
+          <button key={m} onClick={() => setModuleFilter(m)} className={`rounded-[var(--button-radius)] px-3 py-1.5 text-xs font-medium ${moduleFilter === m ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{m}</button>
         ))}
       </div>
 

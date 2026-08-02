@@ -9,6 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/team")({
   component: Team,
@@ -57,7 +58,7 @@ function Team() {
             Invite teammates, assign roles, and split lead distribution & commission across your pipeline.
           </p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <UserPlus className="h-4 w-4" /> Invite Member
         </button>
       </div>
@@ -70,7 +71,8 @@ function Team() {
       </div>
 
       {distributed.length > 0 && (
-        <div className="mt-5 rounded-xl border border-border bg-card p-5">
+        <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="font-semibold">Lead Distribution</h3>
           <p className="mt-1 text-sm text-muted-foreground">Percentage of new leads auto-assigned to each teammate.</p>
           <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-accent">
@@ -91,7 +93,8 @@ function Team() {
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {members.map((m) => (
-          <div key={m.id} className="rounded-xl border border-border bg-card p-5">
+          <div key={m.id} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <img src={m.avatar} alt={m.name} className="h-11 w-11 rounded-full object-cover" />

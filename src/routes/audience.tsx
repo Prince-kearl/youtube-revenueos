@@ -6,6 +6,7 @@ import {
 import { Users, UserCheck, Target, Globe } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/audience")({
   component: Audience,
@@ -55,7 +56,8 @@ function Audience() {
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Dual-axis: age vs views + conversion rate */}
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Age Groups — Views vs Conversion Rate</h3>
           <div className="mt-4 h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -77,7 +79,8 @@ function Audience() {
         </div>
 
         {/* Gender donut */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Gender by Revenue</h3>
           <div className="mt-4 h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -102,7 +105,8 @@ function Audience() {
       </div>
 
       {/* Geography */}
-      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h3 className="text-lg font-semibold">Geography</h3>
         <div className="mt-4 space-y-3">
           {geo.map((g) => (

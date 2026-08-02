@@ -6,6 +6,7 @@ import {
 import { DollarSign, Clock, Users, Percent, Copy, Check } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/affiliate")({
   component: Affiliate,
@@ -55,7 +56,8 @@ function Affiliate() {
       </div>
 
       {/* Link builder */}
-      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h3 className="font-semibold">Your Affiliate Link</h3>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row">
           <div className="flex h-11 flex-1 items-center rounded-lg border border-border bg-background px-3 font-mono text-sm text-muted-foreground">
@@ -74,7 +76,8 @@ function Affiliate() {
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Revenue chart */}
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Monthly Commission</h3>
           <div className="mt-4 h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -90,7 +93,8 @@ function Affiliate() {
         </div>
 
         {/* Active subscriptions */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Active Subscriptions</h3>
           <div className="mt-4 space-y-3 text-sm">
             {[
@@ -111,7 +115,8 @@ function Affiliate() {
       </div>
 
       {/* Referrals table */}
-      <div className="mt-5 rounded-xl border border-border bg-card">
+      <div className="relative mt-5 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="border-b border-border p-5">
           <h3 className="text-lg font-semibold">Recent Referrals</h3>
         </div>

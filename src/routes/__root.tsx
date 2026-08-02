@@ -12,6 +12,17 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeInjector } from "@/components/ThemeInjector";
+import { ThemeModeApplier } from "@/components/ThemeModeApplier";
+import { CookieConsent } from "@/components/CookieConsent";
+
+// Sets the dark class before first paint, so there's no flash of the wrong theme while React
+// hydrates. Reads the same localStorage key useThemeMode()/useLocalStore write (JSON-encoded),
+// mirroring the "system" resolution logic in src/lib/theme.ts. Also sets the ios26 class from the
+// Customization → General "iOS 26 Design" toggle (stored on yroos.siteContent) for the same
+// reason — ThemeInjector's effect runs after first paint, which would otherwise flash flat-then-glass.
+// Defaults to true (glass on) when the key is missing, matching seedSiteContent's default.
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var raw=localStorage.getItem("yroos.theme");var mode=raw?JSON.parse(raw):"system";var isDark=mode==="dark"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(isDark)document.documentElement.classList.add("dark");}catch(e){}try{var rawContent=localStorage.getItem("yroos.siteContent");var content=rawContent?JSON.parse(rawContent):null;var ios26=content&&typeof content.ios26Design==="boolean"?content.ios26Design:true;if(ios26)document.documentElement.classList.add("ios26");}catch(e){}})();`;
 
 function NotFoundComponent() {
   return (
@@ -98,7 +109,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -110,8 +121,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -127,9 +139,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeInjector />
+      <ThemeModeApplier />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
+      <CookieConsent />
     </QueryClientProvider>
   );
 }

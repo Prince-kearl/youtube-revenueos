@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/modals";
 import { useUsers, PLATFORM_ROLES, type PlatformUser, type UserStatus, type PlatformRole } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const statusColor: Record<UserStatus, string> = {
   Active: "bg-success/15 text-success",
@@ -95,7 +96,7 @@ export function UsersSection() {
           <h1 className="text-2xl font-bold tracking-tight">Users</h1>
           <p className="mt-1 text-sm text-muted-foreground">Complete user lifecycle management across every organization.</p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <UserPlus className="h-4 w-4" /> Create User
         </button>
       </div>
@@ -110,11 +111,11 @@ export function UsersSection() {
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, or org…" className="h-9 w-full rounded-lg border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, or org…" className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary" />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(["All", "Active", "Suspended", "Banned", "Pending"] as const).map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{s}</button>
+            <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-[var(--button-radius)] px-3 py-1.5 text-xs font-medium ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}>{s}</button>
           ))}
         </div>
       </div>
@@ -123,16 +124,16 @@ export function UsersSection() {
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm">
           <span className="font-medium">{selected.size} selected</span>
           <div className="ml-auto flex flex-wrap gap-1.5">
-            <button onClick={bulkSuspend} className="rounded-md bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Suspend</button>
-            <button onClick={bulkEmail} className="rounded-md bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Email</button>
-            <button onClick={bulkExport} className="rounded-md bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Export</button>
+            <button onClick={bulkSuspend} className="rounded-[var(--button-radius)] bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Suspend</button>
+            <button onClick={bulkEmail} className="rounded-[var(--button-radius)] bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Email</button>
+            <button onClick={bulkExport} className="rounded-[var(--button-radius)] bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Export</button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><button className="rounded-md bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Role…</button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><button className="rounded-[var(--button-radius)] bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent">Bulk Role…</button></DropdownMenuTrigger>
               <DropdownMenuContent>
                 {PLATFORM_ROLES.map((r) => <DropdownMenuItem key={r} onSelect={() => bulkRole(r)}>{r}</DropdownMenuItem>)}
               </DropdownMenuContent>
             </DropdownMenu>
-            <button onClick={() => setBulkDeleting(true)} className="rounded-md bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground hover:bg-destructive/90">Bulk Delete</button>
+            <button onClick={() => setBulkDeleting(true)} className="rounded-[var(--button-radius)] bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground hover:bg-destructive/90">Bulk Delete</button>
           </div>
         </div>
       )}
@@ -201,7 +202,8 @@ export function UsersSection() {
       {/* Mobile cards */}
       <div className="mt-4 space-y-3 sm:hidden">
         {filtered.map((u) => (
-          <div key={u.id} className="rounded-xl border border-border bg-card p-4">
+          <div key={u.id} className="relative rounded-xl card-gradient-outline p-4">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <Checkbox checked={selected.has(u.id)} onCheckedChange={() => toggleOne(u.id)} />

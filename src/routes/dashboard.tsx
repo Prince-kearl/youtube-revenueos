@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, ChangeCell } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { NotificationRow } from "@/components/NotificationRow";
 import { recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 import { useChannelSettings } from "@/lib/channel-settings";
@@ -37,23 +38,29 @@ function Dashboard() {
     <DashboardLayout title="Dashboard">
       <GettingStarted />
 
-      {/* Channel banner */}
-      <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex items-center gap-4">
+      {/* Channel banner — with iOS 26 Design on: a premium glass hero card over a deep-red gradient
+          wash (the one "always visible" red moment, per the brand-selectively rule). With it off:
+          the original navy/primary gradient pill with the animated glow-ring border. Both the
+          gradient and the glow ring are switched by .hero-banner-bg/.nav-glow-motion keying off
+          .ios26 in styles.css, not by branching here — still always a single row so the visit
+          button never forces a stacked layout. */}
+      <div className="nav-glow-motion hero-banner-bg relative mb-5 flex items-center justify-between gap-3 overflow-hidden rounded-[var(--hero-radius)] border border-white/10 p-4 shadow-xl backdrop-blur-xl sm:gap-4 sm:p-5">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           {settings.showAvatar && (
             <div className="relative shrink-0">
-              <img src={settings.avatar} alt={settings.name} className="h-14 w-14 rounded-full object-cover" />
-              <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-red ring-2 ring-card">
-                <Youtube className="h-3.5 w-3.5 text-white" fill="white" strokeWidth={1.5} />
+              <img src={settings.avatar} alt={settings.name} className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14" />
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-card sm:h-6 sm:w-6">
+                <Youtube className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5" fill="white" strokeWidth={1.5} />
               </span>
             </div>
           )}
-          <div>
-            <p className="text-lg font-semibold leading-tight">{settings.name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{settings.name}</p>
             {settings.showSubscribers && (
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span className="font-medium text-foreground">{settings.subscribers}</span> subscribers
+              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
+                <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="shrink-0 font-medium text-white">{settings.subscribers}</span>
+                <span className="hidden sm:inline">subscribers</span>
               </p>
             )}
           </div>
@@ -63,18 +70,20 @@ function Dashboard() {
             href={settings.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+            aria-label="Visit Channel"
+            className="flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4"
           >
-            <Youtube className="h-4 w-4" fill="white" strokeWidth={1.5} />
-            Visit Channel
-            <ExternalLink className="h-3.5 w-3.5" />
+            <Youtube className="hidden h-4 w-4 shrink-0 sm:block" fill="white" strokeWidth={1.5} />
+            <span className="hidden sm:inline">Visit Channel</span>
+            <ExternalLink className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
           </a>
         )}
       </div>
 
       {/* Recently added posts */}
       {settings.showRecentPosts && (
-        <div className="mb-5 rounded-xl border border-border bg-card p-5">
+        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Recently Added Posts</h3>
             <a href={settings.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
@@ -99,23 +108,24 @@ function Dashboard() {
       {/* Stat cards */}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={<DollarSign className="h-5 w-5" />} value="$142,800" label="Total Revenue" sub="vs last year" change="18.4%" up />
-        <StatCard icon={<TrendingUp className="h-5 w-5" />} value="$44,300" label="Monthly Revenue" sub="vs last month" change="12.7%" up />
-        <StatCard icon={<Eye className="h-5 w-5" />} value="8.4M" label="Total Views" sub="vs last month" change="9.2%" up />
-        <StatCard icon={<Handshake className="h-5 w-5" />} value="7" label="Active Deals" sub="vs last month" change="1%" up={false} />
+        <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value="$142,800" label="Total Revenue" sub="vs last year" change="18.4%" up />
+        <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value="$44,300" label="Monthly Revenue" sub="vs last month" change="12.7%" up />
+        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value="8.4M" label="Total Views" sub="vs last month" change="9.2%" up />
+        <StatCard glow frost icon={<Handshake className="h-5 w-5" />} value="7" label="Active Deals" sub="vs last month" change="1%" up={false} />
       </div>
 
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold">Revenue Trends</h3>
               <p className="text-sm text-muted-foreground">All revenue streams over time</p>
             </div>
-            <div className="flex rounded-lg bg-accent p-1 text-xs">
+            <div className="glass-pill flex gap-0.5 p-1 text-xs backdrop-blur-lg">
               {(["3M", "6M", "12M"] as const).map((t) => (
-                <button key={t} onClick={() => setRange(t)} className={`rounded-md px-3 py-1 font-medium ${t === range ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                <button key={t} onClick={() => setRange(t)} className={`rounded-full px-3 py-1.5 font-medium transition-all ${t === range ? "glass-segment-active" : "text-muted-foreground hover:text-foreground"}`}>
                   {t}
                 </button>
               ))}
@@ -140,7 +150,7 @@ function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => `$${v}k`} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: "color-mix(in srgb, var(--color-popover) 85%, transparent)", border: "1px solid color-mix(in srgb, white 20%, var(--color-border))", borderRadius: 16, fontSize: 12, boxShadow: "0 16px 32px -20px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }} />
                 <Area type="monotone" dataKey="brand" stroke="var(--color-brand-purple)" strokeWidth={2.5} fill="url(#gBrand)" />
                 <Area type="monotone" dataKey="adsense" stroke="var(--color-brand-blue)" strokeWidth={2.5} fill="transparent" />
                 <Area type="monotone" dataKey="memberships" stroke="var(--color-brand-green)" strokeWidth={2.5} fill="transparent" />
@@ -150,7 +160,8 @@ function Dashboard() {
         </div>
 
         {/* Live Alerts */}
-        <div className="flex h-full flex-col rounded-xl border border-border bg-card p-5">
+        <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex shrink-0 items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
             <button onClick={refresh} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
@@ -177,7 +188,8 @@ function Dashboard() {
 
       {/* Top videos + Revenue split */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
@@ -185,7 +197,7 @@ function Dashboard() {
           {/* Mobile: stacked cards */}
           <div className="mt-4 space-y-2.5 sm:hidden">
             {topVideos.slice(0, 5).map((v) => (
-              <div key={v.rank} className="rounded-lg border border-border p-3">
+              <div key={v.rank} className="card-frost p-3 backdrop-blur-lg">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">{v.rank}</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{v.title}</span>
@@ -234,7 +246,8 @@ function Dashboard() {
         </div>
 
         {/* Revenue split */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Revenue Split</h3>
           <div className="mt-5 space-y-4">
             {revenueSplit.map((r) => (
@@ -273,7 +286,7 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
       href={post.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group block overflow-hidden rounded-xl border border-border bg-accent/20 transition-colors hover:border-primary ${compact ? "w-40 shrink-0" : ""}`}
+      className={`card-frost group block overflow-hidden backdrop-blur-lg transition-transform hover:-translate-y-0.5 ${compact ? "w-40 shrink-0" : ""}`}
     >
       <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110">
@@ -359,7 +372,8 @@ function GettingStarted() {
   const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
 
   return (
-    <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+    <div className="card-gradient-outline relative mb-5 p-4 backdrop-blur-xl sm:p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />

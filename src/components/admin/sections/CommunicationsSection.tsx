@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAnnouncements, type Announcement, type AnnouncementChannel, type AnnouncementStatus } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const channelIcon: Record<AnnouncementChannel, typeof Mail> = { "In-app": Bell, Email: Mail, Push: Smartphone };
 const statusColor: Record<AnnouncementStatus, string> = {
@@ -37,7 +38,7 @@ export function CommunicationsSection() {
           <h1 className="text-2xl font-bold tracking-tight">Communications</h1>
           <p className="mt-1 text-sm text-muted-foreground">Announcements, email campaigns, and in-app broadcasts.</p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> New Announcement
         </button>
       </div>
@@ -49,7 +50,8 @@ export function CommunicationsSection() {
         <StatCard icon={<Mail className="h-5 w-5" />} value={String(items.filter((a) => a.status === "Draft").length)} label="Drafts" />
       </div>
 
-      <div className="mt-5 rounded-xl border border-border bg-card">
+      <div className="relative mt-5 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {items.map((a) => {
           const Icon = channelIcon[a.channel];
           return (
@@ -65,7 +67,7 @@ export function CommunicationsSection() {
               <div className="flex shrink-0 items-center gap-2">
                 <span className={`rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[a.status]}`}>{a.status}</span>
                 {a.status !== "Sent" && (
-                  <button onClick={() => send(a)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Send className="h-3.5 w-3.5" /> Send now</button>
+                  <button onClick={() => send(a)} className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"><Send className="h-3.5 w-3.5" /> Send now</button>
                 )}
               </div>
             </div>

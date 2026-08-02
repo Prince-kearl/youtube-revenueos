@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAdminSessions, useIpLists, usePlatformSettings } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const suspiciousEvents = [
   { who: "Unknown device", detail: "5 failed logins for hiro@bytesize.dev, then a password reset request", time: "2026-07-21 22:41 UTC" },
@@ -50,7 +51,8 @@ export function SecuritySection() {
         <StatCard icon={<KeyRound className="h-5 w-5" />} value={settings.requireMfa ? "Enforced" : "Optional"} label="MFA Policy" />
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h3 className="text-sm font-semibold">Authentication</h3>
         <div className="mt-4 space-y-4">
           <div className="flex items-center justify-between"><span className="text-sm">Enforce MFA for all admins</span><Switch checked={settings.requireMfa} onCheckedChange={(v) => { setSettings({ ...settings, requireMfa: v }); log(v ? "Enforced MFA" : "Made MFA optional", "Security", "Authentication policy"); toast.success(v ? "MFA is now required for all admins" : "MFA is now optional"); }} /></div>
@@ -59,7 +61,8 @@ export function SecuritySection() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-card">
+        <div className="relative rounded-xl card-gradient-outline">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="p-5 pb-0 text-sm font-semibold">Active Sessions</h3>
           <div className="mt-3">
             {sessions.map((s) => (
@@ -68,14 +71,15 @@ export function SecuritySection() {
                   <p className="truncate text-sm font-medium">{s.user}</p>
                   <p className="truncate text-xs text-muted-foreground">{s.device} · {s.location} · {s.lastActive}</p>
                 </div>
-                <button onClick={() => revoke(s.id)} className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10">Revoke</button>
+                <button onClick={() => revoke(s.id)} className="shrink-0 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10">Revoke</button>
               </div>
             ))}
             {sessions.length === 0 && <p className="p-5 text-center text-sm text-muted-foreground">No active sessions.</p>}
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card">
+        <div className="relative rounded-xl card-gradient-outline">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="p-5 pb-0 text-sm font-semibold">Suspicious Activity</h3>
           <div className="mt-3">
             {suspiciousEvents.map((e, i) => (
@@ -105,7 +109,8 @@ function IpListCard({ title, list, value, onChange, onAdd, onRemove }: {
   onChange: (v: string) => void; onAdd: () => void; onRemove: (id: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative rounded-xl card-gradient-outline p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-sm font-semibold">{title}</h3>
       <div className="mt-3 space-y-2">
         {list.map((r) => (
@@ -118,7 +123,7 @@ function IpListCard({ title, list, value, onChange, onAdd, onRemove }: {
       </div>
       <div className="mt-3 flex gap-2">
         <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g. 203.0.113.10" className="h-8 text-xs" />
-        <button onClick={onAdd} className="flex h-8 shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-3.5 w-3.5" /> Add</button>
+        <button onClick={onAdd} className="flex h-8 shrink-0 items-center gap-1 rounded-[var(--button-radius)] bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Plus className="h-3.5 w-3.5" /> Add</button>
       </div>
     </div>
   );

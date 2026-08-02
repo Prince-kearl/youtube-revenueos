@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/changelog")({
   component: Changelog,
@@ -98,7 +99,8 @@ function Changelog() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         {dates.map((date) => {
           const dateEntries = filtered.filter((e) => e.date === date);
           if (dateEntries.length === 0) return null;

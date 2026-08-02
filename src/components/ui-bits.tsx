@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { cn } from "@/lib/utils";
 
 export function StatCard({
   icon,
@@ -8,6 +10,8 @@ export function StatCard({
   sub,
   change,
   up,
+  glow,
+  frost,
 }: {
   icon: ReactNode;
   value: string;
@@ -15,11 +19,14 @@ export function StatCard({
   sub?: string;
   change?: string;
   up?: boolean;
+  glow?: boolean;
+  frost?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className={cn("relative rounded-xl p-4 backdrop-blur-lg", frost ? "card-frost" : "card-gradient-outline")}>
+      {glow && <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />}
       <div className="flex items-start justify-between">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-primary [&_svg]:h-4 [&_svg]:w-4">
+        <div className="stat-icon-chip flex h-8 w-8 items-center justify-center text-primary [&_svg]:h-4 [&_svg]:w-4">
           {icon}
         </div>
         {change && (

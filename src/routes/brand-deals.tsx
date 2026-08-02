@@ -9,6 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/brand-deals")({
   component: BrandDeals,
@@ -43,7 +44,7 @@ function BrandDeals() {
           <h1 className="text-3xl font-bold tracking-tight">Brand Deal Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">CRM-style pipeline for sponsorship management</p>
         </div>
-        <button onClick={() => setCreating({ open: true })} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating({ open: true })} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> New Deal
         </button>
       </div>
@@ -69,7 +70,8 @@ function BrandDeals() {
 
             <div className="space-y-3">
               {stage.deals.map((d) => (
-                <div key={d.id} className="rounded-xl border border-border bg-card p-4">
+                <div key={d.id} className="relative rounded-xl card-gradient-outline p-4">
+                  <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-semibold">{d.company}</p>
@@ -113,7 +115,7 @@ function BrandDeals() {
                 </div>
               ))}
 
-              <button onClick={() => setCreating({ open: true, stage: stage.name })} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
+              <button onClick={() => setCreating({ open: true, stage: stage.name })} className="flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] border border-dashed border-border py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
                 <Plus className="h-4 w-4" /> Add deal
               </button>
             </div>

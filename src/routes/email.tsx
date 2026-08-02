@@ -8,6 +8,7 @@ import { StatCard } from "@/components/ui-bits";
 import { useCampaigns, Campaign } from "@/lib/stores";
 import { CampaignDialog, ConfirmDialog } from "@/components/modals";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/email")({
   component: EmailSender,
@@ -61,7 +62,7 @@ function EmailSender() {
             High-deliverability broadcasts and drip sequences tied directly to your freebie funnels.
           </p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> New Campaign
         </button>
       </div>
@@ -74,7 +75,8 @@ function EmailSender() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Conversion Funnel</h3>
           <div className="mt-5 space-y-3">
             {funnel.map((f) => {
@@ -94,7 +96,8 @@ function EmailSender() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Live Activity</h3>
           <div className="mt-4 space-y-2.5">
             {activity.map((a, i) => (
@@ -113,7 +116,8 @@ function EmailSender() {
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-border bg-card">
+      <div className="relative mt-5 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center justify-between border-b border-border p-5">
           <h3 className="text-lg font-semibold">Campaigns</h3>
         </div>

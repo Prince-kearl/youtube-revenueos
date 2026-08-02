@@ -14,6 +14,7 @@ import {
 import { useCommentRules, useLeads, CommentRule } from "@/lib/stores";
 import { RuleDialog, ConfirmDialog } from "@/components/modals";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/comments")({
   component: Comments,
@@ -98,13 +99,13 @@ function Comments() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/leads" className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
+          <Link to="/leads" className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
             <Inbox className="h-4 w-4" /> Lead Inbox
           </Link>
-          <button onClick={() => setViewingComments(true)} className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
+          <button onClick={() => setViewingComments(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent">
             <Eye className="h-4 w-4" /> View All Comments
           </button>
-          <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" /> New Rule
           </button>
         </div>
@@ -119,7 +120,8 @@ function Comments() {
         </Link>
       </div>
 
-      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className={`h-5 w-5 ${pct > 80 ? "text-warning" : "text-muted-foreground"}`} />
@@ -140,7 +142,7 @@ function Comments() {
           {rules.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <p className="text-sm text-muted-foreground">No rules yet.</p>
-              <button onClick={() => setCreating(true)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground">
+              <button onClick={() => setCreating(true)} className="mt-3 inline-flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground">
                 <Plus className="h-4 w-4" /> Create your first rule
               </button>
             </div>
@@ -148,7 +150,8 @@ function Comments() {
           {rules.map((r) => {
             const Icon = ICONS[r.icon];
             return (
-              <div key={r.id} className="rounded-xl border border-border bg-card p-5">
+              <div key={r.id} className="relative rounded-xl card-gradient-outline p-5">
+                <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg[r.color]}`}>
@@ -177,7 +180,8 @@ function Comments() {
           })}
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="font-semibold">Recent Triggers</h3>
           <div className="mt-4 space-y-3">
             {recent.map((c, i) => (
@@ -435,7 +439,7 @@ function CommentRow({
                 <button onClick={() => setEditing(false)} className="text-xs font-medium text-muted-foreground hover:text-foreground">
                   Cancel
                 </button>
-                <button onClick={save} className="rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+                <button onClick={save} className="rounded-[var(--button-radius)] bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
                   Save
                 </button>
               </div>

@@ -4,6 +4,7 @@ import { StatCard } from "@/components/ui-bits";
 import { useBackups, useTenants } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const services = [
   { name: "API", icon: Wifi, latency: "82ms" },
@@ -37,7 +38,8 @@ export function InfrastructureSection() {
         ))}
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center gap-2"><HardDrive className="h-4 w-4 text-muted-foreground" /><h3 className="text-sm font-semibold">Storage</h3></div>
         <div className="mt-3">
           <div className="flex justify-between text-xs text-muted-foreground"><span>{storageUsed} GB used</span><span>{storageQuota} GB provisioned</span></div>
@@ -47,10 +49,11 @@ export function InfrastructureSection() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-border bg-card">
+      <div className="relative mt-4 rounded-xl card-gradient-outline">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center justify-between p-5 pb-0">
           <h3 className="text-sm font-semibold">Backups</h3>
-          <button onClick={runBackup} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Play className="h-3.5 w-3.5" /> Run backup now</button>
+          <button onClick={runBackup} className="flex items-center gap-1.5 rounded-[var(--button-radius)] bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Play className="h-3.5 w-3.5" /> Run backup now</button>
         </div>
         <div className="mt-3">
           {backups.map((b) => (

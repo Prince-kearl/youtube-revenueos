@@ -6,6 +6,7 @@ import { ChangeCell } from "@/components/ui-bits";
 import { useLinks, TrackLink } from "@/lib/stores";
 import { LinkDialog, ConfirmDialog } from "@/components/modals";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/link-tracking")({
   component: LinkTracking,
@@ -41,7 +42,7 @@ function LinkTracking() {
           <h1 className="text-3xl font-bold tracking-tight">Link Tracking</h1>
           <p className="mt-1 text-sm text-muted-foreground">Track every click, conversion, and revenue path</p>
         </div>
-        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" /> Create Link
         </button>
       </div>
@@ -55,11 +56,12 @@ function LinkTracking() {
 
       <div className="relative mt-5">
         <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search links..." className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-sm outline-none focus:border-primary" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search links..." className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-card pl-10 pr-4 text-sm outline-none focus:border-primary" />
       </div>
 
       {filtered.length === 0 ? (
-        <div className="mt-5 rounded-xl border border-border bg-card">
+        <div className="relative mt-5 rounded-xl card-gradient-outline">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <p className="p-10 text-center text-sm text-muted-foreground">
             {query ? "No links match your search." : "No links yet — click Create Link to add one."}
           </p>
@@ -69,7 +71,8 @@ function LinkTracking() {
         {/* Mobile: stacked cards */}
         <div className="mt-5 space-y-3 sm:hidden">
           {filtered.map((l) => (
-            <div key={l.id} className="rounded-xl border border-border bg-card p-4">
+            <div key={l.id} className="relative rounded-xl card-gradient-outline p-4">
+              <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
                 <div className="min-w-0 flex-1">
@@ -110,7 +113,8 @@ function LinkTracking() {
         </div>
 
         {/* Desktop: table */}
-        <div className="mt-5 hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+        <div className="relative mt-5 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -167,7 +171,8 @@ function LinkTracking() {
 
 function Summary({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative rounded-xl card-gradient-outline p-5">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <p className="text-2xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>

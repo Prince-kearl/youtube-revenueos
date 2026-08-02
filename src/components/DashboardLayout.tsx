@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   useDeals, useNotifications, useProfile, useViewerRole, useFeatureFlags, useSidebarCollapsed,
-  canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
+  useSiteContent, canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
 } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
@@ -82,6 +82,7 @@ const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
 
 export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
   const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const [siteContent] = useSiteContent();
   const [moreOpen, setMoreOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -142,16 +143,16 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="dashboard-shell min-h-screen bg-background text-foreground">
       {!hideAppNav && (
         <aside
-          className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-sidebar transition-all duration-200 md:flex ${
+          className={`card-gradient-outline fixed top-[var(--sidebar-gap)] bottom-[var(--sidebar-gap)] left-[var(--sidebar-gap)] z-30 hidden flex-col overflow-hidden backdrop-blur-2xl transition-all duration-200 md:flex ${
             collapsed ? "w-20" : "w-[210px]"
           }`}
         >
           <div className="flex items-center justify-between px-4 py-5">
             <Logo collapsed={collapsed} />
-            <button onClick={() => setCollapsed((c) => !c)} className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <button onClick={() => setCollapsed((c) => !c)} className="flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
               <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
             </button>
           </div>
@@ -169,8 +170,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                     const locked = isLocked(item.to);
                     const Icon = item.icon;
                     return (
-                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-primary/10 text-primary" : locked ? "text-muted-foreground/40 hover:bg-accent" : "text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
-                        <span className={`absolute left-0 top-0 h-full w-1 rounded-r-full transition-colors ${active ? "bg-primary" : "bg-transparent group-hover:bg-primary/60"}`} />
+                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed && siteContent.ios26Design ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
                         <Icon className="relative h-[18px] w-[18px] shrink-0" />
                         {!collapsed && <span className="relative flex-1">{item.label}</span>}
                         {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
@@ -183,8 +183,8 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
           </nav>
 
           <div className="p-3">
-            <div className="flex items-center gap-3 rounded-xl bg-accent/50 px-3 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <div className="card-frost flex items-center gap-3 px-3 py-3 backdrop-blur-lg">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
                 <Youtube className="h-4 w-4 text-white" fill="white" strokeWidth={1.5} />
               </div>
               {!collapsed && (
@@ -199,19 +199,19 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
         </aside>
       )}
 
-      <div className={`transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-20" : "md:pl-[210px]"}`}>
-        <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6 print:hidden">
+      <div className={`transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}>
+        <header className="glass-bar sticky top-0 z-20 flex h-[68px] items-center justify-between gap-3 px-4 backdrop-blur-2xl sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
             <div className={hideAppNav ? "" : "md:hidden"}><Logo collapsed /></div>
             <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={() => setCmdOpen(true)} className="relative hidden items-center lg:flex">
+            <button onClick={() => setCmdOpen(true)} className="glass-pill relative hidden h-9 w-64 items-center backdrop-blur-lg lg:flex">
               <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-              <span className="flex h-9 w-64 items-center rounded-lg border border-border bg-card pl-9 pr-12 text-sm text-muted-foreground">Search...</span>
-              <kbd className="absolute right-2 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
+              <span className="flex-1 truncate pl-9 pr-12 text-sm text-muted-foreground">Search...</span>
+              <kbd className="absolute right-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
             </button>
-            <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
+            <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
               <Search className="h-[18px] w-[18px]" />
             </button>
 
@@ -246,7 +246,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Notifications">
+                <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Notifications">
                   <Bell className="h-[18px] w-[18px]" />
                   {unread > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />}
                 </button>
@@ -286,7 +286,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             {/* Profile menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-accent">
+                <button className="flex items-center gap-2 rounded-[var(--button-radius)] px-1 py-1 hover:bg-accent">
                   <img src={profile.avatar} alt={profile.name} className="h-8 w-8 rounded-full object-cover" />
                   <span className="hidden text-sm font-medium sm:block">{profile.name}</span>
                 </button>
@@ -333,7 +333,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                   </p>
                 </>
               )}
-              <button onClick={() => navigate({ to: "/dashboard" })} className="mt-5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <button onClick={() => navigate({ to: "/dashboard" })} className="mt-5 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
                 Back to Dashboard
               </button>
             </div>
@@ -344,7 +344,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       </div>
 
       {/* Help FAB */}
-      <button onClick={() => setHelpOpen(true)} className="fixed bottom-6 right-6 z-30 hidden h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl transition-transform hover:scale-105 md:flex print:hidden" aria-label="Help">
+      <button onClick={() => setHelpOpen(true)} className="glass-fab fixed bottom-6 right-6 z-30 hidden h-12 w-12 items-center justify-center backdrop-blur-lg transition-transform hover:scale-105 md:flex print:hidden" aria-label="Help">
         <HelpCircle className="h-5 w-5" />
       </button>
 
@@ -352,12 +352,12 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       {!hideAppNav && (
         <>
           <nav aria-label="Primary" className={cn("fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden", keyboardOpen && "hidden")} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-            <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+            <div className="glass-pill flex items-center gap-1 px-2 py-1.5 backdrop-blur-2xl">
               {visiblePrimaryMobileNav.map((item) => {
                 const active = pathname === item.to;
                 const Icon = item.icon;
                 return (
-                  <Link key={item.to} to={item.to} aria-label={item.label} title={item.label} className={cn("group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all", active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
+                  <Link key={item.to} to={item.to} aria-label={item.label} title={item.label} className={cn("group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all", active ? "glass-tab-active" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
                     <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
                   </Link>
                 );
@@ -369,7 +369,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
                   !visiblePrimaryMobileNav.some((item) => item.to === pathname) && visibleNav.some((item) => item.to === pathname)
-                    ? "bg-primary text-primary-foreground"
+                    ? "glass-tab-active"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
@@ -497,7 +497,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
           <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask anything…" />
           <Button type="submit" size="icon"><Send className="h-4 w-4" /></Button>
         </form>
-        <Link to="/support" onClick={() => onOpenChange(false)} className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+        <Link to="/support" onClick={() => onOpenChange(false)} className="mt-3 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
           <LifeBuoy className="h-3.5 w-3.5" /> Need a human? Report a problem →
         </Link>
       </SheetContent>

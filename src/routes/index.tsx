@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Zap } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/")({
   component: Login,
@@ -22,11 +23,12 @@ function Login() {
         </Link>
       </div>
 
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 shadow-2xl">
+      <div className="relative w-full max-w-md rounded-xl card-frost backdrop-blur-lg p-8 shadow-2xl">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h1 className="text-3xl font-extrabold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-muted-foreground">Sign in to your creator dashboard</p>
 
-        <button className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent">
+        <button className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-[var(--button-radius)] border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent">
           <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />
           Continue with Google
         </button>

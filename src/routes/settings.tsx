@@ -14,11 +14,16 @@ import {
   Globe,
   Lock,
   ScrollText,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { toast } from "sonner";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { useThemeMode, type ThemeMode } from "@/lib/theme";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -26,6 +31,7 @@ export const Route = createFileRoute("/settings")({
 
 const menu = [
   { label: "Profile", icon: User },
+  { label: "Appearance", icon: Monitor },
   { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
@@ -91,6 +97,8 @@ function Settings() {
 
 function renderPanel(active: string) {
   switch (active) {
+    case "Appearance":
+      return <AppearancePanel />;
     case "Dashboard Banner":
       return <DashboardBannerPanel />;
     case "Connected Accounts":
@@ -114,13 +122,14 @@ function renderPanel(active: string) {
 
 function ProfilePanel() {
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
+    <div className="relative rounded-xl card-gradient-outline p-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-lg font-semibold">Profile Information</h3>
 
       <div className="mt-5 flex items-center gap-4">
         <div className="relative">
           <img src="https://i.pravatar.cc/96?img=13" alt="Alex Chen" className="h-16 w-16 rounded-xl object-cover" />
-          <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] bg-primary text-primary-foreground">
             <Camera className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -146,9 +155,50 @@ function ProfilePanel() {
         />
       </div>
 
-      <button className="mt-6 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+      <button className="mt-6 rounded-[var(--button-radius)] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
         Save Changes
       </button>
+    </div>
+  );
+}
+
+const THEME_OPTIONS: { key: ThemeMode; label: string; desc: string; icon: typeof Sun }[] = [
+  { key: "light", label: "Light", desc: "Always use the light theme", icon: Sun },
+  { key: "dark", label: "Dark", desc: "Always use the dark theme", icon: Moon },
+  { key: "system", label: "System", desc: "Match your device setting", icon: Monitor },
+];
+
+function AppearancePanel() {
+  const [mode, setMode] = useThemeMode();
+  return (
+    <div className="relative rounded-xl card-gradient-outline p-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      <h3 className="text-lg font-semibold">Appearance</h3>
+      <p className="mt-1 text-sm text-muted-foreground">Choose how Tubify looks on this device.</p>
+
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {THEME_OPTIONS.map((o) => {
+          const selected = mode === o.key;
+          return (
+            <button
+              key={o.key}
+              onClick={() => setMode(o.key)}
+              className={`flex flex-col items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
+                selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+              }`}
+            >
+              <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${selected ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground"}`}>
+                <o.icon className="h-4 w-4" />
+              </span>
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                {o.label}
+                {selected && <Check className="h-3.5 w-3.5 text-primary" />}
+              </span>
+              <span className="text-xs text-muted-foreground">{o.desc}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -178,7 +228,8 @@ function ConnectedAccountsPanel() {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
+    <div className="relative rounded-xl card-gradient-outline p-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-lg font-semibold">Connected Accounts</h3>
       <p className="mt-1 text-sm text-muted-foreground">Connect third-party services and sync account data.</p>
 
@@ -219,7 +270,8 @@ function YouTubeIntegrationPanel() {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">YouTube Integration</h3>
         <p className="mt-1 text-sm text-muted-foreground">Manage your channel sync settings and data imports.</p>
@@ -237,7 +289,7 @@ function YouTubeIntegrationPanel() {
               <p className="mt-1 text-sm text-success">Connected & syncing</p>
             </div>
           </div>
-          <button className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15">
+          <button className="rounded-[var(--button-radius)] border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15">
             Disconnect
           </button>
         </div>
@@ -269,7 +321,8 @@ function NotificationsPanel() {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
+    <div className="relative rounded-xl card-gradient-outline p-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-lg font-semibold">Notification Preferences</h3>
       <p className="mt-1 text-sm text-muted-foreground">Choose which notifications you want to receive.</p>
 
@@ -292,7 +345,8 @@ function BillingPanel() {
   const features = ["Unlimited videos", "AI descriptions", "Advanced analytics"];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-lg font-semibold">
@@ -332,7 +386,8 @@ function BillingPanel() {
 
 function SecurityPanel() {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Security Settings</h3>
         <p className="mt-1 text-sm text-muted-foreground">Update your password and enable extra protection for your account.</p>
@@ -354,7 +409,7 @@ function SecurityPanel() {
         </div>
       </div>
 
-      <button className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+      <button className="rounded-[var(--button-radius)] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
         Update Password
       </button>
     </div>
@@ -365,7 +420,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <label className="mb-2 block text-sm text-muted-foreground">{label}</label>
-      <input defaultValue={value} className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary" />
+      <input defaultValue={value} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary" />
     </div>
   );
 }
@@ -382,7 +437,8 @@ function DashboardBannerPanel() {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Dashboard Banner</h3>
         <p className="mt-1 text-sm text-muted-foreground">Paste your channel URL and choose what appears on the dashboard banner.</p>
@@ -472,7 +528,8 @@ function OAuthScopesPanel() {
     { name: "youtubepartner", purpose: "Not requested — dropped in v3.0 (typical creators don't hold it).", status: "Omitted", required: false },
   ];
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">OAuth Scopes</h3>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -538,7 +595,8 @@ function CompliancePanel() {
     { icon: Shield, label: "Regulatory alignment", value: "GDPR · NIS2 · Dutch Cybersecurity Act" },
   ];
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Compliance & Data</h3>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { BarChart3, DollarSign, TrendingUp, Eye, FileText, Download, Calendar } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { reports } from "@/lib/data";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/reports")({
   component: Reports,
@@ -31,7 +32,7 @@ function Reports() {
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">Performance summaries and exportable reports</p>
         </div>
-        <button className="flex h-9 items-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <BarChart3 className="h-4 w-4" /> Generate Report
         </button>
       </div>
@@ -39,7 +40,8 @@ function Reports() {
       <h2 className="mt-6 text-lg font-semibold">Key Insights</h2>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {insights.map((it) => (
-          <div key={it.title} className="rounded-xl border border-border bg-card p-5">
+          <div key={it.title} className="relative rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
               <it.icon className="h-5 w-5" />
             </div>
@@ -53,7 +55,8 @@ function Reports() {
       <h2 className="mt-8 text-lg font-semibold">Available Reports</h2>
       <div className="mt-3 space-y-4">
         {reports.map((r) => (
-          <div key={r.title} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
+          <div key={r.title} className="relative flex flex-wrap items-center justify-between gap-4 rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start gap-4">
               <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${badgeColor[r.color]}`}>
                 <FileText className="h-5 w-5" />
@@ -71,19 +74,20 @@ function Reports() {
                 </div>
               </div>
             </div>
-            <button className="flex h-9 items-center gap-2 rounded-lg border border-border bg-accent/30 px-3.5 text-sm hover:bg-accent">
+            <button className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-accent/30 px-3.5 text-sm hover:bg-accent">
               <Download className="h-4 w-4" /> Export
             </button>
           </div>
         ))}
       </div>
 
-      <div className="mt-8 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-8 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <h2 className="text-lg font-semibold">Custom Report</h2>
         <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
           <div>
             <label className="mb-2 block text-sm text-muted-foreground">Date Range</label>
-            <input type="text" placeholder="dd/mm/yyyy" className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary" />
+            <input type="text" placeholder="dd/mm/yyyy" className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary" />
           </div>
           <div>
             <label className="mb-2 block text-sm text-muted-foreground">Report Type</label>
@@ -93,14 +97,14 @@ function Reports() {
             <label className="mb-2 block text-sm text-muted-foreground">Format</label>
             <div className="flex h-11 rounded-xl border border-border bg-accent/20 p-1 text-sm">
               {["PDF", "CSV", "XLSX"].map((f) => (
-                <button key={f} onClick={() => setFormat(f)} className={`flex-1 rounded-lg font-medium ${format === f ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                <button key={f} onClick={() => setFormat(f)} className={`flex-1 rounded-[var(--button-radius)] font-medium ${format === f ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                   {f}
                 </button>
               ))}
             </div>
           </div>
         </div>
-        <button className="mt-5 flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+        <button className="mt-5 flex h-11 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
           <Download className="h-4 w-4" /> Generate & Export
         </button>
       </div>

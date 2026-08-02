@@ -679,6 +679,123 @@ const seedPlatformSettings = (): PlatformSettings => ({
 });
 export const usePlatformSettings = () => useLocalStore<PlatformSettings>("yroos.platformSettings", seedPlatformSettings());
 
+// ============ SITE CONTENT (Customization / Content Studio) ============
+// Backs the public landing page (src/routes/landing.tsx) and app-wide branding (Logo, theme
+// colors) so Superadmins can edit them from /admin without a code change. Seeded verbatim from
+// landing.tsx's current copy so nothing changes visually until an admin edits a field.
+export interface SiteContent {
+  siteName: string;
+  tagline: string;
+  seoDescription: string;
+  logoLightUrl: string;
+  logoDarkUrl: string;
+  primaryColor: string;
+  buttonTextColor: string;
+  accentColor: string;
+  cardRadius: number;
+  buttonRadius: number;
+  inputRadius: number;
+  /** Superadmin-controlled platform-wide theme switch — see Customization → General → Visual Style.
+   *  Toggles the Liquid Glass / iOS 26-inspired surface treatment (dashboard + persistent app chrome)
+   *  on or off for every user; disabling it reverts those surfaces to the standard flat theme without
+   *  touching layout structure, data, or permissions. */
+  ios26Design: boolean;
+  heroBadge: string;
+  heroHeadline: string;
+  heroSubheadline: string;
+  heroPrimaryCta: string;
+  heroSecondaryCta: string;
+  problemHeading: string;
+  problemItems: { title: string; desc: string }[];
+  showcaseBadge: string;
+  showcaseHeading: string;
+  showcaseSubtext: string;
+  howItWorksHeading: string;
+  howItWorksSubtitle: string;
+  howItWorksSteps: { title: string; desc: string }[];
+  creatorsHeading: string;
+  creatorsSubtitle: string;
+  statsHeading: string;
+  stats: { value: string; label: string }[];
+  finalCtaHeading: string;
+  finalCtaSubtitle: string;
+  faqHeading: string;
+  faqs: { q: string; a: string }[];
+  contactHeading: string;
+  contactSubheading: string;
+  contactEmail: string;
+  socialLinks: { youtube: string; twitter: string; instagram: string; tiktok: string };
+  copyrightText: string;
+}
+const seedSiteContent = (): SiteContent => ({
+  siteName: "Tubify",
+  tagline: "Turn your YouTube channel into a predictable revenue engine.",
+  seoDescription: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links, attributes Stripe sales, and automates comment engagement.",
+  logoLightUrl: "/logo.png",
+  logoDarkUrl: "/logo.png",
+  primaryColor: "#0284c7",
+  buttonTextColor: "#ffffff",
+  accentColor: "#3b82f6",
+  cardRadius: 4,
+  buttonRadius: 0,
+  inputRadius: 0,
+  ios26Design: true,
+  heroBadge: "Now with AI-generated descriptions",
+  heroHeadline: "Stop guessing which videos make you money.",
+  heroSubheadline: "Tubify turns your YouTube channel into a sales engine with AI descriptions, link tracking, comment automation, and revenue attribution per video.",
+  heroPrimaryCta: "Get Started Free",
+  heroSecondaryCta: "View Live Demo",
+  problemHeading: "YouTube Studio wasn't built to run your business.",
+  problemItems: [
+    { title: "Views, not revenue clarity", desc: "YouTube Studio shows watch time. It doesn't show which video actually paid your rent." },
+    { title: "Comments pile up", desc: "Every \"link please?\" and dropped @handle is a lead — most creators never reply in time." },
+    { title: "Deals live in spreadsheets", desc: "Brand deals, affiliate payouts, and memberships tracked in five different tools." },
+  ],
+  showcaseBadge: "Product",
+  showcaseHeading: "Turn your inbox of comments into a pipeline of leads.",
+  showcaseSubtext: "Every comment, every tracked link, every brand deal — in one dashboard instead of five browser tabs.",
+  howItWorksHeading: "How Tubify works",
+  howItWorksSubtitle: "Simple enough to start today. Structured enough to grow into.",
+  howItWorksSteps: [
+    { title: "Connect your channel", desc: "Sync videos, analytics, and revenue in a few minutes — no spreadsheets required." },
+    { title: "AI writes descriptions & tracked links", desc: "Paste a URL. Tubify transcribes it, writes the description, and injects your tracked links automatically." },
+    { title: "Comment automation finds your leads", desc: "Auto-reply to keyword comments, dropped @handles, and AI-detected questions — every trigger creates a lead." },
+    { title: "Track revenue across every stream", desc: "AdSense, brand deals, memberships, affiliates — attributed down to the video, in one dashboard." },
+  ],
+  creatorsHeading: "Built for creators who run a real business.",
+  creatorsSubtitle: "Invite editors and setters, split lead distribution by percentage, and see who's actually driving revenue.",
+  statsHeading: "Revenue tracked so far",
+  stats: [
+    { value: "$48.2M+", label: "Revenue tracked" },
+    { value: "12,400+", label: "Videos synced" },
+    { value: "3,100+", label: "Creators onboard" },
+    { value: "34%", label: "Avg. revenue lift" },
+  ],
+  finalCtaHeading: "You already grew an audience. Now let's grow the revenue.",
+  finalCtaSubtitle: "Free to start. Connect your channel in minutes.",
+  faqHeading: "Frequently Asked Questions",
+  faqs: [
+    { q: "Do I need to connect my YouTube channel to get started?", a: "You can explore the dashboard with sample data first. Connecting your channel unlocks real analytics, revenue attribution, and comment automation." },
+    { q: "How does comment automation work?", a: "You set trigger rules — keywords, @handle patterns, or AI-detected questions — and Tubify auto-replies and logs the commenter as a lead, all within your YouTube API quota." },
+    { q: "Is my revenue data accurate?", a: "YouTube Analytics typically lags 24–72 hours and revenue ~48 hours. Click and Stripe attribution are real-time, which is why we show both feeds separately." },
+    { q: "Can I track brand deals and affiliate revenue too?", a: "Yes — Brand Deals has a full pipeline board (Prospect → Completed), and Affiliate tracks referrals and commissions alongside your AdSense and membership revenue." },
+    { q: "Does this replace YouTube Studio?", a: "No — Tubify reads from YouTube's API and layers revenue attribution, automation, and team collaboration on top. You'll still upload and manage videos in Studio." },
+    { q: "What if I work with a team?", a: "Invite editors and setters from the Team page, assign roles, and split incoming leads by percentage so everyone knows what's theirs." },
+  ],
+  contactHeading: "Found a problem? Have a question?",
+  contactSubheading: "Tell us what's going on — this goes straight to the Tubify team, whether or not you have an account yet.",
+  contactEmail: "hey@tubify.app",
+  socialLinks: { youtube: "", twitter: "", instagram: "", tiktok: "" },
+  copyrightText: "© 2026 Tubify. All rights reserved.",
+});
+export const useSiteContent = () => useLocalStore<SiteContent>("yroos.siteContent", seedSiteContent());
+
+// ============ COOKIE CONSENT ============
+// null = not yet decided (banner shows); "all" / "essential" = the visitor's choice, persisted so
+// the banner doesn't reappear once dismissed.
+export type CookieConsent = "all" | "essential" | null;
+export const useCookieConsent = () => useLocalStore<CookieConsent>("yroos.cookieConsent", null);
+
 // ============ SECURITY ============
 export interface AdminSession { id: string; user: string; device: string; location: string; lastActive: string }
 const seedAdminSessions = (): AdminSession[] => [

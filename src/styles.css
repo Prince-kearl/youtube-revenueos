@@ -6,6 +6,13 @@
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
+  /* rounded-md/lg here stay tied to the generic --radius token, same as Tailwind's defaults.
+     Button and Input roundness are each driven by their own variable (--button-radius,
+     --input-radius) applied directly to those components via rounded-[var(--...)] arbitrary
+     values, NOT through these shared tokens — dozens of unrelated components (Alert, Dialog,
+     DropdownMenu, Select popup, Tabs, Tooltip, etc.) also use rounded-md/lg, so routing either
+     Studio control through the shared token would leak into all of them. Cards use the same
+     direct-application pattern: see --card-radius in .card-gradient-outline/.card-frost below. */
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
@@ -44,6 +51,9 @@
 
 :root {
   --radius: 0rem;
+  --card-radius: 4px;
+  --button-radius: 0px;
+  --input-radius: 0px;
   --background: #ffffff;
   --foreground: #18181b;
   --card: #ffffff;
@@ -73,6 +83,43 @@
   --brand-blue: #3b82f6;   /* accent blue for chat/AdSense */
   --brand-green: #34d399;  /* Teal for Memberships */
   --brand-amber: #f59e0b;  /* Amber for Affiliates */
+}
+
+/* Dark theme — toggled via .dark on <html> (see src/lib/theme.ts + the no-flash script in
+   __root.tsx). Reuses the same token set as :root above, so every component built on
+   bg-background/bg-card/text-foreground/border-border/etc. re-themes automatically with no
+   per-component changes. Brand accent colors (--primary etc.) can still be overridden on top by
+   ThemeInjector's Customization Studio colors, same as in light mode. */
+.dark {
+  --background: #0f0f0f;
+  --foreground: #f1f1f1;
+  --card: #212121;
+  --card-foreground: #f1f1f1;
+  --popover: #212121;
+  --popover-foreground: #f1f1f1;
+  --primary: #3ea6ff;
+  --primary-foreground: #0f0f0f;
+  --secondary: #272727;
+  --secondary-foreground: #f1f1f1;
+  --muted: #272727;
+  --muted-foreground: #aaaaaa;
+  --accent: #272727;
+  --accent-foreground: #f1f1f1;
+  --destructive: #f87171;
+  --destructive-foreground: #0f0f0f;
+  --border: #303030;
+  --input: #272727;
+  --ring: rgba(62, 166, 255, 0.35);
+  --sidebar: #0f0f0f;
+  --sidebar-foreground: #f1f1f1;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #3ea6ff;
+  --brand-red: #ff6b6b;
+  --brand-purple: #a78bfa;
+  --brand-blue: #3ea6ff;
+  --brand-green: #4ade80;
+  --brand-amber: #fbbf24;
 }
 
 @layer base {
@@ -116,4 +163,490 @@
 }
 .animate-gradient-flow {
   animation: gradient-flow 4s ease infinite;
+}
+
+/* App-wide gradient-outline card treatment — replaces the flat `border border-border bg-card`
+   convention used throughout the product. Two stacked backgrounds (padding-box keeps the normal
+   card fill, border-box shows a gradient only within the transparent border ring) render the
+   border without any extra markup. Deliberately subtle: the gradient is mostly the app's own
+   --border gray with just a whisper of primary/purple mixed in, so it reads as a soft glassy
+   sheen catching light rather than a saturated rainbow ring — quiet enough to hold up when dozens
+   of cards are on screen at once. Ties to --primary so it follows the Customization → Design
+   Studio color choice. */
+.card-gradient-outline {
+  border-radius: var(--card-radius);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
+      var(--border) 50%,
+      color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
+    ) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+}
+/* iOS 26 Design ON: this is the app's single most-used card wrapper (nearly every page's main
+   content container), so retrofitting it here — rather than in each page — is what makes the
+   toggle a true global theme switch instead of a Dashboard-only skin. Radius still comes from
+   var(--card-radius), which ThemeInjector already sets to the large iOS scale when the toggle is
+   on, so this and every other --card-radius consumer stay in sync automatically. Must be paired
+   with a backdrop-blur-* Tailwind utility in JSX; see the .card-frost note below for why. */
+.ios26 .card-gradient-outline {
+  border: 1px solid color-mix(in srgb, white 22%, transparent);
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, white 14%, transparent) 0%,
+      color-mix(in srgb, var(--primary) 6%, transparent) 45%,
+      color-mix(in srgb, var(--brand-purple) 5%, transparent) 100%
+    ),
+    color-mix(in srgb, var(--card) 50%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 6%, transparent),
+    0 20px 40px -24px rgba(0, 0, 0, 0.35);
+}
+.ios26.dark .card-gradient-outline {
+  border: 1px solid color-mix(in srgb, white 9%, transparent);
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, white 5%, transparent) 0%,
+      color-mix(in srgb, var(--primary) 10%, transparent) 45%,
+      color-mix(in srgb, var(--brand-purple) 8%, transparent) 100%
+    ),
+    color-mix(in srgb, var(--card) 58%, transparent);
+}
+
+/* Frosted-glass card treatment — translucent card fill + backdrop blur so the app-wide motion
+   gradient (and whatever scrolls beneath) shows through softly, instead of the opaque
+   .card-gradient-outline used elsewhere. Built from color-mix(var(--card)) rather than hardcoded
+   white, so it reads as frosted white glass in light mode and frosted dark glass in dark mode
+   automatically, with no separate .dark override needed. Used for secondary/nested surfaces
+   (StatCard's `frost` variant, video tiles, the login card) across the whole app, same as
+   .card-gradient-outline above. */
+.card-frost {
+  border-radius: var(--card-radius);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 20%, transparent),
+    0 8px 24px -14px rgba(0, 0, 0, 0.18);
+}
+/* iOS 26 Design ON: stronger translucency/blur and a brighter inner edge than the always-on
+   frosted look above, so it still reads as a step up from the default when the toggle is active. */
+.ios26 .card-frost {
+  border: 1px solid color-mix(in srgb, white 22%, transparent);
+  background: color-mix(in srgb, var(--card) 48%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent),
+    0 14px 30px -20px rgba(0, 0, 0, 0.35);
+}
+.ios26.dark .card-frost {
+  border: 1px solid color-mix(in srgb, white 9%, transparent);
+  background: color-mix(in srgb, var(--card) 58%, transparent);
+}
+/* Blur is applied via the backdrop-blur-lg Tailwind utility class alongside .card-frost, not a
+   plain `backdrop-filter` declaration here — this project's Tailwind v4/Lightning CSS build
+   pipeline was observed dropping hand-written backdrop-filter from custom classes (confirmed via
+   CSSOM inspection: absent from both serialized cssText and computed style), while Tailwind's own
+   generated backdrop-blur-* utility applies correctly. */
+
+/* Gradient variant of .card-frost — same translucent base + backdrop-blur-lg pairing, but the
+   fill is a soft diagonal wash instead of a flat tone: primary-tinted in one corner fading through
+   plain frosted glass to a brand-purple tint in the other, mirroring .card-gradient-outline's
+   border gradient (same color-mix percentages) but applied to the fill itself and kept
+   translucent rather than opaque. Ties to --primary so it follows the Design Studio color choice. */
+.card-frost-gradient {
+  border-radius: var(--card-radius);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, color-mix(in srgb, var(--primary) 30%, var(--card)) 55%, transparent) 0%,
+    color-mix(in srgb, var(--card) 55%, transparent) 50%,
+    color-mix(in srgb, color-mix(in srgb, var(--brand-purple) 25%, var(--card)) 55%, transparent) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 20%, transparent),
+    0 8px 24px -14px rgba(0, 0, 0, 0.18);
+}
+
+/* App-wide motion gradient background — targets the `min-h-screen bg-background` combo that
+   marks every page-root wrapper (DashboardLayout's shell, the landing page, the login screen),
+   so it covers the whole app without touching the dozens of unrelated elements that also use
+   bg-background (dialogs, inputs, badges, etc). Kept very subtle (5% color mixed into transparent,
+   slow drift) since it sits behind data-dense screens — meant to read as a faint ambient shift,
+   not a decoration competing with content. Ties to the app's brand palette.
+   The keyframes loop through 4 waypoints back to the exact starting value (0% === 100%) with
+   `linear` timing, rather than the more obvious 2-point 0%↔100% ping-pong — a 2-point loop
+   decelerates to a dead stop and reverses direction every cycle, which reads as a jerky "bounce"
+   rather than motion. This drifts continuously in one direction with constant speed and no seam. */
+@keyframes bg-motion {
+  0% { background-position: 0% 30%; }
+  25% { background-position: 70% 0%; }
+  50% { background-position: 100% 70%; }
+  75% { background-position: 30% 100%; }
+  100% { background-position: 0% 30%; }
+}
+.min-h-screen.bg-background {
+  background-color: var(--background);
+  background-image: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--primary) 5%, transparent) 0%,
+    color-mix(in srgb, var(--brand-purple) 5%, transparent) 25%,
+    transparent 45%,
+    color-mix(in srgb, var(--brand-amber) 5%, transparent) 70%,
+    color-mix(in srgb, var(--primary) 5%, transparent) 100%
+  );
+  background-size: 300% 300%;
+  animation: bg-motion 32s linear infinite;
+}
+
+/* Dark mode swaps the brand-colored wash for a monochrome black↔silver sweep — a metallic sheen
+   drifting across the near-black background rather than a colorful tint, matching the YouTube-
+   style neutral dark palette instead of clashing with it. */
+.dark .min-h-screen.bg-background {
+  background-image: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(192, 192, 202, 0.08) 25%,
+    transparent 45%,
+    rgba(210, 210, 218, 0.06) 70%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+}
+
+/* Dashboard shell (DashboardLayout's root — every app/workspace page) opts out of the motion
+   background above. Landing and login keep it; the compound selector (three classes, higher
+   specificity than the two rules above) is what makes this an override rather than a conflict. */
+.dashboard-shell.min-h-screen.bg-background {
+  background-image: none;
+  animation: none;
+}
+
+/* Motion glow ring (landing page nav pill) — a light continuously travels around the border via a
+   rotating conic-gradient masked down to a thin ring, plus a slow-breathing outer halo. Unlike
+   .card-gradient-outline's static ring or GlowingEffect's mouse-tracking rainbow, this animates on
+   its own and only uses --primary/the dark navy backdrop tones, so it reads as an extension of the
+   nav's own gradient rather than a different color language layered on top. */
+@property --nav-glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes nav-glow-spin {
+  to { --nav-glow-angle: 360deg; }
+}
+@keyframes nav-glow-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.nav-glow-motion::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--nav-glow-angle),
+    transparent 0%,
+    color-mix(in srgb, var(--primary) 90%, white) 8%,
+    var(--primary) 16%,
+    transparent 30%,
+    transparent 70%,
+    #0a1420 85%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: nav-glow-spin 5s linear infinite;
+  pointer-events: none;
+}
+.nav-glow-motion::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--primary) 55%, transparent) 0%, transparent 70%);
+  filter: blur(14px);
+  animation: nav-glow-breathe 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes typewriter-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.typewriter-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: typewriter-blink 1s step-end infinite;
+}
+
+/* Hero background glow — two large blurred blobs layered above the static dark base gradient (see
+   landing.tsx), drifting in position/scale/opacity on offset cycles so they read as continuously
+   flowing liquid light rather than a single shape nudging in place. Transform + opacity only, so it
+   stays GPU-accelerated and doesn't trigger layout/repaint of the static text or dashboard mockup
+   sitting on top of it. */
+.hero-glow-aurora {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70vw;
+  max-width: 880px;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  filter: blur(85px);
+  animation: hero-glow-drift-a 16s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.hero-glow-aurora--secondary {
+  top: 55%;
+  left: 45%;
+  width: 50vw;
+  max-width: 620px;
+  filter: blur(75px);
+  animation: hero-glow-drift-b 20s ease-in-out infinite;
+}
+@keyframes hero-glow-drift-a {
+  0% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.85; }
+  25% { transform: translate(-50%, -50%) translate(14%, 10%) scale(1.25); opacity: 1; }
+  50% { transform: translate(-50%, -50%) translate(6%, -14%) scale(0.85); opacity: 0.65; }
+  75% { transform: translate(-50%, -50%) translate(-14%, 8%) scale(1.15); opacity: 0.95; }
+  100% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.85; }
+}
+@keyframes hero-glow-drift-b {
+  0% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.7; }
+  30% { transform: translate(-50%, -50%) translate(-16%, -10%) scale(1.2); opacity: 0.9; }
+  60% { transform: translate(-50%, -50%) translate(10%, 12%) scale(0.8); opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow-aurora,
+  .hero-glow-aurora--secondary {
+    animation: none;
+  }
+}
+
+/* ============================================================================================
+   iOS 26 Design — application-wide theme switch, not a Dashboard skin. Gated behind the .ios26
+   class on <html>, toggled by the Superadmin's "iOS 26 Design" switch (Customization → General →
+   Visual Style, ThemeInjector.tsx) and persisted on SiteContent.ios26Design. There is exactly one
+   centralized ON/OFF signal (the .ios26 class); every rule in this file that reacts to it reads
+   that same class, and every page/component that wants the treatment does so by using one of the
+   *shared* classes below (.card-gradient-outline, .card-frost, .ios26-glass, StatCard's
+   .stat-icon-chip, DashboardLayout's nav/header/FAB classes) rather than re-declaring glass rules
+   locally — a new page that reuses these existing primitives inherits the toggle automatically,
+   with nothing page-specific to wire up. .card-gradient-outline/.card-frost (below, in the base
+   card section) are the highest-leverage pieces of this: they're already the app's default card
+   wrapper on nearly every route, so retrofitting those two classes alone brings the toggle to
+   every page's main content. This block covers what's left: persistent chrome (nav rail, header,
+   mobile tab bar, FAB — DashboardLayout, itself already global since every route renders inside
+   it) and floating overlays (modals/sheets/dropdowns/popovers/menus, via .ios26-glass below).
+   Every rule ships two renderings: `.ios26 …` (glass) and a `:root:not(.ios26) …` fallback that
+   reproduces the exact flat/standard look these elements had before this system existed — so
+   flipping the switch never touches JSX structure, layout, data, or permissions, only paint. As
+   with .card-frost, backdrop-blur-* is applied via a Tailwind utility in JSX alongside these
+   classes (never a hand-written backdrop-filter here — silently dropped by this project's
+   Tailwind v4/Lightning CSS pipeline); in the "off" state the fallback backgrounds are fully
+   opaque, so backdrop-blur has nothing translucent to blur and is automatically a no-op without
+   needing to strip the class. Active/accent moments (nav rail, FAB, mobile tab, segmented
+   control, hero banner) use var(--primary) in both states — never a hardcoded color — so the
+   Customization → Design Studio color picker keeps working identically regardless of this
+   toggle; only YouTube-brand chrome unrelated to this switch (e.g. the channel-connected badge)
+   uses var(--brand-red). */
+:root {
+  --glass-radius-lg: 28px;
+  --glass-radius-md: 20px;
+  --glass-radius-sm: 16px;
+  --sidebar-gap: 0px;
+  --sidebar-offset-collapsed: 5rem;      /* w-20, flush against the edge */
+  --sidebar-offset-expanded: 13.125rem;  /* 210px, flush against the edge */
+  --hero-radius: 999px;                  /* standard: full pill, matching the old channel banner */
+}
+.ios26 {
+  --sidebar-gap: 0.75rem;
+  --sidebar-offset-collapsed: 6.75rem;   /* 12px gap + 80px rail + 16px breathing room */
+  --sidebar-offset-expanded: 14.875rem;  /* 12px gap + 210px rail + 16px breathing room */
+  --hero-radius: 28px;                   /* glass: hero-card radius, not a pill */
+}
+
+/* Pill/capsule surfaces — search bar, segmented controls, nav rail, bottom tab bar. */
+:root:not(.ios26) .glass-pill {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.ios26 .glass-pill {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, white 22%, transparent);
+  background: color-mix(in srgb, var(--card) 48%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    0 12px 28px -18px rgba(0, 0, 0, 0.35);
+}
+.ios26.dark .glass-pill {
+  border: 1px solid color-mix(in srgb, white 10%, transparent);
+  background: color-mix(in srgb, var(--card) 58%, transparent);
+}
+
+/* Full-width chrome bars — sticky header. No radius (spans the viewport). */
+:root:not(.ios26) .glass-bar {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+}
+.ios26 .glass-bar {
+  border-bottom: 1px solid color-mix(in srgb, white 14%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 65%, transparent),
+    color-mix(in srgb, var(--card) 40%, transparent)
+  );
+}
+.ios26.dark .glass-bar {
+  border-bottom: 1px solid color-mix(in srgb, white 8%, transparent);
+}
+
+/* Active nav item — a tinted glass capsule instead of a flat fill. Both states key off
+   var(--primary) so the Customization → Design Studio color picker drives this identically
+   whether iOS 26 Design is on or off — the glass treatment changes, the color logic doesn't. */
+:root:not(.ios26) .glass-active-nav {
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+.ios26 .glass-active-nav {
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 24%, transparent),
+    color-mix(in srgb, var(--primary) 10%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--primary);
+}
+
+/* Floating help/assistant button — same var(--primary) dependency in both states. */
+:root:not(.ios26) .glass-fab {
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}
+.ios26 .glass-fab {
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 30% 28%,
+    color-mix(in srgb, var(--primary) 55%, var(--card)) 0%,
+    color-mix(in srgb, var(--primary) 18%, var(--card)) 60%,
+    var(--card) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  box-shadow:
+    0 12px 28px -10px color-mix(in srgb, var(--primary) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+  color: var(--primary-foreground);
+}
+
+/* Active mobile bottom-tab indicator. Off: flat fill, no lift. On: same color, raised. */
+:root:not(.ios26) .glass-tab-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.ios26 .glass-tab-active {
+  transform: translateY(-2px);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--primary) 60%, transparent);
+}
+
+/* Dashboard channel banner background — both states wash the same var(--primary) tint over a
+   near-black base; only the shape (pill vs. hero-card radius, via --hero-radius) and the presence
+   of the animated .nav-glow-motion ring (disabled below when .ios26 is active — the glass hero
+   card reads as busy with both a moving ring and a gradient wash at once) differ between them. */
+:root:not(.ios26) .hero-banner-bg {
+  background: radial-gradient(circle at 22% 40%, color-mix(in srgb, var(--primary) 45%, #0a1420) 0%, #0a1420 55%, #060b12 100%);
+}
+.ios26 .hero-banner-bg {
+  background: radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--primary) 32%, #0a1420) 0%, #0a1420 55%, #060b12 100%);
+}
+.ios26 .nav-glow-motion::before,
+.ios26 .nav-glow-motion::after {
+  content: none;
+}
+
+/* StatCard icon chip — every StatCard app-wide renders this (ui-bits.tsx), not just Dashboard's,
+   so every KPI tile everywhere picks up the pill treatment automatically. Off: the original
+   squared accent chip. */
+:root:not(.ios26) .stat-icon-chip {
+  border-radius: 0.75rem;
+  background: var(--accent);
+}
+.ios26 .stat-icon-chip {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* Active segment in the 3M/6M/12M range control — same var(--primary) fill in both states. */
+:root:not(.ios26) .glass-segment-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.ios26 .glass-segment-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--primary) 60%, transparent);
+}
+
+/* Shared floating-surface glass treatment for every Radix-based overlay in the app — Dialog,
+   Sheet, Popover, DropdownMenu (+ SubContent), SelectContent, and Command (the palette CommandDialog
+   wraps in a DialogContent). One class reused across all of them is what makes "modals, dropdowns,
+   search components, notifications" a single centralized change instead of six bespoke ones. Off
+   state is intentionally empty — each component's existing Tailwind utilities (bg-popover/
+   bg-background, border, shadow) already render the current/default look untouched, so there's
+   nothing to fall back to. Deliberately leaves radius and edge-positioning alone: Sheet panels are
+   screen-edge-attached (a bottom sheet only rounds its top corners via its own className), so a
+   uniform radius here would fight per-usage radius classes; translucency/border/shadow are enough
+   to read as glass without that risk. Must be paired with a backdrop-blur-* Tailwind utility in
+   JSX, same Lightning CSS caveat as elsewhere. */
+.ios26 .ios26-glass {
+  background: color-mix(in srgb, var(--popover) 72%, transparent);
+  border-color: color-mix(in srgb, white 20%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+    0 20px 40px -24px rgba(0, 0, 0, 0.35);
+}
+.ios26.dark .ios26-glass {
+  border-color: color-mix(in srgb, white 10%, transparent);
+  background: color-mix(in srgb, var(--popover) 76%, transparent);
+}
+
+/* Toast notifications (sonner) — same shared glass treatment, targeted at sonner's own DOM
+   attribute since Toaster's classNames option can't read the .ios26 class reactively. !important
+   because sonner ships its own package CSS outside Tailwind's cascade layers, so plain selector
+   specificity/source order against it isn't reliable. The actual blur comes from a Tailwind
+   backdrop-blur-xl utility added to the toast's classNames in sonner.tsx, not a hand-written
+   backdrop-filter here — this project's Tailwind v4/Lightning CSS pipeline drops those. */
+.ios26 [data-sonner-toast] {
+  background: color-mix(in srgb, var(--popover) 80%, transparent) !important;
+  border-color: color-mix(in srgb, white 20%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+    0 20px 40px -24px rgba(0, 0, 0, 0.4) !important;
+}
+.ios26.dark [data-sonner-toast] {
+  border-color: color-mix(in srgb, white 10%, transparent) !important;
 }

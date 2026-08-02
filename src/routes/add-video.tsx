@@ -5,6 +5,7 @@ import {
   Clock, Hash, Wand2, ChevronRight, ArrowLeft,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/add-video")({
   component: AddVideo,
@@ -70,7 +71,8 @@ function AddVideo() {
       </div>
 
       {/* URL input */}
-      <div className="mt-6 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <label className="text-sm font-medium">YouTube video URL</label>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -114,7 +116,8 @@ function AddVideo() {
       </div>
 
       {/* Transcript paste — Phase 1 primary path */}
-      <div className="mt-5 rounded-xl border border-border bg-card p-5">
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center justify-between">
           <div>
             <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -138,7 +141,8 @@ function AddVideo() {
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Destinations */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Destinations</h3>
           <p className="mt-1 text-xs text-muted-foreground">Pick which tracked links apply to this video.</p>
           <div className="mt-4 space-y-2">
@@ -174,7 +178,8 @@ function AddVideo() {
         </div>
 
         {/* Description editor */}
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-lg font-semibold">
               <Sparkles className="h-5 w-5 text-brand-purple" /> AI Description
