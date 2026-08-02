@@ -788,7 +788,32 @@ const seedSiteContent = (): SiteContent => ({
   socialLinks: { youtube: "", twitter: "", instagram: "", tiktok: "" },
   copyrightText: "© 2026 Tubify. All rights reserved.",
 });
-export const useSiteContent = () => useLocalStore<SiteContent>("yroos.siteContent", seedSiteContent());
+// Raw local store, no server sync — used by ThemeInjector.tsx to hydrate from the global
+// settings API on app load without triggering a pointless write-back of the value it just read
+// (see useSiteContent below). Everything else should use useSiteContent.
+export const useSiteContentLocal = () => useLocalStore<SiteContent>("yroos.siteContent", seedSiteContent());
+
+// Wraps the local store with a best-effort push to /api/settings (backed by Cloudflare KV, see
+// src/routes/api.settings.ts) on every write, so a Superadmin's Customization changes reach every
+// browser/device/user instead of just the one that made them. The local write always applies
+// immediately and is never blocked or rolled back by the network call — offline edits, or a KV
+// binding that isn't configured yet in this environment, still work exactly as before, just
+// without leaving this browser.
+export function useSiteContent(): [SiteContent, (updater: SiteContent | ((prev: SiteContent) => SiteContent)) => void] {
+  const [content, setLocal] = useSiteContentLocal();
+  const setContent = (updater: SiteContent | ((prev: SiteContent) => SiteContent)) => {
+    setLocal((prev) => {
+      const next = typeof updater === "function" ? (updater as (prev: SiteContent) => SiteContent)(prev) : updater;
+      void fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      }).catch(() => {});
+      return next;
+    });
+  };
+  return [content, setContent];
+}
 
 // ============ COOKIE CONSENT ============
 // null = not yet decided (banner shows); "all" / "essential" = the visitor's choice, persisted so

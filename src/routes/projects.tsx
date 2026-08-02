@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Sparkles, Loader2, FileText, Workflow, Code2, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ConfirmDialog } from "@/components/modals";
-import { createGenerationJob, getGenerationJob, type GenerationJob } from "@/lib/mock-generation";
+import { createGenerationJob, processGenerationJob, type GenerationJob } from "@/lib/mock-generation";
 import { useProjectJobs } from "@/lib/stores";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -35,11 +35,9 @@ function ProjectsPage() {
     setTitle("");
     setPrompt("");
 
-    setTimeout(() => {
-      const updated = getGenerationJob(created.jobId);
-      if (updated) setJobs((current) => current.map((j) => (j.jobId === updated.jobId ? updated : j)));
-      setIsSubmitting(false);
-    }, 1400);
+    const completed = await processGenerationJob(created.jobId);
+    if (completed) setJobs((current) => current.map((j) => (j.jobId === completed.jobId ? completed : j)));
+    setIsSubmitting(false);
   }
 
   const removeJob = (job: GenerationJob) => {

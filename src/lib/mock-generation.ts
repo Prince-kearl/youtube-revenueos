@@ -1,11 +1,7 @@
-export type GenerationJobStatus = "queued" | "running" | "completed" | "failed";
+import { llm, type GenerationOutput } from "@/lib/llm";
 
-export type GenerationOutput = {
-  summary: string;
-  wireframes: string[];
-  flowchart: string[];
-  developerHandoff: string[];
-};
+export type { GenerationOutput };
+export type GenerationJobStatus = "queued" | "running" | "completed" | "failed";
 
 export type GenerationJob = {
   jobId: string;
@@ -20,35 +16,6 @@ export type GenerationJob = {
 };
 
 const jobs = new Map<string, GenerationJob>();
-
-function titleCase(value: string) {
-  return value
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function buildMockOutput(title: string, prompt: string): GenerationOutput {
-  const topic = titleCase(title || prompt || "AI product");
-  return {
-    summary: `${topic} concept generated with a polished UI direction and a starter workflow.`,
-    wireframes: [
-      "Onboarding screen with clear CTA",
-      "Dashboard layout with key metrics widgets",
-      "Settings flow with saved preferences",
-    ],
-    flowchart: [
-      "Prompt intake → concept board",
-      "Wireframe sketch → polished UI",
-      "Review loop → developer handoff",
-    ],
-    developerHandoff: [
-      "Component map and layout tokens",
-      "API contract for core actions",
-      "Export-ready starter code bundle",
-    ],
-  };
-}
 
 export function listGenerationJobs(): GenerationJob[] {
   return Array.from(jobs.values()).sort((a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt)));
@@ -72,10 +39,11 @@ export function createGenerationJob(input: { title: string; prompt: string; refe
   };
 
   jobs.set(jobId, job);
-  void processGenerationJob(jobId);
   return job;
 }
 
+// Not called automatically by createGenerationJob — callers decide whether to await it directly
+// (projects.tsx) or fire it in the background and let a client poll separately (api.generate.ts).
 export async function processGenerationJob(jobId: string): Promise<GenerationJob | undefined> {
   const job = jobs.get(jobId);
   if (!job) return undefined;
@@ -84,10 +52,8 @@ export async function processGenerationJob(jobId: string): Promise<GenerationJob
   job.updatedAt = new Date().toISOString();
   jobs.set(jobId, job);
 
-  await new Promise((resolve) => setTimeout(resolve, 1200));
-
+  job.output = await llm.generateProjectConcept({ title: job.title, prompt: job.prompt });
   job.status = "completed";
-  job.output = buildMockOutput(job.title, job.prompt);
   job.updatedAt = new Date().toISOString();
   jobs.set(jobId, job);
   return job;

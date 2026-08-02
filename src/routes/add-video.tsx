@@ -2,10 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Youtube, Sparkles, FileText, Link2, Copy, Check, RefreshCw,
-  Clock, Hash, Wand2, ChevronRight, ArrowLeft,
+  Clock, Hash, Wand2, ChevronRight, ArrowLeft, Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { llm } from "@/lib/llm";
 
 export const Route = createFileRoute("/add-video")({
   component: AddVideo,
@@ -44,10 +45,12 @@ TIMESTAMPS
 
 function AddVideo() {
   const [url, setUrl] = useState("");
+  const [transcript, setTranscript] = useState("");
   const [selected, setSelected] = useState<string[]>(["vsl", "skool", "ig"]);
   const [generated, setGenerated] = useState(false);
   const [description, setDescription] = useState(generatedBody);
   const [copied, setCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const toggle = (slug: string) =>
     setSelected((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
@@ -56,6 +59,17 @@ function AddVideo() {
     navigator.clipboard?.writeText(description);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    const links = destinationOptions
+      .filter((d) => selected.includes(d.slug))
+      .map((d) => ({ label: d.label, url: d.url }));
+    const result = await llm.generateVideoDescription({ transcript, links });
+    setDescription(result);
+    setGenerated(true);
+    setIsGenerating(false);
   };
 
   return (
@@ -85,10 +99,12 @@ function AddVideo() {
             />
           </div>
           <button
-            onClick={() => setGenerated(true)}
-            className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Wand2 className="h-4 w-4" /> Generate
+            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            {isGenerating ? "Generating…" : "Generate"}
           </button>
         </div>
 
@@ -130,6 +146,8 @@ function AddVideo() {
           <span className="rounded-full bg-brand-blue/15 px-3 py-1 text-[11px] font-semibold text-brand-blue">Phase 1 · Manual</span>
         </div>
         <textarea
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
           rows={5}
           placeholder="00:00 In this video I show you exactly how..."
           className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
@@ -186,10 +204,11 @@ function AddVideo() {
             </h3>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setGenerated(true)}
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
               >
-                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+                <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} /> {isGenerating ? "Generating…" : "Regenerate"}
               </button>
               <button
                 onClick={copy}

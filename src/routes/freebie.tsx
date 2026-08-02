@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles, Download, FileText, Gift, Users, Percent } from "lucide-react";
+import { Sparkles, Download, FileText, Gift, Users, Percent, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { llm } from "@/lib/llm";
 
 export const Route = createFileRoute("/freebie")({
   component: Freebie,
@@ -42,8 +43,20 @@ const previewMd = `# The Dropshipping Product Research Cheatsheet
 - Kill it in 3 days if CTR < 1%.`;
 
 function Freebie() {
+  const [product, setProduct] = useState("Dropshipping course");
+  const [audience, setAudience] = useState("Beginner e-commerce creators");
+  const [tone, setTone] = useState("Direct, no-fluff, practical");
   const [format, setFormat] = useState("cheatsheet");
-  const [generated, setGenerated] = useState(true);
+  const [preview, setPreview] = useState<string | null>(previewMd);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    const formatLabel = formats.find((f) => f.id === format)?.label ?? "Cheatsheet";
+    const result = await llm.generateFreebie({ product, audience, tone, formatLabel });
+    setPreview(result);
+    setIsGenerating(false);
+  };
 
   return (
     <DashboardLayout title="AI Freebie">
@@ -70,13 +83,13 @@ function Freebie() {
           </h3>
           <div className="mt-4 space-y-4">
             <Field label="Product / service">
-              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Dropshipping course" defaultValue="Dropshipping course" />
+              <input value={product} onChange={(e) => setProduct(e.target.value)} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Dropshipping course" />
             </Field>
             <Field label="Target audience">
-              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Beginner e-commerce creators" defaultValue="Beginner e-commerce creators" />
+              <input value={audience} onChange={(e) => setAudience(e.target.value)} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Beginner e-commerce creators" />
             </Field>
             <Field label="Brand tone">
-              <input className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Direct, no-fluff, practical" defaultValue="Direct, no-fluff, practical" />
+              <input value={tone} onChange={(e) => setTone(e.target.value)} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-background px-3 text-sm outline-none focus:border-primary" placeholder="e.g. Direct, no-fluff, practical" />
             </Field>
             <Field label="Format">
               <div className="flex flex-wrap gap-2">
@@ -94,10 +107,12 @@ function Freebie() {
               </div>
             </Field>
             <button
-              onClick={() => setGenerated(true)}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              onClick={handleGenerate}
+              disabled={isGenerating || !product.trim() || !audience.trim()}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Sparkles className="h-4 w-4" /> Generate Freebie
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isGenerating ? "Generating…" : "Generate Freebie"}
             </button>
             <p className="text-[11px] text-muted-foreground">
               Powered by AI. Output renders to a branded, downloadable PDF and emails automatically on lead capture.
@@ -116,9 +131,9 @@ function Freebie() {
               <Download className="h-3.5 w-3.5" /> PDF
             </button>
           </div>
-          {generated ? (
+          {preview ? (
             <div className="mt-4 h-[420px] overflow-y-auto rounded-lg border border-border bg-background p-5">
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">{previewMd}</pre>
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">{preview}</pre>
             </div>
           ) : (
             <div className="mt-4 flex h-[420px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border text-muted-foreground">

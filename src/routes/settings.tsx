@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   User,
@@ -24,6 +24,8 @@ import { useChannelSettings } from "@/lib/channel-settings";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useThemeMode, type ThemeMode } from "@/lib/theme";
+import { ConfirmDialog } from "@/components/modals";
+import { clearAllStores } from "@/lib/local-store";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -588,19 +590,35 @@ function OAuthScopesPanel() {
 }
 
 function CompliancePanel() {
+  const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const controls = [
     { icon: Globe, label: "EU data residency", value: "Hetzner Nuremberg + Helsinki (ISO 27001)" },
     { icon: Lock, label: "Encryption", value: "TLS 1.3 in transit · AES-256 at rest" },
     { icon: ScrollText, label: "Audit logging", value: "All admin & API events — 12 month retention" },
     { icon: Shield, label: "Regulatory alignment", value: "GDPR · NIS2 · Dutch Cybersecurity Act" },
   ];
+
+  // This is a local-storage-only demo (no real backend account to call an API for), so
+  // "deleting the account" means genuinely wiping every yroos.* key — the same mechanism
+  // DashboardLayout's sign-out already uses — then leaving the app entirely, mirroring what a
+  // real erasure endpoint would do. Google Play requires this to actually work, not just show a
+  // confirmation toast (the previous version of this button did nothing but claim to email you).
+  const deleteAccount = () => {
+    clearAllStores();
+    toast.success("Account deleted", { description: "All local data has been erased." });
+    setDeleteOpen(false);
+    setTimeout(() => navigate({ to: "/landing" }), 400);
+  };
+
   return (
     <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Compliance & Data</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tubify is designed EU-first. Data never leaves the region unless you export it.
+          Tubify is designed EU-first. Data never leaves the region unless you export it. Read our{" "}
+          <Link to="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -630,7 +648,7 @@ function CompliancePanel() {
           <p className="mt-1 text-xs text-muted-foreground">Tracking, analytics, AI processing</p>
         </button>
         <button
-          onClick={() => toast.error("Deletion needs confirmation", { description: "Check your email to confirm account erasure." })}
+          onClick={() => setDeleteOpen(true)}
           className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left hover:border-destructive"
         >
           <p className="text-sm font-semibold text-destructive">Delete account</p>
@@ -659,6 +677,15 @@ function CompliancePanel() {
           Save Preferences
         </button>
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete your account?"
+        description="This permanently erases your profile, channel settings, deals, leads, and every other local record. This cannot be undone."
+        confirmLabel="Delete account"
+        onConfirm={deleteAccount}
+      />
     </div>
   );
 }

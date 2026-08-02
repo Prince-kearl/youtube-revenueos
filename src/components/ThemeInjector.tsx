@@ -1,11 +1,31 @@
 import { useEffect } from "react";
-import { useSiteContent } from "@/lib/stores";
+import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
 
 // Applies the Superadmin's Visual Style choices (Customization → General) app-wide by
 // overriding the CSS custom properties defined in styles.css, rather than only affecting the
 // landing page — matches the "Global Primary Color" framing in the Design Studio UI.
 export function ThemeInjector() {
   const [content] = useSiteContent();
+  const [, setLocal] = useSiteContentLocal();
+
+  // Pulls the latest Customization settings from the global settings API (Cloudflare KV, see
+  // src/routes/api.settings.ts) once per app load, so a change a Superadmin made from a different
+  // browser/device shows up here too — not just the browser that made it. Uses the raw local
+  // setter (not useSiteContent's wrapped one) so this doesn't immediately PUT the same value
+  // straight back to the server it was just read from. Silently keeps whatever's already in
+  // localStorage (or the seed defaults) if the request fails or the KV binding isn't configured
+  // in this environment (e.g. plain `vite dev` without `wrangler dev`) — this was already the
+  // only source of truth before this endpoint existed, so there's nothing to break.
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data.content) setLocal(data.content);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const root = document.documentElement.style;
     root.setProperty("--primary", content.primaryColor);

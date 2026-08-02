@@ -1,0 +1,17 @@
+{
+  // Read automatically by nitro's cloudflare-module preset at build time (merged into
+  // .output/server/wrangler.json) and by `wrangler dev`/`wrangler deploy` directly — this is
+  // the only file that needs to declare Cloudflare bindings; nitro fills in name/
+  // compatibility_date/assets itself, so only new bindings belong here.
+  //
+  // SETTINGS_KV backs the global Customization/Design Studio settings (src/routes/api.settings.ts)
+  // so Superadmin changes apply for every browser/device/user instead of just the one that made
+  // them. The "id" below is a placeholder — replace it with a real namespace id before deploying:
+  //   npx wrangler kv namespace create SETTINGS_KV
+  // then paste the returned id here. Local dev (`wrangler dev`, no --remote flag) works with the
+  // placeholder as-is, using wrangler's local on-disk KV emulation — no real Cloudflare account
+  // access needed until you actually deploy.
+  "kv_namespaces": [
+    { "binding": "SETTINGS_KV", "id": "REPLACE_WITH_REAL_KV_NAMESPACE_ID" }
+  ]
+}

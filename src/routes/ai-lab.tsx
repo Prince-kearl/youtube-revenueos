@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles, Zap, FileText, ChevronDown, RefreshCw, Pencil, Copy } from "lucide-react";
+import { Sparkles, Zap, FileText, ChevronDown, RefreshCw, Pencil, Copy, Check, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { llm } from "@/lib/llm";
 
 export const Route = createFileRoute("/ai-lab")({
   component: AILab,
@@ -13,7 +14,7 @@ const ctas = ["Course signup", "Newsletter", "Coaching", "Affiliates"];
 
 const transcript = `In today's video, I'm going to break down exactly how I generated over $100,000 in revenue from my YouTube channel in the past 12 months. This isn't just AdSense money — I'm talking about the full stack: brand deals, digital products, memberships, and affiliate revenue. I'll show you the exact split, what worked, what didn't, and how you can replicate this for your own channel regardless of your subscriber count...`;
 
-const generated = `🚀 How I Made $100K on YouTube (Complete Revenue Breakdown)
+const DEFAULT_DESCRIPTION = `🚀 How I Made $100K on YouTube (Complete Revenue Breakdown)
 
 In this video, I reveal the exact strategies that helped me generate $100,000+ in YouTube revenue — covering every monetization stream from AdSense to 6-figure brand deals.
 
@@ -26,8 +27,6 @@ In this video, I reveal the exact strategies that helped me generate $100,000+ i
 📌 RESOURCES MENTIONED:
 → Free Creator Business Toolkit: https://creator.io/toolkit
 → My Course (Tubify): https://creator.io/course
-→ Newsletter (Weekly insights): https://creator.io/newsletter
-→ 1:1 Coaching: https://creator.io/coaching
 
 🎬 CHAPTERS:
 0:00 - The Full Picture
@@ -44,6 +43,25 @@ In this video, I reveal the exact strategies that helped me generate $100,000+ i
 function AILab() {
   const [voice, setVoice] = useState("Professional");
   const [cta, setCta] = useState("Course signup");
+  const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    const result = await llm.generateVideoDescription({ transcript, voice, cta });
+    setDescription(result);
+    setIsGenerating(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(description);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  const linkCount = (description.match(/https:\/\//g) ?? []).length;
+  const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <DashboardLayout title="AI Lab">
@@ -121,8 +139,13 @@ function AILab() {
               className="mt-2 w-full resize-none rounded-xl border border-border bg-accent/20 p-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
             />
 
-            <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-              <Sparkles className="h-4 w-4" /> Generate Description
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isGenerating ? "Generating…" : "Generate Description"}
             </button>
           </div>
         </div>
@@ -133,19 +156,23 @@ function AILab() {
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" /> Generated Description</h3>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground"><RefreshCw className="h-4 w-4" /></button>
-              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground"><Pencil className="h-4 w-4" /></button>
-              <button className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground"><Copy className="h-3.5 w-3.5" /> Copy</button>
+              <button onClick={handleGenerate} disabled={isGenerating} className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground disabled:opacity-50" aria-label="Regenerate">
+                <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+              </button>
+              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+              <button onClick={handleCopy} className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground">
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+              </button>
             </div>
           </div>
 
-          <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">{generated}</pre>
+          <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">{description}</pre>
 
           <div className="mt-5 flex items-end justify-between border-t border-border pt-4">
             <div className="flex gap-8">
-              <Stat value="1,020" label="Characters" />
-              <Stat value="141" label="Words" />
-              <Stat value="4" label="CTAs" />
+              <Stat value={description.length.toLocaleString()} label="Characters" />
+              <Stat value={wordCount.toLocaleString()} label="Words" />
+              <Stat value={String(linkCount)} label="Links" />
             </div>
             <span className="flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
               <span className="h-1.5 w-1.5 rounded-full bg-success" /> Optimized

@@ -28,6 +28,7 @@ import {
 } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
+import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
 
@@ -463,10 +464,9 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     const userMsg = { id: uid(), role: "user" as const, text };
     setMsgs((m) => [...m, userMsg]);
     setInput("");
-    setTimeout(() => {
-      const reply = canned(text);
+    llm.chatReply(text).then((reply) => {
       setMsgs((m) => [...m, { id: uid(), role: "bot", text: reply }]);
-    }, 500);
+    });
   };
 
   return (
@@ -505,11 +505,3 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
   );
 }
 
-function canned(q: string) {
-  const s = q.toLowerCase();
-  if (s.includes("link")) return "Go to Link Tracking → Create Link. Enter a destination URL and an optional slug; you get a rvos.io short link that tracks clicks, conversions, and Stripe revenue attribution.";
-  if (s.includes("deal") || s.includes("brand")) return "Deals move through Prospect → Pitched → Negotiating → Contracted → Completed. Use Quick Add Deal in the topbar or click any stage's Add deal button.";
-  if (s.includes("delay") || s.includes("24") || s.includes("fresh")) return "YouTube Analytics reports lag 24–72h and revenue metrics ~48h. Click and Stripe attribution are real-time — that's why the two feeds are shown separately.";
-  if (s.includes("comment") || s.includes("rule")) return "Comment rules watch new comments for keywords, @handles, or AI-detected questions. Each match triggers your saved reply and creates a lead. Each auto-reply costs ~50 YouTube API units.";
-  return "I can help with deals, links, comments, analytics, and settings. Try one of the suggestions above.";
-}

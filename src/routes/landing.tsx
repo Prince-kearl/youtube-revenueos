@@ -17,7 +17,6 @@ import {
 } from "recharts";
 import { useSupportTickets, useSiteContent } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
-import { ThreeDMarquee } from "@/components/ui/3d-marquee";
 
 export const Route = createFileRoute("/landing")({
   component: Landing,
@@ -32,8 +31,19 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* This panel used to be `relative z-0` — being positioned with an explicit (even zero)
+          z-index opens its own stacking context, which trapped everything inside it, including
+          NavBar's fixed z-30 pill: capped at this context, it could never outrank later top-level
+          sections (ContentMarqueeSection, FinalCta, …) once they scrolled underneath it, since
+          none of those set a z-index of their own either and DOM order decided the winner instead.
+          Dropping z-0 removes that boundary — `relative` alone (no z-index) does not create a
+          stacking context, so NavBar's z-30 now escapes to the page's root context and legitimately
+          outranks every sibling section. The -z-10 glow blobs below still render correctly: with no
+          local stacking context to escape to, their negative z-index is compared at the root level
+          too, but since they only ever spatially overlap the hero content directly above them,
+          that's the only place the ordering is visible — behind Hero, in front of nothing else. */}
       <div
-        className="relative z-0 overflow-hidden"
+        className="relative overflow-hidden"
         style={{ background: "radial-gradient(circle at 22% 20%, #0a1420 0%, #0a1420 45%, #060b12 100%)" }}
       >
         <div
@@ -52,12 +62,12 @@ function Landing() {
         <Hero />
       </div>
       <ProblemSection />
+      <ContentMarqueeSection />
       <ProductShowcase />
       <HowItWorks />
       <BuiltForCreators />
       <FaqSection />
       <ContactSection />
-      <ContentMarqueeSection />
       <FinalCta />
       <FooterSection />
     </div>
@@ -1129,13 +1139,30 @@ function ContactSection() {
   );
 }
 
-// Deterministic placeholder thumbnails standing in for a creator's actual video library — Tubify
-// has no real footage to show, so these are seeded (stable across reloads, unlike /random) picsum
-// photos sized to roughly match a YouTube thumbnail's 16:9-ish ratio.
-const MARQUEE_IMAGES = Array.from(
-  { length: 24 },
-  (_, i) => `https://picsum.photos/seed/tubify-${i + 1}/700/500`,
-);
+// Deterministic placeholder video library — Tubify has no real footage to show, so these are
+// seeded (stable across reloads, unlike /random) picsum photos with fake-but-plausible titles/
+// stats. Rather than aping a plain YouTube grid (title + views + age), each card is built to
+// depict the section's own headline: the #-badge spans #1 through #1,042 to sell "first upload to
+// thousandth," and the chip row swaps YouTube's views/channel line for the three things Tubify
+// actually tracks per video — revenue, link clicks, comments — so the grid IS the product claim,
+// not just decoration next to it.
+const MARQUEE_TITLES = [
+  "How I Made $12,400 From One Video", "The Brand Deal Breakdown Nobody Talks About",
+  "My AdSense Revenue Every Month This Year", "I Tried Every Monetization Method",
+  "Turning Comments Into Customers", "Behind The Scenes: A $40K Launch",
+  "What I Wish I Knew About Sponsorships", "Reacting To My First Year Of Analytics",
+  "The Setup That 10x'd My Revenue", "Q&A: Your Creator Business Questions",
+  "Why I Stopped Chasing Views", "My Link-In-Bio Actually Converts Now",
+];
+const MARQUEE_VIDEOS = MARQUEE_TITLES.map((title, i) => ({
+  title,
+  image: `https://picsum.photos/seed/tubify-${i + 1}/700/394`,
+  duration: ["4:12", "12:47", "0:58", "8:03", "21:15", "3:29", "15:40", "6:51"][i % 8],
+  index: [1, 47, 156, 289, 438, 512, 601, 734, 812, 901, 968, 1042][i],
+  revenue: ["$4,120", "$2,860", "$1,940", "$1,510", "$980", "$640", "$1,280", "$710", "$2,240", "$390", "$3,050", "$860"][i],
+  clicks: [842, 615, 493, 371, 248, 156, 402, 189, 728, 97, 934, 265][i],
+  comments: [128, 94, 76, 58, 41, 27, 63, 33, 112, 19, 145, 47][i],
+}));
 
 function ContentMarqueeSection() {
   return (
@@ -1145,8 +1172,33 @@ function ContentMarqueeSection() {
       <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
         From your very first upload to your thousandth, Tubify keeps every video's revenue, links, and comments organized in one place.
       </p>
-      <div className="mt-10 rounded-[var(--card-radius)] bg-gray-950/5 p-2 ring-1 ring-border dark:bg-neutral-800">
-        <ThreeDMarquee images={MARQUEE_IMAGES} />
+      <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 text-left sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
+        {MARQUEE_VIDEOS.map((v) => (
+          <div key={v.title} className="group">
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-accent">
+              <img src={v.image} alt={v.title} className="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors group-hover:bg-black/25">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-red shadow-lg transition-transform group-hover:scale-110">
+                  <Play className="ml-0.5 h-4 w-4 text-white" fill="white" />
+                </span>
+              </span>
+              <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-medium text-white">#{v.index.toLocaleString()}</span>
+              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{v.duration}</span>
+            </div>
+            <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-snug">{v.title}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+                <DollarSign className="h-3 w-3" /> {v.revenue}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                <Link2 className="h-3 w-3" /> {v.clicks}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-purple/10 px-2 py-0.5 text-[11px] font-semibold text-brand-purple">
+                <MessageSquare className="h-3 w-3" /> {v.comments}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -1222,8 +1274,10 @@ function FooterSection() {
           <a href="#contact" className="mt-2 inline-block text-sm text-background/60 hover:text-background">Report a problem →</a>
         </div>
       </div>
-      <div className="border-t border-white/10 px-6 py-5 text-center text-xs text-background/40">
-        {content.copyrightText}
+      <div className="flex flex-col items-center justify-center gap-2 border-t border-white/10 px-6 py-5 text-center text-xs text-background/40 sm:flex-row sm:gap-4">
+        <span>{content.copyrightText}</span>
+        <span className="hidden sm:inline">·</span>
+        <Link to="/privacy" className="hover:text-background/70">Privacy Policy</Link>
       </div>
     </footer>
   );

@@ -16,6 +16,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as LeadsRouteImport } from './routes/leads'
@@ -35,6 +36,7 @@ import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 
 const VideosRoute = VideosRouteImport.update({
@@ -70,6 +72,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -167,6 +174,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSettingsRoute = ApiSettingsRouteImport.update({
+  id: '/api/settings',
+  path: '/api/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
   id: '/api/generate',
   path: '/api/generate',
@@ -193,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -201,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/settings': typeof ApiSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -222,6 +236,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -230,6 +245,7 @@ export interface FileRoutesByTo {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/settings': typeof ApiSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -252,6 +268,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/roadmap': typeof RoadmapRoute
@@ -260,6 +277,7 @@ export interface FileRoutesById {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/settings': typeof ApiSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -283,6 +301,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/privacy'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -291,6 +310,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/generate'
+    | '/api/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -312,6 +332,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/privacy'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -320,6 +341,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/generate'
+    | '/api/settings'
   id:
     | '__root__'
     | '/'
@@ -341,6 +363,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/privacy'
     | '/projects'
     | '/reports'
     | '/roadmap'
@@ -349,6 +372,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/generate'
+    | '/api/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -371,6 +395,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   NotificationsRoute: typeof NotificationsRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   RoadmapRoute: typeof RoadmapRoute
@@ -379,6 +404,7 @@ export interface RootRouteChildren {
   TeamRoute: typeof TeamRoute
   VideosRoute: typeof VideosRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiSettingsRoute: typeof ApiSettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -430,6 +456,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -565,6 +598,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/settings': {
+      id: '/api/settings'
+      path: '/api/settings'
+      fullPath: '/api/settings'
+      preLoaderRoute: typeof ApiSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate': {
       id: '/api/generate'
       path: '/api/generate'
@@ -595,6 +635,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   NotificationsRoute: NotificationsRoute,
+  PrivacyRoute: PrivacyRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   RoadmapRoute: RoadmapRoute,
@@ -603,6 +644,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeamRoute: TeamRoute,
   VideosRoute: VideosRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiSettingsRoute: ApiSettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createGenerationJob } from "@/lib/mock-generation";
+import { createGenerationJob, processGenerationJob } from "@/lib/mock-generation";
 
 export const Route = createFileRoute("/api/generate")({
   server: {
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/api/generate")({
             prompt: body.prompt ?? "",
             references: body.references ?? [],
           });
+          void processGenerationJob(job.jobId);
           return new Response(JSON.stringify({ success: true, job }), {
             headers: { "Content-Type": "application/json" },
           });

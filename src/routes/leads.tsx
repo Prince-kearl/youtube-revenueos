@@ -18,6 +18,7 @@ import { useLeads, useTeam, type Lead, type LeadAttachment, type LeadStatus } fr
 import { uid } from "@/lib/local-store";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { llm, type Suggestion } from "@/lib/llm";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -50,58 +51,6 @@ const QUICK_REPLIES = [
   { label: "Propose a call", text: "Want to hop on a quick 15-minute call so I can show you exactly how this would work for your channel?" },
   { label: "Send pricing", text: "Here's how pricing breaks down — plans start at $29/mo and scale with your team size, no long-term contract." },
 ];
-
-type Suggestion = { label: string; text: string };
-
-// Mocked "AI" reply suggestions — reacts to whatever the lead last said, the same way the
-// Tubi assistant elsewhere in the app keyword-matches instead of calling a real model. Only
-// makes sense to suggest a reply when the ball is in our court, i.e. the lead spoke last.
-function suggestReplies(lead: Lead): Suggestion[] | null {
-  const lastReal = [...lead.messages].reverse().find((m) => m.from !== "system");
-  if (!lastReal || lastReal.from !== "lead") return null;
-  const msg = lastReal.text.toLowerCase();
-
-  if (/sign(ed)? up|just joined|excited|can'?t wait/.test(msg)) {
-    return [
-      { label: "Direct Answer", text: "Amazing, welcome aboard! 🎉 Really glad to have you." },
-      { label: "Value Pivot", text: "You're going to love how much time the AI Lab saves once it's set up." },
-      { label: "Next Step", text: "Want a quick rundown of the best 3 things to set up first?" },
-    ];
-  }
-  if (/thanks but|not (right )?now|all set|no thanks|pass on|already (have|got)/.test(msg)) {
-    return [
-      { label: "Direct Answer", text: "Totally understand — appreciate you taking the time to check it out." },
-      { label: "Value Pivot", text: "Most people said the same thing until the spreadsheet started slipping. No pressure either way." },
-      { label: "Next Step", text: "No worries at all — I'll leave the door open if priorities shift." },
-    ];
-  }
-  if (/cost|price|pricing|\$|plan|budget/.test(msg)) {
-    return [
-      { label: "Direct Answer", text: "Yeah exactly — pricing scales with your team size, so you only pay for what you're actually using." },
-      { label: "Value Pivot", text: "That's usually the moment it clicks — one dashboard instead of five tools adds up fast." },
-      { label: "Next Step", text: "Want me to send a quick breakdown of what's included at each plan?" },
-    ];
-  }
-  if (/call|time|free|available|schedule|thursday|friday|tomorrow|evening/.test(msg)) {
-    return [
-      { label: "Direct Answer", text: "Perfect — I'll lock that in and send a confirmation your way." },
-      { label: "Value Pivot", text: "A quick call is honestly the fastest way to see if this is actually a fit for you." },
-      { label: "Next Step", text: "Sending over a booking link now so you can grab whatever slot works best." },
-    ];
-  }
-  if (/team|seat|editor|setter|hire|hiring/.test(msg)) {
-    return [
-      { label: "Direct Answer", text: "Got it — how many people are on the team right now?" },
-      { label: "Value Pivot", text: "That's exactly what the Team page is for — everyone works off the same pipeline instead of a spreadsheet." },
-      { label: "Next Step", text: "Want me to walk you through how seat-based pricing works for a team your size?" },
-    ];
-  }
-  return [
-    { label: "Direct Answer", text: "Thanks for sharing that — really helps me understand where you're at." },
-    { label: "Value Pivot", text: "Honestly, that's the exact problem this was built to solve." },
-    { label: "Next Step", text: "Want me to show you exactly how that would work for your channel?" },
-  ];
-}
 
 type MobileView = "list" | "thread" | "profile";
 
@@ -226,7 +175,7 @@ function LeadInbox() {
     return l.name.toLowerCase().includes(query.toLowerCase()) || l.handle.toLowerCase().includes(query.toLowerCase());
   });
   const selected = leads.find((l) => l.id === selectedId) ?? null;
-  const suggestions = selected?.canMessage ? suggestReplies(selected) : null;
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const pinnedMessages = selected?.messages.filter((m) => m.pinned) ?? [];
   const unreadCount = leads.filter((l) => l.unread).length;
   const newTodayCount = leads.filter((l) => l.status === "New Lead").length;
@@ -253,6 +202,23 @@ function LeadInbox() {
     if (selected?.unread) update(selected.id, { unread: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
+
+  // AI reply suggestions — only makes sense when the ball is in our court, i.e. the lead spoke
+  // last. Re-runs whenever the open thread or its message count changes; `ignore` guards against
+  // a stale response landing after the user has already switched to a different lead.
+  useEffect(() => {
+    const lastReal = selected ? [...selected.messages].reverse().find((m) => m.from !== "system") : undefined;
+    if (!selected?.canMessage || !lastReal || lastReal.from !== "lead") {
+      setSuggestions(null);
+      return;
+    }
+    let ignore = false;
+    llm.suggestLeadReplies(lastReal.text).then((result) => {
+      if (!ignore) setSuggestions(result);
+    });
+    return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, selected?.messages.length]);
 
   // Cmd/Ctrl+1..3 fills the draft with the matching AI suggestion, mirroring the shortcut hints shown on each card.
   useEffect(() => {
