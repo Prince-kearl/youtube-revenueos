@@ -38,73 +38,6 @@ function Dashboard() {
     <DashboardLayout title="Dashboard">
       <GettingStarted />
 
-      {/* Channel banner — with iOS 26 Design on: a premium glass hero card over a deep-red gradient
-          wash (the one "always visible" red moment, per the brand-selectively rule). With it off:
-          the original navy/primary gradient pill with the animated glow-ring border. Both the
-          gradient and the glow ring are switched by .hero-banner-bg/.nav-glow-motion keying off
-          .ios26 in styles.css, not by branching here — still always a single row so the visit
-          button never forces a stacked layout. */}
-      <div className="nav-glow-motion hero-banner-bg relative mb-5 flex items-center justify-between gap-3 overflow-hidden rounded-[var(--hero-radius)] border border-white/10 p-4 shadow-xl backdrop-blur-xl sm:gap-4 sm:p-5">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          {settings.showAvatar && (
-            <div className="relative shrink-0">
-              <img src={settings.avatar} alt={settings.name} className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14" />
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-card sm:h-6 sm:w-6">
-                <Youtube className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5" fill="white" strokeWidth={1.5} />
-              </span>
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{settings.name}</p>
-            {settings.showSubscribers && (
-              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
-                <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-                <span className="shrink-0 font-medium text-white">{settings.subscribers}</span>
-                <span className="hidden sm:inline">subscribers</span>
-              </p>
-            )}
-          </div>
-        </div>
-        {settings.showVisitButton && (
-          <a
-            href={settings.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Visit Channel"
-            className="flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4"
-          >
-            <Youtube className="hidden h-4 w-4 shrink-0 sm:block" fill="white" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Visit Channel</span>
-            <ExternalLink className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
-          </a>
-        )}
-      </div>
-
-      {/* Recently added posts */}
-      {settings.showRecentPosts && (
-        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Recently Added Posts</h3>
-            <a href={settings.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
-              View channel
-            </a>
-          </div>
-
-          {/* Desktop grid */}
-          <div className="mt-4 hidden grid-cols-4 gap-3 sm:grid">
-            {recentPosts.map((p) => (
-              <PostCard key={p.title} post={p} />
-            ))}
-          </div>
-
-          {/* Mobile horizontal autoslide carousel */}
-          <RecentPostsCarousel />
-        </div>
-      )}
-
-
-
       {/* Stat cards */}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -274,6 +207,66 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
+      <div className="nav-glow-motion hero-banner-bg relative mb-5 flex items-center justify-between gap-3 overflow-hidden rounded-[var(--hero-radius)] border border-white/10 p-4 shadow-xl backdrop-blur-xl sm:gap-4 sm:p-5">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          {settings.showAvatar && (
+            <div className="relative shrink-0">
+              <img src={settings.avatar} alt={settings.name} className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14" />
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-card sm:h-6 sm:w-6">
+                <Youtube className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5" fill="white" strokeWidth={1.5} />
+              </span>
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{settings.name}</p>
+            {settings.showSubscribers && (
+              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
+                <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="shrink-0 font-medium text-white">{settings.subscribers}</span>
+                <span className="hidden sm:inline">subscribers</span>
+              </p>
+            )}
+          </div>
+        </div>
+        {settings.showVisitButton && (
+          <a
+            href={settings.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Visit Channel"
+            className="flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4"
+          >
+            <Youtube className="hidden h-4 w-4 shrink-0 sm:block" fill="white" strokeWidth={1.5} />
+            <span className="hidden sm:inline">Visit Channel</span>
+            <ExternalLink className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
+          </a>
+        )}
+      </div>
+
+      {/* Recently added posts */}
+      {settings.showRecentPosts && (
+        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Recently Added Posts</h3>
+            <a href={settings.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+              View channel
+            </a>
+          </div>
+
+          {/* Desktop grid */}
+          <div className="mt-4 hidden grid-cols-4 gap-3 sm:grid">
+            {recentPosts.map((p) => (
+              <PostCard key={p.title} post={p} />
+            ))}
+          </div>
+
+          {/* Mobile horizontal autoslide carousel */}
+          <RecentPostsCarousel />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

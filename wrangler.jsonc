@@ -1,4 +1,9 @@
 {
+  // INERT while the app targets Vercel (see vite.config.ts's nitro.preset). This file is only
+  // read when building with nitro's cloudflare-module preset, so it has no effect on the current
+  // Vercel deployment — kept in case Cloudflare Workers is used again later, and because
+  // src/routes/api.settings.ts's optional Design Studio KV feature already documents it.
+  //
   // Read automatically by nitro's cloudflare-module preset at build time (merged into
   // .output/server/wrangler.json) and by `wrangler dev`/`wrangler deploy` directly — this is
   // the only file that needs to declare Cloudflare bindings; nitro fills in name/

@@ -31,6 +31,8 @@ import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { signOutSupabase } from "@/lib/supabase/auth";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -82,6 +84,7 @@ const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
 );
 
 export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
+  const { user, loading: authLoading } = useAuthSession();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [siteContent] = useSiteContent();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -137,11 +140,21 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     toast.success("All notifications marked as read");
   };
   const clearNotifs = () => { setNotifs([]); toast.success("Notifications cleared"); };
-  const signOut = () => {
+  const signOut = async () => {
+    await signOutSupabase();
     clearAllStores();
-    toast.success("Signed out — local data cleared");
-    setTimeout(() => window.location.reload(), 400);
+    navigate({ to: "/" });
   };
+
+  // Server/API routes independently verify the session too (see requireSessionUser) — this only
+  // keeps signed-out visitors from seeing protected page content client-side.
+  useEffect(() => {
+    if (!authLoading && !user) navigate({ to: "/" });
+  }, [authLoading, user, navigate]);
+
+  if (authLoading || !user) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   return (
     <div className="dashboard-shell min-h-screen bg-background text-foreground">

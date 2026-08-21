@@ -12,4 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Vercel is the current deployment target (wrangler.jsonc/Cloudflare KV are inert here — see
+  // that file's comment). Migrating to Hetzner later should only require changing this preset
+  // (e.g. to "node-server") plus environment variables, not application code.
+  nitro: { preset: "vercel" },
 });

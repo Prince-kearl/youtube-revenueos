@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User,
   Link2,
@@ -263,6 +263,24 @@ function ConnectedAccountsPanel() {
   );
 }
 
+interface ConnectedYoutubeChannel {
+  id: string;
+  channel_name: string;
+  thumbnail: string | null;
+  subscriber_count: number;
+  connected_at: string;
+  last_synced_at: string | null;
+}
+
+const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; text: string }> = {
+  connected: { type: "success", text: "YouTube channel connected." },
+  denied: { type: "error", text: "YouTube connection was cancelled." },
+  invalid_state: { type: "error", text: "That connection request expired or was invalid — try again." },
+  reauthorize_required: { type: "error", text: "Please reconnect and approve access again." },
+  storage_failed: { type: "error", text: "We couldn't save your YouTube connection. Try again." },
+  error: { type: "error", text: "Something went wrong connecting YouTube." },
+};
+
 function YouTubeIntegrationPanel() {
   const settings = [
     { label: "Auto-sync videos", description: "Keep your channel videos up to date automatically.", enabled: true },
@@ -270,6 +288,49 @@ function YouTubeIntegrationPanel() {
     { label: "Sync comment data", description: "Import comments for sentiment and reply tracking.", enabled: false },
     { label: "Import chapter markers", description: "Pull chapter timestamps from your uploads.", enabled: true },
   ];
+  const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+
+  const loadChannels = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/youtube/channels");
+      const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+      setChannels(response.ok ? (body.data ?? []) : []);
+    } catch {
+      setChannels([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const status = new URL(window.location.href).searchParams.get("youtube");
+    const message = status ? YOUTUBE_CALLBACK_MESSAGES[status] : undefined;
+    if (message) {
+      if (message.type === "success") toast.success(message.text);
+      else toast.error(message.text);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("youtube");
+      window.history.replaceState({}, "", url.toString());
+    }
+    void loadChannels();
+  }, []);
+
+  const disconnect = async (id: string) => {
+    setDisconnectingId(id);
+    try {
+      const response = await fetch(`/api/youtube/channels?id=${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("DELETE_FAILED");
+      toast.success("YouTube channel disconnected");
+      await loadChannels();
+    } catch {
+      toast.error("Couldn't disconnect that channel. Try again.");
+    } finally {
+      setDisconnectingId(null);
+    }
+  };
 
   return (
     <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
@@ -279,23 +340,59 @@ function YouTubeIntegrationPanel() {
         <p className="mt-1 text-sm text-muted-foreground">Manage your channel sync settings and data imports.</p>
       </div>
 
-      <div className="rounded-xl border border-border bg-accent/20 p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 place-items-center rounded-3xl bg-brand-red text-white">
-              <Youtube className="h-6 w-6" />
+      {loading ? (
+        <div className="rounded-xl border border-border bg-accent/20 p-5 text-sm text-muted-foreground">Loading connection status…</div>
+      ) : channels.length === 0 ? (
+        <div className="rounded-xl border border-border bg-accent/20 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="grid h-14 w-14 place-items-center rounded-3xl bg-accent text-muted-foreground">
+                <Youtube className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="font-semibold">No channel connected</p>
+                <p className="text-sm text-muted-foreground">Connect your YouTube channel to enable analytics and revenue sync.</p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold">@AlexCreates</p>
-              <p className="text-sm text-muted-foreground">847,200 subscribers · 247 videos</p>
-              <p className="mt-1 text-sm text-success">Connected & syncing</p>
+            <a
+              href="/api/youtube/auth"
+              className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Connect YouTube Channel
+            </a>
+          </div>
+        </div>
+      ) : (
+        channels.map((channel) => (
+          <div key={channel.id} className="rounded-xl border border-border bg-accent/20 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                {channel.thumbnail ? (
+                  <img src={channel.thumbnail} alt={channel.channel_name} className="h-14 w-14 rounded-3xl object-cover" />
+                ) : (
+                  <div className="grid h-14 w-14 place-items-center rounded-3xl bg-brand-red text-white">
+                    <Youtube className="h-6 w-6" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold">{channel.channel_name}</p>
+                  <p className="text-sm text-muted-foreground">{channel.subscriber_count.toLocaleString()} subscribers</p>
+                  <p className="mt-1 text-sm text-success">
+                    Connected{channel.last_synced_at ? ` · last synced ${new Date(channel.last_synced_at).toLocaleString()}` : ""}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => disconnect(channel.id)}
+                disabled={disconnectingId === channel.id}
+                className="rounded-[var(--button-radius)] border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:opacity-60"
+              >
+                {disconnectingId === channel.id ? "Disconnecting…" : "Disconnect"}
+              </button>
             </div>
           </div>
-          <button className="rounded-[var(--button-radius)] border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15">
-            Disconnect
-          </button>
-        </div>
-      </div>
+        ))
+      )}
 
       <div className="space-y-4">
         {settings.map((setting) => (

@@ -8,9 +8,13 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.env
+.env.*
+!.env.example
 dist
 dist-ssr
 .output
+.vercel
 .vinxi
 .tanstack/**
 .nitro

@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -22,6 +24,7 @@ import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as FreebieRouteImport } from './routes/freebie'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DestinationsRouteImport } from './routes/destinations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -36,8 +39,14 @@ import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
+import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
+import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
+import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
+import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
+import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -54,6 +63,11 @@ const SupportRoute = SupportRouteImport.update({
   path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -62,6 +76,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const RoadmapRoute = RoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -102,6 +121,11 @@ const LandingRoute = LandingRouteImport.update({
 const FreebieRoute = FreebieRouteImport.update({
   id: '/freebie',
   path: '/freebie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailRoute = EmailRouteImport.update({
@@ -174,6 +198,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSettingsRoute = ApiSettingsRouteImport.update({
   id: '/api/settings',
   path: '/api/settings',
@@ -182,6 +211,31 @@ const ApiSettingsRoute = ApiSettingsRouteImport.update({
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
   id: '/api/generate',
   path: '/api/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
+  id: '/api/destinations',
+  path: '/api/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
+  id: '/api/youtube/channels',
+  path: '/api/youtube/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeCallbackRoute = ApiYoutubeCallbackRouteImport.update({
+  id: '/api/youtube/callback',
+  path: '/api/youtube/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeAuthRoute = ApiYoutubeAuthRouteImport.update({
+  id: '/api/youtube/auth',
+  path: '/api/youtube/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
+  id: '/api/youtube/analytics',
+  path: '/api/youtube/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -200,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
   '/leads': typeof LeadsRoute
@@ -208,13 +263,21 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
+  '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/auth': typeof ApiYoutubeAuthRoute
+  '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
+  '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -231,6 +294,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
   '/leads': typeof LeadsRoute
@@ -239,13 +303,21 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
+  '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/auth': typeof ApiYoutubeAuthRoute
+  '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
+  '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -263,6 +335,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/destinations': typeof DestinationsRoute
   '/email': typeof EmailRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/freebie': typeof FreebieRoute
   '/landing': typeof LandingRoute
   '/leads': typeof LeadsRoute
@@ -271,13 +344,21 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/roadmap': typeof RoadmapRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
+  '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/auth': typeof ApiYoutubeAuthRoute
+  '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
+  '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -296,6 +377,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/email'
+    | '/forgot-password'
     | '/freebie'
     | '/landing'
     | '/leads'
@@ -304,13 +386,21 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/roadmap'
     | '/settings'
+    | '/signup'
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/destinations'
     | '/api/generate'
     | '/api/settings'
+    | '/auth/callback'
+    | '/api/youtube/analytics'
+    | '/api/youtube/auth'
+    | '/api/youtube/callback'
+    | '/api/youtube/channels'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -327,6 +417,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/email'
+    | '/forgot-password'
     | '/freebie'
     | '/landing'
     | '/leads'
@@ -335,13 +426,21 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/roadmap'
     | '/settings'
+    | '/signup'
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/destinations'
     | '/api/generate'
     | '/api/settings'
+    | '/auth/callback'
+    | '/api/youtube/analytics'
+    | '/api/youtube/auth'
+    | '/api/youtube/callback'
+    | '/api/youtube/channels'
   id:
     | '__root__'
     | '/'
@@ -358,6 +457,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/destinations'
     | '/email'
+    | '/forgot-password'
     | '/freebie'
     | '/landing'
     | '/leads'
@@ -366,13 +466,21 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/roadmap'
     | '/settings'
+    | '/signup'
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/destinations'
     | '/api/generate'
     | '/api/settings'
+    | '/auth/callback'
+    | '/api/youtube/analytics'
+    | '/api/youtube/auth'
+    | '/api/youtube/callback'
+    | '/api/youtube/channels'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -390,6 +498,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DestinationsRoute: typeof DestinationsRoute
   EmailRoute: typeof EmailRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   FreebieRoute: typeof FreebieRoute
   LandingRoute: typeof LandingRoute
   LeadsRoute: typeof LeadsRoute
@@ -398,13 +507,21 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   RoadmapRoute: typeof RoadmapRoute
   SettingsRoute: typeof SettingsRoute
+  SignupRoute: typeof SignupRoute
   SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
   VideosRoute: typeof VideosRoute
+  ApiDestinationsRoute: typeof ApiDestinationsRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
+  ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
+  ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
+  ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -430,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -442,6 +566,13 @@ declare module '@tanstack/react-router' {
       path: '/roadmap'
       fullPath: '/roadmap'
       preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -498,6 +629,13 @@ declare module '@tanstack/react-router' {
       path: '/freebie'
       fullPath: '/freebie'
       preLoaderRoute: typeof FreebieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email': {
@@ -598,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/settings': {
       id: '/api/settings'
       path: '/api/settings'
@@ -610,6 +755,41 @@ declare module '@tanstack/react-router' {
       path: '/api/generate'
       fullPath: '/api/generate'
       preLoaderRoute: typeof ApiGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/destinations': {
+      id: '/api/destinations'
+      path: '/api/destinations'
+      fullPath: '/api/destinations'
+      preLoaderRoute: typeof ApiDestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/channels': {
+      id: '/api/youtube/channels'
+      path: '/api/youtube/channels'
+      fullPath: '/api/youtube/channels'
+      preLoaderRoute: typeof ApiYoutubeChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/callback': {
+      id: '/api/youtube/callback'
+      path: '/api/youtube/callback'
+      fullPath: '/api/youtube/callback'
+      preLoaderRoute: typeof ApiYoutubeCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/auth': {
+      id: '/api/youtube/auth'
+      path: '/api/youtube/auth'
+      fullPath: '/api/youtube/auth'
+      preLoaderRoute: typeof ApiYoutubeAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/analytics': {
+      id: '/api/youtube/analytics'
+      path: '/api/youtube/analytics'
+      fullPath: '/api/youtube/analytics'
+      preLoaderRoute: typeof ApiYoutubeAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -630,6 +810,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DestinationsRoute: DestinationsRoute,
   EmailRoute: EmailRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   FreebieRoute: FreebieRoute,
   LandingRoute: LandingRoute,
   LeadsRoute: LeadsRoute,
@@ -638,13 +819,21 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   RoadmapRoute: RoadmapRoute,
   SettingsRoute: SettingsRoute,
+  SignupRoute: SignupRoute,
   SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
   VideosRoute: VideosRoute,
+  ApiDestinationsRoute: ApiDestinationsRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiSettingsRoute: ApiSettingsRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
+  ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,
+  ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
+  ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
