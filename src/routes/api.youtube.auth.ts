@@ -10,14 +10,25 @@ export const Route = createFileRoute("/api/youtube/auth")({
       // session (cookie) and redirects the browser straight to Google's consent screen.
       GET: async ({ request }) => {
         try {
-          const { setCookieHeaders } = await requireSessionUser(request);
+          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const requestUrl = new URL(request.url);
+          const returnTo = requestUrl.searchParams.get("returnTo");
+          const safeReturnTo = returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
+          const { data: existingChannel } = await client.from("youtube_channels").select("id").limit(1).maybeSingle();
+          if (existingChannel) {
+            const response = new Response(null, { status: 302, headers: { Location: safeReturnTo } });
+            for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
+            return response;
+          }
+          const redirectUri = `${requestUrl.origin}/api/youtube/callback`;
           const state = crypto.randomUUID();
           const response = new Response(null, {
             status: 302,
-            headers: { Location: buildGoogleAuthorizationUrl(state) },
+            headers: { Location: buildGoogleAuthorizationUrl(state, redirectUri) },
           });
           // Short-lived CSRF nonce checked against the `state` param on the callback.
           response.headers.append("Set-Cookie", buildSetCookie("yt_oauth_state", state, { maxAge: 600 }));
+          response.headers.append("Set-Cookie", buildSetCookie("yt_oauth_return", safeReturnTo, { maxAge: 600 }));
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
           return response;
         } catch (error) {

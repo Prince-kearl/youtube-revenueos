@@ -212,26 +212,68 @@ function AppearancePanel() {
 }
 
 function ConnectedAccountsPanel() {
+  const navigate = useNavigate();
+  const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/youtube/channels")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+        setChannel(response.ok ? body.data?.[0] ?? null : null);
+      })
+      .catch(() => setChannel(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const disconnectYoutube = async () => {
+    if (!channel) return;
+    setDisconnecting(true);
+    try {
+      const response = await fetch(`/api/youtube/channels?id=${channel.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("disconnect_failed");
+      setChannel(null);
+      toast.success("YouTube disconnected");
+    } catch {
+      toast.error("Couldn't disconnect YouTube. Try again.");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const accounts = [
     {
       title: "YouTube",
-      description: "@AlexCreates · 847K subscribers",
-      connected: true,
+      description: loading ? "Checking connection…" : channel ? `${channel.channel_name} · ${channel.subscriber_count.toLocaleString()} subscribers` : "Not connected",
+      connected: Boolean(channel),
+      action: channel ? disconnectYoutube : () => { window.location.href = "/api/youtube/auth?returnTo=/settings"; },
+      actionLabel: channel ? (disconnecting ? "Disconnecting…" : "Disconnect") : "Connect",
+      disabled: loading || disconnecting,
     },
     {
       title: "Google Analytics",
-      description: "UA-123456789",
-      connected: true,
+      description: "Available after analytics property setup",
+      connected: false,
+      action: () => { navigate({ to: "/analytics" }); toast.info("Google Analytics setup will be available here."); },
+      actionLabel: "Open Analytics",
+      disabled: false,
     },
     {
       title: "Stripe",
-      description: "Not connected",
+      description: "Manage subscription and billing",
       connected: false,
+      action: () => navigate({ to: "/billing" }),
+      actionLabel: "Open Billing",
+      disabled: false,
     },
     {
       title: "ConvertKit",
-      description: "alexcreates · 12,400 subscribers",
-      connected: true,
+      description: "Email integration is not configured",
+      connected: false,
+      action: () => toast.info("ConvertKit integration is not configured yet."),
+      actionLabel: "Configure",
+      disabled: false,
     },
   ];
 
@@ -254,13 +296,15 @@ function ConnectedAccountsPanel() {
               </div>
             </div>
             <button
+              onClick={account.action}
+              disabled={account.disabled}
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 account.connected
                   ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              {account.connected ? "Disconnect" : "Connect"}
+              {account.actionLabel}
             </button>
           </div>
         ))}

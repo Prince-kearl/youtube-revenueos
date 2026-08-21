@@ -8,10 +8,10 @@ export const YOUTUBE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
 ];
 
-export function buildGoogleAuthorizationUrl(state: string): string {
+export function buildGoogleAuthorizationUrl(state: string, redirectUri = requireServerEnv("GOOGLE_REDIRECT_URI")): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", requireServerEnv("GOOGLE_CLIENT_ID"));
-  url.searchParams.set("redirect_uri", requireServerEnv("GOOGLE_REDIRECT_URI"));
+  url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", YOUTUBE_OAUTH_SCOPES.join(" "));
   // access_type=offline + prompt=consent is required to reliably get a refresh_token back,
@@ -41,13 +41,13 @@ async function requestGoogleToken(body: URLSearchParams): Promise<GoogleTokenRes
   return (await response.json()) as GoogleTokenResponse;
 }
 
-export function exchangeGoogleAuthorizationCode(code: string): Promise<GoogleTokenResponse> {
+export function exchangeGoogleAuthorizationCode(code: string, redirectUri = requireServerEnv("GOOGLE_REDIRECT_URI")): Promise<GoogleTokenResponse> {
   return requestGoogleToken(
     new URLSearchParams({
       code,
       client_id: requireServerEnv("GOOGLE_CLIENT_ID"),
       client_secret: requireServerEnv("GOOGLE_CLIENT_SECRET"),
-      redirect_uri: requireServerEnv("GOOGLE_REDIRECT_URI"),
+      redirect_uri: redirectUri,
       grant_type: "authorization_code",
     }),
   );

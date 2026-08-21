@@ -29,7 +29,8 @@ export const Route = createFileRoute("/auth/callback")({
             return redirectResponse(`${appUrl}/?auth_error=code_exchange_failed`);
           }
 
-          return applySetCookies(redirectResponse(`${appUrl}/dashboard`), setCookieHeaders);
+          const youtubeAuthUrl = `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent("/dashboard")}`;
+          return applySetCookies(redirectResponse(youtubeAuthUrl), setCookieHeaders);
         } catch (error) {
           console.error("Supabase auth callback failed", error);
           return redirectResponse(`${appUrl}/?auth_error=callback_failed`);

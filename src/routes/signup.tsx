@@ -45,7 +45,7 @@ function Signup() {
     // A session on the returned user means email confirmation is disabled for this project —
     // otherwise Supabase requires the confirmation link before a session exists.
     if (data.session) {
-      navigate({ to: "/dashboard" });
+      window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
       return;
     }
     setConfirmationSent(true);

@@ -6,8 +6,9 @@ import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 
-function redirectToApp(path: string): Response {
-  const appUrl = getServerEnv("APP_URL") ?? "";
+function redirectToApp(path: string, requestOrigin?: string): Response {
+  const isLocalRequest = requestOrigin?.includes("localhost") || requestOrigin?.includes("127.0.0.1");
+  const appUrl = isLocalRequest ? requestOrigin : (getServerEnv("APP_URL") ?? requestOrigin ?? "");
   return new Response(null, { status: 302, headers: { Location: `${appUrl}${path}` } });
 }
 
@@ -20,22 +21,25 @@ export const Route = createFileRoute("/api/youtube/callback")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
-          if (url.searchParams.get("error")) return redirectToApp("/settings?youtube=denied");
+          if (url.searchParams.get("error")) return redirectToApp("/settings?youtube=denied", url.origin);
 
           const code = url.searchParams.get("code");
           const state = url.searchParams.get("state");
           const expectedState = getCookie(request, "yt_oauth_state");
+          const returnTo = getCookie(request, "yt_oauth_return") ?? "/settings";
+          const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
+          const redirectUri = `${url.origin}/api/youtube/callback`;
           if (!code || !state || !expectedState || state !== expectedState) {
-            return redirectToApp("/settings?youtube=invalid_state");
+            return redirectToApp(`${safeReturnTo}?youtube=invalid_state`, url.origin);
           }
 
           const { client, user, setCookieHeaders } = await requireSessionUser(request);
-          const tokens = await exchangeGoogleAuthorizationCode(code);
+          const tokens = await exchangeGoogleAuthorizationCode(code, redirectUri);
           if (!tokens.refresh_token) {
             // Google omits refresh_token on repeat consent without access_type=offline&prompt=consent
             // having actually forced a new grant — ask the user to reauthorize rather than storing a
             // channel connection that will silently stop working once the access token expires.
-            return redirectToApp("/settings?youtube=reauthorize_required");
+            return redirectToApp(`${safeReturnTo}?youtube=reauthorize_required`, url.origin);
           }
 
           const channel = await fetchAuthorizedYoutubeChannel(tokens.access_token);
@@ -57,7 +61,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
             },
             { onConflict: "user_id,youtube_channel_id" },
           );
-          if (upsertError) return redirectToApp("/settings?youtube=storage_failed");
+          if (upsertError) return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
 
           const service = createServiceSupabaseClient();
           await service.from("youtube_quota_events").insert({
@@ -67,8 +71,9 @@ export const Route = createFileRoute("/api/youtube/callback")({
             succeeded: true,
           });
 
-          const response = redirectToApp("/settings?youtube=connected");
+          const response = redirectToApp(`${safeReturnTo}?youtube=connected`, url.origin);
           response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_state"));
+          response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_return"));
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
           return response;
         } catch (error) {

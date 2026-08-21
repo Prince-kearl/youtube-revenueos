@@ -38,7 +38,7 @@ function Login() {
       setError(signInError.message);
       return;
     }
-    navigate({ to: "/dashboard" });
+    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
   };
 
   const handleGoogle = async () => {
