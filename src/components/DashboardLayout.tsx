@@ -93,7 +93,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const [dealOpen, setDealOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const [profile] = useProfile();
+  const [profile, setProfile] = useProfile();
   const [notifs, setNotifs] = useNotifications();
   const [, setDeals] = useDeals();
   const [viewerRole, setViewerRole] = useViewerRole();
