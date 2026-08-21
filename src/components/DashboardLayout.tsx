@@ -146,6 +146,16 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     navigate({ to: "/" });
   };
 
+  useEffect(() => {
+    if (!user) return;
+    setProfile((current) => ({
+      ...current,
+      name: user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? current.name,
+      email: user.email ?? current.email,
+      avatar: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? current.avatar,
+    }));
+  }, [user]);
+
   // Server/API routes independently verify the session too (see requireSessionUser) — this only
   // keeps signed-out visitors from seeing protected page content client-side.
   useEffect(() => {

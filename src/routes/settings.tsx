@@ -26,6 +26,7 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useThemeMode, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
 import { clearAllStores } from "@/lib/local-store";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -123,6 +124,11 @@ function renderPanel(active: string) {
 }
 
 function ProfilePanel() {
+  const { user } = useAuthSession();
+  const name = user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Your profile";
+  const email = user?.email ?? "";
+  const avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture;
+
   return (
     <div className="relative rounded-xl card-gradient-outline p-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
@@ -130,22 +136,22 @@ function ProfilePanel() {
 
       <div className="mt-5 flex items-center gap-4">
         <div className="relative">
-          <img src="https://i.pravatar.cc/96?img=13" alt="Alex Chen" className="h-16 w-16 rounded-xl object-cover" />
+          {avatar ? <img src={avatar} alt={name} className="h-16 w-16 rounded-xl object-cover" /> : <div className="h-16 w-16 rounded-xl bg-primary/10" />}
           <button className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] bg-primary text-primary-foreground">
             <Camera className="h-3.5 w-3.5" />
           </button>
         </div>
         <div>
-          <p className="font-semibold">Alex Chen</p>
-          <p className="text-sm text-muted-foreground">Premium Plan · 247 videos</p>
+          <p className="font-semibold">{name}</p>
+          <p className="text-sm text-muted-foreground">{email}</p>
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Field label="Full Name" value="Alex Chen" />
-        <Field label="Display Name" value="alexcreates" />
-        <Field label="Email" value="alex@creator.io" />
-        <Field label="Channel Handle" value="@AlexCreates" />
+        <Field label="Full Name" value={name} />
+        <Field label="Display Name" value={user?.user_metadata?.preferred_username ?? name} />
+        <Field label="Email" value={email} />
+        <Field label="Channel Handle" value="Connect YouTube to load handle" />
       </div>
 
       <div className="mt-5">
