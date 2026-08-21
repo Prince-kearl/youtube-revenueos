@@ -43,6 +43,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
+import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
@@ -218,6 +219,11 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   path: '/api/destinations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
+  id: '/api/youtube/dashboard',
+  path: '/api/youtube/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
   id: '/api/youtube/channels',
   path: '/api/youtube/channels',
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -318,6 +325,7 @@ export interface FileRoutesByTo {
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -359,6 +367,7 @@ export interface FileRoutesById {
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -401,6 +410,7 @@ export interface FileRouteTypes {
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -441,6 +451,7 @@ export interface FileRouteTypes {
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/dashboard'
   id:
     | '__root__'
     | '/'
@@ -481,6 +492,7 @@ export interface FileRouteTypes {
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -522,6 +534,7 @@ export interface RootRouteChildren {
   ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
   ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
+  ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -764,6 +777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/dashboard': {
+      id: '/api/youtube/dashboard'
+      path: '/api/youtube/dashboard'
+      fullPath: '/api/youtube/dashboard'
+      preLoaderRoute: typeof ApiYoutubeDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/channels': {
       id: '/api/youtube/channels'
       path: '/api/youtube/channels'
@@ -834,6 +854,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
   ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
+  ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

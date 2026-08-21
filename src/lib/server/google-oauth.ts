@@ -67,21 +67,26 @@ export function refreshGoogleAccessToken(refreshToken: string): Promise<GoogleTo
 export interface YoutubeChannelSummary {
   channelId: string;
   title: string;
+  handle: string | null;
   thumbnail: string | null;
   subscriberCount: number;
+  viewCount: number;
+  videoCount: number;
+  uploadsPlaylistId: string | null;
 }
 
 export async function fetchAuthorizedYoutubeChannel(accessToken: string): Promise<YoutubeChannelSummary> {
   const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-  url.searchParams.set("part", "snippet,statistics");
+  url.searchParams.set("part", "snippet,statistics,contentDetails");
   url.searchParams.set("mine", "true");
   const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`YOUTUBE_CHANNEL_FETCH_FAILED:${response.status}`);
   const data = (await response.json()) as {
     items?: Array<{
       id: string;
-      snippet: { title: string; thumbnails?: { default?: { url: string } } };
-      statistics: { subscriberCount?: string };
+      snippet: { title: string; customUrl?: string; thumbnails?: { high?: { url: string }; default?: { url: string } } };
+      statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+      contentDetails?: { relatedPlaylists?: { uploads?: string } };
     }>;
   };
   const channel = data.items?.[0];
@@ -89,9 +94,78 @@ export async function fetchAuthorizedYoutubeChannel(accessToken: string): Promis
   return {
     channelId: channel.id,
     title: channel.snippet.title,
-    thumbnail: channel.snippet.thumbnails?.default?.url ?? null,
+    handle: channel.snippet.customUrl ?? null,
+    thumbnail: channel.snippet.thumbnails?.high?.url ?? channel.snippet.thumbnails?.default?.url ?? null,
     subscriberCount: Number(channel.statistics.subscriberCount ?? 0),
+    viewCount: Number(channel.statistics.viewCount ?? 0),
+    videoCount: Number(channel.statistics.videoCount ?? 0),
+    uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads ?? null,
   };
+}
+
+export interface YoutubeVideoSummary {
+  id: string;
+  title: string;
+  thumbnail: string | null;
+  publishedAt: string | null;
+  duration: string | null;
+  views: number;
+  likes: number | null;
+  comments: number | null;
+  url: string;
+}
+
+function youtubeApiUrl(path: string, params: Record<string, string>): URL {
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  return url;
+}
+
+async function youtubeApiRequest<T>(accessToken: string, path: string, params: Record<string, string>): Promise<T> {
+  const response = await fetch(youtubeApiUrl(path, params), { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error(`YOUTUBE_${path.toUpperCase()}_FAILED:${response.status}`);
+  return (await response.json()) as T;
+}
+
+function parseIsoDuration(duration: string): string {
+  const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return duration;
+  const hours = Number(match[1] ?? 0);
+  const minutes = Number(match[2] ?? 0) + hours * 60;
+  const seconds = Number(match[3] ?? 0);
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+export async function fetchRecentYoutubeVideos(accessToken: string, uploadsPlaylistId: string | null, limit = 12): Promise<YoutubeVideoSummary[]> {
+  if (!uploadsPlaylistId) return [];
+  const playlist = await youtubeApiRequest<{ items?: Array<{ contentDetails: { videoId: string } }> }>(accessToken, "playlistItems", {
+    part: "contentDetails",
+    playlistId: uploadsPlaylistId,
+    maxResults: String(Math.min(limit, 50)),
+  });
+  const ids = (playlist.items ?? []).map((item) => item.contentDetails.videoId).filter(Boolean);
+  if (!ids.length) return [];
+
+  const videos = await youtubeApiRequest<{
+    items?: Array<{
+      id: string;
+      snippet: { title: string; publishedAt?: string; thumbnails?: { medium?: { url: string }; default?: { url: string } } };
+      contentDetails?: { duration?: string };
+      statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+    }>;
+  }>(accessToken, "videos", { part: "snippet,contentDetails,statistics", id: ids.join(",") });
+
+  return (videos.items ?? []).map((video) => ({
+    id: video.id,
+    title: video.snippet.title,
+    thumbnail: video.snippet.thumbnails?.medium?.url ?? video.snippet.thumbnails?.default?.url ?? null,
+    publishedAt: video.snippet.publishedAt ?? null,
+    duration: video.contentDetails?.duration ? parseIsoDuration(video.contentDetails.duration) : null,
+    views: Number(video.statistics?.viewCount ?? 0),
+    likes: video.statistics?.likeCount === undefined ? null : Number(video.statistics.likeCount),
+    comments: video.statistics?.commentCount === undefined ? null : Number(video.statistics.commentCount),
+    url: `https://www.youtube.com/watch?v=${video.id}`,
+  }));
 }
 
 export interface YoutubeAnalyticsQuery {

@@ -4,15 +4,14 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
 import {
-  DollarSign, TrendingUp, Eye, Handshake, RefreshCw,
+  DollarSign, TrendingUp, Eye, RefreshCw,
   Youtube, Users, ExternalLink, Play, CheckCircle2, Circle, X, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { StatCard, ChangeCell } from "@/components/ui-bits";
+import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { NotificationRow } from "@/components/NotificationRow";
-import { recentPosts, revenueSplit, revenueTrend, topVideos } from "@/lib/data";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useNotifications, useOnboarding } from "@/lib/stores";
 
@@ -20,31 +19,155 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
+type DashboardVideo = {
+  id: string;
+  title: string;
+  thumbnail: string | null;
+  publishedAt: string | null;
+  duration: string | null;
+  views: number;
+  likes: number | null;
+  comments: number | null;
+  url: string;
+};
+
+type DashboardChannel = {
+  channelId: string;
+  title: string;
+  handle: string | null;
+  thumbnail: string | null;
+  subscriberCount: number;
+  viewCount: number;
+  videoCount: number;
+  uploadsPlaylistId: string | null;
+  url: string | null;
+};
+
+type DashboardAnalyticsRow = {
+  month?: string;
+  views?: number;
+  estimatedRevenue?: number;
+  subscribersGained?: number;
+  watchTimeMinutes?: number;
+};
+
+type DashboardData = {
+  channel: DashboardChannel;
+  videos: DashboardVideo[];
+  analytics: DashboardAnalyticsRow[];
+  fetchedAt: string;
+};
+
+type DashboardResponse =
+  | { status: "not_connected"; data: null }
+  | { status: "connected"; data: DashboardData }
+  | { error: string };
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
 function Dashboard() {
   const { settings } = useChannelSettings();
   const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [youtubeStatus, setYoutubeStatus] = useState<"loading" | "connected" | "not_connected" | "error" | "reauth">("loading");
+  const [youtubeRefreshing, setYoutubeRefreshing] = useState(false);
+  const loadYoutubeData = async () => {
+    setYoutubeRefreshing(true);
+    try {
+      const response = await fetch("/api/youtube/dashboard");
+      const body = (await response.json()) as DashboardResponse;
+      if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
+        setYoutubeStatus("reauth");
+      } else if (!response.ok || !("data" in body)) {
+        setYoutubeStatus("error");
+      } else if (body.status === "not_connected") {
+        setDashboardData(null);
+        setYoutubeStatus("not_connected");
+      } else {
+        setDashboardData(body.data);
+        setYoutubeStatus("connected");
+      }
+    } catch {
+      setYoutubeStatus("error");
+    } finally {
+      setYoutubeRefreshing(false);
+    }
+  };
+  useEffect(() => { void loadYoutubeData(); }, []);
+
   const trend = useMemo(() => {
     const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
-    return revenueTrend.slice(-n);
-  }, [range]);
+    return (dashboardData?.analytics ?? []).slice(-n).map((row) => ({
+      month: row.month ? new Date(`${row.month}-01T00:00:00Z`).toLocaleDateString("en", { month: "short", timeZone: "UTC" }) : "",
+      revenue: Number(row.estimatedRevenue ?? 0) / 1000,
+    }));
+  }, [dashboardData, range]);
   const [notifs, setNotifs] = useNotifications();
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
-    setTimeout(() => { setRefreshing(false); toast.success("Alerts refreshed"); }, 700);
+    void loadYoutubeData().finally(() => { setRefreshing(false); toast.success("Dashboard refreshed"); });
   };
+  const videos = dashboardData?.videos ?? [];
+  const totalRevenue = dashboardData?.analytics.reduce((sum, row) => sum + Number(row.estimatedRevenue ?? 0), 0) ?? 0;
+  const latestRevenue = dashboardData?.analytics.at(-1)?.estimatedRevenue ?? 0;
+  const recentRevenueChange = dashboardData?.analytics.length && dashboardData.analytics.length > 1
+    ? Number(dashboardData.analytics.at(-1)?.estimatedRevenue ?? 0) - Number(dashboardData.analytics.at(-2)?.estimatedRevenue ?? 0)
+    : 0;
   return (
     <DashboardLayout title="Dashboard">
       <GettingStarted />
 
+      {youtubeStatus === "loading" && (
+        <div className="card-gradient-outline p-5 text-sm text-muted-foreground">Loading your YouTube channel data…</div>
+      )}
+      {youtubeStatus === "not_connected" && (
+        <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold">Connect your YouTube channel</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Connect YouTube in Settings to load your channel metrics here.</p>
+          </div>
+          <Link to="/settings" className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            Open Settings
+          </Link>
+        </div>
+      )}
+      {(youtubeStatus === "error" || youtubeStatus === "reauth") && (
+        <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold">We couldn't load your YouTube data</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {youtubeStatus === "reauth" ? "Your YouTube authorization needs to be renewed." : "The YouTube API is temporarily unavailable."}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => void loadYoutubeData()} className="rounded-[var(--button-radius)] border border-border px-4 py-2 text-sm font-semibold hover:bg-accent">Retry</button>
+            <Link to="/settings" className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              Reconnect
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Stat cards */}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value="$142,800" label="Total Revenue" sub="vs last year" change="18.4%" up />
-        <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value="$44,300" label="Monthly Revenue" sub="vs last month" change="12.7%" up />
-        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value="8.4M" label="Total Views" sub="vs last month" change="9.2%" up />
-        <StatCard glow frost icon={<Handshake className="h-5 w-5" />} value="7" label="Active Deals" sub="vs last month" change="1%" up={false} />
+        <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value={dashboardData ? formatMoney(totalRevenue) : "—"} label="Estimated Revenue" sub="YouTube Analytics" />
+        <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value={dashboardData ? formatMoney(latestRevenue) : "—"} label="Latest Revenue" sub="Latest available month" change={recentRevenueChange ? formatMoney(Math.abs(recentRevenueChange)) : undefined} up={recentRevenueChange >= 0} />
+        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"} label="Total Views" sub="YouTube channel total" />
+        <StatCard glow frost icon={<Youtube className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"} label="Videos" sub="Published on channel" />
       </div>
 
       {/* Trends + Alerts */}
@@ -66,14 +189,13 @@ function Dashboard() {
           </div>
 
           <div className="mt-4 flex items-center gap-5 text-xs">
-            <Legend color="var(--color-brand-blue)" label="AdSense" />
-            <Legend color="var(--color-brand-purple)" label="Brand Deals" />
-            <Legend color="var(--color-brand-green)" label="Memberships" />
+            <Legend color="var(--color-brand-blue)" label="Estimated YouTube revenue" />
           </div>
 
           <div className="mt-4 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trend}>
+            {trend.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trend}>
                 <defs>
                   <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
@@ -84,11 +206,14 @@ function Dashboard() {
                 <XAxis dataKey="month" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => `$${v}k`} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: "color-mix(in srgb, var(--color-popover) 85%, transparent)", border: "1px solid color-mix(in srgb, white 20%, var(--color-border))", borderRadius: 16, fontSize: 12, boxShadow: "0 16px 32px -20px rgba(0,0,0,0.4)", backdropFilter: "blur(12px)" }} />
-                <Area type="monotone" dataKey="brand" stroke="var(--color-brand-purple)" strokeWidth={2.5} fill="url(#gBrand)" />
-                <Area type="monotone" dataKey="adsense" stroke="var(--color-brand-blue)" strokeWidth={2.5} fill="transparent" />
-                <Area type="monotone" dataKey="memberships" stroke="var(--color-brand-green)" strokeWidth={2.5} fill="transparent" />
-              </AreaChart>
-            </ResponsiveContainer>
+                <Area type="monotone" dataKey="revenue" stroke="var(--color-brand-blue)" strokeWidth={2.5} fill="url(#gBrand)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {youtubeStatus === "connected" ? "No monthly revenue data is available for this channel yet." : "Connect YouTube to view revenue trends."}
+              </div>
+            )}
           </div>
         </div>
 
@@ -98,7 +223,7 @@ function Dashboard() {
           <div className="flex shrink-0 items-center justify-between">
             <h3 className="text-lg font-semibold">Live Alerts</h3>
             <button onClick={refresh} className="text-muted-foreground hover:text-foreground" aria-label="Refresh">
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-4 w-4 ${refreshing || youtubeRefreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
           <div className="mt-4 flex-1 space-y-2.5">
@@ -124,24 +249,24 @@ function Dashboard() {
         <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
+            <h3 className="text-lg font-semibold">Recent YouTube Videos</h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">View all</Link>
           </div>
           {/* Mobile: stacked cards */}
           <div className="mt-4 space-y-2.5 sm:hidden">
-            {topVideos.slice(0, 5).map((v) => (
-              <div key={v.rank} className="card-frost p-3 backdrop-blur-lg">
+            {videos.slice(0, 5).map((video, index) => (
+              <div key={video.id} className="card-frost p-3 backdrop-blur-lg">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{v.rank}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{v.title}</span>
+                  <span className="text-xs text-muted-foreground">{index + 1}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{video.title}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{v.viewsShort} views</span>
-                  <span className="font-semibold">{v.revenue}</span>
-                  <ChangeCell change={v.change} up={v.up} />
+                  <span className="text-muted-foreground">{formatCount(video.views)} views</span>
+                  <span className="text-muted-foreground">{video.likes === null ? "Likes unavailable" : `${formatCount(video.likes)} likes`}</span>
                 </div>
               </div>
             ))}
+            {!videos.length && <p className="py-6 text-sm text-muted-foreground">No published videos are available.</p>}
           </div>
 
           {/* Desktop: table */}
@@ -151,59 +276,39 @@ function Dashboard() {
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-3 font-medium">Video</th>
                   <th className="pb-3 font-medium">Views</th>
-                  <th className="pb-3 font-medium">Revenue</th>
-                  <th className="pb-3 text-right font-medium">Change</th>
+                  <th className="pb-3 font-medium">Likes</th>
+                  <th className="pb-3 text-right font-medium">Comments</th>
                 </tr>
               </thead>
               <tbody>
-                {topVideos.slice(0, 5).map((v) => (
-                  <tr key={v.rank} className="border-t border-border">
+                {videos.slice(0, 5).map((video, index) => (
+                  <tr key={video.id} className="border-t border-border">
                     <td className="py-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-muted-foreground">{v.rank}</span>
-                        <span className="font-medium whitespace-nowrap">{v.title}</span>
+                        <span className="text-muted-foreground">{index + 1}</span>
+                        <span className="font-medium whitespace-nowrap">{video.title}</span>
                       </div>
                     </td>
-                    <td className="py-3 text-muted-foreground">{v.viewsShort}</td>
-                    <td className="py-3 font-semibold">{v.revenue}</td>
-                    <td className="py-3">
-                      <div className="flex justify-end">
-                        <ChangeCell change={v.change} up={v.up} />
-                      </div>
-                    </td>
+                    <td className="py-3 text-muted-foreground">{formatCount(video.views)}</td>
+                    <td className="py-3 text-muted-foreground">{video.likes === null ? "—" : formatCount(video.likes)}</td>
+                    <td className="py-3 text-right text-muted-foreground">{video.comments === null ? "—" : formatCount(video.comments)}</td>
                   </tr>
                 ))}
+                {!videos.length && <tr><td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">No published videos are available.</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Revenue split */}
+        {/* YouTube revenue summary */}
         <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <h3 className="text-lg font-semibold">Revenue Split</h3>
-          <div className="mt-5 space-y-4">
-            {revenueSplit.map((r) => (
-              <div key={r.label}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
-                    {r.label}
-                  </span>
-                  <span className="font-semibold">
-                    {r.amount} <span className="ml-1 text-xs font-normal text-muted-foreground">{r.pct}%</span>
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-accent">
-                  <div className="h-full rounded-full" style={{ width: `${r.pct}%`, background: r.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold">YouTube Revenue</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Directly measured from YouTube Analytics</p>
           <div className="mt-6 border-t border-border pt-4">
-            <p className="text-sm text-muted-foreground">This month total</p>
-            <p className="mt-1 text-2xl font-bold">$44,300</p>
-            <p className="mt-1 flex items-center gap-1 text-xs text-success">▲ +12.7% vs last month</p>
+            <p className="text-sm text-muted-foreground">Available period total</p>
+            <p className="mt-1 text-2xl font-bold">{dashboardData ? formatMoney(totalRevenue) : "—"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Platform attribution is not included</p>
           </div>
         </div>
       </div>
@@ -211,20 +316,20 @@ function Dashboard() {
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
       <div className="nav-glow-motion hero-banner-bg relative mb-5 flex items-center justify-between gap-3 overflow-hidden rounded-[var(--hero-radius)] border border-white/10 p-4 shadow-xl backdrop-blur-xl sm:gap-4 sm:p-5">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          {settings.showAvatar && (
+          {settings.showAvatar && dashboardData?.channel.thumbnail && (
             <div className="relative shrink-0">
-              <img src={settings.avatar} alt={settings.name} className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14" />
+              <img src={dashboardData.channel.thumbnail} alt={dashboardData.channel.title} className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14" />
               <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-card sm:h-6 sm:w-6">
                 <Youtube className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5" fill="white" strokeWidth={1.5} />
               </span>
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{settings.name}</p>
-            {settings.showSubscribers && (
+            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{dashboardData?.channel.title ?? "YouTube channel"}</p>
+            {settings.showSubscribers && dashboardData && (
               <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
                 <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-                <span className="shrink-0 font-medium text-white">{settings.subscribers}</span>
+                <span className="shrink-0 font-medium text-white">{formatCount(dashboardData.channel.subscriberCount)}</span>
                 <span className="hidden sm:inline">subscribers</span>
               </p>
             )}
@@ -232,11 +337,12 @@ function Dashboard() {
         </div>
         {settings.showVisitButton && (
           <a
-            href={settings.url}
+            href={dashboardData?.channel.url ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
+            aria-disabled={!dashboardData?.channel.url}
             aria-label="Visit Channel"
-            className="flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4"
+            className={`flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
           >
             <Youtube className="hidden h-4 w-4 shrink-0 sm:block" fill="white" strokeWidth={1.5} />
             <span className="hidden sm:inline">Visit Channel</span>
@@ -251,27 +357,27 @@ function Dashboard() {
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Recently Added Posts</h3>
-            <a href={settings.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+            <a href={dashboardData?.channel.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
               View channel
             </a>
           </div>
 
           {/* Desktop grid */}
           <div className="mt-4 hidden grid-cols-4 gap-3 sm:grid">
-            {recentPosts.map((p) => (
-              <PostCard key={p.title} post={p} />
+            {videos.slice(0, 4).map((video) => (
+              <PostCard key={video.id} post={video} />
             ))}
           </div>
 
           {/* Mobile horizontal autoslide carousel */}
-          <RecentPostsCarousel />
+          <RecentPostsCarousel videos={videos} />
         </div>
       )}
     </DashboardLayout>
   );
 }
 
-type Post = (typeof recentPosts)[number];
+type Post = DashboardVideo;
 
 function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
   return (
@@ -282,20 +388,21 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
       className={`card-frost group block overflow-hidden backdrop-blur-lg transition-transform hover:-translate-y-0.5 ${compact ? "w-40 shrink-0" : ""}`}
     >
       <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
+        {post.thumbnail && <img src={post.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" />}
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-transform group-hover:scale-110">
           <Play className="h-3 w-3 text-white" fill="white" />
         </span>
-        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{post.duration}</span>
+        {post.duration && <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{post.duration}</span>}
       </div>
       <div className="p-2.5">
         <p className="line-clamp-2 text-xs font-medium leading-snug">{post.title}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">{post.views} views • {post.date}</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">{formatCount(post.views)} views • {formatDate(post.publishedAt)}</p>
       </div>
     </a>
   );
 }
 
-function RecentPostsCarousel() {
+function RecentPostsCarousel({ videos }: { videos: DashboardVideo[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
 
@@ -319,9 +426,9 @@ function RecentPostsCarousel() {
       onTouchEnd={() => setPaused(false)}
       className="mt-4 flex gap-3 overflow-x-auto pb-1 sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      {recentPosts.map((p) => (
-        <div key={p.title} data-card>
-          <PostCard post={p} compact />
+      {videos.slice(0, 8).map((video) => (
+        <div key={video.id} data-card>
+          <PostCard post={video} compact />
         </div>
       ))}
     </div>
