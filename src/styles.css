@@ -143,6 +143,18 @@
   }
 }
 
+/* Keep top-level page sections on one spacing rhythm. Individual components still control
+   their internal padding and gaps; only route-level margins are normalized here. */
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dashboard-main > * {
+  margin-top: 0;
+}
+
 /* iOS Safari auto-zooms the page on focus for any field under 16px — most inputs in this app
    use text-sm (14px). Kept unlayered (outside @layer) so it beats Tailwind's utility classes,
    which otherwise win over anything inside @layer base regardless of source order. Scoped to

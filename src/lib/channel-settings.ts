@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { channel as defaultChannel } from "@/lib/data";
-
 export type ChannelSettings = {
   name: string;
   url: string;
@@ -15,10 +13,10 @@ export type ChannelSettings = {
 const STORAGE_KEY = "revenueos.channel-settings";
 
 export const defaultChannelSettings: ChannelSettings = {
-  name: defaultChannel.name,
-  url: defaultChannel.url,
-  avatar: defaultChannel.avatar,
-  subscribers: defaultChannel.subscribers,
+  name: "",
+  url: "",
+  avatar: "",
+  subscribers: "",
   showAvatar: true,
   showSubscribers: true,
   showRecentPosts: true,
@@ -37,6 +35,11 @@ function read(): ChannelSettings {
 }
 
 const listeners = new Set<() => void>();
+
+export function clearChannelSettings() {
+  if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
+  emit();
+}
 
 function emit() {
   listeners.forEach((l) => l());

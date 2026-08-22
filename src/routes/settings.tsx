@@ -125,14 +125,27 @@ function renderPanel(active: string) {
 
 function ProfilePanel() {
   const { user } = useAuthSession();
-  const name = user?.user_metadata?.name ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Your profile";
+  const [channelHandle, setChannelHandle] = useState<string | null>(null);
+  const name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split("@")[0] ?? "Your profile";
   const email = user?.email ?? "";
   const avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture;
+  const displayName = user?.user_metadata?.preferred_username ?? user?.user_metadata?.user_name ?? user?.user_metadata?.name ?? name;
+
+  useEffect(() => {
+    fetch("/api/youtube/channels")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+        setChannelHandle(response.ok ? body.data?.[0]?.channel_handle ?? null : null);
+      })
+      .catch(() => setChannelHandle(null));
+  }, []);
 
   return (
     <div className="relative rounded-xl card-gradient-outline p-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-lg font-semibold">Profile Information</h3>
+
+      <p className="mt-1 text-xs text-muted-foreground">Account details synced from your authenticated Google account.</p>
 
       <div className="mt-5 flex items-center gap-4">
         <div className="relative">
@@ -148,10 +161,10 @@ function ProfilePanel() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Field label="Full Name" value={name} />
-        <Field label="Display Name" value={user?.user_metadata?.preferred_username ?? name} />
-        <Field label="Email" value={email} />
-        <Field label="Channel Handle" value="Connect YouTube to load handle" />
+        <Field label="Full Name" value={name} readOnly />
+        <Field label="Display Name" value={displayName} readOnly />
+        <Field label="Email" value={email} readOnly />
+        <Field label="Channel Handle" value={channelHandle ? (channelHandle.startsWith("@") ? channelHandle : `@${channelHandle}`) : "Connect YouTube to load handle"} readOnly />
       </div>
 
       <div className="mt-5">
@@ -316,6 +329,7 @@ function ConnectedAccountsPanel() {
 interface ConnectedYoutubeChannel {
   id: string;
   channel_name: string;
+  channel_handle: string | null;
   thumbnail: string | null;
   subscriber_count: number;
   connected_at: string;
@@ -565,18 +579,30 @@ function SecurityPanel() {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, readOnly = false }: { label: string; value: string; readOnly?: boolean }) {
   return (
     <div>
       <label className="mb-2 block text-sm text-muted-foreground">{label}</label>
-      <input defaultValue={value} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary" />
+      <input readOnly={readOnly} value={value} className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary read-only:cursor-default read-only:opacity-80" />
     </div>
   );
 }
 
 function DashboardBannerPanel() {
   const { settings, update } = useChannelSettings();
+  const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/youtube/channels")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+        setChannel(response.ok ? body.data?.[0] ?? null : null);
+      })
+      .catch(() => setChannel(null))
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggles: { key: "showAvatar" | "showSubscribers" | "showVisitButton" | "showRecentPosts"; label: string; description: string }[] = [
     { key: "showAvatar", label: "Channel avatar", description: "Show your channel profile picture on the banner." },
@@ -590,43 +616,31 @@ function DashboardBannerPanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Dashboard Banner</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Paste your channel URL and choose what appears on the dashboard banner.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Your connected YouTube channel is synced automatically. Choose what appears on the dashboard banner.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm text-muted-foreground">Channel Name</label>
-          <input
-            value={settings.name}
-            onChange={(e) => update({ name: e.target.value })}
-            placeholder="@YourChannel"
+          <input readOnly value={loading ? "Loading…" : channel?.channel_name ?? "YouTube not connected"}
             className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
           />
         </div>
         <div>
           <label className="mb-2 block text-sm text-muted-foreground">Subscriber Count</label>
-          <input
-            value={settings.subscribers}
-            onChange={(e) => update({ subscribers: e.target.value })}
-            placeholder="1.24M"
+          <input readOnly value={loading ? "Loading…" : channel ? channel.subscriber_count.toLocaleString() : "YouTube not connected"}
             className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
           />
         </div>
         <div className="md:col-span-2">
           <label className="mb-2 block text-sm text-muted-foreground">Channel URL</label>
-          <input
-            value={settings.url}
-            onChange={(e) => update({ url: e.target.value })}
-            placeholder="https://www.youtube.com/@YourChannel"
+          <input readOnly value={loading ? "Loading…" : channel?.channel_handle ? `https://www.youtube.com/${channel.channel_handle.startsWith("@") ? channel.channel_handle : `@${channel.channel_handle}`}` : "YouTube not connected"}
             className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
           />
         </div>
         <div className="md:col-span-2">
           <label className="mb-2 block text-sm text-muted-foreground">Avatar Image URL</label>
-          <input
-            value={settings.avatar}
-            onChange={(e) => update({ avatar: e.target.value })}
-            placeholder="https://..."
+          <input readOnly value={loading ? "Loading…" : channel?.thumbnail ?? "YouTube not connected"}
             className="h-11 w-full rounded-xl border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
           />
         </div>

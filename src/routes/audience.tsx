@@ -47,7 +47,7 @@ function Audience() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard icon={<Users className="h-5 w-5" />} value="25–34" label="Top Age Group" sub="38% of views" />
         <StatCard icon={<UserCheck className="h-5 w-5" />} value="64% M" label="Gender Split" sub="33% F · 3% other" />
         <StatCard icon={<Target className="h-5 w-5" />} value="6.4%" label="Best Converting Segment" sub="25–34, Male" />

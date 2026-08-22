@@ -163,7 +163,7 @@ function Dashboard() {
 
       {/* Stat cards */}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value={dashboardData ? formatMoney(totalRevenue) : "—"} label="Estimated Revenue" sub="YouTube Analytics" />
         <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value={dashboardData ? formatMoney(latestRevenue) : "—"} label="Latest Revenue" sub="Latest available month" change={recentRevenueChange ? formatMoney(Math.abs(recentRevenueChange)) : undefined} up={recentRevenueChange >= 0} />
         <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"} label="Total Views" sub="YouTube channel total" />

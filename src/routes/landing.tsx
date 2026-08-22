@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { useSupportTickets, useSiteContent } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
+import { CookieConsent } from "@/components/CookieConsent";
 
 export const Route = createFileRoute("/landing")({
   component: Landing,
@@ -70,6 +71,7 @@ function Landing() {
       <ContactSection />
       <FinalCta />
       <FooterSection />
+      <CookieConsent />
     </div>
   );
 }

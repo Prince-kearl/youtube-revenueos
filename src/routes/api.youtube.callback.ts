@@ -54,6 +54,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
               user_id: user.id,
               youtube_channel_id: channel.channelId,
               channel_name: channel.title,
+              channel_handle: channel.handle,
               thumbnail: channel.thumbnail,
               subscriber_count: channel.subscriberCount,
               access_token_ciphertext: accessTokenCiphertext,
@@ -64,6 +65,14 @@ export const Route = createFileRoute("/api/youtube/callback")({
             { onConflict: "user_id,youtube_channel_id" },
           );
           if (upsertError) return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+
+          // A user may reconnect a different YouTube account. Keep one authoritative channel
+          // per Tubify user so an older connection can never become the dashboard fallback.
+          await client
+            .from("youtube_channels")
+            .delete()
+            .eq("user_id", user.id)
+            .neq("youtube_channel_id", channel.channelId);
 
           const service = createServiceSupabaseClient();
           await service.from("youtube_quota_events").insert({

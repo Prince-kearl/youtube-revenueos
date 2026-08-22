@@ -63,7 +63,7 @@ function Team() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard icon={<Users className="h-5 w-5" />} value={String(members.length)} label="Total Members" />
         <StatCard icon={<Users className="h-5 w-5" />} value={String(stats.active)} label="Active" />
         <StatCard icon={<Mail className="h-5 w-5" />} value={String(stats.invited)} label="Pending Invites" />

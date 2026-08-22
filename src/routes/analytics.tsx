@@ -80,7 +80,7 @@ function Analytics() {
         </span>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard icon={<DollarSign className="h-5 w-5" />} value="$0.052" label="Revenue/View" change="8.4%" up />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} value="$9.84" label="Avg CPM" change="12.1%" up />
         <StatCard icon={<Eye className="h-5 w-5" />} value="2.4M hrs" label="Watch Time" change="6.8%" up />

@@ -14,7 +14,6 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeInjector } from "@/components/ThemeInjector";
 import { ThemeModeApplier } from "@/components/ThemeModeApplier";
-import { CookieConsent } from "@/components/CookieConsent";
 
 // Sets the dark class before first paint, so there's no flash of the wrong theme while React
 // hydrates. Reads the same localStorage key useThemeMode()/useLocalStore write (JSON-encoded),
@@ -144,7 +143,6 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
-      <CookieConsent />
     </QueryClientProvider>
   );
 }

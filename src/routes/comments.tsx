@@ -111,7 +111,7 @@ function Comments() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard icon={<Zap className="h-5 w-5" />} value={String(rules.reduce((a, r) => a + r.fired, 0))} label="Auto-replies (30d)" change="18.2%" up />
         <StatCard icon={<MessageSquare className="h-5 w-5" />} value={String(rules.filter((r) => r.active).length)} label="Active Rules" />
         <StatCard icon={<AtSign className="h-5 w-5" />} value="118" label="IG Handles Detected" change="9.4%" up />

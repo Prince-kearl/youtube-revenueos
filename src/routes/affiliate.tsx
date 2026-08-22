@@ -48,7 +48,7 @@ function Affiliate() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <StatCard icon={<DollarSign className="h-5 w-5" />} value="$9,390" label="Total Earnings" change="22.4%" up />
         <StatCard icon={<Clock className="h-5 w-5" />} value="$2,840" label="Pending Payouts" />
         <StatCard icon={<Users className="h-5 w-5" />} value="47" label="Referred Clients" change="8.1%" up />

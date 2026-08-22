@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken } from "@/lib/server/youtube-tokens";
@@ -9,8 +8,6 @@ import {
   queryYoutubeAnalytics,
   type YoutubeChannelSummary,
 } from "@/lib/server/google-oauth";
-
-const querySchema = z.object({ channelId: z.string().uuid().optional() });
 
 type AnalyticsPayload = {
   columnHeaders?: Array<{ name: string }>;
@@ -44,12 +41,10 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
       GET: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const input = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-          let channelQuery = client
+          const channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, token_expiry")
             .order("connected_at", { ascending: false });
-          if (input.channelId) channelQuery = channelQuery.eq("id", input.channelId);
           const { data: channelRow, error: channelError } = await channelQuery.limit(1).maybeSingle();
 
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
@@ -83,7 +78,24 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             analytics = null;
           }
 
-          await client.from("youtube_channels").update({ last_synced_at: new Date().toISOString() }).eq("id", channelRow.id);
+          await client.from("youtube_channels").update({
+            channel_name: channel.title,
+            channel_handle: channel.handle,
+            thumbnail: channel.thumbnail,
+            subscriber_count: channel.subscriberCount,
+            last_synced_at: new Date().toISOString(),
+          }).eq("id", channelRow.id);
+          await client.from("videos").upsert(
+            videos.map((video) => ({
+              channel_id: channelRow.id,
+              youtube_video_id: video.id,
+              title: video.title,
+              thumbnail: video.thumbnail,
+              published_at: video.publishedAt,
+              status: "active",
+            })),
+            { onConflict: "channel_id,youtube_video_id" },
+          );
           return json({
             status: "connected",
             data: {
@@ -95,7 +107,6 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (error instanceof z.ZodError) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           const message = error instanceof Error ? error.message : "";
           if (message.includes("YOUTUBE_") && message.includes(":401")) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });

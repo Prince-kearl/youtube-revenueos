@@ -815,12 +815,6 @@ export function useSiteContent(): [SiteContent, (updater: SiteContent | ((prev: 
   return [content, setContent];
 }
 
-// ============ COOKIE CONSENT ============
-// null = not yet decided (banner shows); "all" / "essential" = the visitor's choice, persisted so
-// the banner doesn't reappear once dismissed.
-export type CookieConsent = "all" | "essential" | null;
-export const useCookieConsent = () => useLocalStore<CookieConsent>("yroos.cookieConsent", null);
-
 // ============ SECURITY ============
 export interface AdminSession { id: string; user: string; device: string; location: string; lastActive: string }
 const seedAdminSessions = (): AdminSession[] => [

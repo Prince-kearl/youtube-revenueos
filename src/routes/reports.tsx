@@ -38,7 +38,7 @@ function Reports() {
       </div>
 
       <h2 className="mt-6 text-lg font-semibold">Key Insights</h2>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         {insights.map((it) => (
           <div key={it.title} className="relative rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />

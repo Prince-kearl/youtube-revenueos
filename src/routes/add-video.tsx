@@ -108,7 +108,7 @@ function AddVideo() {
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
           {steps.map((s, i) => {
             const Icon = s.icon;
             const done = generated;

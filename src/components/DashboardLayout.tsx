@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
@@ -27,6 +27,7 @@ import {
   useSiteContent, canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
 } from "@/lib/stores";
 import { clearAllStores, uid } from "@/lib/local-store";
+import { clearChannelSettings } from "@/lib/channel-settings";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
@@ -101,6 +102,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const keyboardOpen = useKeyboardInset() > 150;
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
+  const previousUserId = useRef<string | null>(null);
 
   const isLocked = (to: string) => {
     const feature = ROUTE_FEATURE[to];
@@ -143,11 +145,17 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const signOut = async () => {
     await signOutSupabase();
     clearAllStores();
+    clearChannelSettings();
     navigate({ to: "/" });
   };
 
   useEffect(() => {
     if (!user) return;
+    if (previousUserId.current && previousUserId.current !== user.id) {
+      clearAllStores();
+      clearChannelSettings();
+    }
+    previousUserId.current = user.id;
     setProfile((current) => ({
       ...current,
       name: user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? current.name,
@@ -214,7 +222,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground">Connected</p>
-                  <p className="truncate text-sm font-semibold">@YourChannel</p>
+                  <p className="truncate text-sm font-semibold">YouTube connected</p>
                 </div>
               )}
               {!collapsed && <span className="h-2 w-2 shrink-0 rounded-full bg-success" />}
@@ -336,7 +344,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
           </div>
         </header>
 
-        <main className="p-4 pb-28 sm:p-6 md:pb-6">
+        <main className="dashboard-main p-4 pb-28 sm:p-6 md:pb-6">
           {pageBlocked ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">

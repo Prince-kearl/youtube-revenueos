@@ -47,7 +47,7 @@ function LinkTracking() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
         <Summary value={String(links.length)} label="Total Links" />
         <Summary value={totalClicks.toLocaleString()} label="Total Clicks" />
         <Summary value={totalConv.toLocaleString()} label="Total Conversions" />
