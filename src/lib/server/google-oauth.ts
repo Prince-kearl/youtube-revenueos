@@ -1,4 +1,4 @@
-import { requireServerEnv } from "./env";
+import { getServerEnv, requireServerEnv } from "./env";
 
 // Do NOT request the youtubepartner scope (out of MVP scope) — read-only access is sufficient
 // for channel metadata, analytics, and revenue reporting.
@@ -8,10 +8,53 @@ export const YOUTUBE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
 ];
 
-export function buildGoogleAuthorizationUrl(state: string, redirectUri = requireServerEnv("GOOGLE_REDIRECT_URI")): string {
+// The redirect URI is deliberately NOT derived from the incoming request (Host/X-Forwarded-Host/
+// origin) — those vary across preview deployments and proxies and previously caused a production
+// redirect_uri_mismatch. GOOGLE_REDIRECT_URI is the single authoritative source per environment;
+// callers cannot override it.
+export function getConfiguredGoogleRedirectUri(): string {
+  return requireServerEnv("GOOGLE_REDIRECT_URI");
+}
+
+interface YoutubeOAuthConfigStatus {
+  clientIdConfigured: boolean;
+  clientSecretConfigured: boolean;
+  redirectUriConfigured: boolean;
+  redirectUri: string | undefined;
+  clientId: string | undefined;
+}
+
+export function getYoutubeOAuthConfigStatus(): YoutubeOAuthConfigStatus {
+  return {
+    clientIdConfigured: Boolean(getServerEnv("GOOGLE_CLIENT_ID")),
+    clientSecretConfigured: Boolean(getServerEnv("GOOGLE_CLIENT_SECRET")),
+    redirectUriConfigured: Boolean(getServerEnv("GOOGLE_REDIRECT_URI")),
+    redirectUri: getServerEnv("GOOGLE_REDIRECT_URI"),
+    clientId: getServerEnv("GOOGLE_CLIENT_ID"),
+  };
+}
+
+// Fails fast with a clear server-side error (never a silently-derived fallback) if any of the
+// three YouTube OAuth settings are missing.
+export function assertYoutubeOAuthConfigured(): void {
+  const missing = (
+    [
+      ["GOOGLE_CLIENT_ID", getServerEnv("GOOGLE_CLIENT_ID")],
+      ["GOOGLE_CLIENT_SECRET", getServerEnv("GOOGLE_CLIENT_SECRET")],
+      ["GOOGLE_REDIRECT_URI", getServerEnv("GOOGLE_REDIRECT_URI")],
+    ] as const
+  )
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`YouTube OAuth is not configured: missing ${missing.join(", ")}`);
+  }
+}
+
+export function buildGoogleAuthorizationUrl(state: string): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", requireServerEnv("GOOGLE_CLIENT_ID"));
-  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("redirect_uri", getConfiguredGoogleRedirectUri());
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", YOUTUBE_OAUTH_SCOPES.join(" "));
   // access_type=offline + prompt=consent is required to reliably get a refresh_token back,
@@ -41,13 +84,13 @@ async function requestGoogleToken(body: URLSearchParams): Promise<GoogleTokenRes
   return (await response.json()) as GoogleTokenResponse;
 }
 
-export function exchangeGoogleAuthorizationCode(code: string, redirectUri = requireServerEnv("GOOGLE_REDIRECT_URI")): Promise<GoogleTokenResponse> {
+export function exchangeGoogleAuthorizationCode(code: string): Promise<GoogleTokenResponse> {
   return requestGoogleToken(
     new URLSearchParams({
       code,
       client_id: requireServerEnv("GOOGLE_CLIENT_ID"),
       client_secret: requireServerEnv("GOOGLE_CLIENT_SECRET"),
-      redirect_uri: redirectUri,
+      redirect_uri: getConfiguredGoogleRedirectUri(),
       grant_type: "authorization_code",
     }),
   );

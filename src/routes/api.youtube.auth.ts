@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { buildGoogleAuthorizationUrl } from "@/lib/server/google-oauth";
+import { assertYoutubeOAuthConfigured, buildGoogleAuthorizationUrl } from "@/lib/server/google-oauth";
 import { buildSetCookie } from "@/lib/server/cookies";
 
 export const Route = createFileRoute("/api/youtube/auth")({
@@ -20,11 +20,12 @@ export const Route = createFileRoute("/api/youtube/auth")({
             for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
             return response;
           }
-          const redirectUri = `${requestUrl.origin}/api/youtube/callback`;
+          // GOOGLE_REDIRECT_URI is authoritative here — never computed from the request's host/origin.
+          assertYoutubeOAuthConfigured();
           const state = crypto.randomUUID();
           const response = new Response(null, {
             status: 302,
-            headers: { Location: buildGoogleAuthorizationUrl(state, redirectUri) },
+            headers: { Location: buildGoogleAuthorizationUrl(state) },
           });
           // Short-lived CSRF nonce checked against the `state` param on the callback.
           response.headers.append("Set-Cookie", buildSetCookie("yt_oauth_state", state, { maxAge: 600 }));
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/api/youtube/auth")({
           return response;
         } catch (error) {
           if (error instanceof Response) return error;
+          console.error("YouTube OAuth authorization request failed", error);
           return new Response(JSON.stringify({ error: "SERVER_MISCONFIGURED" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },

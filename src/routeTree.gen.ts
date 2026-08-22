@@ -43,6 +43,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
+import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
 import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
@@ -219,6 +220,11 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   path: '/api/destinations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
+  id: '/api/youtube/diagnostics',
+  path: '/api/youtube/diagnostics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
   id: '/api/youtube/dashboard',
   path: '/api/youtube/dashboard',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
+  '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
+  '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
+  '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -411,6 +420,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
+    | '/api/youtube/diagnostics'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
+    | '/api/youtube/diagnostics'
   id:
     | '__root__'
     | '/'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
+    | '/api/youtube/diagnostics'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -535,6 +547,7 @@ export interface RootRouteChildren {
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
   ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
   ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
+  ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -777,6 +790,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/diagnostics': {
+      id: '/api/youtube/diagnostics'
+      path: '/api/youtube/diagnostics'
+      fullPath: '/api/youtube/diagnostics'
+      preLoaderRoute: typeof ApiYoutubeDiagnosticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/dashboard': {
       id: '/api/youtube/dashboard'
       path: '/api/youtube/dashboard'
@@ -855,6 +875,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
   ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
   ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
+  ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

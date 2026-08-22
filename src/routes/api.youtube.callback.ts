@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { exchangeGoogleAuthorizationCode, fetchAuthorizedYoutubeChannel } from "@/lib/server/google-oauth";
+import { assertYoutubeOAuthConfigured, exchangeGoogleAuthorizationCode, fetchAuthorizedYoutubeChannel } from "@/lib/server/google-oauth";
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
@@ -28,13 +28,15 @@ export const Route = createFileRoute("/api/youtube/callback")({
           const expectedState = getCookie(request, "yt_oauth_state");
           const returnTo = getCookie(request, "yt_oauth_return") ?? "/settings";
           const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
-          const redirectUri = `${url.origin}/api/youtube/callback`;
           if (!code || !state || !expectedState || state !== expectedState) {
             return redirectToApp(`${safeReturnTo}?youtube=invalid_state`, url.origin);
           }
 
           const { client, user, setCookieHeaders } = await requireSessionUser(request);
-          const tokens = await exchangeGoogleAuthorizationCode(code, redirectUri);
+          // Must match the redirect_uri used in the authorization request — GOOGLE_REDIRECT_URI is
+          // the single authoritative source for both, never the callback request's own host/origin.
+          assertYoutubeOAuthConfigured();
+          const tokens = await exchangeGoogleAuthorizationCode(code);
           if (!tokens.refresh_token) {
             // Google omits refresh_token on repeat consent without access_type=offline&prompt=consent
             // having actually forced a new grant — ask the user to reauthorize rather than storing a
@@ -78,6 +80,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
           return response;
         } catch (error) {
           if (error instanceof Response) return error;
+          console.error("YouTube OAuth callback failed", error);
           return redirectToApp("/settings?youtube=error");
         }
       },
