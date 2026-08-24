@@ -325,7 +325,7 @@ function Dashboard() {
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{dashboardData?.channel.title ?? "YouTube channel"}</p>
+            {settings.showName && <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{dashboardData?.channel.title ?? "YouTube channel"}</p>}
             {settings.showSubscribers && dashboardData && (
               <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
                 <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
@@ -351,12 +351,12 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Recently added posts */}
+      {/* Recent videos */}
       {settings.showRecentPosts && (
         <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Recently Added Posts</h3>
+            <h3 className="text-lg font-semibold">Recent videos</h3>
             <a href={dashboardData?.channel.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
               View channel
             </a>
@@ -446,7 +446,7 @@ function Legend({ color, label }: { color: string; label: string }) {
 }
 
 const onboardingSteps = [
-  { id: "banner", label: "Set up your dashboard banner", desc: "Add your channel name, avatar, and subscriber count.", to: "/settings" },
+  { id: "banner", label: "Set up your dashboard banner", desc: "Connect YouTube to sync your channel name, avatar, and subscriber count.", to: "/settings" },
   { id: "video", label: "Add your first video", desc: "Paste a YouTube URL to auto-generate an AI description.", to: "/add-video" },
   { id: "comments", label: "Create a comment automation rule", desc: "Auto-reply to comments asking for links or info.", to: "/comments" },
   { id: "link", label: "Create a tracked link", desc: "Track clicks and revenue from your video descriptions.", to: "/link-tracking" },

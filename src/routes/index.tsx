@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Zap, Loader2 } from "lucide-react"
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
-import { signInWithPassword, signInWithGoogle } from "@/lib/supabase/auth";
+import { challengeMfaFactor, getMfaAssuranceLevel, listMfaFactors, signInWithPassword, signInWithGoogle, verifyMfaFactor } from "@/lib/supabase/auth";
 
 export const Route = createFileRoute("/")({
   component: Login,
@@ -19,10 +19,14 @@ function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
-    if (!sessionLoading && user) navigate({ to: "/dashboard" });
-  }, [sessionLoading, user, navigate]);
+    if (!sessionLoading && user && !mfaRequired) navigate({ to: "/dashboard" });
+  }, [sessionLoading, user, mfaRequired, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -31,11 +35,59 @@ function Login() {
       setError("Enter your email and password.");
       return;
     }
+    setMfaRequired(true);
     setSubmitting(true);
     const { error: signInError } = await signInWithPassword(email, password);
-    setSubmitting(false);
     if (signInError) {
+      setSubmitting(false);
+      setMfaRequired(false);
       setError(signInError.message);
+      return;
+    }
+    const { data: assurance, error: assuranceError } = await getMfaAssuranceLevel();
+    if (assuranceError) {
+      setSubmitting(false);
+      setMfaRequired(false);
+      setError("We couldn't verify your sign-in security level. Try again.");
+      return;
+    }
+    if (assurance.nextLevel === "aal2" && assurance.currentLevel !== "aal2") {
+      const { data: factors, error: factorError } = await listMfaFactors();
+      const factor = factors?.totp.find((item: { id: string; status: string }) => item.status === "verified");
+      if (factorError || !factor) {
+        setSubmitting(false);
+        setMfaRequired(false);
+        setError("Two-factor authentication is required, but no authenticator is available.");
+        return;
+      }
+      const { data: challenge, error: challengeError } = await challengeMfaFactor(factor.id);
+      if (challengeError || !challenge) {
+        setSubmitting(false);
+        setMfaRequired(false);
+        setError("Couldn't start two-factor verification. Try again.");
+        return;
+      }
+      setMfaFactorId(factor.id);
+      setMfaChallengeId(challenge.id);
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
+    setMfaRequired(false);
+    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
+  };
+
+  const handleMfaVerify = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!mfaFactorId || !mfaChallengeId || !/^\d{6}$/.test(mfaCode)) {
+      setError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+    setSubmitting(true);
+    const { error: verifyError } = await verifyMfaFactor(mfaFactorId, mfaChallengeId, mfaCode);
+    setSubmitting(false);
+    if (verifyError) {
+      setError("The verification code is incorrect. Check your authenticator app and try again.");
       return;
     }
     window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
@@ -65,8 +117,8 @@ function Login() {
 
       <div className="relative w-full max-w-md rounded-xl card-frost backdrop-blur-lg p-8 shadow-2xl">
         <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-        <h1 className="text-3xl font-extrabold tracking-tight">Welcome back</h1>
-        <p className="mt-1 text-muted-foreground">Sign in to your creator dashboard</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">{mfaFactorId ? "Two-factor authentication" : "Welcome back"}</h1>
+        <p className="mt-1 text-muted-foreground">{mfaFactorId ? "Enter the 6-digit code from your authenticator app." : "Sign in to your creator dashboard"}</p>
 
         <button
           type="button"
@@ -84,7 +136,14 @@ function Login() {
           <div className="h-px flex-1 bg-border" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {mfaFactorId ? (
+          <form onSubmit={handleMfaVerify} className="mt-6 space-y-5">
+            {error && <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+            <input autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))} className="h-12 w-full rounded-xl border border-border bg-accent/30 px-4 text-center text-lg tracking-[0.5em] outline-none focus:border-primary" placeholder="000000" />
+            <button type="submit" disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}</button>
+            <p className="text-center text-sm text-muted-foreground">Recovery-code sign-in is not available until a server-side recovery session flow is added.</p>
+          </form>
+        ) : <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
           )}
@@ -138,7 +197,7 @@ function Login() {
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign In <ArrowRight className="h-4 w-4" /></>}
           </button>
-        </form>
+        </form>}
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}

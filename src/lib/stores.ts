@@ -297,6 +297,7 @@ export interface Profile {
   avatar: string;
   role: string;
   timezone: string;
+  bio?: string;
 }
 const seedProfile = (): Profile => ({
   name: "Alex Chen",
@@ -304,6 +305,7 @@ const seedProfile = (): Profile => ({
   avatar: "https://i.pravatar.cc/64?img=13",
   role: "Owner",
   timezone: "Europe/Berlin",
+  bio: "",
 });
 export const useProfile = () => useLocalStore<Profile>("yroos.profile", seedProfile());
 

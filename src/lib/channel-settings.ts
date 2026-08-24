@@ -4,6 +4,7 @@ export type ChannelSettings = {
   url: string;
   avatar: string;
   subscribers: string;
+  showName: boolean;
   showAvatar: boolean;
   showSubscribers: boolean;
   showRecentPosts: boolean;
@@ -17,6 +18,7 @@ export const defaultChannelSettings: ChannelSettings = {
   url: "",
   avatar: "",
   subscribers: "",
+  showName: true,
   showAvatar: true,
   showSubscribers: true,
   showRecentPosts: true,

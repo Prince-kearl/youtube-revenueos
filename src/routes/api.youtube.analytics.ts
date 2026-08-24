@@ -6,7 +6,6 @@ import { queryYoutubeAnalytics } from "@/lib/server/google-oauth";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 
 const querySchema = z.object({
-  channelId: z.string().uuid(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   metrics: z.string().min(1),
@@ -32,7 +31,8 @@ export const Route = createFileRoute("/api/youtube/analytics")({
           const { data: channel, error } = await client
             .from("youtube_channels")
             .select("id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
-            .eq("id", input.channelId)
+            .order("connected_at", { ascending: false })
+            .limit(1)
             .single();
           if (error || !channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 

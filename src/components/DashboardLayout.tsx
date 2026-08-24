@@ -175,7 +175,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   }
 
   return (
-    <div className="dashboard-shell min-h-screen bg-background text-foreground">
+    <div className="dashboard-shell h-dvh min-h-screen overflow-hidden bg-background text-foreground">
       {!hideAppNav && (
         <aside
           className={`card-gradient-outline fixed top-[var(--sidebar-gap)] bottom-[var(--sidebar-gap)] left-[var(--sidebar-gap)] z-30 hidden flex-col overflow-hidden backdrop-blur-2xl transition-all duration-200 md:flex ${
@@ -221,8 +221,8 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
               </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground">Connected</p>
-                  <p className="truncate text-sm font-semibold">YouTube connected</p>
+                  <p className="text-[11px] text-muted-foreground">Account</p>
+                  <p className="truncate text-sm font-semibold">YouTube channel</p>
                 </div>
               )}
               {!collapsed && <span className="h-2 w-2 shrink-0 rounded-full bg-success" />}
@@ -231,8 +231,8 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
         </aside>
       )}
 
-      <div className={`transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}>
-        <header className="glass-bar sticky top-0 z-20 flex h-[68px] items-center justify-between gap-3 px-4 backdrop-blur-2xl sm:px-6 print:hidden">
+      <div className={`flex h-full min-h-0 flex-col transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}>
+        <header className="glass-bar z-20 flex h-[68px] shrink-0 items-center justify-between gap-3 px-4 backdrop-blur-2xl sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
             <div className={hideAppNav ? "" : "md:hidden"}><Logo collapsed /></div>
             <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
@@ -344,7 +344,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
           </div>
         </header>
 
-        <main className="dashboard-main p-4 pb-28 sm:p-6 md:pb-6">
+        <main className="dashboard-main min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6 md:pb-6">
           {pageBlocked ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">

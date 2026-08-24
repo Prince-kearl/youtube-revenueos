@@ -14,6 +14,8 @@ type AnalyticsPayload = {
   rows?: Array<Array<string | number>>;
 };
 
+const defaults = { auto_sync_videos: true, import_analytics: true };
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -32,7 +34,9 @@ function analyticsRows(payload: unknown): Array<Record<string, string | number>>
 }
 
 function channelUrl(channel: YoutubeChannelSummary): string | null {
-  return channel.handle ? `https://www.youtube.com/${channel.handle.startsWith("@") ? channel.handle : `@${channel.handle}`}` : null;
+  return channel.handle
+    ? `https://www.youtube.com/${channel.handle.startsWith("@") ? channel.handle : `@${channel.handle}`}`
+    : `https://www.youtube.com/channel/${channel.channelId}`;
 }
 
 export const Route = createFileRoute("/api/youtube/dashboard")({
@@ -60,13 +64,20 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
 
           const accessToken = await getValidAccessToken(serviceClient, secretRow);
           const channel = await fetchAuthorizedYoutubeChannel(accessToken);
-          const videos = await fetchRecentYoutubeVideos(accessToken, channel.uploadsPlaylistId);
+          const { data: integrationSettings } = await client
+            .from("youtube_integration_settings")
+            .select("auto_sync_videos, import_analytics")
+            .eq("channel_id", channelRow.id)
+            .maybeSingle();
+          const settings = { ...defaults, ...(integrationSettings ?? {}) };
+          const videos = settings.auto_sync_videos ? await fetchRecentYoutubeVideos(accessToken, channel.uploadsPlaylistId) : [];
 
           const startDate = new Date();
           startDate.setUTCMonth(startDate.getUTCMonth() - 12);
           const endDate = new Date();
           let analytics: AnalyticsPayload | null = null;
           try {
+            if (!settings.import_analytics) throw new Error("ANALYTICS_IMPORT_DISABLED");
             analytics = (await queryYoutubeAnalytics(accessToken, {
               channelId: channel.channelId,
               startDate: isoDate(startDate),
@@ -85,17 +96,21 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             subscriber_count: channel.subscriberCount,
             last_synced_at: new Date().toISOString(),
           }).eq("id", channelRow.id);
-          await client.from("videos").upsert(
-            videos.map((video) => ({
-              channel_id: channelRow.id,
-              youtube_video_id: video.id,
-              title: video.title,
-              thumbnail: video.thumbnail,
-              published_at: video.publishedAt,
-              status: "active",
-            })),
-            { onConflict: "channel_id,youtube_video_id" },
-          );
+          if (settings.auto_sync_videos) {
+            await client.from("videos").upsert(
+              videos.map((video) => ({
+                channel_id: channelRow.id,
+                youtube_video_id: video.id,
+                title: video.title,
+                description: video.description,
+                thumbnail: video.thumbnail,
+                published_at: video.publishedAt,
+                duration_seconds: video.durationSeconds,
+                status: video.privacyStatus === "private" ? "archived" : "active",
+              })),
+              { onConflict: "channel_id,youtube_video_id" },
+            );
+          }
           return json({
             status: "connected",
             data: {

@@ -38,3 +38,27 @@ export function requestPasswordReset(email: string) {
 export function updatePassword(password: string) {
   return getSupabaseBrowserClient().auth.updateUser({ password });
 }
+
+export function listMfaFactors() {
+  return getSupabaseBrowserClient().auth.mfa.listFactors();
+}
+
+export function enrollTotpFactor(friendlyName: string) {
+  return getSupabaseBrowserClient().auth.mfa.enroll({ factorType: "totp", friendlyName });
+}
+
+export function challengeMfaFactor(factorId: string) {
+  return getSupabaseBrowserClient().auth.mfa.challenge({ factorId });
+}
+
+export function verifyMfaFactor(factorId: string, challengeId: string, code: string) {
+  return getSupabaseBrowserClient().auth.mfa.verify({ factorId, challengeId, code });
+}
+
+export function unenrollMfaFactor(factorId: string) {
+  return getSupabaseBrowserClient().auth.mfa.unenroll({ factorId });
+}
+
+export function getMfaAssuranceLevel() {
+  return getSupabaseBrowserClient().auth.mfa.getAuthenticatorAssuranceLevel();
+}

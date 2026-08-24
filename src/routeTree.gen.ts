@@ -43,12 +43,15 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
+import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
+import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
 import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
 import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
+import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -220,6 +223,16 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   path: '/api/destinations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeSyncRoute = ApiYoutubeSyncRouteImport.update({
+  id: '/api/youtube/sync',
+  path: '/api/youtube/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeSettingsRoute = ApiYoutubeSettingsRouteImport.update({
+  id: '/api/youtube/settings',
+  path: '/api/youtube/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
   id: '/api/youtube/diagnostics',
   path: '/api/youtube/diagnostics',
@@ -250,6 +263,12 @@ const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
   path: '/api/youtube/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSecurityRecoveryCodesRoute =
+  ApiSecurityRecoveryCodesRouteImport.update({
+    id: '/api/security/recovery-codes',
+    path: '/api/security/recovery-codes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -286,12 +305,15 @@ export interface FileRoutesByFullPath {
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
+  '/api/youtube/sync': typeof ApiYoutubeSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -328,12 +350,15 @@ export interface FileRoutesByTo {
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
+  '/api/youtube/sync': typeof ApiYoutubeSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -371,12 +396,15 @@ export interface FileRoutesById {
   '/api/generate': typeof ApiGenerateRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
+  '/api/youtube/sync': typeof ApiYoutubeSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -415,12 +443,15 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/settings'
     | '/auth/callback'
+    | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/settings'
+    | '/api/youtube/sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -457,12 +488,15 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/settings'
     | '/auth/callback'
+    | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/settings'
+    | '/api/youtube/sync'
   id:
     | '__root__'
     | '/'
@@ -499,12 +533,15 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/settings'
     | '/auth/callback'
+    | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
     | '/api/youtube/auth'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/settings'
+    | '/api/youtube/sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -542,12 +579,15 @@ export interface RootRouteChildren {
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
   ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
   ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
   ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
   ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
+  ApiYoutubeSettingsRoute: typeof ApiYoutubeSettingsRoute
+  ApiYoutubeSyncRoute: typeof ApiYoutubeSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -790,6 +830,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/sync': {
+      id: '/api/youtube/sync'
+      path: '/api/youtube/sync'
+      fullPath: '/api/youtube/sync'
+      preLoaderRoute: typeof ApiYoutubeSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/settings': {
+      id: '/api/youtube/settings'
+      path: '/api/youtube/settings'
+      fullPath: '/api/youtube/settings'
+      preLoaderRoute: typeof ApiYoutubeSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/diagnostics': {
       id: '/api/youtube/diagnostics'
       path: '/api/youtube/diagnostics'
@@ -832,6 +886,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/security/recovery-codes': {
+      id: '/api/security/recovery-codes'
+      path: '/api/security/recovery-codes'
+      fullPath: '/api/security/recovery-codes'
+      preLoaderRoute: typeof ApiSecurityRecoveryCodesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -870,12 +931,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateRoute: ApiGenerateRoute,
   ApiSettingsRoute: ApiSettingsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
   ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
   ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
   ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
   ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
+  ApiYoutubeSettingsRoute: ApiYoutubeSettingsRoute,
+  ApiYoutubeSyncRoute: ApiYoutubeSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

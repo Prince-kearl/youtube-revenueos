@@ -149,9 +149,12 @@ export async function fetchAuthorizedYoutubeChannel(accessToken: string): Promis
 export interface YoutubeVideoSummary {
   id: string;
   title: string;
+  description: string | null;
   thumbnail: string | null;
   publishedAt: string | null;
   duration: string | null;
+  durationSeconds: number | null;
+  privacyStatus: string | null;
   views: number;
   likes: number | null;
   comments: number | null;
@@ -170,13 +173,17 @@ async function youtubeApiRequest<T>(accessToken: string, path: string, params: R
   return (await response.json()) as T;
 }
 
-function parseIsoDuration(duration: string): string {
+function parseIsoDurationSeconds(duration: string): number {
   const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!match) return duration;
-  const hours = Number(match[1] ?? 0);
-  const minutes = Number(match[2] ?? 0) + hours * 60;
-  const seconds = Number(match[3] ?? 0);
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  if (!match) return 0;
+  return Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0);
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}` : `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
 export async function fetchRecentYoutubeVideos(accessToken: string, uploadsPlaylistId: string | null, limit = 12): Promise<YoutubeVideoSummary[]> {
@@ -192,23 +199,86 @@ export async function fetchRecentYoutubeVideos(accessToken: string, uploadsPlayl
   const videos = await youtubeApiRequest<{
     items?: Array<{
       id: string;
-      snippet: { title: string; publishedAt?: string; thumbnails?: { medium?: { url: string }; default?: { url: string } } };
+      snippet: { title: string; description?: string; publishedAt?: string; thumbnails?: { medium?: { url: string }; default?: { url: string } } };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+      status?: { privacyStatus?: string };
     }>;
   }>(accessToken, "videos", { part: "snippet,contentDetails,statistics", id: ids.join(",") });
 
-  return (videos.items ?? []).map((video) => ({
+  return (videos.items ?? []).map((video) => {
+    const durationSeconds = video.contentDetails?.duration ? parseIsoDurationSeconds(video.contentDetails.duration) : null;
+    return {
     id: video.id,
     title: video.snippet.title,
+    description: video.snippet.description ?? null,
     thumbnail: video.snippet.thumbnails?.medium?.url ?? video.snippet.thumbnails?.default?.url ?? null,
     publishedAt: video.snippet.publishedAt ?? null,
-    duration: video.contentDetails?.duration ? parseIsoDuration(video.contentDetails.duration) : null,
+    duration: durationSeconds === null ? null : formatDuration(durationSeconds),
+    durationSeconds,
+    privacyStatus: video.status?.privacyStatus ?? null,
     views: Number(video.statistics?.viewCount ?? 0),
     likes: video.statistics?.likeCount === undefined ? null : Number(video.statistics.likeCount),
     comments: video.statistics?.commentCount === undefined ? null : Number(video.statistics.commentCount),
     url: `https://www.youtube.com/watch?v=${video.id}`,
-  }));
+    };
+  });
+}
+
+export interface YoutubeCommentSummary {
+  id: string;
+  videoId: string;
+  parentCommentId: string | null;
+  authorName: string | null;
+  authorChannelId: string | null;
+  text: string;
+  likeCount: number;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  canReply: boolean | null;
+}
+
+export async function fetchRecentYoutubeComments(accessToken: string, videoIds: string[], limitPerVideo = 50): Promise<YoutubeCommentSummary[]> {
+  const comments: YoutubeCommentSummary[] = [];
+  for (const videoId of videoIds.slice(0, 12)) {
+    const response = await youtubeApiRequest<{
+      items?: Array<{
+        id: string;
+        snippet: {
+          videoId: string;
+          parentId?: string;
+          textDisplay?: string;
+          authorDisplayName?: string;
+          authorChannelId?: { value?: string };
+          likeCount?: number;
+          publishedAt?: string;
+          updatedAt?: string;
+          canReply?: boolean;
+        };
+      }>;
+    }>(accessToken, "commentThreads", {
+      part: "snippet",
+      videoId,
+      maxResults: String(Math.min(limitPerVideo, 100)),
+      order: "time",
+    });
+    for (const item of response.items ?? []) {
+      const snippet = item.snippet;
+      comments.push({
+        id: item.id,
+        videoId: snippet.videoId,
+        parentCommentId: snippet.parentId ?? null,
+        authorName: snippet.authorDisplayName ?? null,
+        authorChannelId: snippet.authorChannelId?.value ?? null,
+        text: snippet.textDisplay ?? "",
+        likeCount: Number(snippet.likeCount ?? 0),
+        publishedAt: snippet.publishedAt ?? null,
+        updatedAt: snippet.updatedAt ?? null,
+        canReply: snippet.canReply ?? null,
+      });
+    }
+  }
+  return comments.filter((comment) => comment.text);
 }
 
 export interface YoutubeAnalyticsQuery {

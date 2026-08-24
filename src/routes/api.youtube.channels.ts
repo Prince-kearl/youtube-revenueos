@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { getValidAccessToken } from "@/lib/server/youtube-tokens";
+import { fetchAuthorizedYoutubeChannel } from "@/lib/server/google-oauth";
 
 const idSchema = z.string().uuid();
 
@@ -19,14 +22,44 @@ export const Route = createFileRoute("/api/youtube/channels")({
       GET: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const { data, error } = await client
+          const { data: channels, error } = await client
             .from("youtube_channels")
-            .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, connected_at, last_synced_at, token_expiry")
+            .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry")
             .order("connected_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          return json({ data });
+          if (!channels?.length) return json({ data: [] });
+
+          const channel = channels[0];
+          const serviceClient = createServiceSupabaseClient();
+          const { data: secretRow, error: secretError } = await serviceClient
+            .from("youtube_channels")
+            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .eq("id", channel.id)
+            .single();
+          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+
+          const accessToken = await getValidAccessToken(serviceClient, secretRow);
+          const liveChannel = await fetchAuthorizedYoutubeChannel(accessToken);
+          const { data: syncedChannel, error: syncError } = await client
+            .from("youtube_channels")
+            .update({
+              channel_name: liveChannel.title,
+              channel_handle: liveChannel.handle,
+              thumbnail: liveChannel.thumbnail,
+              subscriber_count: liveChannel.subscriberCount,
+              last_synced_at: new Date().toISOString(),
+            })
+            .eq("id", channel.id)
+            .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry")
+            .single();
+          if (syncError || !syncedChannel) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          return json({ data: [syncedChannel] });
         } catch (error) {
           if (error instanceof Response) return error;
+          const message = error instanceof Error ? error.message : "";
+          if (message.includes("YOUTUBE_") && message.includes(":401")) {
+            return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
+          }
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
