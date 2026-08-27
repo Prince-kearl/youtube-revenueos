@@ -55,6 +55,37 @@ function logOptionalFailure(operation: string, userId: string, channelId: string
   });
 }
 
+function recordQuotaEvent(
+  serviceClient: ReturnType<typeof createServiceSupabaseClient>,
+  event: { user_id: string; channel_id: string; operation: string; quota_units: number; succeeded: boolean },
+) {
+  void serviceClient.from("youtube_quota_events").insert(event).then(({ error }) => {
+    if (error) logOptionalFailure("quota_audit", event.user_id, event.channel_id, error);
+  });
+}
+
+type AnalyticsAvailability = "available" | "unavailable" | "disabled";
+
+function mergeAnalyticsReports(...payloads: Array<AnalyticsPayload | null>): AnalyticsPayload | null {
+  const reports = payloads.filter((payload): payload is AnalyticsPayload => Boolean(payload));
+  if (!reports.length) return null;
+  const headers = [...new Set(reports.flatMap((report) => report.columnHeaders?.map((header) => header.name) ?? []))];
+  const rows = new Map<string, Array<string | number>>();
+  for (const report of reports) {
+    const reportHeaders = report.columnHeaders?.map((header) => header.name) ?? [];
+    for (const row of report.rows ?? []) {
+      const key = String(row[reportHeaders.indexOf("month")] ?? row[0] ?? rows.size);
+      const merged = rows.get(key) ?? headers.map(() => 0);
+      for (const header of reportHeaders) {
+        const index = headers.indexOf(header);
+        if (index >= 0) merged[index] = row[reportHeaders.indexOf(header)] ?? 0;
+      }
+      rows.set(key, merged);
+    }
+  }
+  return { columnHeaders: headers.map((name) => ({ name })), rows: [...rows.values()] };
+}
+
 export const Route = createFileRoute("/api/youtube/dashboard")({
   server: {
     handlers: {
@@ -80,7 +111,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
 
           const accessToken = await getValidAccessToken(serviceClient, secretRow);
           const channel = await fetchAuthorizedYoutubeChannel(accessToken);
-          await serviceClient.from("youtube_quota_events").insert({ user_id: channelRow.user_id, channel_id: channelRow.id, operation: "channels.list", quota_units: 1, succeeded: true });
+          recordQuotaEvent(serviceClient, { user_id: channelRow.user_id, channel_id: channelRow.id, operation: "channels.list", quota_units: 1, succeeded: true });
           const { data: integrationSettings } = await client
             .from("youtube_integration_settings")
             .select("auto_sync_videos, import_analytics")
@@ -96,33 +127,65 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             }
           }
           if (settings.auto_sync_videos) {
-            void serviceClient.from("youtube_quota_events").insert({ user_id: channelRow.user_id, channel_id: channelRow.id, operation: "playlistItems.list,videos.list", quota_units: 101, succeeded: videos.length > 0 });
+            recordQuotaEvent(serviceClient, { user_id: channelRow.user_id, channel_id: channelRow.id, operation: "playlistItems.list,videos.list", quota_units: 101, succeeded: videos.length > 0 });
           }
 
           const startDate = new Date();
           startDate.setUTCMonth(startDate.getUTCMonth() - 12);
           const endDate = new Date();
           let analytics: AnalyticsPayload | null = null;
-          let analyticsStatus: "available" | "unavailable" | "disabled" = "available";
-          try {
-            if (!settings.import_analytics) {
-              analyticsStatus = "disabled";
-              throw new Error("ANALYTICS_IMPORT_DISABLED");
+          let analyticsStatus: AnalyticsAvailability = "available";
+          let revenueStatus: AnalyticsAvailability = "available";
+          let watchTimeStatus: AnalyticsAvailability = "available";
+          if (!settings.import_analytics) {
+            analyticsStatus = "disabled";
+            revenueStatus = "disabled";
+            watchTimeStatus = "disabled";
+          } else {
+            let coreAnalytics: AnalyticsPayload | null = null;
+            try {
+              coreAnalytics = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(startDate),
+                endDate: isoDate(endDate),
+                metrics: ["views", "subscribersGained"],
+                dimensions: ["month"],
+              })) as AnalyticsPayload;
+            } catch (error) {
+              analyticsStatus = "unavailable";
+              logOptionalFailure("analytics_core", channelRow.user_id, channelRow.id, error);
             }
-            analytics = (await queryYoutubeAnalytics(accessToken, {
-              channelId: channel.channelId,
-              startDate: isoDate(startDate),
-              endDate: isoDate(endDate),
-              metrics: ["views", "estimatedRevenue", "subscribersGained", "watchTimeMinutes"],
-              dimensions: ["month"],
-            })) as AnalyticsPayload;
-          } catch (error) {
-            analytics = null;
-            if (analyticsStatus === "available") analyticsStatus = "unavailable";
-            logOptionalFailure("analytics", channelRow.user_id, channelRow.id, error);
+            let revenue: AnalyticsPayload | null = null;
+            try {
+              revenue = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(startDate),
+                endDate: isoDate(endDate),
+                metrics: ["estimatedRevenue"],
+                dimensions: ["month"],
+              })) as AnalyticsPayload;
+            } catch (error) {
+              revenueStatus = "unavailable";
+              logOptionalFailure("analytics_revenue", channelRow.user_id, channelRow.id, error);
+            }
+            let watchTime: AnalyticsPayload | null = null;
+            try {
+              watchTime = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(startDate),
+                endDate: isoDate(endDate),
+                metrics: ["watchTimeMinutes"],
+                dimensions: ["month"],
+              })) as AnalyticsPayload;
+            } catch (error) {
+              watchTimeStatus = "unavailable";
+              logOptionalFailure("analytics_watch_time", channelRow.user_id, channelRow.id, error);
+            }
+            analytics = mergeAnalyticsReports(coreAnalytics, revenue, watchTime);
+            if (!analytics) analyticsStatus = "unavailable";
           }
           if (settings.import_analytics) {
-            void serviceClient.from("youtube_quota_events").insert({ user_id: channelRow.user_id, channel_id: channelRow.id, operation: "reports.query", quota_units: 1, succeeded: analyticsStatus === "available" });
+            recordQuotaEvent(serviceClient, { user_id: channelRow.user_id, channel_id: channelRow.id, operation: "reports.query", quota_units: 3, succeeded: analyticsStatus === "available" });
           }
 
           const { error: channelSyncError } = await client.from("youtube_channels").update({
@@ -156,6 +219,8 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               videos,
               analytics: analyticsRows(analytics),
               analyticsStatus,
+              revenueStatus,
+              watchTimeStatus,
               fetchedAt: new Date().toISOString(),
             },
           });

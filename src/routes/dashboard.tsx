@@ -55,6 +55,8 @@ type DashboardData = {
   videos: DashboardVideo[];
   analytics: DashboardAnalyticsRow[];
   analyticsStatus: "available" | "unavailable" | "disabled";
+  revenueStatus: "available" | "unavailable" | "disabled";
+  watchTimeStatus: "available" | "unavailable" | "disabled";
   fetchedAt: string;
 };
 
@@ -112,7 +114,8 @@ function Dashboard() {
 
   const trend = useMemo(() => {
     const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
-    return (dashboardData?.analytics ?? []).slice(-n).map((row) => ({
+    if (dashboardData?.revenueStatus !== "available") return [];
+    return (dashboardData.analytics ?? []).slice(-n).map((row) => ({
       month: row.month ? new Date(`${row.month}-01T00:00:00Z`).toLocaleDateString("en", { month: "short", timeZone: "UTC" }) : "",
       revenue: Number(row.estimatedRevenue ?? 0) / 1000,
     }));
@@ -170,12 +173,12 @@ function Dashboard() {
       {/* Stat cards */}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-        <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value={dashboardData ? formatMoney(totalRevenue) : "—"} label="Estimated Revenue" sub="YouTube Analytics" />
-        <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value={dashboardData ? formatMoney(latestRevenue) : "—"} label="Latest Revenue" sub="Latest available month" change={recentRevenueChange ? formatMoney(Math.abs(recentRevenueChange)) : undefined} up={recentRevenueChange >= 0} />
+        <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"} label="Estimated Revenue" sub={dashboardData?.revenueStatus === "unavailable" ? "Revenue unavailable" : "YouTube Analytics"} />
+        <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value={dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"} label="Latest Revenue" sub={dashboardData?.revenueStatus === "unavailable" ? "Revenue unavailable" : "Latest available month"} change={dashboardData?.revenueStatus === "available" && recentRevenueChange ? formatMoney(Math.abs(recentRevenueChange)) : undefined} up={recentRevenueChange >= 0} />
         <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"} label="Total Views" sub="YouTube channel total" />
         <StatCard glow frost icon={<Youtube className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"} label="Videos" sub="Published on channel" />
         <StatCard glow frost icon={<Users className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"} label="Subscribers" sub="YouTube channel total" />
-        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData && dashboardData.analyticsStatus === "available" ? `${formatHours(totalWatchTime)} hrs` : "—"} label="Watch Time" sub={dashboardData?.analyticsStatus === "unavailable" ? "Analytics unavailable" : "Latest available data"} />
+        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData?.watchTimeStatus === "available" ? `${formatHours(totalWatchTime)} hrs` : "—"} label="Watch Time" sub={dashboardData?.watchTimeStatus === "unavailable" ? "Watch time unavailable" : "Latest available data"} />
       </div>
 
       {dashboardData?.analyticsStatus === "unavailable" && <p className="text-xs text-warning">YouTube Analytics is temporarily unavailable. Channel and video metrics are current; analytics data was not substituted.</p>}
@@ -223,7 +226,7 @@ function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                {youtubeStatus === "connected" ? "No monthly revenue data is available for this channel yet." : "Connect YouTube to view revenue trends."}
+                {youtubeStatus === "connected" ? "YouTube Analytics revenue data isn't available yet." : "Connect YouTube to view revenue trends."}
               </div>
             )}
           </div>
