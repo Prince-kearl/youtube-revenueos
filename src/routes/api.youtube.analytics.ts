@@ -14,6 +14,9 @@ const querySchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   metrics: z.string().min(1),
   dimensions: z.string().optional(),
+  filters: z.string().optional(),
+  sort: z.string().optional(),
+  maxResults: z.coerce.number().int().positive().max(200).optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -44,8 +47,18 @@ export const Route = createFileRoute("/api/youtube/analytics")({
 
           const accessToken = await getValidAccessToken(client, channel);
           const requestedDimensions = input.dimensions?.split(",").filter(Boolean);
-          const wantsMonthlyRows = requestedDimensions?.includes("month") ?? false;
-          if (wantsMonthlyRows && requestedDimensions?.some((dimension) => dimension !== "month")) {
+          const normalizedDimensions = requestedDimensions?.map((dimension) =>
+            dimension === "trafficSourceType" ? "insightTrafficSourceType" : dimension,
+          );
+          const wantsMonthlyRows = normalizedDimensions?.includes("month") ?? false;
+          const isOptionalBreakdown =
+            normalizedDimensions?.some((dimension) =>
+              ["video", "insightTrafficSourceType"].includes(dimension),
+            ) ?? false;
+          if (
+            wantsMonthlyRows &&
+            normalizedDimensions?.some((dimension) => dimension !== "month")
+          ) {
             return json(
               {
                 error: "VALIDATION_ERROR",
@@ -54,16 +67,41 @@ export const Route = createFileRoute("/api/youtube/analytics")({
               { status: 422 },
             );
           }
-          const report = (await queryYoutubeAnalytics(accessToken, {
-            channelId: channel.youtube_channel_id,
-            startDate: input.startDate,
-            endDate: input.endDate,
-            metrics: input.metrics.split(",").filter(Boolean),
-            dimensions: wantsMonthlyRows ? ["day"] : requestedDimensions,
-          })) as YoutubeAnalyticsPayload;
-          const normalizedReport = wantsMonthlyRows
-            ? aggregateYoutubeAnalyticsByMonth(report)
-            : report;
+          const metrics = input.metrics.split(",").filter(Boolean);
+          const dimensions = wantsMonthlyRows ? ["day"] : normalizedDimensions;
+          let report: YoutubeAnalyticsPayload | null = null;
+          let revenueAvailable = metrics.includes("estimatedRevenue");
+          try {
+            report = (await queryYoutubeAnalytics(accessToken, {
+              channelId: channel.youtube_channel_id,
+              startDate: input.startDate,
+              endDate: input.endDate,
+              metrics,
+              dimensions,
+              filters: input.filters,
+              sort: input.sort,
+              maxResults: input.maxResults,
+            })) as YoutubeAnalyticsPayload;
+          } catch (error) {
+            if (!isOptionalBreakdown || !metrics.includes("estimatedRevenue")) throw error;
+            revenueAvailable = false;
+            try {
+              report = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.youtube_channel_id,
+                startDate: input.startDate,
+                endDate: input.endDate,
+                metrics: metrics.filter((metric) => metric !== "estimatedRevenue"),
+                dimensions,
+                filters: input.filters,
+                sort: input.sort,
+                maxResults: input.maxResults,
+              })) as YoutubeAnalyticsPayload;
+            } catch {
+              report = null;
+            }
+          }
+          const normalizedReport =
+            report && wantsMonthlyRows ? aggregateYoutubeAnalyticsByMonth(report) : report;
 
           await client
             .from("youtube_channels")
@@ -81,9 +119,25 @@ export const Route = createFileRoute("/api/youtube/analytics")({
 
           // These are directly measured YouTube Analytics figures, not platform-side attribution —
           // callers must not blend this with click/lead/deal-derived numbers without labeling both.
+          if (!normalizedReport && isOptionalBreakdown) {
+            return json({
+              data: null,
+              meta: {
+                source: "youtube_analytics_api",
+                available: false,
+                revenueAvailable,
+                fetchedAt: new Date().toISOString(),
+              },
+            });
+          }
           return json({
             data: normalizedReport,
-            meta: { source: "youtube_analytics_api", fetchedAt: new Date().toISOString() },
+            meta: {
+              source: "youtube_analytics_api",
+              available: true,
+              revenueAvailable,
+              fetchedAt: new Date().toISOString(),
+            },
           });
         } catch (error) {
           if (error instanceof Response) return error;

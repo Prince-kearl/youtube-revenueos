@@ -355,6 +355,9 @@ export interface YoutubeAnalyticsQuery {
   endDate: string;
   metrics: string[];
   dimensions?: string[];
+  filters?: string;
+  sort?: string;
+  maxResults?: number;
 }
 
 export async function queryYoutubeAnalytics(
@@ -367,6 +370,9 @@ export async function queryYoutubeAnalytics(
   url.searchParams.set("endDate", query.endDate);
   url.searchParams.set("metrics", query.metrics.join(","));
   if (query.dimensions?.length) url.searchParams.set("dimensions", query.dimensions.join(","));
+  if (query.filters) url.searchParams.set("filters", query.filters);
+  if (query.sort) url.searchParams.set("sort", query.sort);
+  if (query.maxResults) url.searchParams.set("maxResults", String(query.maxResults));
   const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`YOUTUBE_ANALYTICS_QUERY_FAILED:${response.status}`);
   return response.json();
