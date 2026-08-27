@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 
 export const Route = createFileRoute("/analytics")({
   component: Analytics,
@@ -64,6 +65,7 @@ function Analytics() {
   const [range, setRange] = useState<Range>("12M");
   const [tab, setTab] = useState<Tab>("video");
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [result, setResult] = useState<{
     data: BreakdownData | null;
     loading: boolean;
@@ -90,11 +92,17 @@ function Analytics() {
       .then((data) => setResult({ data, loading: false, error: null }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setResult({ data: null, loading: false, error: "Unable to load YouTube breakdowns." });
+        setResult({
+          data: null,
+          loading: false,
+          error: error instanceof Error && error.message === "YOUTUBE_REAUTH_REQUIRED"
+            ? "YOUTUBE_REAUTH_REQUIRED"
+            : "Unable to load YouTube breakdowns.",
+        });
       });
 
     return () => controller.abort();
-  }, [range, activeChannelId]);
+  }, [range, activeChannelId, retryNonce]);
 
   const videoRows = useMemo(() => result.data?.video.rows ?? [], [result.data]);
   const trafficRows = useMemo(() => result.data?.trafficSources.rows ?? [], [result.data]);
@@ -154,7 +162,11 @@ function Analytics() {
         </span>
       </div>
 
-      {result.error ? (
+      {result.error === "YOUTUBE_REAUTH_REQUIRED" ? (
+        <div className="mt-5">
+          <YoutubeReauthNotice onRetry={() => setRetryNonce((value) => value + 1)} />
+        </div>
+      ) : result.error ? (
         <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
           {result.error} Try refreshing the page or reconnecting YouTube.
         </div>

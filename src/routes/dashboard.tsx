@@ -32,6 +32,7 @@ import { useOnboarding } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -177,6 +178,7 @@ function Dashboard() {
       });
       const body = (await response.json()) as DashboardResponse;
       if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
+        setDashboardData(null);
         setYoutubeStatus("reauth");
       } else if (!response.ok || !("data" in body)) {
         setYoutubeStatus("error");
@@ -188,6 +190,7 @@ function Dashboard() {
         setYoutubeStatus("connected");
       }
     } catch {
+      setDashboardData(null);
       setYoutubeStatus("error");
     } finally {
       setYoutubeRefreshing(false);
@@ -269,15 +272,17 @@ function Dashboard() {
           </Link>
         </div>
       )}
-      {(youtubeStatus === "error" || youtubeStatus === "reauth") && (
+      {youtubeStatus === "reauth" && (
+        <YoutubeReauthNotice
+          channelName={dashboardData?.channel.title}
+          onRetry={() => void loadYoutubeData()}
+        />
+      )}
+      {youtubeStatus === "error" && (
         <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">We couldn't load your YouTube data</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {youtubeStatus === "reauth"
-                ? "Your YouTube authorization needs to be renewed."
-                : "The YouTube API is temporarily unavailable."}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">The YouTube API is temporarily unavailable.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -290,7 +295,7 @@ function Dashboard() {
               to="/settings"
               className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              Reconnect
+              Open Settings
             </Link>
           </div>
         </div>

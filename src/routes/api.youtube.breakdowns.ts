@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken } from "@/lib/server/youtube-tokens";
+import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import {
   fetchRecentYoutubeVideos,
   queryYoutubeAnalytics,
@@ -199,10 +199,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
         } catch (error) {
           if (error instanceof Response) return error;
           const message = error instanceof Error ? error.message : "";
-          if (
-            /YOUTUBE_.*:401$/.test(message) ||
-            /GOOGLE_TOKEN_REQUEST_FAILED:(400|401)$/.test(message)
-          ) {
+          if (isYoutubeReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           console.error("YouTube breakdown request failed", {

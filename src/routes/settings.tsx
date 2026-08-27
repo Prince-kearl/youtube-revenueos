@@ -41,6 +41,7 @@ import { ConfirmDialog } from "@/components/modals";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
   challengeMfaFactor,
@@ -639,7 +640,11 @@ function YouTubeIntegrationPanel() {
       const body = (await response.json()) as { status?: string; result?: Record<string, string>; error?: string };
       if (!response.ok) throw new Error(body.error ?? "sync_failed");
       await loadChannels();
-      toast.success(body.status === "partial" ? "YouTube sync completed with warnings" : "YouTube sync complete");
+      if (body.status === "reauth_required") {
+        toast.error("YouTube authorization needs to be renewed before syncing.");
+      } else {
+        toast.success(body.status === "partial" ? "YouTube sync completed with warnings" : "YouTube sync complete");
+      }
     } catch (error) {
       toast.error(error instanceof Error && error.message === "YOUTUBE_NOT_CONNECTED" ? "Connect YouTube before syncing." : "YouTube sync couldn't be completed.");
     } finally {
@@ -726,11 +731,16 @@ function YouTubeIntegrationPanel() {
               >
                 {disconnectingId === channel.id ? "Disconnecting…" : "Disconnect"}
                     </button>
-                  </div>
                 </div>
+                {channel.last_sync_status === "reauth_required" && (
+                  <div className="mt-4">
+                    <YoutubeReauthNotice channelName={channel.channel_name} compact />
+                  </div>
+                )}
               </div>
-        ))
-      )}
+            </div>
+          ))
+        )}
 
       <div className="space-y-4">
         {([

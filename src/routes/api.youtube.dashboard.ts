@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken } from "@/lib/server/youtube-tokens";
+import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import {
   fetchAuthorizedYoutubeChannel,
   fetchRecentYoutubeVideos,
@@ -364,10 +364,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             reason,
             timestamp: new Date().toISOString(),
           });
-          if (
-            (message.includes("YOUTUBE_") || message.includes("GOOGLE_TOKEN_REQUEST_FAILED")) &&
-            /:(400|401)(?::|$)/.test(message)
-          ) {
+          if (isYoutubeReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           if (message === "YOUTUBE_CONNECTED_CHANNEL_MISMATCH") {

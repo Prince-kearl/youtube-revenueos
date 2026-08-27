@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
-import { getValidAccessToken } from "@/lib/server/youtube-tokens";
+import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import {
   aggregateYoutubeAnalyticsByMonth,
   fetchAuthorizedYoutubeChannel,
@@ -246,9 +246,7 @@ async function syncChannel(
       .eq("id", channel.id);
     return { status, result };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const status =
-      message.includes("YOUTUBE_") && message.includes(":401") ? "reauth_required" : "failed";
+    const status = isYoutubeReauthError(error) ? "reauth_required" : "failed";
     await service
       .from("youtube_channels")
       .update({

@@ -11,6 +11,7 @@ export type ConnectedYoutubeChannel = {
   subscriber_count: number;
   view_count?: number;
   video_count?: number;
+  last_sync_status?: string;
 };
 
 export const ACTIVE_YOUTUBE_CHANNEL_KEY = "yroos.activeYoutubeChannelId";
@@ -49,6 +50,8 @@ export function YoutubeChannelSwitcher() {
 
   if (loading || !activeChannel) return null;
 
+  const needsReauth = activeChannel.last_sync_status === "reauth_required";
+
   const switchChannel = (channelId: string) => {
     if (channelId === activeChannelId) return;
     writeStore(ACTIVE_YOUTUBE_CHANNEL_KEY, channelId);
@@ -56,7 +59,10 @@ export function YoutubeChannelSwitcher() {
   };
 
   return (
-    <label className="flex max-w-[220px] items-center gap-2 rounded-lg border border-border bg-accent/30 px-2.5 py-1.5 text-xs">
+    <label
+      title={needsReauth ? "YouTube authorization needs to be renewed" : undefined}
+      className={`flex max-w-[220px] items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${needsReauth ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border bg-accent/30"}`}
+    >
       {activeChannel.thumbnail ? (
         <img src={activeChannel.thumbnail} alt="" className="h-6 w-6 rounded-full object-cover" />
       ) : (
@@ -73,6 +79,7 @@ export function YoutubeChannelSwitcher() {
           <option key={channel.id} value={channel.id}>
             {channel.channel_name}
             {channel.channel_handle ? ` · ${channel.channel_handle}` : ""}
+            {channel.last_sync_status === "reauth_required" ? " · Reconnect needed" : ""}
           </option>
         ))}
       </select>
