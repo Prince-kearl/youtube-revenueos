@@ -160,13 +160,21 @@ function Dashboard() {
   >("loading");
   const [youtubeRefreshing, setYoutubeRefreshing] = useState(false);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
-  const loadYoutubeData = async (forceRefresh = false) => {
+  const youtubeAbortRef = useRef<AbortController | null>(null);
+  const youtubeRequestRef = useRef(0);
+  const loadYoutubeData = async (
+    forceRefresh = false,
+  ): Promise<"connected" | "not_connected" | "reauth" | "error" | null> => {
+    const requestId = ++youtubeRequestRef.current;
+    youtubeAbortRef.current?.abort();
+    const controller = new AbortController();
+    youtubeAbortRef.current = controller;
     setYoutubeRefreshing(true);
     if (IS_LOCAL_DEMO) {
       setDashboardData(DEMO_YOUTUBE_DASHBOARD as unknown as DashboardData);
       setYoutubeStatus("connected");
       setYoutubeRefreshing(false);
-      return;
+      return "connected";
     }
     try {
       const params = new URLSearchParams();
@@ -175,29 +183,43 @@ function Dashboard() {
       const query = params.toString();
       const response = await fetch(`/api/youtube/dashboard${query ? `?${query}` : ""}`, {
         cache: forceRefresh ? "no-store" : "default",
+        signal: controller.signal,
       });
       const body = (await response.json()) as DashboardResponse;
+      if (requestId !== youtubeRequestRef.current) return null;
       if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
         setDashboardData(null);
         setYoutubeStatus("reauth");
+        return "reauth";
       } else if (!response.ok || !("data" in body)) {
+        setDashboardData(null);
         setYoutubeStatus("error");
+        return "error";
       } else if (body.status === "not_connected") {
         setDashboardData(null);
         setYoutubeStatus("not_connected");
+        return "not_connected";
       } else {
         setDashboardData(body.data);
         setYoutubeStatus("connected");
+        return "connected";
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return null;
+      if (requestId !== youtubeRequestRef.current) return null;
       setDashboardData(null);
       setYoutubeStatus("error");
+      return "error";
     } finally {
-      setYoutubeRefreshing(false);
+      if (requestId === youtubeRequestRef.current) {
+        setYoutubeRefreshing(false);
+        youtubeAbortRef.current = null;
+      }
     }
   };
   useEffect(() => {
     void loadYoutubeData();
+    return () => youtubeAbortRef.current?.abort();
   }, [activeChannelId]);
 
   const trend = useMemo(() => {
@@ -208,10 +230,10 @@ function Dashboard() {
   const refresh = () => {
     setRefreshing(true);
     void loadYoutubeData(true)
-      .then(() => {
-        if (youtubeStatus === "connected") toast.success("Dashboard refreshed");
+      .then((status) => {
+        if (status === "connected") toast.success("Dashboard refreshed");
+        else if (status === "error") toast.error("Dashboard refresh failed");
       })
-      .catch(() => toast.error("Dashboard refresh failed"))
       .finally(() => setRefreshing(false));
   };
   const videos = dashboardData?.videos ?? [];
@@ -282,7 +304,9 @@ function Dashboard() {
         <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">We couldn't load your YouTube data</h3>
-            <p className="mt-1 text-sm text-muted-foreground">The YouTube API is temporarily unavailable.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The YouTube API is temporarily unavailable.
+            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -406,7 +430,9 @@ function Dashboard() {
               {(["3M", "6M", "12M"] as const).map((t) => (
                 <button
                   key={t}
+                  type="button"
                   onClick={() => setRange(t)}
+                  aria-pressed={t === range}
                   className={`rounded-full px-3 py-1.5 font-medium transition-all ${t === range ? "glass-segment-active" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {t}
@@ -767,25 +793,38 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
 function RecentPostsCarousel({ videos }: { videos: DashboardVideo[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const id = window.setInterval(() => {
-      if (paused) return;
+      if (paused || reducedMotion) return;
       const card = el.querySelector<HTMLElement>("[data-card]");
       const step = card ? card.offsetWidth + 12 : 172;
       const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
       el.scrollTo({ left: atEnd ? 0 : el.scrollLeft + step, behavior: "smooth" });
     }, 2500);
     return () => window.clearInterval(id);
-  }, [paused]);
+  }, [paused, reducedMotion]);
 
   return (
     <div
       ref={scrollRef}
       onTouchStart={() => setPaused(true)}
       onTouchEnd={() => setPaused(false)}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
       className="mt-4 flex gap-3 overflow-x-auto pb-1 sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {videos.slice(0, 8).map((video) => (
