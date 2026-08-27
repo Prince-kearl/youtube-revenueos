@@ -156,7 +156,7 @@ function Dashboard() {
 
   const trend = useMemo(() => {
     const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
-    if (dashboardData?.revenueStatus !== "available") return [];
+    if (dashboardData?.analyticsStatus !== "available") return [];
     return (dashboardData.analytics ?? []).slice(-n).map((row) => ({
       month: row.month
         ? new Date(`${row.month}-01T00:00:00Z`).toLocaleDateString("en", {
@@ -379,6 +379,13 @@ function Dashboard() {
           <div className="mt-4 flex items-center gap-5 text-xs">
             <Legend color="var(--color-brand-blue)" label="Estimated YouTube revenue" />
           </div>
+          {dashboardData?.revenueStatus === "unavailable" &&
+            dashboardData.analyticsStatus === "available" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                YouTube returned no estimated revenue rows for this period; available months are
+                shown at $0.
+              </p>
+            )}
 
           <div className="mt-4 h-[300px]">
             {trend.length ? (
@@ -431,7 +438,9 @@ function Dashboard() {
                 {youtubeStatus === "connected"
                   ? dashboardData?.revenueStatus === "disabled"
                     ? "YouTube Analytics import is disabled in Integration settings."
-                    : "YouTube Analytics revenue data isn't available yet."
+                    : dashboardData?.analyticsStatus === "available"
+                      ? "No estimated revenue was reported for this period."
+                      : "YouTube Analytics revenue data isn't available yet."
                   : "Connect YouTube to view revenue trends."}
               </div>
             )}
