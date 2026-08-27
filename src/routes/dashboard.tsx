@@ -30,6 +30,7 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useOnboarding } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
+import { buildRevenueTrend } from "@/lib/revenue-trends";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -155,17 +156,8 @@ function Dashboard() {
   }, []);
 
   const trend = useMemo(() => {
-    const n = range === "3M" ? 3 : range === "6M" ? 6 : 12;
     if (dashboardData?.analyticsStatus !== "available") return [];
-    return (dashboardData.analytics ?? []).slice(-n).map((row) => ({
-      month: row.month
-        ? new Date(`${row.month}-01T00:00:00Z`).toLocaleDateString("en", {
-            month: "short",
-            timeZone: "UTC",
-          })
-        : "",
-      revenue: Number(row.estimatedRevenue ?? 0) / 1000,
-    }));
+    return buildRevenueTrend(dashboardData.analytics ?? [], range);
   }, [dashboardData, range]);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
