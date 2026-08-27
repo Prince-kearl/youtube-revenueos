@@ -40,6 +40,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
@@ -215,6 +216,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVideosRoute = ApiVideosRouteImport.update({
+  id: '/api/videos',
+  path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSettingsRoute = ApiSettingsRouteImport.update({
   id: '/api/settings',
   path: '/api/settings',
@@ -351,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/videos': typeof ApiVideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/videos': typeof ApiVideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -456,6 +464,7 @@ export interface FileRoutesById {
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/videos': typeof ApiVideosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -510,6 +519,7 @@ export interface FileRouteTypes {
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
+    | '/api/videos'
     | '/auth/callback'
     | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
@@ -562,6 +572,7 @@ export interface FileRouteTypes {
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
+    | '/api/videos'
     | '/auth/callback'
     | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
@@ -614,6 +625,7 @@ export interface FileRouteTypes {
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
+    | '/api/videos'
     | '/auth/callback'
     | '/api/security/recovery-codes'
     | '/api/youtube/analytics'
@@ -667,6 +679,7 @@ export interface RootRouteChildren {
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
+  ApiVideosRoute: typeof ApiVideosRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
   ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
@@ -900,6 +913,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/videos': {
+      id: '/api/videos'
+      path: '/api/videos'
+      fullPath: '/api/videos'
+      preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/settings': {
       id: '/api/settings'
       path: '/api/settings'
@@ -1089,6 +1109,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
   ApiSettingsRoute: ApiSettingsRoute,
+  ApiVideosRoute: ApiVideosRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
   ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,

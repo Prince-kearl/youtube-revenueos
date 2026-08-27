@@ -127,12 +127,23 @@ async function syncChannel(
       try {
         videos = await fetchRecentYoutubeVideos(accessToken, liveChannel.uploadsPlaylistId);
         if (settings.auto_sync_videos) {
+          const { data: existingVideos, error: existingVideosError } = await service
+            .from("videos")
+            .select("youtube_video_id, description")
+            .eq("channel_id", channel.id);
+          if (existingVideosError) throw new Error("videos");
+          const descriptions = new Map(
+            (existingVideos ?? []).map((existing) => [
+              existing.youtube_video_id,
+              existing.description,
+            ]),
+          );
           const { error } = await service.from("videos").upsert(
             videos.map((video) => ({
               channel_id: channel.id,
               youtube_video_id: video.id,
               title: video.title,
-              description: video.description,
+              description: descriptions.get(video.id) ?? video.description,
               thumbnail: video.thumbnail,
               published_at: video.publishedAt,
               duration_seconds: video.durationSeconds,

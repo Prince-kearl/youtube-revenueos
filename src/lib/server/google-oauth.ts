@@ -208,6 +208,71 @@ function formatDuration(seconds: number): string {
     : `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
+function mapYoutubeVideo(item: {
+  id: string;
+  snippet: {
+    title: string;
+    description?: string;
+    publishedAt?: string;
+    channelId?: string;
+    thumbnails?: { medium?: { url: string }; default?: { url: string } };
+  };
+  contentDetails?: { duration?: string };
+  statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+  status?: { privacyStatus?: string };
+}): YoutubeVideoSummary {
+  const durationSeconds = item.contentDetails?.duration
+    ? parseIsoDurationSeconds(item.contentDetails.duration)
+    : null;
+  return {
+    id: item.id,
+    title: item.snippet.title,
+    description: item.snippet.description ?? null,
+    thumbnail:
+      item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? null,
+    publishedAt: item.snippet.publishedAt ?? null,
+    duration: durationSeconds === null ? null : formatDuration(durationSeconds),
+    durationSeconds,
+    privacyStatus: item.status?.privacyStatus ?? null,
+    views: Number(item.statistics?.viewCount ?? 0),
+    likes: item.statistics?.likeCount === undefined ? null : Number(item.statistics.likeCount),
+    comments:
+      item.statistics?.commentCount === undefined ? null : Number(item.statistics.commentCount),
+    url: `https://www.youtube.com/watch?v=${item.id}`,
+  };
+}
+
+export async function fetchYoutubeVideoById(
+  accessToken: string,
+  videoId: string,
+  expectedChannelId: string,
+): Promise<YoutubeVideoSummary> {
+  const response = await youtubeApiRequest<{
+    items?: Array<{
+      id: string;
+      snippet: {
+        title: string;
+        description?: string;
+        publishedAt?: string;
+        channelId?: string;
+        thumbnails?: { medium?: { url: string }; default?: { url: string } };
+      };
+      contentDetails?: { duration?: string };
+      statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+      status?: { privacyStatus?: string };
+    }>;
+  }>(accessToken, "videos", {
+    part: "snippet,contentDetails,statistics,status",
+    id: videoId,
+  });
+  const video = response.items?.[0];
+  if (!video) throw new Error("YOUTUBE_VIDEO_NOT_FOUND");
+  if (video.snippet.channelId !== expectedChannelId) {
+    throw new Error("YOUTUBE_VIDEO_CHANNEL_MISMATCH");
+  }
+  return mapYoutubeVideo(video);
+}
+
 export async function fetchRecentYoutubeVideos(
   accessToken: string,
   uploadsPlaylistId: string | null,
@@ -248,6 +313,7 @@ export async function fetchRecentYoutubeVideos(
         title: string;
         description?: string;
         publishedAt?: string;
+        channelId?: string;
         thumbnails?: { medium?: { url: string }; default?: { url: string } };
       };
       contentDetails?: { duration?: string };
@@ -261,30 +327,7 @@ export async function fetchRecentYoutubeVideos(
 
   return (videos.items ?? [])
     .filter((video) => video.status?.privacyStatus === "public")
-    .map((video) => {
-      const durationSeconds = video.contentDetails?.duration
-        ? parseIsoDurationSeconds(video.contentDetails.duration)
-        : null;
-      return {
-        id: video.id,
-        title: video.snippet.title,
-        description: video.snippet.description ?? null,
-        thumbnail:
-          video.snippet.thumbnails?.medium?.url ?? video.snippet.thumbnails?.default?.url ?? null,
-        publishedAt: video.snippet.publishedAt ?? null,
-        duration: durationSeconds === null ? null : formatDuration(durationSeconds),
-        durationSeconds,
-        privacyStatus: video.status?.privacyStatus ?? null,
-        views: Number(video.statistics?.viewCount ?? 0),
-        likes:
-          video.statistics?.likeCount === undefined ? null : Number(video.statistics.likeCount),
-        comments:
-          video.statistics?.commentCount === undefined
-            ? null
-            : Number(video.statistics.commentCount),
-        url: `https://www.youtube.com/watch?v=${video.id}`,
-      };
-    })
+    .map(mapYoutubeVideo)
     .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
     .slice(0, limit);
 }

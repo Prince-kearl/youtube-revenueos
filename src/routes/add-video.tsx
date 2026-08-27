@@ -1,252 +1,628 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Youtube, Sparkles, FileText, Link2, Copy, Check, RefreshCw,
-  Clock, Hash, Wand2, ChevronRight, ArrowLeft, Loader2,
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Clock,
+  Copy,
+  ExternalLink,
+  FileText,
+  Hash,
+  Link2,
+  Loader2,
+  Play,
+  Save,
+  Sparkles,
+  Trash2,
+  Youtube,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { llm } from "@/lib/llm";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { useLocalStore } from "@/lib/local-store";
 
 export const Route = createFileRoute("/add-video")({
   component: AddVideo,
 });
 
-const destinationOptions = [
-  { slug: "vsl", label: "Sales page / VSL", token: "{{LINK_VSL}}", url: "salespage.com/watch", primary: true },
-  { slug: "skool", label: "Skool community", token: "{{LINK_SKOOL}}", url: "skool.com/community" },
-  { slug: "ig", label: "Instagram profile", token: "{{LINK_IG}}", url: "instagram.com/difaino" },
-  { slug: "tiktok", label: "TikTok profile", token: "{{LINK_TIKTOK}}", url: "tiktok.com/@difaino" },
-  { slug: "newsletter", label: "Newsletter signup", token: "{{LINK_NEWS}}", url: "creator.io/newsletter" },
-  { slug: "freekit", label: "Free resource / lead magnet", token: "{{LINK_KIT}}", url: "creator.io/templates" },
-];
+type Destination = {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  description: string | null;
+  status: "active" | "archived";
+};
+
+type YoutubeVideo = {
+  id: string;
+  title: string;
+  description: string | null;
+  thumbnail: string | null;
+  publishedAt: string | null;
+  duration: string | null;
+  privacyStatus: string | null;
+  url: string;
+};
+
+type SavedVideo = {
+  id: string;
+  channel_id: string;
+  youtube_video_id: string;
+  title: string;
+  description: string | null;
+  thumbnail: string | null;
+  published_at: string | null;
+  duration_seconds: number | null;
+  status: string;
+};
+
+type VideoLookupResponse =
+  | {
+      status: "connected";
+      data: {
+        channel: { id: string; title: string; channel_name?: string };
+        video: YoutubeVideo;
+        savedVideo: SavedVideo | null;
+        transcript: { id: string; transcript: string; source: string; language: string } | null;
+      };
+    }
+  | { status: "not_connected"; data: null }
+  | { error: string };
+
+type MutationResponse =
+  | {
+      status: "connected";
+      data: { video: YoutubeVideo; savedVideo: SavedVideo; transcript: unknown };
+    }
+  | { error: string };
+
+type DestinationResponse = { data?: Destination[]; error?: string };
 
 const steps = [
   { icon: Youtube, label: "Fetch metadata" },
-  { icon: FileText, label: "Get transcript" },
-  { icon: Sparkles, label: "Write description" },
-  { icon: Link2, label: "Inject tracked links" },
+  { icon: FileText, label: "Add transcript" },
+  { icon: Sparkles, label: "Edit description" },
+  { icon: Save, label: "Save to Tubify" },
 ];
 
-const generatedBody = `In this video I show you exactly how I went from 0 to €40K/month dropshipping with one product — no ads, no warehouse, no experience needed. I break down the exact product research method, the supplier I use, and the funnel that converts cold traffic into buyers.
+function parseYoutubeVideoId(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    const id =
+      url.hostname === "youtu.be"
+        ? url.pathname.slice(1)
+        : url.pathname.startsWith("/shorts/")
+          ? url.pathname.split("/")[2]
+          : url.searchParams.get("v");
+    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
 
-▶ Join my free community (1,200+ members): https://go.yourdomain.com/v/abc1/skool
-▶ Watch the full training (free VSL): https://go.yourdomain.com/v/abc1/vsl
-▶ Follow on Instagram: https://go.yourdomain.com/v/abc1/ig
+function formatDate(value: string | null): string {
+  if (!value) return "Date unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+        date,
+      );
+}
 
-TIMESTAMPS
-0:00 — How I found the product
-2:14 — Setting up the store
-5:33 — The ad strategy I used
-9:01 — First sale moment
-12:45 — Scaling to €40K
-
-#dropshipping #ecommerce #makemoneyonline #shopify #passiveincome`;
+function errorMessage(error: string): string {
+  const messages: Record<string, string> = {
+    VALIDATION_ERROR: "Check the YouTube URL and try again.",
+    YOUTUBE_VIDEO_NOT_FOUND: "That YouTube video could not be found.",
+    YOUTUBE_VIDEO_CHANNEL_MISMATCH: "This video does not belong to the selected YouTube channel.",
+    YOUTUBE_VIDEO_NOT_PUBLIC: "Only public videos can be added to Tubify.",
+    CHANNEL_NOT_FOUND: "The selected YouTube channel is no longer available.",
+    DATABASE_ERROR: "Tubify could not save this video. Try again.",
+    SERVER_ERROR: "Tubify could not complete that request. Try again.",
+    YOUTUBE_DATA_UNAVAILABLE: "YouTube is temporarily unavailable. Try again.",
+  };
+  return messages[error] ?? "Something went wrong. Try again.";
+}
 
 function AddVideo() {
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [url, setUrl] = useState("");
+  const [video, setVideo] = useState<YoutubeVideo | null>(null);
+  const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
-  const [selected, setSelected] = useState<string[]>(["vsl", "skool", "ig"]);
-  const [generated, setGenerated] = useState(false);
-  const [description, setDescription] = useState(generatedBody);
+  const [description, setDescription] = useState("");
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loaded" | "not_connected" | "error" | "reauth">(
+    "idle",
+  );
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const toggle = (slug: string) =>
-    setSelected((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/destinations?status=active", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as DestinationResponse;
+        if (!response.ok) throw new Error(body.error ?? "DESTINATIONS_UNAVAILABLE");
+        setDestinations(body.data ?? []);
+      })
+      .catch((reason: unknown) => {
+        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+          setDestinations([]);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
-  const copy = () => {
-    navigator.clipboard?.writeText(description);
+  const selectedDestinations = useMemo(
+    () => destinations.filter((destination) => selectedDestinationIds.includes(destination.id)),
+    [destinations, selectedDestinationIds],
+  );
+
+  const loadVideo = async () => {
+    const youtubeVideoId = parseYoutubeVideoId(url);
+    if (!youtubeVideoId) {
+      setError("Enter a valid public YouTube watch, youtu.be, or Shorts URL.");
+      setStatus("error");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ youtubeVideoId });
+      if (activeChannelId) params.set("channelId", activeChannelId);
+      const response = await fetch(`/api/videos?${params.toString()}`, { cache: "no-store" });
+      const body = (await response.json()) as VideoLookupResponse;
+      if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
+        setStatus("reauth");
+        return;
+      }
+      if (!response.ok || !("status" in body)) {
+        const code = "error" in body ? body.error : "SERVER_ERROR";
+        throw new Error(code);
+      }
+      if (body.status === "not_connected") {
+        setStatus("not_connected");
+        return;
+      }
+      setVideo(body.data.video);
+      setSavedVideoId(body.data.savedVideo?.id ?? null);
+      setTranscript(body.data.transcript?.transcript ?? "");
+      setDescription(body.data.savedVideo?.description ?? body.data.video.description ?? "");
+      setStatus("loaded");
+    } catch (reason: unknown) {
+      const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
+      setError(errorMessage(code));
+      setStatus(code === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveVideo = async () => {
+    if (!video) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: activeChannelId ?? undefined,
+          youtubeVideoId: video.id,
+          description: description || null,
+          transcript: transcript || null,
+        }),
+      });
+      const body = (await response.json()) as MutationResponse;
+      if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
+        setStatus("reauth");
+        return;
+      }
+      if (!response.ok || !("data" in body)) {
+        throw new Error("error" in body ? body.error : "SERVER_ERROR");
+      }
+      setSavedVideoId(body.data.savedVideo.id);
+      toast.success("Video saved to Tubify");
+    } catch (reason: unknown) {
+      const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
+      setError(errorMessage(code));
+      setStatus(code === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateVideo = async () => {
+    if (!savedVideoId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/videos?id=${encodeURIComponent(savedVideoId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: description || null, transcript: transcript || null }),
+      });
+      const body = (await response.json()) as MutationResponse;
+      if (!response.ok || !("data" in body)) {
+        throw new Error("error" in body ? body.error : "SERVER_ERROR");
+      }
+      toast.success("Video changes saved");
+    } catch (reason: unknown) {
+      setError(errorMessage(reason instanceof Error ? reason.message : "SERVER_ERROR"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeVideo = async () => {
+    if (
+      !savedVideoId ||
+      !window.confirm("Remove this video from Tubify? YouTube will not be changed.")
+    )
+      return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/videos?id=${encodeURIComponent(savedVideoId)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "SERVER_ERROR");
+      }
+      setSavedVideoId(null);
+      toast.success("Video removed from Tubify");
+    } catch (reason: unknown) {
+      setError(errorMessage(reason instanceof Error ? reason.message : "SERVER_ERROR"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const injectDestinations = () => {
+    if (!selectedDestinations.length) return;
+    const lines = selectedDestinations
+      .map((destination) => `\n${destination.name}: ${destination.url}`)
+      .join("");
+    setDescription((current) =>
+      current.includes(selectedDestinations[0]?.url ?? "") ? current : `${current}${lines}`.trim(),
+    );
+  };
+
+  const copyDescription = async () => {
+    if (!description) return;
+    await navigator.clipboard?.writeText(description);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    const links = destinationOptions
-      .filter((d) => selected.includes(d.slug))
-      .map((d) => ({ label: d.label, url: d.url }));
-    const result = await llm.generateVideoDescription({ transcript, links });
-    setDescription(result);
-    setGenerated(true);
-    setIsGenerating(false);
-  };
-
+  const loaded = status === "loaded";
   return (
     <DashboardLayout title="Add Video">
-      <Link to="/videos" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+      <Link
+        to="/videos"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" /> Back to Videos
       </Link>
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Add a Video</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Paste a YouTube URL — we read the transcript, write the description, and inject tracked links automatically.
+          Load a public video from your active authenticated YouTube channel, edit its description,
+          and save the workflow to Tubify.
         </p>
       </div>
 
-      {/* URL input */}
       <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
         <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-        <label className="text-sm font-medium">YouTube video URL</label>
+        <label htmlFor="youtube-video-url" className="text-sm font-medium">
+          YouTube video URL
+        </label>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-red" />
             <input
+              id="youtube-video-url"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(event) => setUrl(event.target.value)}
               placeholder="https://youtube.com/watch?v=..."
               className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
             />
           </div>
           <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
+            type="button"
+            onClick={() => void loadVideo()}
+            disabled={loading}
             className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            {isGenerating ? "Generating…" : "Generate"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {loading ? "Loading…" : "Load video"}
           </button>
         </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
-          {steps.map((s, i) => {
-            const Icon = s.icon;
-            const done = generated;
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const done =
+              index === 0
+                ? loaded
+                : index === 1
+                  ? Boolean(transcript)
+                  : index === 2
+                    ? Boolean(description)
+                    : Boolean(savedVideoId);
             return (
               <div
-                key={s.label}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs ${
-                  done ? "border-success/40 bg-success/10 text-success" : "border-border bg-background text-muted-foreground"
-                }`}
+                key={step.label}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs ${done ? "border-success/40 bg-success/10 text-success" : "border-border bg-background text-muted-foreground"}`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{i + 1}. {s.label}</span>
+                <span className="truncate">
+                  {index + 1}. {step.label}
+                </span>
                 {done && <Check className="ml-auto h-3.5 w-3.5" />}
               </div>
             );
           })}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Transcript source: <span className="font-semibold">paste your own (fastest)</span> or run OpenAI Whisper via yt-dlp worker. YouTube caption download is disabled (v3.0). Analytics lag: 24–72h.
+          Video ownership is checked against the selected YouTube channel. Tubify only saves
+          metadata, your edited description, and an optional manual transcript; it never publishes
+          changes back to YouTube.
         </p>
       </div>
 
-      {/* Transcript paste — Phase 1 primary path */}
-      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
-        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="flex items-center gap-2 text-lg font-semibold">
-              <FileText className="h-5 w-5 text-brand-blue" /> Transcript
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Paste your transcript for instant AI structuring — or leave empty to queue a Whisper job.
-            </p>
-          </div>
-          <span className="rounded-full bg-brand-blue/15 px-3 py-1 text-[11px] font-semibold text-brand-blue">Phase 1 · Manual</span>
-        </div>
-        <textarea
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          rows={5}
-          placeholder="00:00 In this video I show you exactly how..."
-          className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
+      {status === "not_connected" && (
+        <MessageState
+          title="Connect your YouTube channel"
+          description="Connect a YouTube account in Settings before adding videos."
+          action="Open Settings"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-          <span>Claude Sonnet extracts scenes, product mentions, CTAs, and hashtag candidates.</span>
+      )}
+      {status === "reauth" && (
+        <div className="mt-5">
+          <YoutubeReauthNotice onRetry={() => void loadVideo()} />
         </div>
-      </div>
-
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Destinations */}
-        <div className="relative rounded-xl card-gradient-outline p-5">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <h3 className="text-lg font-semibold">Destinations</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Pick which tracked links apply to this video.</p>
-          <div className="mt-4 space-y-2">
-            {destinationOptions.map((d) => {
-              const on = selected.includes(d.slug);
-              return (
-                <button
-                  key={d.slug}
-                  onClick={() => toggle(d.slug)}
-                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                    on ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/40"
-                  }`}
-                >
-                  <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                      on ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                    }`}
-                  >
-                    {on && <Check className="h-3.5 w-3.5" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-sm font-medium">
-                      {d.label}
-                      {d.primary && <span className="rounded bg-brand-purple/15 px-1.5 py-0.5 text-[10px] text-brand-purple">Primary</span>}
-                    </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">→ {d.url}</span>
-                  </span>
-                  <code className="hidden shrink-0 rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground xl:block">{d.token}</code>
-                </button>
-              );
-            })}
-          </div>
+      )}
+      {status === "error" && (
+        <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
+          <p className="font-semibold">Couldn&apos;t load this video</p>
+          <p className="mt-1">{error}</p>
+          <button
+            type="button"
+            onClick={() => void loadVideo()}
+            className="mt-3 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10"
+          >
+            Try again
+          </button>
         </div>
+      )}
+      {error && status !== "error" && status !== "reauth" && (
+        <p className="mt-4 text-sm text-destructive">{error}</p>
+      )}
 
-        {/* Description editor */}
-        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-lg font-semibold">
-              <Sparkles className="h-5 w-5 text-brand-purple" /> AI Description
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} /> {isGenerating ? "Generating…" : "Regenerate"}
-              </button>
-              <button
-                onClick={copy}
-                className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-          </div>
-
-          {generated ? (
-            <>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={16}
-                className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary"
-              />
-              <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> 5 timestamps</span>
-                <span className="flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> 5 hashtags</span>
-                <span className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" /> {selected.length} tracked links</span>
-                <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Opening under 125 chars</span>
-              </div>
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                Copy the description → paste into YouTube Studio → publish. Every link click is now tracked.
-                <ChevronRight className="ml-auto h-4 w-4" />
-              </div>
-            </>
+      {video && (
+        <div className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center">
+          {video.thumbnail ? (
+            <img
+              src={video.thumbnail}
+              alt=""
+              className="aspect-video w-full rounded-lg object-cover sm:h-24 sm:w-40"
+            />
           ) : (
-            <div className="mt-4 flex h-[360px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border text-muted-foreground">
-              <Sparkles className="h-8 w-8 text-brand-purple/60" />
-              <p className="text-sm">Paste a video URL and hit Generate to write the description.</p>
+            <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-accent sm:h-24 sm:w-40">
+              <Play className="h-6 w-6" />
             </div>
           )}
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold">{video.title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatDate(video.publishedAt)}
+              {video.duration ? ` · ${video.duration}` : ""} ·{" "}
+              {video.privacyStatus === "public" ? "Public" : "Status unavailable"}
+            </p>
+          </div>
+          <a
+            href={video.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open on YouTube <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      )}
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="relative rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+          <h2 className="text-lg font-semibold">Transcript</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Paste a transcript if you want to keep it with this video. YouTube caption downloads are
+            not requested.
+          </p>
+          <textarea
+            value={transcript}
+            onChange={(event) => setTranscript(event.target.value)}
+            disabled={!loaded}
+            rows={12}
+            placeholder={loaded ? "Paste your transcript here..." : "Load a video first..."}
+            className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {transcript.length.toLocaleString()} characters · stored as a manual transcript
+          </p>
+        </div>
+
+        <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Sparkles className="h-5 w-5 text-brand-purple" /> Description
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void copyDescription()}
+                disabled={!description}
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+              {savedVideoId ? (
+                <button
+                  type="button"
+                  onClick={() => void updateVideo()}
+                  disabled={saving}
+                  className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Update"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void saveVideo()}
+                  disabled={!loaded || saving}
+                  className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save video"}
+                </button>
+              )}
+              {savedVideoId && (
+                <button
+                  type="button"
+                  onClick={() => void removeVideo()}
+                  disabled={saving}
+                  aria-label="Remove video from Tubify"
+                  className="flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 px-3 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            disabled={!loaded}
+            rows={16}
+            placeholder={
+              loaded
+                ? "Edit the YouTube description here..."
+                : "Load a video to edit its description..."
+            }
+            className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" /> {video?.duration ?? "Duration unavailable"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Hash className="h-3.5 w-3.5" /> Manual editing
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5" /> {selectedDestinations.length} destinations selected
+            </span>
+          </div>
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+            <span>Save changes to keep this description and transcript in Tubify.</span>
+            <ChevronRight className="ml-auto h-4 w-4" />
+          </div>
         </div>
       </div>
+
+      <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Destinations</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Load your real active destinations and optionally insert their URLs into the
+              description. Link tracking is managed separately in Link Tracking.
+            </p>
+          </div>
+          <Link to="/destinations" className="text-sm font-medium text-primary hover:underline">
+            Manage destinations
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {destinations.map((destination) => {
+            const selected = selectedDestinationIds.includes(destination.id);
+            return (
+              <button
+                type="button"
+                key={destination.id}
+                onClick={() =>
+                  setSelectedDestinationIds((current) =>
+                    selected
+                      ? current.filter((id) => id !== destination.id)
+                      : [...current, destination.id],
+                  )
+                }
+                disabled={!loaded}
+                className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${selected ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/40"}`}
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                >
+                  {selected && <Check className="h-3.5 w-3.5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{destination.name}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {destination.url}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+          {!destinations.length && (
+            <p className="text-sm text-muted-foreground">
+              No active destinations found. Create one in Destinations first.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={injectDestinations}
+          disabled={!loaded || !selectedDestinations.length}
+          className="mt-4 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Insert selected destination URLs
+        </button>
+      </div>
     </DashboardLayout>
+  );
+}
+
+function MessageState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action: string;
+}) {
+  return (
+    <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border bg-accent/20 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 className="font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Link
+        to="/settings"
+        className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        {action}
+      </Link>
+    </div>
   );
 }
