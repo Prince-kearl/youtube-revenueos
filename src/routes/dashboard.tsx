@@ -11,9 +11,8 @@ import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { NotificationRow } from "@/components/NotificationRow";
 import { useChannelSettings } from "@/lib/channel-settings";
-import { useNotifications, useOnboarding } from "@/lib/stores";
+import { useOnboarding } from "@/lib/stores";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -55,6 +54,7 @@ type DashboardData = {
   channel: DashboardChannel;
   videos: DashboardVideo[];
   analytics: DashboardAnalyticsRow[];
+  analyticsStatus: "available" | "unavailable" | "disabled";
   fetchedAt: string;
 };
 
@@ -71,6 +71,10 @@ function formatMoney(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
+function formatHours(value: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value / 60);
+}
+
 function formatDate(value: string | null): string {
   if (!value) return "";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
@@ -82,10 +86,10 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<"loading" | "connected" | "not_connected" | "error" | "reauth">("loading");
   const [youtubeRefreshing, setYoutubeRefreshing] = useState(false);
-  const loadYoutubeData = async () => {
+  const loadYoutubeData = async (forceRefresh = false) => {
     setYoutubeRefreshing(true);
     try {
-      const response = await fetch("/api/youtube/dashboard");
+      const response = await fetch(`/api/youtube/dashboard${forceRefresh ? "?refresh=1" : ""}`, { cache: forceRefresh ? "no-store" : "default" });
       const body = (await response.json()) as DashboardResponse;
       if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
         setYoutubeStatus("reauth");
@@ -113,16 +117,15 @@ function Dashboard() {
       revenue: Number(row.estimatedRevenue ?? 0) / 1000,
     }));
   }, [dashboardData, range]);
-  const [notifs, setNotifs] = useNotifications();
-  const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
-    void loadYoutubeData().finally(() => { setRefreshing(false); toast.success("Dashboard refreshed"); });
+    void loadYoutubeData(true).finally(() => { setRefreshing(false); toast.success("Dashboard refreshed"); });
   };
   const videos = dashboardData?.videos ?? [];
   const totalRevenue = dashboardData?.analytics.reduce((sum, row) => sum + Number(row.estimatedRevenue ?? 0), 0) ?? 0;
   const latestRevenue = dashboardData?.analytics.at(-1)?.estimatedRevenue ?? 0;
+  const totalWatchTime = dashboardData?.analytics.reduce((sum, row) => sum + Number(row.watchTimeMinutes ?? 0), 0) ?? 0;
   const recentRevenueChange = dashboardData?.analytics.length && dashboardData.analytics.length > 1
     ? Number(dashboardData.analytics.at(-1)?.estimatedRevenue ?? 0) - Number(dashboardData.analytics.at(-2)?.estimatedRevenue ?? 0)
     : 0;
@@ -131,7 +134,10 @@ function Dashboard() {
       <GettingStarted />
 
       {youtubeStatus === "loading" && (
-        <div className="card-gradient-outline p-5 text-sm text-muted-foreground">Loading your YouTube channel data…</div>
+        <div className="card-gradient-outline space-y-3 p-5" aria-label="Loading YouTube data">
+          <div className="h-5 w-48 animate-pulse rounded bg-accent" />
+          <div className="h-4 w-72 animate-pulse rounded bg-accent" />
+        </div>
       )}
       {youtubeStatus === "not_connected" && (
         <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -163,12 +169,18 @@ function Dashboard() {
 
       {/* Stat cards */}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         <StatCard glow frost icon={<DollarSign className="h-5 w-5" />} value={dashboardData ? formatMoney(totalRevenue) : "—"} label="Estimated Revenue" sub="YouTube Analytics" />
         <StatCard glow frost icon={<TrendingUp className="h-5 w-5" />} value={dashboardData ? formatMoney(latestRevenue) : "—"} label="Latest Revenue" sub="Latest available month" change={recentRevenueChange ? formatMoney(Math.abs(recentRevenueChange)) : undefined} up={recentRevenueChange >= 0} />
         <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"} label="Total Views" sub="YouTube channel total" />
         <StatCard glow frost icon={<Youtube className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"} label="Videos" sub="Published on channel" />
+        <StatCard glow frost icon={<Users className="h-5 w-5" />} value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"} label="Subscribers" sub="YouTube channel total" />
+        <StatCard glow frost icon={<Eye className="h-5 w-5" />} value={dashboardData && dashboardData.analyticsStatus === "available" ? `${formatHours(totalWatchTime)} hrs` : "—"} label="Watch Time" sub={dashboardData?.analyticsStatus === "unavailable" ? "Analytics unavailable" : "Latest available data"} />
       </div>
+
+      {dashboardData?.analyticsStatus === "unavailable" && <p className="text-xs text-warning">YouTube Analytics is temporarily unavailable. Channel and video metrics are current; analytics data was not substituted.</p>}
+      {dashboardData?.analyticsStatus === "disabled" && <p className="text-xs text-muted-foreground">YouTube Analytics import is disabled in YouTube Integration settings.</p>}
+      {dashboardData && <p className="text-xs text-muted-foreground">Last updated {new Date(dashboardData.fetchedAt).toLocaleString()}</p>}
 
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -227,16 +239,7 @@ function Dashboard() {
             </button>
           </div>
           <div className="mt-4 flex-1 space-y-2.5">
-            {visibleNotifs.slice(0, 3).map((n) => (
-              <NotificationRow
-                key={n.id}
-                notification={n}
-                onMarkRead={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))}
-                onTogglePin={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)))}
-                onToggleArchive={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)))}
-                onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
-              />
-            ))}
+            <p className="py-4 text-sm text-muted-foreground">No new alerts</p>
           </div>
           <Link to="/notifications" className="mt-3 shrink-0 self-start text-sm font-medium text-primary hover:underline">
             View all alerts
@@ -307,8 +310,8 @@ function Dashboard() {
           <p className="mt-1 text-sm text-muted-foreground">Directly measured from YouTube Analytics</p>
           <div className="mt-6 border-t border-border pt-4">
             <p className="text-sm text-muted-foreground">Available period total</p>
-            <p className="mt-1 text-2xl font-bold">{dashboardData ? formatMoney(totalRevenue) : "—"}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Platform attribution is not included</p>
+            <p className="mt-1 text-2xl font-bold">{dashboardData?.analyticsStatus === "available" ? formatMoney(totalRevenue) : "—"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{dashboardData?.analyticsStatus === "available" ? "Platform attribution is not included" : "No current analytics value available"}</p>
           </div>
         </div>
       </div>

@@ -76,6 +76,9 @@ async function syncChannel(service: ReturnType<typeof createServiceSupabaseClien
       channel_handle: liveChannel.handle,
       thumbnail: liveChannel.thumbnail,
       subscriber_count: liveChannel.subscriberCount,
+      view_count: liveChannel.viewCount,
+      video_count: liveChannel.videoCount,
+      uploads_playlist_id: liveChannel.uploadsPlaylistId,
     }).eq("id", channel.id);
 
     let videos: YoutubeVideoSummary[] = [];

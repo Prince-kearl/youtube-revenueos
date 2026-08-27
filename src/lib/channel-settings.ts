@@ -53,6 +53,15 @@ export function useChannelSettings() {
 
   useEffect(() => {
     setSettings(read());
+    fetch("/api/profile")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: { banner_settings?: Partial<ChannelSettings> | null } };
+        if (!response.ok || !body.data?.banner_settings) return;
+        const next = { ...read(), ...body.data.banner_settings };
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        setSettings(next);
+      })
+      .catch(() => undefined);
     const onChange = () => setSettings(read());
     listeners.add(onChange);
     window.addEventListener("storage", onChange);
@@ -73,6 +82,11 @@ export function useChannelSettings() {
     }
     setSettings(next);
     emit();
+    void fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ banner_settings: next }),
+    }).catch(() => undefined);
   }, []);
 
   return { settings, update };

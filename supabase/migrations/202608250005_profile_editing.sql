@@ -1,0 +1,2 @@
+alter table public.profiles add column if not exists cover_url text;
+alter table public.profiles add column if not exists banner_settings jsonb not null default '{"showName":true,"showAvatar":true,"showSubscribers":true,"showRecentPosts":true,"showVisitButton":true}'::jsonb;

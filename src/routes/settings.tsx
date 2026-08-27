@@ -113,13 +113,13 @@ function Settings() {
           ))}
         </div>
 
-        <div>{renderPanel(active)}</div>
+        <div>{renderPanel(active, setActive)}</div>
       </div>
     </DashboardLayout>
   );
 }
 
-function renderPanel(active: string) {
+function renderPanel(active: string, setActive: (section: string) => void) {
   switch (active) {
     case "Appearance":
       return <AppearancePanel />;
@@ -140,24 +140,44 @@ function renderPanel(active: string) {
     case "Security":
       return <SecurityPanel />;
     default:
-      return <ProfilePanel />;
+      return <ProfilePanel onOpenSecurity={() => setActive("Security")} />;
   }
 }
 
-function ProfilePanel() {
+    function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   const { user } = useAuthSession();
-  const [profile, setProfile] = useLocalStore("yroos.profile", { name: "", email: "", avatar: "", role: "Owner", timezone: "", bio: "" });
+  const [profile, setProfile] = useLocalStore("yroos.profile", { name: "", email: "", avatar: "", role: "Owner", timezone: "", bio: "", location: "", website: "", cover_url: "" });
   const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
   const [channelLoading, setChannelLoading] = useState(true);
-  const name = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split("@")[0] ?? "Your profile";
-  const email = user?.email ?? "";
-  const avatar = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture;
-  const displayName = user?.user_metadata?.preferred_username ?? user?.user_metadata?.user_name ?? user?.user_metadata?.name ?? name;
+  const [editor, setEditor] = useState<ProfileEditorMode | null>(null);
+  const fallbackName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split("@")[0] ?? "Your profile";
+  const name = profile.name || fallbackName;
+  const email = profile.email || user?.email || "";
+  const avatar = profile.avatar || (user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture) || channel?.thumbnail;
+  const role = profile.role === "admin" ? "Admin" : "Owner";
   const [bio, setBio] = useState(profile.bio ?? "");
   const [saved, setSaved] = useState(false);
   const [profileTab, setProfileTab] = useState<"Overview" | "Activity" | "Connections" | "Preferences">("Overview");
 
   useEffect(() => {
+    fetch("/api/profile")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ProfileData };
+        if (!response.ok || !body.data) return;
+        setProfile((current) => ({
+          ...current,
+          name: body.data.name ?? "",
+          email: body.data.email ?? "",
+          avatar: body.data.avatar ?? "",
+          role: body.data.role,
+          location: body.data.location ?? "",
+          website: body.data.website ?? "",
+          bio: body.data.bio ?? current.bio,
+          cover_url: body.data.cover_url ?? "",
+        }));
+      })
+      .catch(() => undefined);
+
     fetch("/api/youtube/channels")
       .then(async (response) => {
         const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
@@ -173,13 +193,18 @@ function ProfilePanel() {
       : `https://www.youtube.com/channel/${channel.youtube_channel_id}`
     : "YouTube not connected";
 
+  const saveProfile = (next: ProfileData) => {
+    setProfile((current) => ({ ...current, ...next, role: next.role === "admin" ? "Admin" : next.role === "user" ? "Owner" : next.role ?? current.role }));
+    setEditor(null);
+  };
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="relative h-32 overflow-hidden bg-[#151515] sm:h-40">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(255,0,0,0.28),transparent_34%),linear-gradient(115deg,#121212_0%,#292929_48%,#0b0b0b_100%)]" />
+        {profile.cover_url ? <img src={profile.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(255,0,0,0.28),transparent_34%),linear-gradient(115deg,#121212_0%,#292929_48%,#0b0b0b_100%)]" />}
         <div className="absolute -right-8 -top-20 h-64 w-64 rotate-12 border border-white/10 bg-white/[0.03]" />
-        <button aria-label="Edit profile cover" title="Edit profile cover" className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full border border-white/20 bg-black/30 text-white hover:bg-black/50"><Pencil className="h-3.5 w-3.5" /></button>
+        <button onClick={() => setEditor("cover")} aria-label="Edit profile cover" title="Edit profile cover" className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full border border-white/20 bg-black/30 text-white hover:bg-black/50"><Pencil className="h-3.5 w-3.5" /></button>
       </div>
 
       <div className="relative px-5 pb-0 sm:px-7">
@@ -187,18 +212,18 @@ function ProfilePanel() {
           <div className="flex items-end gap-4">
             <div className="relative">
               {avatar ? <img src={avatar} alt={name} className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-lg sm:h-28 sm:w-28" /> : <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-card bg-primary text-2xl font-bold text-primary-foreground shadow-lg sm:h-28 sm:w-28">{name.charAt(0).toUpperCase()}</div>}
-              <button aria-label="Edit profile photo" title="Edit profile photo" className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground"><Camera className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setEditor("avatar")} aria-label="Edit profile photo" title="Edit profile photo" className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground"><Camera className="h-3.5 w-3.5" /></button>
             </div>
             <div className="pb-1">
               <div className="flex items-center gap-1.5"><h3 className="text-xl font-bold tracking-tight">{name}</h3><BadgeCheck className="h-4 w-4 fill-primary text-primary-foreground" /></div>
               <p className="text-xs text-muted-foreground">{email}</p>
             </div>
           </div>
-          <button className="inline-flex items-center justify-center gap-2 rounded-[var(--button-radius)] border border-border px-4 py-2 text-xs font-semibold hover:border-primary"><Pencil className="h-3.5 w-3.5" /> Edit profile</button>
+          <button onClick={() => setEditor("profile")} className="inline-flex items-center justify-center gap-2 rounded-[var(--button-radius)] border border-border px-4 py-2 text-xs font-semibold hover:border-primary"><Pencil className="h-3.5 w-3.5" /> Edit profile</button>
         </div>
 
         <p className="mt-4 max-w-xl text-xs leading-5 text-muted-foreground">{bio || "Creator focused on building a smarter YouTube business with actionable insights and better workflows."}</p>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "recently"}</span><span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> Lagos, Nigeria</span><span className="inline-flex items-center gap-1"><Crown className="h-3 w-3 text-primary" /> {profile.role}</span></div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "recently"}</span><span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.location || "Location not set"}</span><span className="inline-flex items-center gap-1"><Crown className="h-3 w-3 text-primary" /> {role}</span></div>
 
         <div className="mt-5 flex gap-5 overflow-x-auto border-b border-border">
           {["Overview", "Activity", "Connections", "Preferences"].map((tab) => <button key={tab} onClick={() => setProfileTab(tab as typeof profileTab)} className={`relative shrink-0 pb-3 text-[11px] font-semibold transition-colors ${profileTab === tab ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>{tab}{profileTab === tab && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}</button>)}
@@ -207,16 +232,62 @@ function ProfilePanel() {
 
       <div className="space-y-4 p-5 sm:p-7">
         {profileTab === "Overview" && <>
-          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">About</h4><button className="text-muted-foreground hover:text-primary" aria-label="Edit about" title="Edit about"><Pencil className="h-3 w-3" /></button></div><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"><div><p className="text-[10px] text-muted-foreground">Account type</p><p className="mt-1 text-xs font-semibold">{profile.role}</p></div><div><p className="text-[10px] text-muted-foreground">Email</p><p className="mt-1 truncate text-xs font-semibold">{email || "Not available"}</p></div><div><p className="text-[10px] text-muted-foreground">Location</p><p className="mt-1 text-xs font-semibold">Lagos, Nigeria</p></div><div><p className="text-[10px] text-muted-foreground">Website</p><p className="mt-1 text-xs font-semibold text-primary">tubify.co</p></div></div></div>
-          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">Recently connected</h4><button onClick={() => setProfileTab("Connections")} className="text-[10px] font-semibold text-primary hover:underline">View all <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg border border-border p-3"><div className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-red/10 text-brand-red"><Youtube className="h-4 w-4" /></span><div><p className="text-xs font-semibold">YouTube</p><p className="text-[10px] text-success">{channelLoading ? "Checking connection…" : channel ? "Connected" : "Not connected"}</p></div></div><button onClick={() => window.open(channelUrl, "_blank", "noopener,noreferrer")} disabled={!channel} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-[10px] font-semibold disabled:opacity-50">Manage <ExternalLink className="h-3 w-3" /></button></div></div>
-          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><div><h4 className="text-xs font-bold">Account security</h4><p className="mt-1 text-[10px] text-muted-foreground">Protect your account with two-factor authentication.</p></div><button onClick={() => setProfileTab("Preferences")} className="text-[10px] font-semibold text-primary">Manage <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg bg-success/5 p-3"><span className="text-[10px] text-muted-foreground">Two-factor authentication</span><span className="rounded-full bg-success/10 px-2 py-1 text-[10px] font-bold text-success">Review settings</span></div></div>
+          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">About</h4><button onClick={() => setEditor("about")} className="text-muted-foreground hover:text-primary" aria-label="Edit about" title="Edit about"><Pencil className="h-3 w-3" /></button></div><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"><div><p className="text-[10px] text-muted-foreground">Account type</p><p className="mt-1 text-xs font-semibold">{role}</p></div><div><p className="text-[10px] text-muted-foreground">Email</p><p className="mt-1 truncate text-xs font-semibold">{email || "Not available"}</p></div><div><p className="text-[10px] text-muted-foreground">Location</p><p className="mt-1 text-xs font-semibold">{profile.location || "Not set"}</p></div><div><p className="text-[10px] text-muted-foreground">Website</p><p className="mt-1 truncate text-xs font-semibold text-primary">{profile.website || "Not set"}</p></div></div></div>
+          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">Recently connected</h4><button onClick={() => setProfileTab("Connections")} className="text-[10px] font-semibold text-primary hover:underline">View all <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg border border-border p-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-red/10 text-brand-red">{channel?.thumbnail ? <img src={channel.thumbnail} alt="" className="h-full w-full object-cover" /> : <Youtube className="h-4 w-4" />}</span><div className="min-w-0"><p className="truncate text-xs font-semibold">{channel?.channel_name ?? "YouTube"}</p><p className="text-[10px] text-success">{channelLoading ? "Checking connection…" : channel ? `${channel.subscriber_count.toLocaleString()} subscribers` : "Not connected"}</p></div></div><button onClick={() => window.open(channelUrl, "_blank", "noopener,noreferrer")} disabled={!channel} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-[10px] font-semibold disabled:opacity-50">Manage <ExternalLink className="h-3 w-3" /></button></div></div>
+          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><div><h4 className="text-xs font-bold">Account security</h4><p className="mt-1 text-[10px] text-muted-foreground">Protect your account with two-factor authentication.</p></div><button onClick={onOpenSecurity} className="text-[10px] font-semibold text-primary">Manage <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg bg-success/5 p-3"><span className="text-[10px] text-muted-foreground">Two-factor authentication</span><button onClick={onOpenSecurity} className="rounded-full bg-success/10 px-2 py-1 text-[10px] font-bold text-success hover:bg-success/20">Review settings</button></div></div>
         </>}
         {profileTab === "Activity" && <div className="rounded-xl border border-border bg-background p-5 text-xs text-muted-foreground">Your profile activity will appear here as you connect services and update account settings.</div>}
-        {profileTab === "Connections" && <div className="rounded-xl border border-border bg-background p-5"><h4 className="text-xs font-bold">Connected services</h4><div className="mt-4 flex items-center justify-between rounded-lg border border-border p-3"><div className="flex items-center gap-3"><Youtube className="h-4 w-4 text-brand-red" /><div><p className="text-xs font-semibold">{channel?.channel_name ?? "YouTube"}</p><p className="text-[10px] text-muted-foreground">{channel ? `${channel.subscriber_count.toLocaleString()} subscribers` : "Not connected"}</p></div></div><Link2 className="h-4 w-4 text-muted-foreground" /></div></div>}
-        {profileTab === "Preferences" && <div className="space-y-4"><div className="rounded-xl border border-border bg-background p-5"><div className="flex items-center justify-between"><div><h4 className="text-xs font-bold">Appearance</h4><p className="mt-1 text-[10px] text-muted-foreground">Choose how Tubify looks on this device.</p></div><AppearanceModeControl /></div></div><div className="rounded-xl border border-border bg-background p-5"><label className="mb-2 block text-xs font-semibold">Bio</label><textarea rows={4} value={bio} onChange={(event) => setBio(event.target.value)} className="w-full resize-none rounded-lg border border-border bg-accent/20 p-3 text-xs outline-none focus:border-primary" /><button onClick={() => { setProfile((current) => ({ ...current, bio })); setSaved(true); window.setTimeout(() => setSaved(false), 1800); toast.success("Profile preferences saved"); }} className="mt-4 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">{saved ? "Saved" : "Save changes"}</button></div></div>}
+        {profileTab === "Connections" && <div className="rounded-xl border border-border bg-background p-5"><h4 className="text-xs font-bold">Connected services</h4><div className="mt-4 flex items-center justify-between rounded-lg border border-border p-3"><div className="flex min-w-0 items-center gap-3"><Youtube className="h-4 w-4 shrink-0 text-brand-red" /><div className="min-w-0"><p className="truncate text-xs font-semibold">{channel?.channel_name ?? "YouTube"}</p><p className="text-[10px] text-muted-foreground">{channel ? `${channel.subscriber_count.toLocaleString()} subscribers · ${(channel.video_count ?? 0).toLocaleString()} videos · ${(channel.view_count ?? 0).toLocaleString()} views` : "Not connected"}</p></div></div><Link2 className="h-4 w-4 shrink-0 text-muted-foreground" /></div></div>}
+        {profileTab === "Preferences" && <div className="space-y-4"><div className="rounded-xl border border-border bg-background p-5"><div className="flex items-center justify-between"><div><h4 className="text-xs font-bold">Appearance</h4><p className="mt-1 text-[10px] text-muted-foreground">Choose how Tubify looks on this device.</p></div><AppearanceModeControl /></div></div><div className="rounded-xl border border-border bg-background p-5"><label className="mb-2 block text-xs font-semibold">Bio</label><textarea rows={4} value={bio} onChange={(event) => setBio(event.target.value)} className="w-full resize-none rounded-lg border border-border bg-accent/20 p-3 text-xs outline-none focus:border-primary" /><button onClick={async () => { try { const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bio: bio || null }) }); const body = (await response.json()) as { data?: ProfileData }; if (!response.ok || !body.data) throw new Error("save_failed"); saveProfile(body.data); setSaved(true); window.setTimeout(() => setSaved(false), 1800); toast.success("Profile preferences saved"); } catch { toast.error("Could not save profile preferences"); } }} className="mt-4 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">{saved ? "Saved" : "Save changes"}</button></div></div>}
       </div>
+      {editor && <ProfileEditor mode={editor} profile={profile} onClose={() => setEditor(null)} onSaved={saveProfile} />}
     </div>
   );
+}
+
+type ProfileEditorMode = "profile" | "about" | "avatar" | "cover";
+interface ProfileData { id?: string; name: string | null; email: string | null; avatar: string | null; role?: string; location: string | null; website: string | null; bio: string | null; cover_url: string | null; created_at?: string; updated_at?: string }
+
+function ProfileEditor({ mode, profile, onClose, onSaved }: { mode: ProfileEditorMode; profile: ProfileData; onClose: () => void; onSaved: (profile: ProfileData) => void }) {
+  const [values, setValues] = useState({ name: profile.name ?? "", avatar: profile.avatar ?? "", cover_url: profile.cover_url ?? "", location: profile.location ?? "", website: profile.website ?? "", bio: profile.bio ?? "" });
+  const [saving, setSaving] = useState(false);
+  const title = mode === "avatar" ? "Profile photo" : mode === "cover" ? "Profile cover" : mode === "about" ? "About profile" : "Edit profile";
+  const imageField = mode === "avatar" ? "avatar" : "cover_url";
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Images must be 2 MB or smaller");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setValues((current) => ({ ...current, [imageField]: reader.result }));
+    };
+    reader.onerror = () => toast.error("Could not read that image");
+    reader.readAsDataURL(file);
+  };
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const payload = mode === "avatar" ? { avatar: values.avatar || null } : mode === "cover" ? { cover_url: values.cover_url || null } : mode === "about" ? { location: values.location || null, website: values.website || null, bio: values.bio || null } : { name: values.name, avatar: values.avatar || null, location: values.location || null, website: values.website || null, bio: values.bio || null, cover_url: values.cover_url || null };
+      const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const body = (await response.json()) as { data?: ProfileData; error?: string };
+      if (!response.ok || !body.data) throw new Error(body.error ?? "save_failed");
+      onSaved(body.data);
+      toast.success("Profile updated");
+    } catch (error) {
+      toast.error(error instanceof Error && error.message === "PROFILE_MIGRATION_REQUIRED" ? "Profile database migration is required" : "Could not update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="profile-editor-title"><form onSubmit={save} className="w-full max-w-lg space-y-4 rounded-xl border border-border bg-card p-5 shadow-xl"><div className="flex items-center justify-between"><h3 id="profile-editor-title" className="text-lg font-semibold">{title}</h3><button type="button" onClick={onClose} aria-label="Close" title="Close" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></button></div>{mode !== "avatar" && mode !== "cover" && <label className="block text-xs font-semibold">Name<input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" required maxLength={120} /></label>}{mode !== "avatar" && mode !== "cover" && <label className="block text-xs font-semibold">Location<input value={values.location} onChange={(event) => setValues({ ...values, location: event.target.value })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" maxLength={120} /></label>}{mode !== "avatar" && mode !== "cover" && <label className="block text-xs font-semibold">Website<input type="url" value={values.website} onChange={(event) => setValues({ ...values, website: event.target.value })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" placeholder="https://" /></label>}{mode !== "avatar" && mode !== "cover" && <label className="block text-xs font-semibold">Bio<textarea value={values.bio} onChange={(event) => setValues({ ...values, bio: event.target.value })} rows={3} className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm" maxLength={500} /></label>}{mode !== "about" && <div className="space-y-2"><label className="block text-xs font-semibold">Image URL<input type="url" value={values[imageField]} onChange={(event) => setValues({ ...values, [imageField]: event.target.value })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" placeholder="https://" /></label><label className="inline-flex cursor-pointer items-center rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:border-primary">Upload image<input type="file" accept="image/*" onChange={handleImageUpload} className="sr-only" /></label><p className="text-[10px] text-muted-foreground">PNG, JPEG, WebP, or GIF up to 2 MB.</p></div>}<div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm">Cancel</button><button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save changes"}</button></div></form></div>;
 }
 
 function AppearanceModeControl() {
@@ -228,7 +299,7 @@ function AppearanceModeControl() {
   ];
 
   return (
-    <div className="flex items-center gap-1 rounded-full bg-[#171717] p-1.5 shadow-inner" role="group" aria-label="Appearance mode">
+    <div className="flex items-center gap-1 rounded-full border border-border bg-background p-1.5 shadow-inner" role="group" aria-label="Appearance mode">
       {options.map((option) => (
         <button
           key={option.key}
@@ -237,7 +308,7 @@ function AppearanceModeControl() {
           aria-label={option.label}
           aria-pressed={mode === option.key}
           title={option.label}
-          className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${mode === option.key ? "bg-white/10 text-white" : "text-white/45 hover:text-white/80"}`}
+          className={`grid h-9 w-9 place-items-center rounded-full transition-colors ${mode === option.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
         >
           <option.icon className="h-5 w-5" strokeWidth={2} />
         </button>
@@ -261,8 +332,11 @@ function AppearancePanel() {
 function ConnectedAccountsPanel() {
   const navigate = useNavigate();
   const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
+  const [integrations, setIntegrations] = useState<ExternalIntegration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [connecting, setConnecting] = useState<ExternalProvider | null>(null);
 
   useEffect(() => {
     fetch("/api/youtube/channels")
@@ -272,6 +346,22 @@ function ConnectedAccountsPanel() {
       })
       .catch(() => setChannel(null))
       .finally(() => setLoading(false));
+    fetch("/api/integrations")
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ExternalIntegration[] };
+        setIntegrations(response.ok ? body.data ?? [] : []);
+      })
+      .catch(() => setIntegrations([]))
+      .finally(() => setIntegrationsLoading(false));
+    const status = new URL(window.location.href).searchParams.get("integration");
+    if (status === "google_analytics" || status === "stripe" || status === "kit") toast.success(`${status === "google_analytics" ? "Google Analytics" : status === "stripe" ? "Stripe" : "Kit"} connected`);
+    if (status === "storage_failed") toast.error("Connection succeeded but could not be saved");
+    if (status === "invalid_state") toast.error("That connection request expired. Try again.");
+    if (status) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("integration");
+      window.history.replaceState({}, "", url.toString());
+    }
   }, []);
 
   const disconnectYoutube = async () => {
@@ -288,6 +378,32 @@ function ConnectedAccountsPanel() {
       setDisconnecting(false);
     }
   };
+
+  const googleConnected = integrations.some((item) => item.provider === "google_analytics");
+  const connectExternal = async (provider: ExternalProvider) => {
+    setConnecting(provider);
+    try {
+      const response = await fetch(`/api/integrations?provider=${provider}`, { method: "POST" });
+      const body = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !body.url) throw new Error(body.error ?? "connect_failed");
+      window.location.href = body.url;
+    } catch (error) {
+      toast.error(error instanceof Error && error.message === "PROVIDER_NOT_CONFIGURED" ? `${provider === "stripe" ? "Stripe" : "Kit"} integration is not configured` : "Could not start connection");
+      setConnecting(null);
+    }
+  };
+  const disconnectExternal = async (provider: ExternalProvider) => {
+    setConnecting(provider);
+    try {
+      const response = await fetch(`/api/integrations?provider=${provider}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("disconnect_failed");
+      setIntegrations((current) => current.filter((item) => item.provider !== provider));
+      toast.success(`${provider === "stripe" ? "Stripe" : "Kit"} disconnected`);
+    } catch { toast.error("Could not disconnect integration"); }
+    finally { setConnecting(null); }
+  };
+  const stripeConnected = integrations.some((item) => item.provider === "stripe");
+  const kitConnected = integrations.some((item) => item.provider === "kit");
 
   const accounts = [
     {
@@ -306,22 +422,22 @@ function ConnectedAccountsPanel() {
       domain: "analytics.google.com",
       logo: "https://cdn.simpleicons.org/googleanalytics",
       iconClass: "text-brand-blue",
-      description: "Review your YouTube performance insights.",
-      connected: false,
-      action: () => navigate({ to: "/analytics" }),
-      actionLabel: "Open Analytics",
-      disabled: false,
+      description: googleConnected ? "Connected through your YouTube Google authorization." : "Connect YouTube to authorize Analytics access.",
+      connected: googleConnected,
+      action: googleConnected ? () => navigate({ to: "/analytics" }) : () => void connectExternal("google_analytics"),
+      actionLabel: googleConnected ? "Open Analytics" : "Connect",
+      disabled: integrationsLoading || connecting !== null,
     },
     {
       title: "Stripe",
       domain: "stripe.com",
       logo: "https://cdn.simpleicons.org/stripe",
       iconClass: "text-brand-purple",
-      description: "Manage your subscription and billing.",
-      connected: false,
-      action: () => navigate({ to: "/billing" }),
-      actionLabel: "Open Billing",
-      disabled: false,
+      description: "Manage your subscription and billing workspace.",
+      connected: stripeConnected,
+      action: stripeConnected ? () => void disconnectExternal("stripe") : () => void connectExternal("stripe"),
+      actionLabel: connecting === "stripe" ? "Working…" : stripeConnected ? "Disconnect" : "Connect Stripe",
+      disabled: integrationsLoading || connecting !== null,
     },
     {
       title: "ConvertKit",
@@ -329,11 +445,11 @@ function ConnectedAccountsPanel() {
       logo: "https://cdn.simpleicons.org/kit",
       logoClass: "dark:invert",
       iconClass: "text-brand-amber",
-      description: "Connect an email provider from the Email workspace.",
-      connected: false,
-      action: () => navigate({ to: "/email" }),
-      actionLabel: "Open Email",
-      disabled: false,
+      description: "Manage email campaigns from the Email workspace.",
+      connected: kitConnected,
+      action: kitConnected ? () => void disconnectExternal("kit") : () => void connectExternal("kit"),
+      actionLabel: connecting === "kit" ? "Working…" : kitConnected ? "Disconnect" : "Connect Kit",
+      disabled: integrationsLoading || connecting !== null,
     },
   ];
 
@@ -349,7 +465,7 @@ function ConnectedAccountsPanel() {
             </div>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">Connect your other profiles to keep your creator presence in sync.</p>
           </div>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channel ? "1 connected" : "Ready to connect"}</span>
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channel ? "YouTube connected" : "Connect YouTube"}</span>
         </div>
 
         <div className="mt-6 space-y-2">
@@ -369,7 +485,7 @@ function ConnectedAccountsPanel() {
               onClick={account.action}
               disabled={account.disabled}
               className={`w-full rounded-lg px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
-                account.connected
+                (account.title === "YouTube" || account.title === "Stripe" || account.title === "ConvertKit") && account.connected
                   ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
                   : "border border-border bg-accent/40 text-foreground hover:border-primary/50 hover:bg-primary/10"
               } disabled:cursor-not-allowed disabled:opacity-60`}
@@ -380,10 +496,6 @@ function ConnectedAccountsPanel() {
         ))}
         </div>
 
-        <div className="mt-6 border-t border-border pt-5">
-          <button onClick={() => navigate({ to: "/dashboard" })} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90">Save changes</button>
-          <button onClick={() => navigate({ to: "/dashboard" })} className="mt-3 w-full py-1 text-sm font-medium text-muted-foreground transition hover:text-foreground">Cancel</button>
-        </div>
       </div>
     </div>
   );
@@ -396,10 +508,24 @@ interface ConnectedYoutubeChannel {
   channel_handle: string | null;
   thumbnail: string | null;
   subscriber_count: number;
+  view_count?: number;
+  video_count?: number;
+  uploads_playlist_id?: string | null;
   connected_at: string;
   last_synced_at: string | null;
   last_sync_status: "never_synced" | "syncing" | "success" | "partial" | "failed" | "reauth_required";
   last_sync_error: string | null;
+}
+
+type ExternalProvider = "google_analytics" | "stripe" | "kit";
+interface ExternalIntegration {
+  id: string;
+  provider: ExternalProvider;
+  provider_account_id: string | null;
+  account_name: string | null;
+  metadata: Record<string, unknown>;
+  connected_at: string;
+  updated_at: string;
 }
 
 const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; text: string }> = {

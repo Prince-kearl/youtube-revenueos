@@ -513,15 +513,11 @@
 /* Full-width chrome bars — sticky header. No radius (spans the viewport). */
 :root:not(.ios26) .glass-bar {
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--background) 80%, transparent);
+  background: transparent;
 }
 .ios26 .glass-bar {
   border-bottom: 1px solid color-mix(in srgb, white 14%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--card) 65%, transparent),
-    color-mix(in srgb, var(--card) 40%, transparent)
-  );
+  background: transparent;
 }
 .ios26.dark .glass-bar {
   border-bottom: 1px solid color-mix(in srgb, white 8%, transparent);

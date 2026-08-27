@@ -41,6 +41,8 @@ import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
+import { Route as ApiProfileRouteImport } from './routes/api.profile'
+import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
@@ -52,6 +54,9 @@ import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.cal
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
 import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
+import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
+import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
+import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -213,6 +218,16 @@ const ApiSettingsRoute = ApiSettingsRouteImport.update({
   path: '/api/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProfileRoute = ApiProfileRouteImport.update({
+  id: '/api/profile',
+  path: '/api/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
+  id: '/api/integrations',
+  path: '/api/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
   id: '/api/generate',
   path: '/api/generate',
@@ -269,6 +284,24 @@ const ApiSecurityRecoveryCodesRoute =
     path: '/api/security/recovery-codes',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIntegrationsStripeCallbackRoute =
+  ApiIntegrationsStripeCallbackRouteImport.update({
+    id: '/stripe/callback',
+    path: '/stripe/callback',
+    getParentRoute: () => ApiIntegrationsRoute,
+  } as any)
+const ApiIntegrationsKitCallbackRoute =
+  ApiIntegrationsKitCallbackRouteImport.update({
+    id: '/kit/callback',
+    path: '/kit/callback',
+    getParentRoute: () => ApiIntegrationsRoute,
+  } as any)
+const ApiIntegrationsGoogleAnalyticsCallbackRoute =
+  ApiIntegrationsGoogleAnalyticsCallbackRouteImport.update({
+    id: '/google-analytics/callback',
+    path: '/google-analytics/callback',
+    getParentRoute: () => ApiIntegrationsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -303,6 +336,8 @@ export interface FileRoutesByFullPath {
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -314,6 +349,9 @@ export interface FileRoutesByFullPath {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
+  '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -348,6 +386,8 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -359,6 +399,9 @@ export interface FileRoutesByTo {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
+  '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -394,6 +437,8 @@ export interface FileRoutesById {
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -405,6 +450,9 @@ export interface FileRoutesById {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
+  '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -441,6 +489,8 @@ export interface FileRouteTypes {
     | '/videos'
     | '/api/destinations'
     | '/api/generate'
+    | '/api/integrations'
+    | '/api/profile'
     | '/api/settings'
     | '/auth/callback'
     | '/api/security/recovery-codes'
@@ -452,6 +502,9 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/kit/callback'
+    | '/api/integrations/stripe/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -486,6 +539,8 @@ export interface FileRouteTypes {
     | '/videos'
     | '/api/destinations'
     | '/api/generate'
+    | '/api/integrations'
+    | '/api/profile'
     | '/api/settings'
     | '/auth/callback'
     | '/api/security/recovery-codes'
@@ -497,6 +552,9 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/kit/callback'
+    | '/api/integrations/stripe/callback'
   id:
     | '__root__'
     | '/'
@@ -531,6 +589,8 @@ export interface FileRouteTypes {
     | '/videos'
     | '/api/destinations'
     | '/api/generate'
+    | '/api/integrations'
+    | '/api/profile'
     | '/api/settings'
     | '/auth/callback'
     | '/api/security/recovery-codes'
@@ -542,6 +602,9 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/kit/callback'
+    | '/api/integrations/stripe/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -577,6 +640,8 @@ export interface RootRouteChildren {
   VideosRoute: typeof VideosRoute
   ApiDestinationsRoute: typeof ApiDestinationsRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
+  ApiProfileRoute: typeof ApiProfileRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
@@ -816,6 +881,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/profile': {
+      id: '/api/profile'
+      path: '/api/profile'
+      fullPath: '/api/profile'
+      preLoaderRoute: typeof ApiProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integrations': {
+      id: '/api/integrations'
+      path: '/api/integrations'
+      fullPath: '/api/integrations'
+      preLoaderRoute: typeof ApiIntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate': {
       id: '/api/generate'
       path: '/api/generate'
@@ -893,8 +972,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSecurityRecoveryCodesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integrations/stripe/callback': {
+      id: '/api/integrations/stripe/callback'
+      path: '/stripe/callback'
+      fullPath: '/api/integrations/stripe/callback'
+      preLoaderRoute: typeof ApiIntegrationsStripeCallbackRouteImport
+      parentRoute: typeof ApiIntegrationsRoute
+    }
+    '/api/integrations/kit/callback': {
+      id: '/api/integrations/kit/callback'
+      path: '/kit/callback'
+      fullPath: '/api/integrations/kit/callback'
+      preLoaderRoute: typeof ApiIntegrationsKitCallbackRouteImport
+      parentRoute: typeof ApiIntegrationsRoute
+    }
+    '/api/integrations/google-analytics/callback': {
+      id: '/api/integrations/google-analytics/callback'
+      path: '/google-analytics/callback'
+      fullPath: '/api/integrations/google-analytics/callback'
+      preLoaderRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRouteImport
+      parentRoute: typeof ApiIntegrationsRoute
+    }
   }
 }
+
+interface ApiIntegrationsRouteChildren {
+  ApiIntegrationsGoogleAnalyticsCallbackRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  ApiIntegrationsKitCallbackRoute: typeof ApiIntegrationsKitCallbackRoute
+  ApiIntegrationsStripeCallbackRoute: typeof ApiIntegrationsStripeCallbackRoute
+}
+
+const ApiIntegrationsRouteChildren: ApiIntegrationsRouteChildren = {
+  ApiIntegrationsGoogleAnalyticsCallbackRoute:
+    ApiIntegrationsGoogleAnalyticsCallbackRoute,
+  ApiIntegrationsKitCallbackRoute: ApiIntegrationsKitCallbackRoute,
+  ApiIntegrationsStripeCallbackRoute: ApiIntegrationsStripeCallbackRoute,
+}
+
+const ApiIntegrationsRouteWithChildren = ApiIntegrationsRoute._addFileChildren(
+  ApiIntegrationsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -929,6 +1046,8 @@ const rootRouteChildren: RootRouteChildren = {
   VideosRoute: VideosRoute,
   ApiDestinationsRoute: ApiDestinationsRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
+  ApiProfileRoute: ApiProfileRoute,
   ApiSettingsRoute: ApiSettingsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
