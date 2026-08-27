@@ -163,17 +163,18 @@ function renderPanel(active: string, setActive: (section: string) => void) {
     fetch("/api/profile")
       .then(async (response) => {
         const body = (await response.json()) as { data?: ProfileData };
-        if (!response.ok || !body.data) return;
+        const profileData = body.data;
+        if (!response.ok || !profileData) return;
         setProfile((current) => ({
           ...current,
-          name: body.data.name ?? "",
-          email: body.data.email ?? "",
-          avatar: body.data.avatar ?? "",
-          role: body.data.role,
-          location: body.data.location ?? "",
-          website: body.data.website ?? "",
-          bio: body.data.bio ?? current.bio,
-          cover_url: body.data.cover_url ?? "",
+          name: profileData.name ?? "",
+          email: profileData.email ?? "",
+          avatar: profileData.avatar ?? "",
+          role: profileData.role ?? current.role,
+          location: profileData.location ?? "",
+          website: profileData.website ?? "",
+          bio: profileData.bio ?? current.bio,
+          cover_url: profileData.cover_url ?? "",
         }));
       })
       .catch(() => undefined);
@@ -194,7 +195,17 @@ function renderPanel(active: string, setActive: (section: string) => void) {
     : "YouTube not connected";
 
   const saveProfile = (next: ProfileData) => {
-    setProfile((current) => ({ ...current, ...next, role: next.role === "admin" ? "Admin" : next.role === "user" ? "Owner" : next.role ?? current.role }));
+    setProfile((current) => ({
+      ...current,
+      name: next.name ?? current.name,
+      email: next.email ?? current.email,
+      avatar: next.avatar ?? current.avatar,
+      role: next.role === "admin" ? "Admin" : next.role === "user" ? "Owner" : next.role ?? current.role,
+      location: next.location ?? current.location,
+      website: next.website ?? current.website,
+      bio: next.bio ?? current.bio,
+      cover_url: next.cover_url ?? current.cover_url,
+    }));
     setEditor(null);
   };
 
@@ -1243,8 +1254,8 @@ function CompliancePanel() {
         <h4 className="text-sm font-semibold">Privacy &amp; Security</h4>
         <div className="mt-3 flex flex-col items-start gap-2 text-sm">
           <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
-          <Link to="/privacy#security" className="text-primary hover:underline">Security &amp; Data Protection</Link>
-          <Link to="/privacy#sharing" className="text-primary hover:underline">Data Processing / Subprocessors</Link>
+          <a href="/privacy#security" className="text-primary hover:underline">Security &amp; Data Protection</a>
+          <a href="/privacy#sharing" className="text-primary hover:underline">Data Processing / Subprocessors</a>
         </div>
       </div>
       <ConfirmDialog

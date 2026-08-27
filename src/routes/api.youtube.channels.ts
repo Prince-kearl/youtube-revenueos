@@ -24,7 +24,9 @@ export const Route = createFileRoute("/api/youtube/channels")({
           const { client } = await requireSessionUser(request);
           const { data: channels, error } = await client
             .from("youtube_channels")
-            .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry")
+            .select(
+              "id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry",
+            )
             .order("connected_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!channels?.length) return json({ data: [] });
@@ -39,7 +41,10 @@ export const Route = createFileRoute("/api/youtube/channels")({
           if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
           const accessToken = await getValidAccessToken(serviceClient, secretRow);
-          const liveChannel = await fetchAuthorizedYoutubeChannel(accessToken);
+          const liveChannel = await fetchAuthorizedYoutubeChannel(
+            accessToken,
+            channel.youtube_channel_id,
+          );
           const { data: syncedChannel, error: syncError } = await client
             .from("youtube_channels")
             .update({
@@ -53,9 +58,12 @@ export const Route = createFileRoute("/api/youtube/channels")({
               last_synced_at: new Date().toISOString(),
             })
             .eq("id", channel.id)
-            .select("id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry")
+            .select(
+              "id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error, token_expiry",
+            )
             .single();
-          if (syncError || !syncedChannel) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (syncError || !syncedChannel)
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
           return json({ data: [syncedChannel] });
         } catch (error) {
           if (error instanceof Response) return error;
@@ -76,7 +84,8 @@ export const Route = createFileRoute("/api/youtube/channels")({
           return json({ success: true });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (error instanceof z.ZodError) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          if (error instanceof z.ZodError)
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },

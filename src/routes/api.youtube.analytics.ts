@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { getValidAccessToken } from "@/lib/server/youtube-tokens";
-import { queryYoutubeAnalytics } from "@/lib/server/google-oauth";
+import {
+  aggregateYoutubeAnalyticsByMonth,
+  queryYoutubeAnalytics,
+  type YoutubeAnalyticsPayload,
+} from "@/lib/server/google-oauth";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 
 const querySchema = z.object({
@@ -30,22 +34,41 @@ export const Route = createFileRoute("/api/youtube/analytics")({
 
           const { data: channel, error } = await client
             .from("youtube_channels")
-            .select("id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .select(
+              "id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry",
+            )
             .order("connected_at", { ascending: false })
             .limit(1)
             .single();
           if (error || !channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const accessToken = await getValidAccessToken(client, channel);
-          const report = await queryYoutubeAnalytics(accessToken, {
+          const requestedDimensions = input.dimensions?.split(",").filter(Boolean);
+          const wantsMonthlyRows = requestedDimensions?.includes("month") ?? false;
+          if (wantsMonthlyRows && requestedDimensions?.some((dimension) => dimension !== "month")) {
+            return json(
+              {
+                error: "VALIDATION_ERROR",
+                message: "The month dimension cannot be combined with another dimension.",
+              },
+              { status: 422 },
+            );
+          }
+          const report = (await queryYoutubeAnalytics(accessToken, {
             channelId: channel.youtube_channel_id,
             startDate: input.startDate,
             endDate: input.endDate,
-            metrics: input.metrics.split(","),
-            dimensions: input.dimensions?.split(","),
-          });
+            metrics: input.metrics.split(",").filter(Boolean),
+            dimensions: wantsMonthlyRows ? ["day"] : requestedDimensions,
+          })) as YoutubeAnalyticsPayload;
+          const normalizedReport = wantsMonthlyRows
+            ? aggregateYoutubeAnalyticsByMonth(report)
+            : report;
 
-          await client.from("youtube_channels").update({ last_synced_at: new Date().toISOString() }).eq("id", channel.id);
+          await client
+            .from("youtube_channels")
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq("id", channel.id);
 
           const service = createServiceSupabaseClient();
           await service.from("youtube_quota_events").insert({
@@ -58,10 +81,25 @@ export const Route = createFileRoute("/api/youtube/analytics")({
 
           // These are directly measured YouTube Analytics figures, not platform-side attribution —
           // callers must not blend this with click/lead/deal-derived numbers without labeling both.
-          return json({ data: report, meta: { source: "youtube_analytics_api", fetchedAt: new Date().toISOString() } });
+          return json({
+            data: normalizedReport,
+            meta: { source: "youtube_analytics_api", fetchedAt: new Date().toISOString() },
+          });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (error instanceof z.ZodError) return json({ error: "VALIDATION_ERROR", details: error.flatten() }, { status: 422 });
+          if (error instanceof z.ZodError)
+            return json({ error: "VALIDATION_ERROR", details: error.flatten() }, { status: 422 });
+          const message = error instanceof Error ? error.message : "";
+          if (
+            /YOUTUBE_.*:401$/.test(message) ||
+            /GOOGLE_TOKEN_REQUEST_FAILED:(400|401)$/.test(message)
+          ) {
+            return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
+          }
+          console.error("YouTube Analytics query failed", {
+            reason: message.match(/:(\d{3})(?::|$)/)?.[1] ?? message.split(":")[0].slice(0, 80),
+            timestamp: new Date().toISOString(),
+          });
           return json({ error: "YOUTUBE_ANALYTICS_ERROR" }, { status: 502 });
         }
       },

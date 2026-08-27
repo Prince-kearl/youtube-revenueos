@@ -8,7 +8,10 @@ async function importKey(): Promise<CryptoKey> {
   if (keyBytes.length !== 32) {
     throw new Error("TOKEN_ENCRYPTION_KEY must decode (base64) to exactly 32 bytes");
   }
-  return crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, "AES-GCM", false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 function base64ToBytes(value: string): Uint8Array {
@@ -34,7 +37,11 @@ function hexToBytes(hex: string): Uint8Array {
 export async function encryptSecretToBytea(plaintext: string): Promise<string> {
   const key = await importKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipherBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plaintext));
+  const cipherBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(plaintext),
+  );
   const combined = new Uint8Array(iv.length + cipherBuffer.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(cipherBuffer), iv.length);

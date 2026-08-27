@@ -118,7 +118,10 @@ export interface YoutubeChannelSummary {
   uploadsPlaylistId: string | null;
 }
 
-export async function fetchAuthorizedYoutubeChannel(accessToken: string): Promise<YoutubeChannelSummary> {
+export async function fetchAuthorizedYoutubeChannel(
+  accessToken: string,
+  expectedChannelId?: string,
+): Promise<YoutubeChannelSummary> {
   const url = new URL("https://www.googleapis.com/youtube/v3/channels");
   url.searchParams.set("part", "snippet,statistics,contentDetails");
   url.searchParams.set("mine", "true");
@@ -127,18 +130,29 @@ export async function fetchAuthorizedYoutubeChannel(accessToken: string): Promis
   const data = (await response.json()) as {
     items?: Array<{
       id: string;
-      snippet: { title: string; customUrl?: string; thumbnails?: { high?: { url: string }; default?: { url: string } } };
+      snippet: {
+        title: string;
+        customUrl?: string;
+        thumbnails?: { high?: { url: string }; default?: { url: string } };
+      };
       statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
       contentDetails?: { relatedPlaylists?: { uploads?: string } };
     }>;
   };
-  const channel = data.items?.[0];
-  if (!channel) throw new Error("YOUTUBE_CHANNEL_NOT_FOUND");
+  const channel = expectedChannelId
+    ? data.items?.find((item) => item.id === expectedChannelId)
+    : data.items?.[0];
+  if (!channel) {
+    throw new Error(
+      expectedChannelId ? "YOUTUBE_CONNECTED_CHANNEL_MISMATCH" : "YOUTUBE_CHANNEL_NOT_FOUND",
+    );
+  }
   return {
     channelId: channel.id,
     title: channel.snippet.title,
     handle: channel.snippet.customUrl ?? null,
-    thumbnail: channel.snippet.thumbnails?.high?.url ?? channel.snippet.thumbnails?.default?.url ?? null,
+    thumbnail:
+      channel.snippet.thumbnails?.high?.url ?? channel.snippet.thumbnails?.default?.url ?? null,
     subscriberCount: Number(channel.statistics.subscriberCount ?? 0),
     viewCount: Number(channel.statistics.viewCount ?? 0),
     videoCount: Number(channel.statistics.videoCount ?? 0),
@@ -167,8 +181,14 @@ function youtubeApiUrl(path: string, params: Record<string, string>): URL {
   return url;
 }
 
-async function youtubeApiRequest<T>(accessToken: string, path: string, params: Record<string, string>): Promise<T> {
-  const response = await fetch(youtubeApiUrl(path, params), { headers: { Authorization: `Bearer ${accessToken}` } });
+async function youtubeApiRequest<T>(
+  accessToken: string,
+  path: string,
+  params: Record<string, string>,
+): Promise<T> {
+  const response = await fetch(youtubeApiUrl(path, params), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!response.ok) throw new Error(`YOUTUBE_${path.toUpperCase()}_FAILED:${response.status}`);
   return (await response.json()) as T;
 }
@@ -183,46 +203,90 @@ function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
-  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}` : `${minutes}:${String(remainder).padStart(2, "0")}`;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+    : `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-export async function fetchRecentYoutubeVideos(accessToken: string, uploadsPlaylistId: string | null, limit = 12): Promise<YoutubeVideoSummary[]> {
-  if (!uploadsPlaylistId) return [];
-  const playlist = await youtubeApiRequest<{ items?: Array<{ contentDetails: { videoId: string } }> }>(accessToken, "playlistItems", {
-    part: "contentDetails",
-    playlistId: uploadsPlaylistId,
-    maxResults: String(Math.min(limit, 50)),
-  });
-  const ids = (playlist.items ?? []).map((item) => item.contentDetails.videoId).filter(Boolean);
+export async function fetchRecentYoutubeVideos(
+  accessToken: string,
+  uploadsPlaylistId: string | null,
+  limit = 12,
+): Promise<YoutubeVideoSummary[]> {
+  if (!uploadsPlaylistId || limit <= 0) return [];
+
+  // The uploads playlist can contain private, unlisted, deleted, or otherwise unavailable
+  // entries. Walk enough playlist pages to collect the requested number of candidate IDs instead
+  // of treating a short first page as proof that the channel has no published videos.
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < 5 && ids.length < limit; page += 1) {
+    const params: Record<string, string> = {
+      part: "contentDetails",
+      playlistId: uploadsPlaylistId,
+      maxResults: "50",
+    };
+    if (pageToken) params.pageToken = pageToken;
+    const playlist = await youtubeApiRequest<{
+      items?: Array<{ contentDetails?: { videoId?: string } }>;
+      nextPageToken?: string;
+    }>(accessToken, "playlistItems", params);
+    for (const item of playlist.items ?? []) {
+      const videoId = item.contentDetails?.videoId;
+      if (videoId && !ids.includes(videoId)) ids.push(videoId);
+      if (ids.length >= limit) break;
+    }
+    pageToken = playlist.nextPageToken;
+    if (!pageToken || !playlist.items?.length) break;
+  }
   if (!ids.length) return [];
 
   const videos = await youtubeApiRequest<{
     items?: Array<{
       id: string;
-      snippet: { title: string; description?: string; publishedAt?: string; thumbnails?: { medium?: { url: string }; default?: { url: string } } };
+      snippet: {
+        title: string;
+        description?: string;
+        publishedAt?: string;
+        thumbnails?: { medium?: { url: string }; default?: { url: string } };
+      };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
       status?: { privacyStatus?: string };
     }>;
-  }>(accessToken, "videos", { part: "snippet,contentDetails,statistics", id: ids.join(",") });
-
-  return (videos.items ?? []).map((video) => {
-    const durationSeconds = video.contentDetails?.duration ? parseIsoDurationSeconds(video.contentDetails.duration) : null;
-    return {
-    id: video.id,
-    title: video.snippet.title,
-    description: video.snippet.description ?? null,
-    thumbnail: video.snippet.thumbnails?.medium?.url ?? video.snippet.thumbnails?.default?.url ?? null,
-    publishedAt: video.snippet.publishedAt ?? null,
-    duration: durationSeconds === null ? null : formatDuration(durationSeconds),
-    durationSeconds,
-    privacyStatus: video.status?.privacyStatus ?? null,
-    views: Number(video.statistics?.viewCount ?? 0),
-    likes: video.statistics?.likeCount === undefined ? null : Number(video.statistics.likeCount),
-    comments: video.statistics?.commentCount === undefined ? null : Number(video.statistics.commentCount),
-    url: `https://www.youtube.com/watch?v=${video.id}`,
-    };
+  }>(accessToken, "videos", {
+    part: "snippet,contentDetails,statistics,status",
+    id: ids.join(","),
   });
+
+  return (videos.items ?? [])
+    .filter((video) => video.status?.privacyStatus === "public")
+    .map((video) => {
+      const durationSeconds = video.contentDetails?.duration
+        ? parseIsoDurationSeconds(video.contentDetails.duration)
+        : null;
+      return {
+        id: video.id,
+        title: video.snippet.title,
+        description: video.snippet.description ?? null,
+        thumbnail:
+          video.snippet.thumbnails?.medium?.url ?? video.snippet.thumbnails?.default?.url ?? null,
+        publishedAt: video.snippet.publishedAt ?? null,
+        duration: durationSeconds === null ? null : formatDuration(durationSeconds),
+        durationSeconds,
+        privacyStatus: video.status?.privacyStatus ?? null,
+        views: Number(video.statistics?.viewCount ?? 0),
+        likes:
+          video.statistics?.likeCount === undefined ? null : Number(video.statistics.likeCount),
+        comments:
+          video.statistics?.commentCount === undefined
+            ? null
+            : Number(video.statistics.commentCount),
+        url: `https://www.youtube.com/watch?v=${video.id}`,
+      };
+    })
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
+    .slice(0, limit);
 }
 
 export interface YoutubeCommentSummary {
@@ -238,7 +302,11 @@ export interface YoutubeCommentSummary {
   canReply: boolean | null;
 }
 
-export async function fetchRecentYoutubeComments(accessToken: string, videoIds: string[], limitPerVideo = 50): Promise<YoutubeCommentSummary[]> {
+export async function fetchRecentYoutubeComments(
+  accessToken: string,
+  videoIds: string[],
+  limitPerVideo = 50,
+): Promise<YoutubeCommentSummary[]> {
   const comments: YoutubeCommentSummary[] = [];
   for (const videoId of videoIds.slice(0, 12)) {
     const response = await youtubeApiRequest<{
@@ -289,7 +357,10 @@ export interface YoutubeAnalyticsQuery {
   dimensions?: string[];
 }
 
-export async function queryYoutubeAnalytics(accessToken: string, query: YoutubeAnalyticsQuery): Promise<unknown> {
+export async function queryYoutubeAnalytics(
+  accessToken: string,
+  query: YoutubeAnalyticsQuery,
+): Promise<unknown> {
   const url = new URL("https://youtubeanalytics.googleapis.com/v2/reports");
   url.searchParams.set("ids", `channel==${query.channelId}`);
   url.searchParams.set("startDate", query.startDate);
@@ -299,4 +370,49 @@ export async function queryYoutubeAnalytics(accessToken: string, query: YoutubeA
   const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`YOUTUBE_ANALYTICS_QUERY_FAILED:${response.status}`);
   return response.json();
+}
+
+export type YoutubeAnalyticsPayload = {
+  columnHeaders?: Array<{ name: string; columnType?: string; dataType?: string }>;
+  rows?: Array<Array<string | number>>;
+};
+
+/**
+ * YouTube Analytics accepts `day` for the channel reports used here. The dashboard presents
+ * monthly trends, so daily rows are aggregated locally after the API returns them.
+ */
+export function aggregateYoutubeAnalyticsByMonth(
+  payload: YoutubeAnalyticsPayload,
+): YoutubeAnalyticsPayload {
+  const reportHeaders = payload.columnHeaders ?? [];
+  const names = reportHeaders.map((header) => header.name);
+  const dayIndex = names.indexOf("day");
+  if (dayIndex < 0) return payload;
+
+  const monthHeaders = reportHeaders.map((header) =>
+    header.name === "day"
+      ? { ...header, name: "month", columnType: "DIMENSION", dataType: "STRING" }
+      : header,
+  );
+  const monthRows = new Map<string, Array<string | number>>();
+
+  for (const row of payload.rows ?? []) {
+    const day = String(row[dayIndex] ?? "");
+    const month = day.slice(0, 7);
+    if (month.length !== 7) continue;
+    const merged =
+      monthRows.get(month) ?? monthHeaders.map((header, index) => (index === dayIndex ? month : 0));
+    for (let index = 0; index < names.length; index += 1) {
+      if (index === dayIndex) continue;
+      const value = row[index];
+      if (typeof value === "number") merged[index] = Number(merged[index] ?? 0) + value;
+      else if (value !== undefined) merged[index] = value;
+    }
+    monthRows.set(month, merged);
+  }
+
+  return {
+    columnHeaders: monthHeaders,
+    rows: [...monthRows.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, row]) => row),
+  };
 }

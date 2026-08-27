@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "./browser";
+import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 
 function currentOrigin(): string {
   return typeof window !== "undefined" ? window.location.origin : "";
@@ -27,12 +28,15 @@ export function signInWithGoogle() {
 }
 
 export function signOutSupabase() {
+  if (IS_LOCAL_DEMO) return Promise.resolve({ error: null });
   return getSupabaseBrowserClient().auth.signOut();
 }
 
 export function requestPasswordReset(email: string) {
   const supabase = getSupabaseBrowserClient();
-  return supabase.auth.resetPasswordForEmail(email, { redirectTo: `${currentOrigin()}/reset-password` });
+  return supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${currentOrigin()}/reset-password`,
+  });
 }
 
 export function updatePassword(password: string) {
