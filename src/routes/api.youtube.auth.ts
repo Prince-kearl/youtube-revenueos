@@ -10,16 +10,10 @@ export const Route = createFileRoute("/api/youtube/auth")({
       // session (cookie) and redirects the browser straight to Google's consent screen.
       GET: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { setCookieHeaders } = await requireSessionUser(request);
           const requestUrl = new URL(request.url);
           const returnTo = requestUrl.searchParams.get("returnTo");
           const safeReturnTo = returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
-          const { data: existingChannel } = await client.from("youtube_channels").select("id").limit(1).maybeSingle();
-          if (existingChannel) {
-            const response = new Response(null, { status: 302, headers: { Location: safeReturnTo } });
-            for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
-            return response;
-          }
           // GOOGLE_REDIRECT_URI is authoritative here — never computed from the request's host/origin.
           assertYoutubeOAuthConfigured();
           const state = crypto.randomUUID();

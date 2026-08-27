@@ -31,6 +31,10 @@ type ChannelRow = {
   last_sync_status: string;
 };
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -273,12 +277,15 @@ export const Route = createFileRoute("/api/youtube/sync")({
       POST: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const { data: owned } = await client
+          const requestedChannelId = new URL(request.url).searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          let ownedQuery = client
             .from("youtube_channels")
             .select("id")
-            .order("connected_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .order("connected_at", { ascending: false });
+          if (requestedChannelId) ownedQuery = ownedQuery.eq("id", requestedChannelId);
+          const { data: owned } = await ownedQuery.limit(1).maybeSingle();
           if (!owned) return json({ error: "YOUTUBE_NOT_CONNECTED" }, { status: 409 });
           const service = createServiceSupabaseClient();
           const channel = await getChannel(service, owned.id);

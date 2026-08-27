@@ -16,6 +16,10 @@ type AnalyticsPayload = {
 
 const defaults = { auto_sync_videos: true, import_analytics: true };
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -140,20 +144,30 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
       GET: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const forceRefresh = new URL(request.url).searchParams.get("refresh") === "1";
+          const requestUrl = new URL(request.url);
+          const requestedChannelId = requestUrl.searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
           const cacheHeaders = forceRefresh ? { "Cache-Control": "private, no-store" } : undefined;
-          const channelQuery = client
+          let channelQuery = client
+
             .from("youtube_channels")
             .select(
               "id, user_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, token_expiry",
             )
             .order("connected_at", { ascending: false });
+          if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channelRow, error: channelError } = await channelQuery
             .limit(1)
             .maybeSingle();
 
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          if (!channelRow) return json({ data: null, status: "not_connected" });
+          if (!channelRow) {
+            return requestedChannelId
+              ? json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 })
+              : json({ data: null, status: "not_connected" });
+          }
 
           const serviceClient = createServiceSupabaseClient();
           const { data: secretRow, error: secretError } = await serviceClient

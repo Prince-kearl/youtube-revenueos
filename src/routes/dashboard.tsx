@@ -30,6 +30,8 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useOnboarding } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
+import { useLocalStore } from "@/lib/local-store";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -156,6 +158,7 @@ function Dashboard() {
     "loading" | "connected" | "not_connected" | "error" | "reauth"
   >("loading");
   const [youtubeRefreshing, setYoutubeRefreshing] = useState(false);
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const loadYoutubeData = async (forceRefresh = false) => {
     setYoutubeRefreshing(true);
     if (IS_LOCAL_DEMO) {
@@ -165,7 +168,11 @@ function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`/api/youtube/dashboard${forceRefresh ? "?refresh=1" : ""}`, {
+      const params = new URLSearchParams();
+      if (activeChannelId) params.set("channelId", activeChannelId);
+      if (forceRefresh) params.set("refresh", "1");
+      const query = params.toString();
+      const response = await fetch(`/api/youtube/dashboard${query ? `?${query}` : ""}`, {
         cache: forceRefresh ? "no-store" : "default",
       });
       const body = (await response.json()) as DashboardResponse;
@@ -188,7 +195,7 @@ function Dashboard() {
   };
   useEffect(() => {
     void loadYoutubeData();
-  }, []);
+  }, [activeChannelId]);
 
   const trend = useMemo(() => {
     if (dashboardData?.analyticsStatus !== "available") return [];

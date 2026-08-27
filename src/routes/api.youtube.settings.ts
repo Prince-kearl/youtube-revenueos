@@ -16,6 +16,10 @@ const defaults = {
   import_chapters: true,
 };
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -23,13 +27,16 @@ function json(body: unknown, init?: ResponseInit) {
   });
 }
 
-async function getOwnedChannel(client: Awaited<ReturnType<typeof requireSessionUser>>["client"]) {
-  const { data, error } = await client
+async function getOwnedChannel(
+  client: Awaited<ReturnType<typeof requireSessionUser>>["client"],
+  requestedChannelId?: string | null,
+) {
+  let query = client
     .from("youtube_channels")
     .select("id")
-    .order("connected_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("connected_at", { ascending: false });
+  if (requestedChannelId) query = query.eq("id", requestedChannelId);
+  const { data, error } = await query.limit(1).maybeSingle();
   if (error) throw new Error("DATABASE_ERROR");
   return data;
 }
@@ -40,8 +47,15 @@ export const Route = createFileRoute("/api/youtube/settings")({
       GET: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const channel = await getOwnedChannel(client);
-          if (!channel) return json({ data: null, status: "not_connected" });
+          const requestedChannelId = new URL(request.url).searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          const channel = await getOwnedChannel(client, requestedChannelId);
+          if (!channel) {
+            return requestedChannelId
+              ? json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 })
+              : json({ data: null, status: "not_connected" });
+          }
           const { data, error } = await client
             .from("youtube_integration_settings")
             .select("auto_sync_videos, import_analytics, sync_comments, import_chapters")
@@ -57,7 +71,10 @@ export const Route = createFileRoute("/api/youtube/settings")({
       PATCH: async ({ request }) => {
         try {
           const { client } = await requireSessionUser(request);
-          const channel = await getOwnedChannel(client);
+          const requestedChannelId = new URL(request.url).searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          const channel = await getOwnedChannel(client, requestedChannelId);
           if (!channel) return json({ error: "YOUTUBE_NOT_CONNECTED" }, { status: 409 });
           const input = settingsSchema.parse(await request.json());
           const { data, error } = await client

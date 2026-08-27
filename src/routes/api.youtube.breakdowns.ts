@@ -15,6 +15,10 @@ const querySchema = z.object({
 
 type BreakdownRow = Record<string, string | number | null>;
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -107,16 +111,20 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
       GET: async ({ request }) => {
         try {
           const { client, user } = await requireSessionUser(request);
-          const input = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
+          const requestUrl = new URL(request.url);
+          const requestedChannelId = requestUrl.searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          const input = querySchema.parse(Object.fromEntries(requestUrl.searchParams));
           const { startDate, endDate } = dateRange(input.range);
-          const { data: channel, error: channelError } = await client
+          let channelQuery = client
             .from("youtube_channels")
             .select(
               "id, youtube_channel_id, uploads_playlist_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry",
             )
-            .order("connected_at", { ascending: false })
-            .limit(1)
-            .single();
+            .order("connected_at", { ascending: false });
+          if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
+          const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();
           if (channelError || !channel)
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 

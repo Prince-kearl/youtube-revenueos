@@ -19,6 +19,10 @@ const querySchema = z.object({
   maxResults: z.coerce.number().int().positive().max(200).optional(),
 });
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -33,16 +37,19 @@ export const Route = createFileRoute("/api/youtube/analytics")({
         try {
           const { client, user } = await requireSessionUser(request);
           const url = new URL(request.url);
+          const requestedChannelId = url.searchParams.get("channelId");
+          if (requestedChannelId && !isUuid(requestedChannelId))
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           const input = querySchema.parse(Object.fromEntries(url.searchParams));
 
-          const { data: channel, error } = await client
+          let channelQuery = client
             .from("youtube_channels")
             .select(
               "id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry",
             )
-            .order("connected_at", { ascending: false })
-            .limit(1)
-            .single();
+            .order("connected_at", { ascending: false });
+          if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
+          const { data: channel, error } = await channelQuery.limit(1).maybeSingle();
           if (error || !channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const accessToken = await getValidAccessToken(client, channel);

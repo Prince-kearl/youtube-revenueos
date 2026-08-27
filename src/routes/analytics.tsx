@@ -5,6 +5,8 @@ import { DollarSign, Eye, RefreshCw, TrendingUp, Youtube } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { useLocalStore } from "@/lib/local-store";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 
 export const Route = createFileRoute("/analytics")({
   component: Analytics,
@@ -61,6 +63,7 @@ function formatTrafficSource(value: string | number | null | undefined): string 
 function Analytics() {
   const [range, setRange] = useState<Range>("12M");
   const [tab, setTab] = useState<Tab>("video");
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [result, setResult] = useState<{
     data: BreakdownData | null;
     loading: boolean;
@@ -71,7 +74,9 @@ function Analytics() {
     const controller = new AbortController();
     setResult((previous) => ({ ...previous, loading: true, error: null }));
 
-    fetch(`/api/youtube/breakdowns?range=${range}`, {
+    const params = new URLSearchParams({ range });
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    fetch(`/api/youtube/breakdowns?${params.toString()}`, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -89,7 +94,7 @@ function Analytics() {
       });
 
     return () => controller.abort();
-  }, [range]);
+  }, [range, activeChannelId]);
 
   const videoRows = useMemo(() => result.data?.video.rows ?? [], [result.data]);
   const trafficRows = useMemo(() => result.data?.trafficSources.rows ?? [], [result.data]);

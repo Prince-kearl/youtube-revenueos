@@ -34,6 +34,7 @@ import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { signOutSupabase } from "@/lib/supabase/auth";
+import { YoutubeChannelSwitcher } from "@/components/YoutubeChannelSwitcher";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -246,6 +247,8 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
               <Search className="h-[18px] w-[18px]" />
             </button>
+
+            <YoutubeChannelSwitcher />
 
             {/* RBAC demo role switcher */}
             <DropdownMenu>

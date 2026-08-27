@@ -40,6 +40,7 @@ import { useThemeMode, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
   challengeMfaFactor,
@@ -342,7 +343,8 @@ function AppearancePanel() {
 
 function ConnectedAccountsPanel() {
   const navigate = useNavigate();
-  const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
+  const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [integrations, setIntegrations] = useState<ExternalIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [integrationsLoading, setIntegrationsLoading] = useState(true);
@@ -353,9 +355,9 @@ function ConnectedAccountsPanel() {
     fetch("/api/youtube/channels")
       .then(async (response) => {
         const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
-        setChannel(response.ok ? body.data?.[0] ?? null : null);
+        setChannels(response.ok ? body.data ?? [] : []);
       })
-      .catch(() => setChannel(null))
+      .catch(() => setChannels([]))
       .finally(() => setLoading(false));
     fetch("/api/integrations")
       .then(async (response) => {
@@ -376,12 +378,13 @@ function ConnectedAccountsPanel() {
   }, []);
 
   const disconnectYoutube = async () => {
+    const channel = channels.find((item) => item.id === activeChannelId) ?? channels[0];
     if (!channel) return;
     setDisconnecting(true);
     try {
       const response = await fetch(`/api/youtube/channels?id=${channel.id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("disconnect_failed");
-      setChannel(null);
+      setChannels((current) => current.filter((item) => item.id !== channel.id));
       toast.success("YouTube disconnected");
     } catch {
       toast.error("Couldn't disconnect YouTube. Try again.");
@@ -422,10 +425,10 @@ function ConnectedAccountsPanel() {
       domain: "youtube.com",
       logo: "https://cdn.simpleicons.org/youtube",
       iconClass: "text-brand-red",
-      description: loading ? "Checking connection…" : channel ? `${channel.channel_name} · ${channel.subscriber_count.toLocaleString()} subscribers` : "Connect your primary channel",
-      connected: Boolean(channel),
-      action: channel ? disconnectYoutube : () => { window.location.href = "/api/youtube/auth?returnTo=/settings"; },
-      actionLabel: channel ? (disconnecting ? "Disconnecting…" : "Disconnect") : "Connect",
+      description: loading ? "Checking connection…" : channels.length ? `${channels.length} linked channel${channels.length === 1 ? "" : "s"} · ${channels.find((item) => item.id === activeChannelId)?.channel_name ?? channels[0].channel_name}` : "Link one or more YouTube channels",
+      connected: channels.length > 0,
+      action: channels.length ? disconnectYoutube : () => { window.location.href = "/api/youtube/auth?returnTo=/settings"; },
+      actionLabel: channels.length ? (disconnecting ? "Disconnecting…" : "Disconnect active") : "Connect",
       disabled: loading || disconnecting,
     },
     {
@@ -476,7 +479,7 @@ function ConnectedAccountsPanel() {
             </div>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">Connect your other profiles to keep your creator presence in sync.</p>
           </div>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channel ? "YouTube connected" : "Connect YouTube"}</span>
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channels.length ? `${channels.length} YouTube channel${channels.length === 1 ? "" : "s"} connected` : "Connect YouTube"}</span>
         </div>
 
         <div className="mt-6 space-y-2">
@@ -550,6 +553,7 @@ const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; tex
 
 function YouTubeIntegrationPanel() {
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
+  const [activeChannelId, setActiveChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [integrationSettings, setIntegrationSettings] = useState({ auto_sync_videos: true, import_analytics: true, sync_comments: false, import_chapters: true });
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -562,7 +566,11 @@ function YouTubeIntegrationPanel() {
     try {
       const response = await fetch("/api/youtube/channels");
       const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
-      setChannels(response.ok ? (body.data ?? []) : []);
+      const nextChannels = response.ok ? (body.data ?? []) : [];
+      setChannels(nextChannels);
+      if (nextChannels.length && (!activeChannelId || !nextChannels.some((channel) => channel.id === activeChannelId))) {
+        setActiveChannelId(nextChannels[0].id);
+      }
     } catch {
       setChannels([]);
     } finally {
@@ -573,7 +581,8 @@ function YouTubeIntegrationPanel() {
   const loadIntegrationSettings = async () => {
     setSettingsLoading(true);
     try {
-      const response = await fetch("/api/youtube/settings");
+      const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
+      const response = await fetch(`/api/youtube/settings${query}`);
       const body = (await response.json()) as { data?: typeof integrationSettings };
       if (response.ok && body.data) setIntegrationSettings(body.data);
     } finally {
@@ -592,8 +601,11 @@ function YouTubeIntegrationPanel() {
       window.history.replaceState({}, "", url.toString());
     }
     void loadChannels();
-    void loadIntegrationSettings();
   }, []);
+
+  useEffect(() => {
+    void loadIntegrationSettings();
+  }, [activeChannelId]);
 
   const updateIntegrationSetting = async (key: keyof typeof integrationSettings, value: boolean) => {
     const previous = integrationSettings;
@@ -601,7 +613,8 @@ function YouTubeIntegrationPanel() {
     setIntegrationSettings(next);
     setSavingSetting(key);
     try {
-      const response = await fetch("/api/youtube/settings", {
+      const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
+      const response = await fetch(`/api/youtube/settings${query}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
@@ -621,7 +634,8 @@ function YouTubeIntegrationPanel() {
   const syncNow = async () => {
     setSyncing(true);
     try {
-      const response = await fetch("/api/youtube/sync", { method: "POST" });
+      const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
+      const response = await fetch(`/api/youtube/sync${query}`, { method: "POST" });
       const body = (await response.json()) as { status?: string; result?: Record<string, string>; error?: string };
       if (!response.ok) throw new Error(body.error ?? "sync_failed");
       await loadChannels();
@@ -679,7 +693,7 @@ function YouTubeIntegrationPanel() {
         </div>
       ) : (
         channels.map((channel) => (
-          <div key={channel.id} className="rounded-xl border border-border bg-accent/20 p-5">
+              <div key={channel.id} className={`rounded-xl border p-5 ${channel.id === activeChannelId ? "border-primary/60 bg-primary/5" : "border-border bg-accent/20"}`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 {channel.thumbnail ? (
@@ -697,15 +711,24 @@ function YouTubeIntegrationPanel() {
                   </p>
                 </div>
               </div>
-              <button
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setActiveChannelId(channel.id)}
+                      disabled={channel.id === activeChannelId || syncing}
+                      className="rounded-[var(--button-radius)] border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/15 disabled:opacity-60"
+                    >
+                      {channel.id === activeChannelId ? "Active channel" : "Use this channel"}
+                    </button>
+                    <button
                 onClick={() => disconnect(channel.id)}
                 disabled={disconnectingId === channel.id || syncing}
                 className="rounded-[var(--button-radius)] border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:opacity-60"
               >
                 {disconnectingId === channel.id ? "Disconnecting…" : "Disconnect"}
-              </button>
-            </div>
-          </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
         ))
       )}
 
