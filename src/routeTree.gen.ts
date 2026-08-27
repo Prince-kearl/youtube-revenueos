@@ -45,6 +45,7 @@ import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
 import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
+import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
 import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
@@ -239,6 +240,11 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   path: '/api/destinations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
+  id: '/api/youtube/videos',
+  path: '/api/youtube/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeSyncRoute = ApiYoutubeSyncRouteImport.update({
   id: '/api/youtube/sync',
   path: '/api/youtube/sync',
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -407,6 +414,7 @@ export interface FileRoutesByTo {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -459,6 +467,7 @@ export interface FileRoutesById {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -512,6 +521,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -563,6 +573,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -614,6 +625,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -666,6 +678,7 @@ export interface RootRouteChildren {
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
   ApiYoutubeSettingsRoute: typeof ApiYoutubeSettingsRoute
   ApiYoutubeSyncRoute: typeof ApiYoutubeSyncRoute
+  ApiYoutubeVideosRoute: typeof ApiYoutubeVideosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -922,6 +935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/videos': {
+      id: '/api/youtube/videos'
+      path: '/api/youtube/videos'
+      fullPath: '/api/youtube/videos'
+      preLoaderRoute: typeof ApiYoutubeVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/sync': {
       id: '/api/youtube/sync'
       path: '/api/youtube/sync'
@@ -1080,6 +1100,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
   ApiYoutubeSettingsRoute: ApiYoutubeSettingsRoute,
   ApiYoutubeSyncRoute: ApiYoutubeSyncRoute,
+  ApiYoutubeVideosRoute: ApiYoutubeVideosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
