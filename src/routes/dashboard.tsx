@@ -101,7 +101,7 @@ function buildRevenueTrend(
   const revenueByMonth = new Map<string, number>();
 
   for (const row of analytics) {
-    if (!row.month || /^\d{4}-\d{2}$/.test(row.month)) continue;
+    if (!row.month || !/^\d{4}-\d{2}$/.test(row.month)) continue;
     revenueByMonth.set(
       row.month,
       (revenueByMonth.get(row.month) ?? 0) + Number(row.estimatedRevenue ?? 0),
