@@ -124,6 +124,10 @@ function errorMessage(error: string): string {
     DATABASE_ERROR: "Tubify could not save this video. Try again.",
     SERVER_ERROR: "Tubify could not complete that request. Try again.",
     YOUTUBE_DATA_UNAVAILABLE: "YouTube is temporarily unavailable. Try again.",
+    AI_PROVIDER_NOT_CONFIGURED:
+      "AI generation is not configured yet. You can still edit and save the YouTube description manually.",
+    AI_PROVIDER_FAILED:
+      "The AI provider could not generate a description. Your current text was preserved; try again.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
@@ -132,6 +136,7 @@ function AddVideo() {
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [url, setUrl] = useState("");
   const [video, setVideo] = useState<YoutubeVideo | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(activeChannelId);
   const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [description, setDescription] = useState("");
@@ -139,11 +144,22 @@ function AddVideo() {
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState<"idle" | "loaded" | "not_connected" | "error" | "reauth">(
     "idle",
   );
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setSelectedChannelId(activeChannelId);
+    setVideo(null);
+    setSavedVideoId(null);
+    setTranscript("");
+    setDescription("");
+    setStatus("idle");
+    setError(null);
+  }, [activeChannelId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -193,6 +209,7 @@ function AddVideo() {
         return;
       }
       setVideo(body.data.video);
+      setSelectedChannelId(body.data.channel.id);
       setSavedVideoId(body.data.savedVideo?.id ?? null);
       setTranscript(body.data.transcript?.transcript ?? "");
       setDescription(body.data.savedVideo?.description ?? body.data.video.description ?? "");
@@ -206,6 +223,38 @@ function AddVideo() {
     }
   };
 
+  const generateDescription = async () => {
+    if (!video || !selectedChannelId) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/videos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: selectedChannelId,
+          title: video.title,
+          currentDescription: description || video.description,
+          transcript: transcript || null,
+          destinations: selectedDestinations.map((destination) => ({
+            name: destination.name,
+            url: destination.url,
+          })),
+        }),
+      });
+      const body = (await response.json()) as { data?: { description?: string }; error?: string };
+      if (!response.ok || !body.data?.description) {
+        throw new Error(body.error ?? "AI_PROVIDER_FAILED");
+      }
+      setDescription(body.data.description);
+      toast.success("Description generated");
+    } catch (reason: unknown) {
+      setError(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const saveVideo = async () => {
     if (!video) return;
     setSaving(true);
@@ -215,7 +264,7 @@ function AddVideo() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          channelId: activeChannelId ?? undefined,
+          channelId: selectedChannelId ?? activeChannelId ?? undefined,
           youtubeVideoId: video.id,
           description: description || null,
           transcript: transcript || null,
@@ -467,6 +516,15 @@ function AddVideo() {
               <Sparkles className="h-5 w-5 text-brand-purple" /> Description
             </h2>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void generateDescription()}
+                disabled={!loaded || generating || !selectedChannelId}
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-brand-purple/30 px-3 text-sm text-brand-purple hover:bg-brand-purple/10 disabled:opacity-50"
+              >
+                <Sparkles className={`h-3.5 w-3.5 ${generating ? "animate-pulse" : ""}`} />
+                {generating ? "Generating…" : "Generate with AI"}
+              </button>
               <button
                 type="button"
                 onClick={() => void copyDescription()}

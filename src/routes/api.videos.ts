@@ -216,7 +216,7 @@ export const Route = createFileRoute("/api/videos")({
                 channel_id: channel.id,
                 youtube_video_id: video.id,
                 title: video.title,
-                description: existingVideo?.description ?? input.description ?? video.description,
+                description: input.description ?? existingVideo?.description ?? video.description,
                 thumbnail: video.thumbnail,
                 published_at: video.publishedAt,
                 duration_seconds: video.durationSeconds,
@@ -269,15 +269,27 @@ export const Route = createFileRoute("/api/videos")({
 
           const update: Record<string, unknown> = {};
           if (input.description !== undefined) update.description = input.description;
-          const { data: savedVideo, error: updateError } = await client
-            .from("videos")
-            .update(update)
-            .eq("id", id)
-            .select(
-              "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at",
-            )
-            .single();
-          if (updateError || !savedVideo) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const videoColumns =
+            "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at";
+          let savedVideo;
+          if (Object.keys(update).length > 0) {
+            const { data, error: updateError } = await client
+              .from("videos")
+              .update(update)
+              .eq("id", id)
+              .select(videoColumns)
+              .single();
+            if (updateError || !data) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            savedVideo = data;
+          } else {
+            const { data, error: loadError } = await client
+              .from("videos")
+              .select(videoColumns)
+              .eq("id", id)
+              .single();
+            if (loadError || !data) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            savedVideo = data;
+          }
           await saveTranscript(client, id, input.transcript);
           return json({
             status: "connected",
