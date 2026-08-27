@@ -30,7 +30,6 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useOnboarding } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
-import { buildRevenueTrend } from "@/lib/revenue-trends";
 
 export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
@@ -83,6 +82,42 @@ type DashboardResponse =
   | { status: "not_connected"; data: null }
   | { status: "connected"; data: DashboardData }
   | { error: string };
+
+type RevenueRange = "3M" | "6M" | "12M";
+
+type RevenueTrendPoint = { month: string; monthKey: string; revenue: number };
+
+function buildRevenueTrend(
+  analytics: DashboardAnalyticsRow[],
+  range: RevenueRange,
+): RevenueTrendPoint[] {
+  const count = range === "3M" ? 3 : range === "6M" ? 6 : 12;
+  const validMonths = analytics
+    .map((row) => row.month)
+    .filter((month): month is string => Boolean(month && /^\d{4}-\d{2}$/.test(month)))
+    .sort();
+  const endMonth = validMonths.at(-1) ?? new Date().toISOString().slice(0, 7);
+  const [endYear, endMonthNumber] = endMonth.split("-").map(Number);
+  const revenueByMonth = new Map<string, number>();
+
+  for (const row of analytics) {
+    if (!row.month || /^\d{4}-\d{2}$/.test(row.month)) continue;
+    revenueByMonth.set(
+      row.month,
+      (revenueByMonth.get(row.month) ?? 0) + Number(row.estimatedRevenue ?? 0),
+    );
+  }
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(endYear, endMonthNumber - count + index, 1));
+    const monthKey = date.toISOString().slice(0, 7);
+    return {
+      month: date.toLocaleDateString("en", { month: "short", timeZone: "UTC" }),
+      monthKey,
+      revenue: (revenueByMonth.get(monthKey) ?? 0) / 1000,
+    };
+  });
+}
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
