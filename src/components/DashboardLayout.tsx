@@ -248,8 +248,6 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
               <Search className="h-[18px] w-[18px]" />
             </button>
 
-            <YoutubeChannelSwitcher />
-
             {/* RBAC demo role switcher */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -335,6 +333,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 <DropdownMenuItem onSelect={() => navigate({ to: "/settings" })}>
                   <UserIcon className="mr-2 h-4 w-4" /> Profile & Settings
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-2">
+                  <p className="mb-2 text-xs font-semibold">Active YouTube channel</p>
+                  <YoutubeChannelSwitcher />
+                </div>
                 <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
                   <HelpCircle className="mr-2 h-4 w-4" /> Help & Tubi
                 </DropdownMenuItem>
