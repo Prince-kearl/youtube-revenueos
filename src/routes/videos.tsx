@@ -190,7 +190,7 @@ function Videos() {
             to="/add-video"
             className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
-            <Plus className="h-4 w-4" /> Add Video
+            <Plus className="h-4 w-4" /> Analyze Video
           </Link>
         </div>
       </div>

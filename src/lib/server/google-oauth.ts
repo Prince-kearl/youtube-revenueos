@@ -162,6 +162,7 @@ export async function fetchAuthorizedYoutubeChannel(
 
 export interface YoutubeVideoSummary {
   id: string;
+  channelId: string | null;
   title: string;
   description: string | null;
   thumbnail: string | null;
@@ -226,6 +227,7 @@ function mapYoutubeVideo(item: {
     : null;
   return {
     id: item.id,
+    channelId: item.snippet.channelId ?? null,
     title: item.snippet.title,
     description: item.snippet.description ?? null,
     thumbnail:
@@ -240,6 +242,33 @@ function mapYoutubeVideo(item: {
       item.statistics?.commentCount === undefined ? null : Number(item.statistics.commentCount),
     url: `https://www.youtube.com/watch?v=${item.id}`,
   };
+}
+
+export async function fetchPublicYoutubeVideoById(
+  accessToken: string,
+  videoId: string,
+): Promise<YoutubeVideoSummary> {
+  const response = await youtubeApiRequest<{
+    items?: Array<{
+      id: string;
+      snippet: {
+        title: string;
+        description?: string;
+        publishedAt?: string;
+        channelId?: string;
+        thumbnails?: { medium?: { url: string }; default?: { url: string } };
+      };
+      contentDetails?: { duration?: string };
+      statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+      status?: { privacyStatus?: string };
+    }>;
+  }>(accessToken, "videos", {
+    part: "snippet,contentDetails,statistics,status",
+    id: videoId,
+  });
+  const video = response.items?.[0];
+  if (!video) throw new Error("YOUTUBE_VIDEO_NOT_FOUND");
+  return mapYoutubeVideo(video);
 }
 
 export async function fetchYoutubeVideoById(

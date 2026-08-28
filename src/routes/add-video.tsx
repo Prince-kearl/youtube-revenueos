@@ -39,6 +39,7 @@ type Destination = {
 
 type YoutubeVideo = {
   id: string;
+  channelId: string | null;
   title: string;
   description: string | null;
   thumbnail: string | null;
@@ -46,6 +47,9 @@ type YoutubeVideo = {
   duration: string | null;
   privacyStatus: string | null;
   url: string;
+  views: number;
+  likes: number | null;
+  comments: number | null;
 };
 
 type SavedVideo = {
@@ -60,17 +64,17 @@ type SavedVideo = {
   status: string;
 };
 
-type VideoLookupResponse =
+type AnalyzeVideoResponse =
   | {
-      status: "connected";
       data: {
-        channel: { id: string; title: string; channel_name?: string };
+        channel: { id: string; youtubeChannelId: string; title: string; handle: string | null };
         video: YoutubeVideo;
+        ownership: "connected" | "external";
+        analyticsAccess: "private" | "public_only";
         savedVideo: SavedVideo | null;
         transcript: { id: string; transcript: string; source: string; language: string } | null;
       };
     }
-  | { status: "not_connected"; data: null }
   | { error: string };
 
 type MutationResponse =
@@ -83,7 +87,7 @@ type MutationResponse =
 type DestinationResponse = { data?: Destination[]; error?: string };
 
 const steps = [
-  { icon: Youtube, label: "Fetch metadata" },
+  { icon: Youtube, label: "Analyze video" },
   { icon: FileText, label: "Add transcript" },
   { icon: Sparkles, label: "Edit description" },
   { icon: Save, label: "Save to Tubify" },
@@ -142,6 +146,7 @@ function AddVideo() {
   const [video, setVideo] = useState<YoutubeVideo | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(activeChannelId);
   const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
+  const [isConnectedChannelVideo, setIsConnectedChannelVideo] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [description, setDescription] = useState("");
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -163,6 +168,7 @@ function AddVideo() {
     setSelectedChannelId(activeChannelId);
     setVideo(null);
     setSavedVideoId(null);
+    setIsConnectedChannelVideo(false);
     setTranscript("");
     setDescription("");
     setStatus("idle");
@@ -207,24 +213,23 @@ function AddVideo() {
     setError(null);
     setErrorAction("load");
     try {
-      const params = new URLSearchParams({ youtubeVideoId });
+      const params = new URLSearchParams({ videoId: youtubeVideoId });
       if (activeChannelId) params.set("channelId", activeChannelId);
-      const response = await fetch(`/api/videos?${params.toString()}`, { cache: "no-store" });
-      const body = (await response.json()) as VideoLookupResponse;
+      const response = await fetch(`/api/youtube/analyze-video?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const body = (await response.json()) as AnalyzeVideoResponse;
       if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
         setStatus("reauth");
         return;
       }
-      if (!response.ok || !("status" in body)) {
+      if (!response.ok || !("data" in body)) {
         const code = "error" in body ? body.error : "SERVER_ERROR";
         throw new Error(code);
       }
-      if (body.status === "not_connected") {
-        setStatus("not_connected");
-        return;
-      }
       setVideo(body.data.video);
       setSelectedChannelId(body.data.channel.id);
+      setIsConnectedChannelVideo(body.data.ownership === "connected");
       setSavedVideoId(body.data.savedVideo?.id ?? null);
       setTranscript(body.data.transcript?.transcript ?? "");
       setDescription(body.data.savedVideo?.description ?? body.data.video.description ?? "");
@@ -390,7 +395,7 @@ function AddVideo() {
 
   const loaded = status === "loaded";
   return (
-    <DashboardLayout title="Add Video">
+    <DashboardLayout title="Analyze Video">
       <Link
         to="/videos"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -398,10 +403,9 @@ function AddVideo() {
         <ArrowLeft className="h-4 w-4" /> Back to Videos
       </Link>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Add a Video</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Analyze a YouTube Video</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Load a public video from your active authenticated YouTube channel, edit its description,
-          and save the workflow to Tubify.
+          Paste a YouTube link to review its public details and use Tubify&apos;s creator tools.
         </p>
       </div>
 
@@ -428,7 +432,7 @@ function AddVideo() {
             className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {loading ? "Loading…" : "Load video"}
+            {loading ? "Analyzing…" : "Analyze video"}
           </button>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -457,16 +461,16 @@ function AddVideo() {
           })}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Video ownership is checked against the selected YouTube channel. Tubify only saves
-          metadata, your edited description, and an optional manual transcript; it never publishes
-          changes back to YouTube.
+          Your connected channel is used to verify ownership and request private analytics. Public
+          videos from other channels can be reviewed here, but their private analytics are not
+          available. Tubify never publishes changes back to YouTube.
         </p>
       </div>
 
       {status === "not_connected" && (
         <MessageState
           title="Connect your YouTube channel"
-          description="Connect a YouTube account in Settings before adding videos."
+          description="Connect a YouTube account in Settings before analyzing videos."
           action="Open Settings"
         />
       )}
@@ -512,6 +516,11 @@ function AddVideo() {
               {video.duration ? ` · ${video.duration}` : ""} ·{" "}
               {video.privacyStatus === "public" ? "Public" : "Status unavailable"}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isConnectedChannelVideo
+                ? "Your connected channel · private analytics available"
+                : "Public video from another channel · public details only"}
+            </p>
           </div>
           <a
             href={video.url}
@@ -521,6 +530,41 @@ function AddVideo() {
           >
             Open on YouTube <ExternalLink className="h-3.5 w-3.5" />
           </a>
+        </div>
+      )}
+      {video && (
+        <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-border bg-card p-3 text-center text-xs">
+          <div>
+            <p className="text-muted-foreground">Views</p>
+            <p className="mt-1 font-semibold">
+              {new Intl.NumberFormat("en", {
+                notation: "compact",
+                maximumFractionDigits: 1,
+              }).format(video.views)}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Likes</p>
+            <p className="mt-1 font-semibold">
+              {video.likes === null
+                ? "Unavailable"
+                : new Intl.NumberFormat("en", {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(video.likes)}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Comments</p>
+            <p className="mt-1 font-semibold">
+              {video.comments === null
+                ? "Unavailable"
+                : new Intl.NumberFormat("en", {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(video.comments)}
+            </p>
+          </div>
         </div>
       )}
 
@@ -570,7 +614,7 @@ function AddVideo() {
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copied" : "Copy"}
               </button>
-              {savedVideoId ? (
+              {isConnectedChannelVideo && savedVideoId ? (
                 <button
                   type="button"
                   onClick={() => void updateVideo()}
@@ -579,7 +623,7 @@ function AddVideo() {
                 >
                   <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Update"}
                 </button>
-              ) : (
+              ) : isConnectedChannelVideo ? (
                 <button
                   type="button"
                   onClick={() => void saveVideo()}
@@ -588,8 +632,8 @@ function AddVideo() {
                 >
                   <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save video"}
                 </button>
-              )}
-              {savedVideoId && (
+              ) : null}
+              {isConnectedChannelVideo && savedVideoId && (
                 <button
                   type="button"
                   onClick={() => void removeVideo()}
@@ -626,8 +670,12 @@ function AddVideo() {
             </span>
           </div>
           <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-            <span>Save changes to keep this description and transcript in Tubify.</span>
-            <ChevronRight className="ml-auto h-4 w-4" />
+            <span>
+              {isConnectedChannelVideo
+                ? "Save changes to keep this description and transcript in Tubify."
+                : "This public video can be analyzed, but private analytics and saving to Tubify are available only for your connected channel."}
+            </span>
+            <ChevronRight className="ml-auto h-4 w-4 shrink-0" />
           </div>
         </div>
       </div>

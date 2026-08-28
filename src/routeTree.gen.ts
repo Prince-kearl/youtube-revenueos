@@ -56,6 +56,7 @@ import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.cha
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
 import { Route as ApiYoutubeBreakdownsRouteImport } from './routes/api.youtube.breakdowns'
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
+import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
 import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 import { Route as ApiVideosGenerateRouteImport } from './routes/api.videos.generate'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
@@ -298,6 +299,11 @@ const ApiYoutubeAuthRoute = ApiYoutubeAuthRouteImport.update({
   path: '/api/youtube/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeAnalyzeVideoRoute = ApiYoutubeAnalyzeVideoRouteImport.update({
+  id: '/api/youtube/analyze-video',
+  path: '/api/youtube/analyze-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
   id: '/api/youtube/analytics',
   path: '/api/youtube/analytics',
@@ -374,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
@@ -429,6 +436,7 @@ export interface FileRoutesByTo {
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
@@ -485,6 +493,7 @@ export interface FileRoutesById {
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
+  '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
@@ -542,6 +551,7 @@ export interface FileRouteTypes {
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
+    | '/api/youtube/analyze-video'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
@@ -597,6 +607,7 @@ export interface FileRouteTypes {
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
+    | '/api/youtube/analyze-video'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
@@ -652,6 +663,7 @@ export interface FileRouteTypes {
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
+    | '/api/youtube/analyze-video'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
@@ -706,6 +718,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
   ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
+  ApiYoutubeAnalyzeVideoRoute: typeof ApiYoutubeAnalyzeVideoRoute
   ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
   ApiYoutubeBreakdownsRoute: typeof ApiYoutubeBreakdownsRoute
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
@@ -1049,6 +1062,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/analyze-video': {
+      id: '/api/youtube/analyze-video'
+      path: '/api/youtube/analyze-video'
+      fullPath: '/api/youtube/analyze-video'
+      preLoaderRoute: typeof ApiYoutubeAnalyzeVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/analytics': {
       id: '/api/youtube/analytics'
       path: '/api/youtube/analytics'
@@ -1173,6 +1193,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
   ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
+  ApiYoutubeAnalyzeVideoRoute: ApiYoutubeAnalyzeVideoRoute,
   ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,
   ApiYoutubeBreakdownsRoute: ApiYoutubeBreakdownsRoute,
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
