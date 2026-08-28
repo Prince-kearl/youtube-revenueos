@@ -137,9 +137,7 @@ export const Route = createFileRoute("/api/youtube/video")({
 
           let channelQuery = client
             .from("youtube_channels")
-            .select(
-              "id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry, channel_name, channel_handle",
-            )
+            .select("id, youtube_channel_id, channel_name, channel_handle")
             .order("connected_at", { ascending: false });
           if (channelId) channelQuery = channelQuery.eq("id", channelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();
@@ -147,7 +145,13 @@ export const Route = createFileRoute("/api/youtube/video")({
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const service = createServiceSupabaseClient();
-          const accessToken = await getValidAccessToken(service, channel);
+          const { data: secretRow, error: secretError } = await service
+            .from("youtube_channels")
+            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .eq("id", channel.id)
+            .single();
+          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const accessToken = await getValidAccessToken(service, secretRow);
           const video = await fetchYoutubeVideoById(
             accessToken,
             videoId,
