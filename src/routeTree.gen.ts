@@ -44,7 +44,6 @@ import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
-import { Route as ApiGenerateRouteImport } from './routes/api.generate'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
@@ -237,11 +236,6 @@ const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
   path: '/api/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGenerateRoute = ApiGenerateRouteImport.update({
-  id: '/api/generate',
-  path: '/api/generate',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   id: '/api/destinations',
   path: '/api/destinations',
@@ -359,7 +353,6 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
-  '/api/generate': typeof ApiGenerateRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -413,7 +406,6 @@ export interface FileRoutesByTo {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
-  '/api/generate': typeof ApiGenerateRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -468,7 +460,6 @@ export interface FileRoutesById {
   '/team': typeof TeamRoute
   '/videos': typeof VideosRoute
   '/api/destinations': typeof ApiDestinationsRoute
-  '/api/generate': typeof ApiGenerateRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -524,7 +515,6 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/destinations'
-    | '/api/generate'
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
@@ -578,7 +568,6 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/destinations'
-    | '/api/generate'
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
@@ -632,7 +621,6 @@ export interface FileRouteTypes {
     | '/team'
     | '/videos'
     | '/api/destinations'
-    | '/api/generate'
     | '/api/integrations'
     | '/api/profile'
     | '/api/settings'
@@ -687,7 +675,6 @@ export interface RootRouteChildren {
   TeamRoute: typeof TeamRoute
   VideosRoute: typeof VideosRoute
   ApiDestinationsRoute: typeof ApiDestinationsRoute
-  ApiGenerateRoute: typeof ApiGenerateRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -953,13 +940,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/generate': {
-      id: '/api/generate'
-      path: '/api/generate'
-      fullPath: '/api/generate'
-      preLoaderRoute: typeof ApiGenerateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/destinations': {
       id: '/api/destinations'
       path: '/api/destinations'
@@ -1136,7 +1116,6 @@ const rootRouteChildren: RootRouteChildren = {
   TeamRoute: TeamRoute,
   VideosRoute: VideosRoute,
   ApiDestinationsRoute: ApiDestinationsRoute,
-  ApiGenerateRoute: ApiGenerateRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
   ApiSettingsRoute: ApiSettingsRoute,

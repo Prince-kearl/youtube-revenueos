@@ -18,14 +18,20 @@ export type GenerationJob = {
 const jobs = new Map<string, GenerationJob>();
 
 export function listGenerationJobs(): GenerationJob[] {
-  return Array.from(jobs.values()).sort((a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt)));
+  return Array.from(jobs.values()).sort(
+    (a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt)),
+  );
 }
 
 export function getGenerationJob(jobId: string): GenerationJob | undefined {
   return jobs.get(jobId);
 }
 
-export function createGenerationJob(input: { title: string; prompt: string; references: string[] }) {
+export function createGenerationJob(input: {
+  title: string;
+  prompt: string;
+  references: string[];
+}) {
   const jobId = crypto.randomUUID();
   const timestamp = new Date().toISOString();
   const job: GenerationJob = {
@@ -42,8 +48,8 @@ export function createGenerationJob(input: { title: string; prompt: string; refe
   return job;
 }
 
-// Not called automatically by createGenerationJob — callers decide whether to await it directly
-// (projects.tsx) or fire it in the background and let a client poll separately (api.generate.ts).
+// Not called automatically by createGenerationJob — the Projects page decides whether to await it
+// directly while the local prototype workflow remains separate from production API routes.
 export async function processGenerationJob(jobId: string): Promise<GenerationJob | undefined> {
   const job = jobs.get(jobId);
   if (!job) return undefined;
