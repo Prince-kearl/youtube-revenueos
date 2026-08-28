@@ -116,18 +116,22 @@ function formatDate(value: string | null): string {
 
 function errorMessage(error: string): string {
   const messages: Record<string, string> = {
-    VALIDATION_ERROR: "Check the YouTube URL and try again.",
-    YOUTUBE_VIDEO_NOT_FOUND: "That YouTube video could not be found.",
-    YOUTUBE_VIDEO_CHANNEL_MISMATCH: "This video does not belong to the selected YouTube channel.",
-    YOUTUBE_VIDEO_NOT_PUBLIC: "Only public videos can be added to Tubify.",
-    CHANNEL_NOT_FOUND: "The selected YouTube channel is no longer available.",
-    DATABASE_ERROR: "Tubify could not save this video. Try again.",
-    SERVER_ERROR: "Tubify could not complete that request. Try again.",
-    YOUTUBE_DATA_UNAVAILABLE: "YouTube is temporarily unavailable. Try again.",
+    VALIDATION_ERROR: "That doesn’t look like a YouTube video link. Check the link and try again.",
+    YOUTUBE_VIDEO_NOT_FOUND:
+      "We couldn’t find that video. Check the link or make sure the video hasn’t been removed.",
+    YOUTUBE_VIDEO_CHANNEL_MISMATCH:
+      "That video belongs to a different YouTube channel. Switch channels or choose one of your own videos.",
+    YOUTUBE_VIDEO_NOT_PUBLIC:
+      "This video isn’t public yet. Make it public on YouTube before adding it here.",
+    CHANNEL_NOT_FOUND:
+      "We couldn’t find the selected YouTube channel. Choose another channel and try again.",
+    DATABASE_ERROR: "We couldn’t save your changes. Please try again.",
+    SERVER_ERROR: "Something went wrong. Please try again in a moment.",
+    YOUTUBE_DATA_UNAVAILABLE: "YouTube isn’t responding right now. Please try again in a moment.",
     AI_PROVIDER_NOT_CONFIGURED:
-      "AI generation is not configured yet. You can still edit and save the YouTube description manually.",
+      "AI writing isn’t available yet. You can still write and save the description yourself.",
     AI_PROVIDER_FAILED:
-      "The AI provider could not generate a description. Your current text was preserved; try again.",
+      "We couldn’t write the description right now. Your current text is safe—please try again.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
@@ -141,6 +145,7 @@ function AddVideo() {
   const [transcript, setTranscript] = useState("");
   const [description, setDescription] = useState("");
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinationsError, setDestinationsError] = useState<string | null>(null);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -149,6 +154,9 @@ function AddVideo() {
     "idle",
   );
   const [error, setError] = useState<string | null>(null);
+  const [errorAction, setErrorAction] = useState<
+    "load" | "generate" | "save" | "update" | "remove"
+  >("load");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -159,10 +167,12 @@ function AddVideo() {
     setDescription("");
     setStatus("idle");
     setError(null);
+    setErrorAction("load");
   }, [activeChannelId]);
 
   useEffect(() => {
     const controller = new AbortController();
+    setDestinationsError(null);
     fetch("/api/destinations?status=active", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as DestinationResponse;
@@ -172,6 +182,9 @@ function AddVideo() {
       .catch((reason: unknown) => {
         if (!(reason instanceof DOMException && reason.name === "AbortError")) {
           setDestinations([]);
+          setDestinationsError(
+            "We couldn’t load your saved destinations. You can try again later.",
+          );
         }
       });
     return () => controller.abort();
@@ -185,12 +198,14 @@ function AddVideo() {
   const loadVideo = async () => {
     const youtubeVideoId = parseYoutubeVideoId(url);
     if (!youtubeVideoId) {
-      setError("Enter a valid public YouTube watch, youtu.be, or Shorts URL.");
+      setError(errorMessage("VALIDATION_ERROR"));
+      setErrorAction("load");
       setStatus("error");
       return;
     }
     setLoading(true);
     setError(null);
+    setErrorAction("load");
     try {
       const params = new URLSearchParams({ youtubeVideoId });
       if (activeChannelId) params.set("channelId", activeChannelId);
@@ -227,6 +242,7 @@ function AddVideo() {
     if (!video || !selectedChannelId) return;
     setGenerating(true);
     setError(null);
+    setErrorAction("generate");
     try {
       const response = await fetch("/api/videos/generate", {
         method: "POST",
@@ -259,6 +275,7 @@ function AddVideo() {
     if (!video) return;
     setSaving(true);
     setError(null);
+    setErrorAction("save");
     try {
       const response = await fetch("/api/videos", {
         method: "POST",
@@ -293,6 +310,7 @@ function AddVideo() {
     if (!savedVideoId) return;
     setSaving(true);
     setError(null);
+    setErrorAction("update");
     try {
       const response = await fetch(`/api/videos?id=${encodeURIComponent(savedVideoId)}`, {
         method: "PATCH",
@@ -318,6 +336,8 @@ function AddVideo() {
     )
       return;
     setSaving(true);
+    setError(null);
+    setErrorAction("remove");
     try {
       const response = await fetch(`/api/videos?id=${encodeURIComponent(savedVideoId)}`, {
         method: "DELETE",
@@ -351,6 +371,22 @@ function AddVideo() {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   };
+
+  const retryError = () => {
+    if (errorAction === "load") void loadVideo();
+    else if (errorAction === "generate") void generateDescription();
+    else if (errorAction === "save") void saveVideo();
+    else if (errorAction === "update") void updateVideo();
+    else void removeVideo();
+  };
+
+  const errorTitle = {
+    load: "We couldn’t load this video",
+    generate: "We couldn’t write the description",
+    save: "We couldn’t save this video",
+    update: "We couldn’t save your changes",
+    remove: "We couldn’t remove this video",
+  }[errorAction];
 
   const loaded = status === "loaded";
   return (
@@ -441,11 +477,11 @@ function AddVideo() {
       )}
       {status === "error" && (
         <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
-          <p className="font-semibold">Couldn&apos;t load this video</p>
+          <p className="font-semibold">{errorTitle}</p>
           <p className="mt-1">{error}</p>
           <button
             type="button"
-            onClick={() => void loadVideo()}
+            onClick={retryError}
             className="mt-3 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10"
           >
             Try again
@@ -641,10 +677,14 @@ function AddVideo() {
               </button>
             );
           })}
-          {!destinations.length && (
-            <p className="text-sm text-muted-foreground">
-              No active destinations found. Create one in Destinations first.
-            </p>
+          {destinationsError ? (
+            <p className="text-sm text-destructive">{destinationsError}</p>
+          ) : (
+            !destinations.length && (
+              <p className="text-sm text-muted-foreground">
+                No active destinations found. Create one in Destinations first.
+              </p>
+            )
           )}
         </div>
         <button
