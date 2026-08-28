@@ -32,6 +32,8 @@ type ReportResult = {
   revenueAvailable: boolean;
 };
 
+type OptionalReport = YoutubeAnalyticsPayload | null;
+
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -76,6 +78,35 @@ function hasMetric(payload: YoutubeAnalyticsPayload | null, metric: string): boo
 function safeReason(error: unknown): string {
   if (!(error instanceof Error)) return "unknown";
   return error.message.match(/:(\d{3})(?::|$)/)?.[1] ?? error.message.split(":")[0].slice(0, 80);
+}
+
+async function queryOptionalReport(
+  accessToken: string,
+  channelId: string,
+  startDate: string,
+  endDate: string,
+  dimensions: string[],
+  filters: string,
+  metrics: string[],
+  maxResults = 100,
+): Promise<OptionalReport> {
+  try {
+    return (await queryYoutubeAnalytics(accessToken, {
+      channelId,
+      startDate,
+      endDate,
+      dimensions,
+      filters,
+      metrics,
+      maxResults,
+    })) as YoutubeAnalyticsPayload;
+  } catch (error) {
+    console.warn("Optional YouTube video analytics report unavailable", {
+      dimensions: dimensions.join(","),
+      reason: safeReason(error),
+    });
+    return null;
+  }
 }
 
 async function queryWithRevenueFallback(
@@ -157,7 +188,7 @@ export const Route = createFileRoute("/api/youtube/video")({
             videoId,
             channel.youtube_channel_id,
           );
-          const [timeline, summary, traffic] = await Promise.all([
+          const [timeline, summary, traffic, demographics, retention] = await Promise.all([
             queryWithRevenueFallback(
               accessToken,
               channel.youtube_channel_id,
@@ -185,6 +216,24 @@ export const Route = createFileRoute("/api/youtube/video")({
               `video==${videoId}`,
               ["views", "estimatedMinutesWatched"],
             ),
+            queryOptionalReport(
+              accessToken,
+              channel.youtube_channel_id,
+              startDate,
+              endDate,
+              ["ageGroup", "gender"],
+              `video==${videoId}`,
+              ["viewerPercentage"],
+            ),
+            queryOptionalReport(
+              accessToken,
+              channel.youtube_channel_id,
+              startDate,
+              endDate,
+              ["elapsedVideoTimeRatio"],
+              `video==${videoId}`,
+              ["audienceWatchRatio", "relativeRetentionPerformance"],
+            ),
           ]);
 
           const summaryRow = rowsFromPayload(summary.payload)[0] ?? {};
@@ -210,19 +259,35 @@ export const Route = createFileRoute("/api/youtube/video")({
                 : null,
             }))
             .sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+          const demographicRows = rowsFromPayload(demographics).map((row) => ({
+            ageGroup: String(row.ageGroup ?? "UNKNOWN"),
+            gender: String(row.gender ?? "UNKNOWN"),
+            viewerPercentage: numberOrNull(row.viewerPercentage),
+          }));
+          const retentionRows = rowsFromPayload(retention)
+            .map((row) => ({
+              elapsedVideoTimeRatio: numberOrNull(row.elapsedVideoTimeRatio),
+              audienceWatchRatio: numberOrNull(row.audienceWatchRatio),
+              relativeRetentionPerformance: numberOrNull(row.relativeRetentionPerformance),
+            }))
+            .filter((row) => row.elapsedVideoTimeRatio !== null)
+            .sort((a, b) => (a.elapsedVideoTimeRatio ?? 0) - (b.elapsedVideoTimeRatio ?? 0));
 
           const summaryAvailable = Boolean(summary.payload && Object.keys(summaryRow).length);
+
           const timelineAvailable = timelineRows.length > 0;
           const revenueAvailable = Boolean(
             summary.revenueAvailable || timeline.revenueAvailable || traffic.revenueAvailable,
           );
-          const reportSucceeded = Boolean(summary.payload || timeline.payload || traffic.payload);
+          const reportSucceeded = Boolean(
+            summary.payload || timeline.payload || traffic.payload || demographics || retention,
+          );
 
           void service.from("youtube_quota_events").insert({
             user_id: user.id,
             channel_id: channel.id,
             operation: "reports.query.video_detail",
-            quota_units: 3,
+            quota_units: 5,
             succeeded: reportSucceeded,
           });
 
@@ -265,6 +330,14 @@ export const Route = createFileRoute("/api/youtube/video")({
                 available: trafficRows.length > 0,
                 rows: trafficRows,
                 revenueAvailable: traffic.revenueAvailable,
+              },
+              demographics: {
+                available: demographicRows.length > 0,
+                rows: demographicRows,
+              },
+              retention: {
+                available: retentionRows.length > 0,
+                rows: retentionRows,
               },
             },
             meta: {

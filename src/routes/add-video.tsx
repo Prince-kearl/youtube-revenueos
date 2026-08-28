@@ -96,12 +96,17 @@ const steps = [
 function parseYoutubeVideoId(value: string): string | null {
   try {
     const url = new URL(value.trim());
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (!["youtube.com", "m.youtube.com", "youtu.be"].includes(hostname)) return null;
+
     const id =
-      url.hostname === "youtu.be"
-        ? url.pathname.slice(1)
-        : url.pathname.startsWith("/shorts/")
-          ? url.pathname.split("/")[2]
-          : url.searchParams.get("v");
+      hostname === "youtu.be"
+        ? url.pathname.split("/").filter(Boolean)[0]
+        : url.pathname === "/watch"
+          ? url.searchParams.get("v")
+          : url.pathname.startsWith("/shorts/")
+            ? url.pathname.split("/").filter(Boolean)[1]
+            : null;
     return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
   } catch {
     return null;
@@ -202,6 +207,13 @@ function AddVideo() {
   );
 
   const loadVideo = async () => {
+    setVideo(null);
+    setSavedVideoId(null);
+    setIsConnectedChannelVideo(false);
+    setTranscript("");
+    setDescription("");
+    setStatus("idle");
+    setError(null);
     const youtubeVideoId = parseYoutubeVideoId(url);
     if (!youtubeVideoId) {
       setError(errorMessage("VALIDATION_ERROR"));

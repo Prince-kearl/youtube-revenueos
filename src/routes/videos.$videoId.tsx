@@ -18,7 +18,12 @@ import {
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -82,6 +87,16 @@ type TrafficRow = {
   watchTimeMinutes: number | null;
   estimatedRevenue: number | null;
 };
+type DemographicRow = {
+  ageGroup: string;
+  gender: string;
+  viewerPercentage: number | null;
+};
+type RetentionRow = {
+  elapsedVideoTimeRatio: number | null;
+  audienceWatchRatio: number | null;
+  relativeRetentionPerformance: number | null;
+};
 type DetailData = {
   range: Range;
   startDate: string;
@@ -91,6 +106,8 @@ type DetailData = {
   summary: Summary;
   timeline: { available: boolean; rows: TimelineRow[]; revenueAvailable: boolean };
   trafficSources: { available: boolean; rows: TrafficRow[]; revenueAvailable: boolean };
+  demographics: { available: boolean; rows: DemographicRow[] };
+  retention: { available: boolean; rows: RetentionRow[] };
 };
 type DetailResponse = { data?: DetailData; error?: string };
 
@@ -206,6 +223,27 @@ function VideoDetail() {
         watchTime: numericValue(row.watchTimeMinutes) ?? 0,
       })),
     [result.data?.timeline.rows],
+  );
+
+  const demographicChart = useMemo(
+    () =>
+      (result.data?.demographics.rows ?? []).map((row) => ({
+        label: `${row.ageGroup} · ${row.gender}`,
+        percentage: numericValue(row.viewerPercentage) ?? 0,
+      })),
+    [result.data?.demographics.rows],
+  );
+  const retentionChart = useMemo(
+    () =>
+      (result.data?.retention.rows ?? []).map((row) => ({
+        position: Math.round((numericValue(row.elapsedVideoTimeRatio) ?? 0) * 100),
+        audience: Math.round((numericValue(row.audienceWatchRatio) ?? 0) * 100),
+        relative:
+          numericValue(row.relativeRetentionPerformance) === null
+            ? null
+            : Math.round((numericValue(row.relativeRetentionPerformance) ?? 0) * 100),
+      })),
+    [result.data?.retention.rows],
   );
 
   const data = result.data;
@@ -435,6 +473,143 @@ function VideoDetail() {
             ) : (
               <UnavailablePanel text="Traffic-source data is not available for this video and period." />
             )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <div className="relative rounded-xl card-gradient-outline p-5">
+              <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+              <div>
+                <h2 className="text-lg font-semibold">Audience demographics</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Viewer age and gender distribution reported by YouTube.
+                </p>
+              </div>
+              {data.demographics.available ? (
+                <div className="mt-4 h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={demographicChart}
+                      layout="vertical"
+                      margin={{ left: 12, right: 20, top: 8 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--color-border)"
+                        horizontal={false}
+                      />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="label"
+                        width={132}
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value) => [`${Number(value).toFixed(1)}%`, "Viewers"]}
+                        contentStyle={{
+                          background: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar
+                        dataKey="percentage"
+                        fill="var(--color-brand-purple)"
+                        radius={[0, 5, 5, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <UnavailablePanel text="Audience demographics are not available for this video and period." />
+              )}
+            </div>
+
+            <div className="relative rounded-xl card-gradient-outline p-5">
+              <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+              <div>
+                <h2 className="text-lg font-semibold">Audience retention</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  How much of the video viewers watched at each point.
+                </p>
+              </div>
+              {data.retention.available ? (
+                <div className="mt-4 h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={retentionChart} margin={{ left: 0, right: 12, top: 12 }}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--color-border)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="position"
+                        type="number"
+                        domain={[0, 100]}
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value, name) => [
+                          value === null ? "Unavailable" : `${Number(value).toFixed(1)}%`,
+                          name === "audience" ? "Viewers still watching" : "Relative performance",
+                        ]}
+                        labelFormatter={(value) => `${value}% of video`}
+                        contentStyle={{
+                          background: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Legend
+                        formatter={(value) =>
+                          value === "audience" ? "Viewers still watching" : "Relative performance"
+                        }
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="audience"
+                        stroke="var(--color-brand-blue)"
+                        strokeWidth={2}
+                        dot={false}
+                        name="audience"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="relative"
+                        stroke="var(--color-brand-purple)"
+                        strokeWidth={2}
+                        dot={false}
+                        connectNulls
+                        name="relative"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <UnavailablePanel text="Audience-retention data is not available for this video and period." />
+              )}
+            </div>
           </div>
 
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
