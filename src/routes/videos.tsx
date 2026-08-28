@@ -309,16 +309,17 @@ function EmptyVideos({ search }: { search: string }) {
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
   return (
-    <a
-      href={video.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="relative block rounded-xl card-gradient-outline p-4"
-    >
+    <div className="relative block rounded-xl card-gradient-outline p-4">
       <div className="flex items-center gap-3">
         <VideoThumbnail video={video} />
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 font-medium">{video.title}</p>
+          <Link
+            to="/videos/$videoId"
+            params={{ videoId: video.id }}
+            className="line-clamp-2 font-medium hover:text-primary"
+          >
+            {video.title}
+          </Link>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatDate(video.publishedAt)}
             {video.duration ? ` · ${video.duration}` : ""}
@@ -343,7 +344,24 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
           </p>
         </div>
       </div>
-    </a>
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+        <Link
+          to="/videos/$videoId"
+          params={{ videoId: video.id }}
+          className="font-semibold text-primary hover:underline"
+        >
+          View analytics
+        </Link>
+        <a
+          href={video.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          Open on YouTube
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -366,6 +384,13 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
             </span>
           </span>
         </a>
+        <Link
+          to="/videos/$videoId"
+          params={{ videoId: video.id }}
+          className="mt-1 inline-block text-xs font-semibold text-primary hover:underline"
+        >
+          View analytics
+        </Link>
       </td>
       <td className="px-3 py-3.5 text-muted-foreground">
         <span className="flex items-center gap-1.5">

@@ -39,6 +39,7 @@ import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
@@ -46,6 +47,7 @@ import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
+import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
 import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
@@ -211,6 +213,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VideosVideoIdRoute = VideosVideoIdRouteImport.update({
+  id: '/$videoId',
+  path: '/$videoId',
+  getParentRoute: () => VideosRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -244,6 +251,11 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
 const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
   id: '/api/youtube/videos',
   path: '/api/youtube/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeVideoRoute = ApiYoutubeVideoRouteImport.update({
+  id: '/api/youtube/video',
+  path: '/api/youtube/video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiYoutubeSyncRoute = ApiYoutubeSyncRouteImport.update({
@@ -351,13 +363,14 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -369,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
@@ -404,13 +418,14 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -422,6 +437,7 @@ export interface FileRoutesByTo {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
@@ -458,13 +474,14 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
-  '/videos': typeof VideosRoute
+  '/videos': typeof VideosRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/videos/generate': typeof ApiVideosGenerateRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
@@ -476,6 +493,7 @@ export interface FileRoutesById {
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
+  '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
@@ -520,6 +538,7 @@ export interface FileRouteTypes {
     | '/api/settings'
     | '/api/videos'
     | '/auth/callback'
+    | '/videos/$videoId'
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
@@ -531,6 +550,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/video'
     | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
@@ -573,6 +593,7 @@ export interface FileRouteTypes {
     | '/api/settings'
     | '/api/videos'
     | '/auth/callback'
+    | '/videos/$videoId'
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
@@ -584,6 +605,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/video'
     | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
@@ -626,6 +648,7 @@ export interface FileRouteTypes {
     | '/api/settings'
     | '/api/videos'
     | '/auth/callback'
+    | '/videos/$videoId'
     | '/api/security/recovery-codes'
     | '/api/videos/generate'
     | '/api/youtube/analytics'
@@ -637,6 +660,7 @@ export interface FileRouteTypes {
     | '/api/youtube/diagnostics'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
+    | '/api/youtube/video'
     | '/api/youtube/videos'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
@@ -673,7 +697,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
-  VideosRoute: typeof VideosRoute
+  VideosRoute: typeof VideosRouteWithChildren
   ApiDestinationsRoute: typeof ApiDestinationsRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
@@ -690,6 +714,7 @@ export interface RootRouteChildren {
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
   ApiYoutubeSettingsRoute: typeof ApiYoutubeSettingsRoute
   ApiYoutubeSyncRoute: typeof ApiYoutubeSyncRoute
+  ApiYoutubeVideoRoute: typeof ApiYoutubeVideoRoute
   ApiYoutubeVideosRoute: typeof ApiYoutubeVideosRoute
 }
 
@@ -905,6 +930,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/videos/$videoId': {
+      id: '/videos/$videoId'
+      path: '/$videoId'
+      fullPath: '/videos/$videoId'
+      preLoaderRoute: typeof VideosVideoIdRouteImport
+      parentRoute: typeof VideosRoute
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -952,6 +984,13 @@ declare module '@tanstack/react-router' {
       path: '/api/youtube/videos'
       fullPath: '/api/youtube/videos'
       preLoaderRoute: typeof ApiYoutubeVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/video': {
+      id: '/api/youtube/video'
+      path: '/api/youtube/video'
+      fullPath: '/api/youtube/video'
+      preLoaderRoute: typeof ApiYoutubeVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/youtube/sync': {
@@ -1055,6 +1094,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface VideosRouteChildren {
+  VideosVideoIdRoute: typeof VideosVideoIdRoute
+}
+
+const VideosRouteChildren: VideosRouteChildren = {
+  VideosVideoIdRoute: VideosVideoIdRoute,
+}
+
+const VideosRouteWithChildren =
+  VideosRoute._addFileChildren(VideosRouteChildren)
+
 interface ApiIntegrationsRouteChildren {
   ApiIntegrationsGoogleAnalyticsCallbackRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   ApiIntegrationsKitCallbackRoute: typeof ApiIntegrationsKitCallbackRoute
@@ -1114,7 +1164,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
-  VideosRoute: VideosRoute,
+  VideosRoute: VideosRouteWithChildren,
   ApiDestinationsRoute: ApiDestinationsRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
@@ -1131,6 +1181,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
   ApiYoutubeSettingsRoute: ApiYoutubeSettingsRoute,
   ApiYoutubeSyncRoute: ApiYoutubeSyncRoute,
+  ApiYoutubeVideoRoute: ApiYoutubeVideoRoute,
   ApiYoutubeVideosRoute: ApiYoutubeVideosRoute,
 }
 export const routeTree = rootRouteImport
