@@ -223,7 +223,11 @@ function Dashboard() {
   }, [activeChannelId]);
 
   const trend = useMemo(() => {
-    if (dashboardData?.analyticsStatus !== "available") return [];
+    if (
+      dashboardData?.analyticsStatus !== "available" ||
+      dashboardData.revenueStatus !== "available"
+    )
+      return [];
     return buildRevenueTrend(dashboardData.analytics ?? [], range);
   }, [dashboardData, range]);
   const [refreshing, setRefreshing] = useState(false);
@@ -447,8 +451,7 @@ function Dashboard() {
           {dashboardData?.revenueStatus === "unavailable" &&
             dashboardData.analyticsStatus === "available" && (
               <p className="mt-2 text-xs text-muted-foreground">
-                YouTube returned no estimated revenue rows for this period; available months are
-                shown at $0.
+                YouTube did not provide estimated revenue data for this period.
               </p>
             )}
 
@@ -656,10 +659,10 @@ function Dashboard() {
           <div className="mt-6 border-t border-border pt-4">
             <p className="text-sm text-muted-foreground">Available period total</p>
             <p className="mt-1 text-2xl font-bold">
-              {dashboardData?.analyticsStatus === "available" ? formatMoney(totalRevenue) : "—"}
+              {dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {dashboardData?.analyticsStatus === "available"
+              {dashboardData?.revenueStatus === "available"
                 ? "Platform attribution is not included"
                 : "No current analytics value available"}
             </p>
@@ -668,55 +671,74 @@ function Dashboard() {
       </div>
 
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
-      <div className="nav-glow-motion hero-banner-bg relative mb-5 flex items-center justify-between gap-3 overflow-hidden rounded-[var(--hero-radius)] border border-white/10 p-4 shadow-xl backdrop-blur-xl sm:gap-4 sm:p-5">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          {settings.showAvatar && dashboardData?.channel.thumbnail && (
-            <div className="relative shrink-0">
-              <img
-                src={dashboardData.channel.thumbnail}
-                alt={dashboardData.channel.title}
-                className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
-              />
-              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-card sm:h-6 sm:w-6">
-                <Youtube
-                  className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5"
-                  fill="white"
-                  strokeWidth={1.5}
-                />
-              </span>
-            </div>
-          )}
-          <div className="min-w-0">
-            {settings.showName && (
-              <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">
-                {dashboardData?.channel.title ?? "YouTube channel"}
-              </p>
-            )}
-            {settings.showSubscribers && dashboardData && (
-              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/60 sm:text-sm">
-                <Users className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-                <span className="shrink-0 font-medium text-white">
-                  {formatCount(dashboardData.channel.subscriberCount)}
+      <div className="nav-glow-motion hero-banner-bg relative mb-5 overflow-hidden rounded-2xl border border-white/15 p-4 shadow-xl shadow-black/10 backdrop-blur-xl sm:p-5">
+        <div className="flex min-w-0 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            {settings.showAvatar && dashboardData?.channel.thumbnail && (
+              <div className="relative shrink-0">
+                <div className="rounded-full bg-white/10 p-1 ring-1 ring-white/20">
+                  <img
+                    src={dashboardData.channel.thumbnail}
+                    alt={dashboardData.channel.title}
+                    className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
+                  />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-[#081522] sm:h-6 sm:w-6">
+                  <Youtube
+                    className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5"
+                    fill="white"
+                    strokeWidth={1.5}
+                  />
                 </span>
-                <span className="hidden sm:inline">subscribers</span>
-              </p>
+              </div>
             )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-[11px]">
+                Connected YouTube channel
+              </p>
+              {settings.showName && (
+                <p className="mt-1 truncate text-base font-semibold leading-tight text-white sm:text-lg">
+                  {dashboardData?.channel.title ?? "YouTube channel"}
+                </p>
+              )}
+              <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-white/65 sm:text-sm">
+                {dashboardData?.channel.handle && (
+                  <span className="truncate">{dashboardData.channel.handle}</span>
+                )}
+                {settings.showSubscribers && dashboardData && (
+                  <>
+                    {dashboardData.channel.handle && (
+                      <span aria-hidden="true" className="text-white/35">
+                        •
+                      </span>
+                    )}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      <span className="font-medium text-white">
+                        {formatCount(dashboardData.channel.subscriberCount)}
+                      </span>
+                      <span className="hidden sm:inline">subscribers</span>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
+          {settings.showVisitButton && (
+            <a
+              href={dashboardData?.channel.url ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!dashboardData?.channel.url}
+              aria-label="Visit Channel"
+              className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
+            >
+              <Youtube className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={1.5} />
+              <span className="hidden sm:inline">Visit channel</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          )}
         </div>
-        {settings.showVisitButton && (
-          <a
-            href={dashboardData?.channel.url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-disabled={!dashboardData?.channel.url}
-            aria-label="Visit Channel"
-            className={`flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:h-10 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
-          >
-            <Youtube className="hidden h-4 w-4 shrink-0 sm:block" fill="white" strokeWidth={1.5} />
-            <span className="hidden sm:inline">Visit Channel</span>
-            <ExternalLink className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
-          </a>
-        )}
       </div>
 
       {/* Recent videos */}
