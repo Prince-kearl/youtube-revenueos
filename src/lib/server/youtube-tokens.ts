@@ -30,19 +30,34 @@ export function isYoutubeReauthError(error: unknown): boolean {
 // Returns a usable access token, transparently refreshing (and persisting the refreshed
 // ciphertext) when the stored one is expired or about to expire — this is what lets a creator
 // stay connected indefinitely instead of reauthorizing every time the short-lived token expires.
-export async function getValidAccessToken(
+type TokenLifecycleDependencies = {
+  decrypt: typeof decryptSecretFromBytea;
+  encrypt: typeof encryptSecretToBytea;
+  refresh: typeof refreshGoogleAccessToken;
+  now: () => number;
+};
+
+const productionTokenLifecycleDependencies: TokenLifecycleDependencies = {
+  decrypt: decryptSecretFromBytea,
+  encrypt: encryptSecretToBytea,
+  refresh: refreshGoogleAccessToken,
+  now: () => Date.now(),
+};
+
+export async function getValidAccessTokenWithDependencies(
   client: SupabaseClient,
   channel: YoutubeChannelRow,
+  dependencies: TokenLifecycleDependencies,
 ): Promise<string> {
   const expiresAt = channel.token_expiry ? new Date(channel.token_expiry).getTime() : 0;
-  if (expiresAt - EXPIRY_SAFETY_MARGIN_MS > Date.now()) {
-    return decryptSecretFromBytea(channel.access_token_ciphertext);
+  if (expiresAt - EXPIRY_SAFETY_MARGIN_MS > dependencies.now()) {
+    return dependencies.decrypt(channel.access_token_ciphertext);
   }
 
-  const refreshToken = await decryptSecretFromBytea(channel.refresh_token_ciphertext);
+  const refreshToken = await dependencies.decrypt(channel.refresh_token_ciphertext);
   let refreshed: Awaited<ReturnType<typeof refreshGoogleAccessToken>>;
   try {
-    refreshed = await refreshGoogleAccessToken(refreshToken);
+    refreshed = await dependencies.refresh(refreshToken);
   } catch (error) {
     if (!isYoutubeReauthError(error)) throw error;
     await client
@@ -51,8 +66,8 @@ export async function getValidAccessToken(
       .eq("id", channel.id);
     throw new YoutubeReauthRequiredError();
   }
-  const accessTokenCiphertext = await encryptSecretToBytea(refreshed.access_token);
-  const tokenExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+  const accessTokenCiphertext = await dependencies.encrypt(refreshed.access_token);
+  const tokenExpiry = new Date(dependencies.now() + refreshed.expires_in * 1000).toISOString();
 
   await client
     .from("youtube_channels")
@@ -60,4 +75,11 @@ export async function getValidAccessToken(
     .eq("id", channel.id);
 
   return refreshed.access_token;
+}
+
+export function getValidAccessToken(
+  client: SupabaseClient,
+  channel: YoutubeChannelRow,
+): Promise<string> {
+  return getValidAccessTokenWithDependencies(client, channel, productionTokenLifecycleDependencies);
 }
