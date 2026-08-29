@@ -671,8 +671,8 @@ function Dashboard() {
       </div>
 
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
-      <div className="nav-glow-motion hero-banner-bg relative mb-5 overflow-hidden rounded-2xl border border-white/15 p-4 shadow-xl shadow-black/10 backdrop-blur-xl sm:p-5">
-        <div className="flex min-w-0 items-center justify-between gap-4">
+      <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
+        <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 sm:flex-row sm:items-center sm:gap-6">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             {settings.showAvatar && dashboardData?.channel.thumbnail && (
               <div className="relative shrink-0">
@@ -731,7 +731,7 @@ function Dashboard() {
               rel="noopener noreferrer"
               aria-disabled={!dashboardData?.channel.url}
               aria-label="Visit Channel"
-              className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
+              className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
             >
               <Youtube className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={1.5} />
               <span className="hidden sm:inline">Visit channel</span>
