@@ -142,6 +142,21 @@ function requireHttpEnvironment(t: { skip: (reason: string) => void }): boolean 
   return true;
 }
 
+function isVercelSsoRedirect(response: Response): boolean {
+  return (
+    response.status === 302 &&
+    (response.headers.get("location") ?? "").includes("vercel.com/sso-api")
+  );
+}
+
+function skipIfVercelSso(t: { skip: (reason: string) => void }, response: Response): boolean {
+  if (!isVercelSsoRedirect(response)) return false;
+  t.skip(
+    "Vercel SSO protects this deployment; run the authenticated checks against a session-accessible staging URL",
+  );
+  return true;
+}
+
 function requireSession(t: { skip: (reason: string) => void }): boolean {
   if (!sessionCookie) {
     t.skip("Set YRO_E2E_SESSION_COOKIE to run authenticated HTTP checks");
@@ -153,6 +168,7 @@ function requireSession(t: { skip: (reason: string) => void }): boolean {
 test("browser API routes reject unauthenticated requests", async (t) => {
   if (!requireHttpEnvironment(t)) return;
   const unauthenticated = await fetch(`${baseUrl}/api/youtube/channels`, { redirect: "manual" });
+  if (skipIfVercelSso(t, unauthenticated)) return;
   assert.equal(unauthenticated.status, 401);
 });
 
@@ -225,6 +241,7 @@ test("OAuth start requires a signed-in session and returns a redirect when confi
 test("OAuth callback rejects a missing or mismatched state without exchanging a code", async (t) => {
   if (!requireHttpEnvironment(t)) return;
   const { response } = await request("/api/youtube/callback?code=fake-code&state=fake-state");
+  if (skipIfVercelSso(t, response)) return;
   assert.equal(response.status, 302);
   assert.match(response.headers.get("location") ?? "", /youtube=invalid_state/);
 });
