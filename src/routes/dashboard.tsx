@@ -683,12 +683,18 @@ function Dashboard() {
                     className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
                   />
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-red ring-2 ring-[#081522] sm:h-6 sm:w-6">
-                  <Youtube
-                    className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5"
-                    fill="white"
-                    strokeWidth={1.5}
-                  />
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-0.5 -right-1 flex h-5 w-7 items-center justify-center rounded-[5px] bg-[#ff0000] ring-2 ring-[#081522] sm:h-6 sm:w-8"
+                >
+                  <svg viewBox="0 0 24 18" className="h-3 w-4 sm:h-3.5 sm:w-5" fill="none">
+                    <path
+                      d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
+                      fill="currentColor"
+                      className="text-white"
+                    />
+                    <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="#ff0000" />
+                  </svg>
                 </span>
               </div>
             )}
