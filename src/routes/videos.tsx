@@ -345,13 +345,12 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 text-xs">
-        <Link
-          to="/videos/$videoId"
-          params={{ videoId: video.id }}
+        <a
+          href={`/videos/${encodeURIComponent(video.id)}`}
           className="font-semibold text-primary hover:underline"
         >
           View analytics
-        </Link>
+        </a>
         <a
           href={video.url}
           target="_blank"
@@ -384,13 +383,12 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
             </span>
           </span>
         </a>
-        <Link
-          to="/videos/$videoId"
-          params={{ videoId: video.id }}
+        <a
+          href={`/videos/${encodeURIComponent(video.id)}`}
           className="mt-1 inline-block text-xs font-semibold text-primary hover:underline"
         >
           View analytics
-        </Link>
+        </a>
       </td>
       <td className="px-3 py-3.5 text-muted-foreground">
         <span className="flex items-center gap-1.5">
