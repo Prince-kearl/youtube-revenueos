@@ -218,8 +218,9 @@ function VideoDetail() {
     }));
     const params = new URLSearchParams({ videoId, range });
     if (activeChannelId) params.set("channelId", activeChannelId);
+    if (retryNonce > 0) params.set("fresh", "1");
     fetch(`/api/youtube/video?${params.toString()}`, {
-      cache: "no-store",
+      cache: retryNonce > 0 ? "no-store" : "default",
       signal: controller.signal,
     })
       .then(async (response) => {

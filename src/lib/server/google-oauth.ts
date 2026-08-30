@@ -302,38 +302,38 @@ export async function fetchYoutubeVideoById(
   return mapYoutubeVideo(video);
 }
 
-export async function fetchRecentYoutubeVideos(
+export type YoutubeVideoPage = {
+  videos: YoutubeVideoSummary[];
+  nextPageToken: string | null;
+};
+
+export async function fetchYoutubeVideosPage(
   accessToken: string,
   uploadsPlaylistId: string | null,
-  limit = 12,
-): Promise<YoutubeVideoSummary[]> {
-  if (!uploadsPlaylistId || limit <= 0) return [];
+  pageToken?: string,
+  limit = 50,
+): Promise<YoutubeVideoPage> {
+  if (!uploadsPlaylistId || limit <= 0) return { videos: [], nextPageToken: null };
 
-  // The uploads playlist can contain private, unlisted, deleted, or otherwise unavailable
-  // entries. Walk enough playlist pages to collect the requested number of candidate IDs instead
-  // of treating a short first page as proof that the channel has no published videos.
-  const ids: string[] = [];
-  let pageToken: string | undefined;
-  for (let page = 0; page < 5 && ids.length < limit; page += 1) {
-    const params: Record<string, string> = {
-      part: "contentDetails",
-      playlistId: uploadsPlaylistId,
-      maxResults: "50",
-    };
-    if (pageToken) params.pageToken = pageToken;
-    const playlist = await youtubeApiRequest<{
-      items?: Array<{ contentDetails?: { videoId?: string } }>;
-      nextPageToken?: string;
-    }>(accessToken, "playlistItems", params);
-    for (const item of playlist.items ?? []) {
-      const videoId = item.contentDetails?.videoId;
-      if (videoId && !ids.includes(videoId)) ids.push(videoId);
-      if (ids.length >= limit) break;
-    }
-    pageToken = playlist.nextPageToken;
-    if (!pageToken || !playlist.items?.length) break;
-  }
-  if (!ids.length) return [];
+  const playlistParams: Record<string, string> = {
+    part: "contentDetails",
+    playlistId: uploadsPlaylistId,
+    maxResults: String(Math.min(Math.max(limit, 1), 50)),
+  };
+  if (pageToken) playlistParams.pageToken = pageToken;
+
+  const playlist = await youtubeApiRequest<{
+    items?: Array<{ contentDetails?: { videoId?: string } }>;
+    nextPageToken?: string;
+  }>(accessToken, "playlistItems", playlistParams);
+  const ids = [
+    ...new Set(
+      (playlist.items ?? [])
+        .map((item) => item.contentDetails?.videoId)
+        .filter((videoId): videoId is string => Boolean(videoId)),
+    ),
+  ];
+  if (!ids.length) return { videos: [], nextPageToken: playlist.nextPageToken ?? null };
 
   const videos = await youtubeApiRequest<{
     items?: Array<{
@@ -354,11 +354,22 @@ export async function fetchRecentYoutubeVideos(
     id: ids.join(","),
   });
 
-  return (videos.items ?? [])
-    .filter((video) => video.status?.privacyStatus === "public")
-    .map(mapYoutubeVideo)
-    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
-    .slice(0, limit);
+  return {
+    videos: (videos.items ?? [])
+      .filter((video) => video.status?.privacyStatus === "public")
+      .map(mapYoutubeVideo)
+      .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")),
+    nextPageToken: playlist.nextPageToken ?? null,
+  };
+}
+
+export async function fetchRecentYoutubeVideos(
+  accessToken: string,
+  uploadsPlaylistId: string | null,
+  limit = 12,
+): Promise<YoutubeVideoSummary[]> {
+  const page = await fetchYoutubeVideosPage(accessToken, uploadsPlaylistId, undefined, limit);
+  return page.videos.slice(0, limit);
 }
 
 export interface YoutubeCommentSummary {

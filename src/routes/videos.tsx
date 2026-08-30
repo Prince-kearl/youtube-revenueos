@@ -34,6 +34,7 @@ type VideosData = {
     videoCount: number;
   };
   videos: YoutubeVideo[];
+  nextPageToken: string | null;
   videosStatus: "available" | "disabled" | "unavailable";
   totalVideoCount: number;
 };
@@ -63,10 +64,12 @@ function formatDate(value: string | null): string {
 
 function Videos() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isVideoListRoute = pathname === "/videos" || pathname === "/videos/";
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
   const [retryNonce, setRetryNonce] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [state, setState] = useState<{
     data: VideosData | null;
     status: "loading" | "connected" | "not_connected" | "disabled" | "error" | "reauth";
@@ -74,13 +77,14 @@ function Videos() {
   }>({ data: null, status: "loading", error: null });
 
   useEffect(() => {
+    if (!isVideoListRoute) return;
     const controller = new AbortController();
     setState((previous) => ({ ...previous, status: "loading", error: null }));
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ limit: "50" });
     if (activeChannelId) params.set("channelId", activeChannelId);
 
-    fetch(`/api/youtube/videos${params.size ? `?${params.toString()}` : ""}`, {
-      cache: "no-store",
+    fetch(`/api/youtube/videos?${params.toString()}`, {
+      cache: "default",
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -127,7 +131,46 @@ function Videos() {
       });
 
     return () => controller.abort();
-  }, [activeChannelId, retryNonce]);
+  }, [activeChannelId, isVideoListRoute, retryNonce]);
+
+  const loadMore = async () => {
+    const token = state.data?.nextPageToken;
+    if (!token || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ pageToken: token, limit: "50" });
+      if (activeChannelId) params.set("channelId", activeChannelId);
+      const response = await fetch(`/api/youtube/videos?${params.toString()}`, {
+        cache: "default",
+      });
+      const body = (await response.json()) as VideosResponse;
+      if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
+        throw new Error("YOUTUBE_REAUTH_REQUIRED");
+      }
+      if (!response.ok || !("status" in body) || body.status !== "connected" || !body.data) {
+        throw new Error("YOUTUBE_DATA_UNAVAILABLE");
+      }
+      setState((previous) =>
+        previous.data
+          ? {
+              ...previous,
+              data: {
+                ...previous.data,
+                ...body.data,
+                videos: [...previous.data.videos, ...body.data.videos],
+              },
+            }
+          : previous,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "YOUTUBE_DATA_UNAVAILABLE";
+      if (message === "YOUTUBE_REAUTH_REQUIRED") {
+        setState((previous) => ({ ...previous, status: "reauth", error: message }));
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const filteredVideos = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -140,7 +183,7 @@ function Videos() {
       });
   }, [search, sort, state.data?.videos]);
 
-  if (pathname !== "/videos" && pathname !== "/videos/") {
+  if (!isVideoListRoute) {
     return <Outlet />;
   }
 
@@ -240,6 +283,19 @@ function Videos() {
             ))}
             {!filteredVideos.length && <EmptyVideos search={search} />}
           </div>
+
+          {state.data?.nextPageToken && (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="rounded-[var(--button-radius)] border border-border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+              >
+                {isLoadingMore ? "Loading more videos…" : "Load more videos"}
+              </button>
+            </div>
+          )}
 
           <div className="relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
-import { fetchAuthorizedYoutubeChannel, fetchRecentYoutubeVideos } from "@/lib/server/google-oauth";
+import { fetchAuthorizedYoutubeChannel, fetchYoutubeVideosPage } from "@/lib/server/google-oauth";
 
 const idSchema = z.string().uuid();
 
@@ -33,6 +33,11 @@ export const Route = createFileRoute("/api/youtube/videos")({
           const url = new URL(request.url);
           const rawChannelId = url.searchParams.get("channelId");
           const requestedChannelId = rawChannelId ? idSchema.parse(rawChannelId) : null;
+          const pageToken = url.searchParams.get("pageToken") ?? undefined;
+          const rawLimit = Number(url.searchParams.get("limit") ?? "50");
+          const limit = Number.isFinite(rawLimit)
+            ? Math.min(Math.max(Math.floor(rawLimit), 1), 50)
+            : 50;
 
           let channelQuery = client
             .from("youtube_channels")
@@ -71,6 +76,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
                   videoCount: channelRow.video_count ?? 0,
                 },
                 videos: [],
+                nextPageToken: null,
                 videosStatus: "disabled",
                 totalVideoCount: channelRow.video_count ?? 0,
               },
@@ -90,7 +96,12 @@ export const Route = createFileRoute("/api/youtube/videos")({
             accessToken,
             channelRow.youtube_channel_id,
           );
-          const videos = await fetchRecentYoutubeVideos(accessToken, channel.uploadsPlaylistId, 50);
+          const videoPage = await fetchYoutubeVideosPage(
+            accessToken,
+            channel.uploadsPlaylistId,
+            pageToken,
+            limit,
+          );
 
           const { error: channelUpdateError } = await client
             .from("youtube_channels")
@@ -123,7 +134,8 @@ export const Route = createFileRoute("/api/youtube/videos")({
                 thumbnail: channel.thumbnail,
                 videoCount: channel.videoCount,
               },
-              videos,
+              videos: videoPage.videos,
+              nextPageToken: videoPage.nextPageToken,
               videosStatus: "available",
               totalVideoCount: channel.videoCount,
             },

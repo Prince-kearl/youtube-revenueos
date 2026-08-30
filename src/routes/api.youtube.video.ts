@@ -165,6 +165,7 @@ export const Route = createFileRoute("/api/youtube/video")({
           const rawChannelId = url.searchParams.get("channelId");
           const channelId = rawChannelId ? channelIdSchema.parse(rawChannelId) : null;
           const range = rangeSchema.parse(url.searchParams.get("range") ?? undefined);
+          const forceFresh = url.searchParams.get("fresh") === "1";
           const { startDate, endDate } = dateRange(range);
 
           let channelQuery = client
@@ -293,63 +294,72 @@ export const Route = createFileRoute("/api/youtube/video")({
             succeeded: reportSucceeded,
           });
 
-          return json({
-            data: {
-              range,
-              startDate,
-              endDate,
-              channel: {
-                id: channel.id,
-                title: channel.channel_name,
-                handle: channel.channel_handle,
+          return json(
+            {
+              data: {
+                range,
+                startDate,
+                endDate,
+                channel: {
+                  id: channel.id,
+                  title: channel.channel_name,
+                  handle: channel.channel_handle,
+                },
+                video,
+                summary: {
+                  available: summaryAvailable,
+                  views: numberOrNull(summaryRow.views),
+                  watchTimeMinutes: numberOrNull(summaryRow.estimatedMinutesWatched),
+                  averageViewDurationSeconds: numberOrNull(summaryRow.averageViewDuration),
+                  averageViewPercentage: numberOrNull(summaryRow.averageViewPercentage),
+                  likes: numberOrNull(summaryRow.likes),
+                  comments: numberOrNull(summaryRow.comments),
+                  shares: numberOrNull(summaryRow.shares),
+                  subscribersGained: numberOrNull(summaryRow.subscribersGained),
+                  subscribersLost: numberOrNull(summaryRow.subscribersLost),
+                  estimatedRevenue: summary.revenueAvailable
+                    ? numberOrNull(summaryRow.estimatedRevenue)
+                    : null,
+                  cpm: summary.revenueAvailable ? numberOrNull(summaryRow.cpm) : null,
+                  playbackBasedCpm: summary.revenueAvailable
+                    ? numberOrNull(summaryRow.playbackBasedCpm)
+                    : null,
+                  revenueAvailable,
+                },
+                timeline: {
+                  available: timelineAvailable,
+                  rows: timelineRows,
+                  revenueAvailable: timeline.revenueAvailable,
+                },
+                trafficSources: {
+                  available: trafficRows.length > 0,
+                  rows: trafficRows,
+                  revenueAvailable: traffic.revenueAvailable,
+                },
+                demographics: {
+                  available: demographicRows.length > 0,
+                  rows: demographicRows,
+                },
+                retention: {
+                  available: retentionRows.length > 0,
+                  rows: retentionRows,
+                },
               },
-              video,
-              summary: {
-                available: summaryAvailable,
-                views: numberOrNull(summaryRow.views),
-                watchTimeMinutes: numberOrNull(summaryRow.estimatedMinutesWatched),
-                averageViewDurationSeconds: numberOrNull(summaryRow.averageViewDuration),
-                averageViewPercentage: numberOrNull(summaryRow.averageViewPercentage),
-                likes: numberOrNull(summaryRow.likes),
-                comments: numberOrNull(summaryRow.comments),
-                shares: numberOrNull(summaryRow.shares),
-                subscribersGained: numberOrNull(summaryRow.subscribersGained),
-                subscribersLost: numberOrNull(summaryRow.subscribersLost),
-                estimatedRevenue: summary.revenueAvailable
-                  ? numberOrNull(summaryRow.estimatedRevenue)
-                  : null,
-                cpm: summary.revenueAvailable ? numberOrNull(summaryRow.cpm) : null,
-                playbackBasedCpm: summary.revenueAvailable
-                  ? numberOrNull(summaryRow.playbackBasedCpm)
-                  : null,
+              meta: {
+                source: "youtube_analytics_api",
+                available: reportSucceeded,
                 revenueAvailable,
-              },
-              timeline: {
-                available: timelineAvailable,
-                rows: timelineRows,
-                revenueAvailable: timeline.revenueAvailable,
-              },
-              trafficSources: {
-                available: trafficRows.length > 0,
-                rows: trafficRows,
-                revenueAvailable: traffic.revenueAvailable,
-              },
-              demographics: {
-                available: demographicRows.length > 0,
-                rows: demographicRows,
-              },
-              retention: {
-                available: retentionRows.length > 0,
-                rows: retentionRows,
+                fetchedAt: new Date().toISOString(),
               },
             },
-            meta: {
-              source: "youtube_analytics_api",
-              available: reportSucceeded,
-              revenueAvailable,
-              fetchedAt: new Date().toISOString(),
+            {
+              headers: {
+                "Cache-Control": forceFresh
+                  ? "private, no-store"
+                  : "private, max-age=30, stale-while-revalidate=60",
+              },
             },
-          });
+          );
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
