@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Filter, Play, Plus, Search, ThumbsUp } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -62,6 +62,7 @@ function formatDate(value: string | null): string {
 }
 
 function Videos() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
@@ -138,6 +139,10 @@ function Videos() {
         return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
       });
   }, [search, sort, state.data?.videos]);
+
+  if (pathname !== "/videos" && pathname !== "/videos/") {
+    return <Outlet />;
+  }
 
   const totalVideoCount = state.data?.totalVideoCount ?? 0;
   const summary =
