@@ -8,6 +8,7 @@ import {
   Eye,
   ExternalLink,
   MessageCircle,
+  Percent,
   RefreshCw,
   Share2,
   ThumbsUp,
@@ -59,6 +60,7 @@ type Summary = {
   views: number | null;
   watchTimeMinutes: number | null;
   averageViewDurationSeconds: number | null;
+  averageViewPercentage: number | null;
   likes: number | null;
   comments: number | null;
   shares: number | null;
@@ -74,6 +76,7 @@ type TimelineRow = {
   views: number | null;
   watchTimeMinutes: number | null;
   averageViewDurationSeconds: number | null;
+  averageViewPercentage: number | null;
   likes: number | null;
   comments: number | null;
   shares: number | null;
@@ -136,9 +139,25 @@ function formatDuration(value: number | null | undefined): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatPercentage(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "Unavailable";
+  return `${value.toFixed(1)}%`;
+}
+
 function formatCurrency(value: number | null | undefined, available: boolean): string {
   if (!available || value === null || value === undefined) return "Unavailable";
   return `$${value.toFixed(2)}`;
+}
+
+function formatUpdatedAt(value: string | null): string {
+  if (!value) return "Not updated yet";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Not updated yet"
+    : `Last updated ${new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date)}`;
 }
 
 function formatDate(value: string | null): string {
@@ -179,6 +198,9 @@ function VideoDetail() {
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [range, setRange] = useState<Range>("12M");
   const [retryNonce, setRetryNonce] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     data: DetailData | null;
     status: "loading" | "connected" | "reauth" | "error";
@@ -187,7 +209,13 @@ function VideoDetail() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setResult((previous) => ({ ...previous, status: "loading", error: null }));
+    setIsRefreshing(true);
+    setRefreshError(null);
+    setResult((previous) => ({
+      ...previous,
+      status: previous.data ? "connected" : "loading",
+      error: null,
+    }));
     const params = new URLSearchParams({ videoId, range });
     if (activeChannelId) params.set("channelId", activeChannelId);
     fetch(`/api/youtube/video?${params.toString()}`, {
@@ -202,26 +230,44 @@ function VideoDetail() {
         if (!response.ok || !body.data) throw new Error(body.error ?? "SERVER_ERROR");
         return body.data;
       })
-      .then((data) => setResult({ data, status: "connected", error: null }))
+      .then((data) => {
+        setResult({ data, status: "connected", error: null });
+        setLastUpdated(new Date().toISOString());
+      })
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
         const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
-        setResult({
-          data: null,
-          status: code === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error",
-          error: code,
+        setResult((previous) => {
+          if (previous.data) {
+            setRefreshError(code);
+            return { ...previous, status: "connected", error: null };
+          }
+          return {
+            data: null,
+            status: code === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error",
+            error: code,
+          };
         });
-      });
+      })
+      .finally(() => setIsRefreshing(false));
     return () => controller.abort();
   }, [activeChannelId, range, retryNonce, videoId]);
 
   const timelineChart = useMemo(
     () =>
-      (result.data?.timeline.rows ?? []).map((row) => ({
-        date: row.date.slice(5),
-        views: numericValue(row.views) ?? 0,
-        watchTime: numericValue(row.watchTimeMinutes) ?? 0,
-      })),
+      (result.data?.timeline.rows ?? []).map((row) => {
+        const engagementValues = [row.likes, row.comments, row.shares]
+          .map(numericValue)
+          .filter((value): value is number => value !== null);
+        return {
+          date: row.date.slice(5),
+          views: numericValue(row.views),
+          watchTime: numericValue(row.watchTimeMinutes),
+          engagement: engagementValues.length
+            ? engagementValues.reduce((total, value) => total + value, 0)
+            : null,
+        };
+      }),
     [result.data?.timeline.rows],
   );
 
@@ -229,7 +275,7 @@ function VideoDetail() {
     () =>
       (result.data?.demographics.rows ?? []).map((row) => ({
         label: `${row.ageGroup} · ${row.gender}`,
-        percentage: numericValue(row.viewerPercentage) ?? 0,
+        percentage: numericValue(row.viewerPercentage),
       })),
     [result.data?.demographics.rows],
   );
@@ -237,7 +283,10 @@ function VideoDetail() {
     () =>
       (result.data?.retention.rows ?? []).map((row) => ({
         position: Math.round((numericValue(row.elapsedVideoTimeRatio) ?? 0) * 100),
-        audience: Math.round((numericValue(row.audienceWatchRatio) ?? 0) * 100),
+        audience:
+          numericValue(row.audienceWatchRatio) === null
+            ? null
+            : Math.round((numericValue(row.audienceWatchRatio) ?? 0) * 100),
         relative:
           numericValue(row.relativeRetentionPerformance) === null
             ? null
@@ -256,19 +305,38 @@ function VideoDetail() {
         >
           <ArrowLeft className="h-4 w-4" /> Back to Videos
         </Link>
-        <div className="flex rounded-lg bg-accent p-1 text-xs">
-          {ranges.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setRange(item)}
-              className={`rounded-[var(--button-radius)] px-3 py-1.5 font-medium transition-colors ${item === range ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {item}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="text-xs text-muted-foreground">{formatUpdatedAt(lastUpdated)}</div>
+          <button
+            type="button"
+            onClick={() => setRetryNonce((value) => value + 1)}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Refreshing" : "Refresh"}
+          </button>
+          <div className="flex rounded-lg bg-accent p-1 text-xs">
+            {ranges.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setRange(item)}
+                className={`rounded-[var(--button-radius)] px-3 py-1.5 font-medium transition-colors ${item === range ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {refreshError && data && result.status === "connected" && (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          We couldn’t refresh this video right now. Your last successful data is still shown.{" "}
+          {friendlyError(refreshError)}
+        </div>
+      )}
 
       {result.status === "loading" && <DetailLoading />}
       {result.status === "reauth" && (
@@ -315,6 +383,9 @@ function VideoDetail() {
                 {data.channel.title ?? "Connected channel"}
                 {data.channel.handle ? ` · ${data.channel.handle}` : ""}
               </p>
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground/80">
+                YouTube video ID: {data.video.id}
+              </p>
             </div>
             <a
               href={data.video.url}
@@ -326,7 +397,7 @@ function VideoDetail() {
             </a>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard
               icon={<Eye className="h-5 w-5" />}
               value={formatCount(data.summary.views)}
@@ -346,11 +417,19 @@ function VideoDetail() {
               change="Per playback"
             />
             <StatCard
+              icon={<Percent className="h-5 w-5" />}
+              value={formatPercentage(data.summary.averageViewPercentage)}
+              label="Average viewed"
+              change="YouTube Analytics"
+            />
+            <StatCard
               icon={<DollarSign className="h-5 w-5" />}
               value={formatCurrency(data.summary.estimatedRevenue, data.summary.revenueAvailable)}
-              label="Estimated revenue"
+              label={data.summary.revenueAvailable ? "Estimated revenue" : "Revenue unavailable"}
               change={
-                data.summary.revenueAvailable ? "YouTube reported" : "Unavailable for this period"
+                data.summary.revenueAvailable
+                  ? "YouTube-reported estimated revenue"
+                  : "Not provided by YouTube for this period"
               }
             />
           </div>
@@ -375,6 +454,11 @@ function VideoDetail() {
               icon={<Users className="h-4 w-4" />}
               label="Subscribers gained"
               value={formatCount(data.summary.subscribersGained)}
+            />
+            <MetricCard
+              icon={<Users className="h-4 w-4" />}
+              label="Subscribers lost"
+              value={formatCount(data.summary.subscribersLost)}
             />
           </div>
 
@@ -421,6 +505,7 @@ function VideoDetail() {
                       tickLine={false}
                       tickFormatter={formatCount}
                     />
+                    <Legend />
                     <Tooltip
                       contentStyle={{
                         background: "var(--color-popover)",
@@ -436,6 +521,25 @@ function VideoDetail() {
                       fill="url(#videoViewsGradient)"
                       strokeWidth={2}
                       name="Views"
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="watchTime"
+                      stroke="var(--color-brand-purple)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Watch time (minutes)"
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="engagement"
+                      stroke="var(--color-brand-red)"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Engagement"
+                      connectNulls={false}
                     />
                   </AreaChart>
                 </ResponsiveContainer>

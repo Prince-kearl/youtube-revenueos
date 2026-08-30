@@ -17,6 +17,7 @@ const activityMetrics = [
   "views",
   "estimatedMinutesWatched",
   "averageViewDuration",
+  "averageViewPercentage",
   "likes",
   "comments",
   "shares",
@@ -39,7 +40,7 @@ function json(body: unknown, init?: ResponseInit) {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "private, max-age=60",
+      "Cache-Control": "private, no-store",
       ...init?.headers,
     },
   });
@@ -242,6 +243,7 @@ export const Route = createFileRoute("/api/youtube/video")({
             views: numberOrNull(row.views),
             watchTimeMinutes: numberOrNull(row.estimatedMinutesWatched),
             averageViewDurationSeconds: numberOrNull(row.averageViewDuration),
+            averageViewPercentage: numberOrNull(row.averageViewPercentage),
             likes: numberOrNull(row.likes),
             comments: numberOrNull(row.comments),
             shares: numberOrNull(row.shares),
@@ -307,6 +309,7 @@ export const Route = createFileRoute("/api/youtube/video")({
                 views: numberOrNull(summaryRow.views),
                 watchTimeMinutes: numberOrNull(summaryRow.estimatedMinutesWatched),
                 averageViewDurationSeconds: numberOrNull(summaryRow.averageViewDuration),
+                averageViewPercentage: numberOrNull(summaryRow.averageViewPercentage),
                 likes: numberOrNull(summaryRow.likes),
                 comments: numberOrNull(summaryRow.comments),
                 shares: numberOrNull(summaryRow.shares),
