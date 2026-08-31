@@ -1,11 +1,12 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Play, Plus, Search, ThumbsUp } from "lucide-react";
+import { Eye, Filter, Play, Plus, RefreshCw, Search, ThumbsUp } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
+import { ListRowSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/videos")({
   component: Videos,
@@ -70,6 +71,8 @@ function Videos() {
   const [sort, setSort] = useState<SortOption>("recent");
   const [retryNonce, setRetryNonce] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [state, setState] = useState<{
     data: VideosData | null;
     status: "loading" | "connected" | "not_connected" | "disabled" | "error" | "reauth";
@@ -79,7 +82,16 @@ function Videos() {
   useEffect(() => {
     if (!isVideoListRoute) return;
     const controller = new AbortController();
-    setState((previous) => ({ ...previous, status: "loading", error: null }));
+    setIsRefreshing(true);
+    setRefreshError(null);
+    // Only drop to "loading" (the skeleton) if there's no data to keep showing yet — a channel
+    // switch or retry-after-error with an already-populated list stays on "connected" so the
+    // list itself doesn't disappear, per "refresh preserves data, just adds a subtle indicator".
+    setState((previous) => ({
+      ...previous,
+      status: previous.data ? previous.status : "loading",
+      error: previous.data ? previous.error : null,
+    }));
     const params = new URLSearchParams({ limit: "50" });
     if (activeChannelId) params.set("channelId", activeChannelId);
 
@@ -123,12 +135,22 @@ function Videos() {
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         const message = error instanceof Error ? error.message : "YOUTUBE_DATA_UNAVAILABLE";
-        setState({
-          data: null,
-          status: message === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error",
-          error: message,
+        setState((previous) => {
+          // A refetch that fails while a previously-loaded list is still on screen keeps that
+          // list visible and surfaces a dismissible banner instead of replacing everything with
+          // an error state — only a genuine first-load failure blanks the page.
+          if (previous.data) {
+            setRefreshError(message);
+            return previous;
+          }
+          return {
+            data: null,
+            status: message === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error",
+            error: message,
+          };
         });
-      });
+      })
+      .finally(() => setIsRefreshing(false));
 
     return () => controller.abort();
   }, [activeChannelId, isVideoListRoute, retryNonce]);
@@ -198,7 +220,12 @@ function Videos() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Videos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+            {summary}
+            {isRefreshing && state.data && (
+              <RefreshCw className="h-3 w-3 animate-spin" aria-label="Refreshing" />
+            )}
+          </p>
           {state.data?.channel.title && (
             <p className="mt-1 text-xs text-muted-foreground">
               Showing videos from {state.data.channel.title}
@@ -242,6 +269,13 @@ function Videos() {
           </Link>
         </div>
       </div>
+
+      {refreshError && state.data && state.status === "connected" && (
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          We couldn&apos;t refresh your videos just now. The list below is still your last
+          successful load.
+        </div>
+      )}
 
       {state.status === "loading" && <LoadingState />}
       {state.status === "not_connected" && (
@@ -327,7 +361,7 @@ function LoadingState() {
   return (
     <div className="mt-6 space-y-3" aria-label="Loading YouTube videos" aria-busy="true">
       {[1, 2, 3].map((item) => (
-        <div key={item} className="h-20 animate-pulse rounded-xl bg-accent/50" />
+        <ListRowSkeleton key={item} />
       ))}
     </div>
   );

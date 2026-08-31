@@ -10,11 +10,7 @@ import {
   Tooltip,
 } from "recharts";
 import {
-  DollarSign,
-  TrendingUp,
-  Eye,
   RefreshCw,
-  Youtube,
   Users,
   ExternalLink,
   Play,
@@ -25,7 +21,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { StatCard } from "@/components/ui-bits";
+import { KpiTrendCard } from "@/components/KpiTrendCard";
+import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useOnboarding } from "@/lib/stores";
@@ -70,14 +68,19 @@ type DashboardAnalyticsRow = {
   watchTimeMinutes?: number;
 };
 
+// "forbidden" = YouTube rejected the request for auth/permission reasons (401/403) — most often a
+// token that predates a scope being added, fixable by reconnecting. Distinct from "unavailable",
+// which means the request succeeded but there's genuinely nothing to report for the period.
+type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
+
 type DashboardData = {
   channel: DashboardChannel;
   videos: DashboardVideo[];
   videosStatus: "available" | "unavailable" | "disabled";
   analytics: DashboardAnalyticsRow[];
-  analyticsStatus: "available" | "unavailable" | "disabled";
-  revenueStatus: "available" | "unavailable" | "disabled";
-  watchTimeStatus: "available" | "unavailable" | "disabled";
+  analyticsStatus: AnalyticsAvailability;
+  revenueStatus: AnalyticsAvailability;
+  watchTimeStatus: AnalyticsAvailability;
   fetchedAt: string;
 };
 
@@ -149,6 +152,26 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function monthLabel(monthKey: string | undefined): string {
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "";
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+// Month-over-month % change between the last two points of a raw (non-cumulative) series — null
+// when there isn't enough data or the baseline is zero (percent change is undefined there).
+function pctChange(series: number[]): number | null {
+  if (series.length < 2) return null;
+  const prev = series.at(-2)!;
+  const curr = series.at(-1)!;
+  if (prev === 0) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+function signed(value: number, formatter: (n: number) => string): string {
+  return `${value >= 0 ? "+" : "-"}${formatter(Math.abs(value))}`;
 }
 
 function Dashboard() {
@@ -247,6 +270,24 @@ function Dashboard() {
       : dashboardData?.videosStatus === "disabled"
         ? "Recent video sync is disabled in YouTube Integration settings."
         : "No published videos are available.";
+  const revenueEmptyContent =
+    youtubeStatus !== "connected" ? (
+      "Connect YouTube to view revenue trends."
+    ) : dashboardData?.revenueStatus === "disabled" ? (
+      "YouTube Analytics import is disabled in Integration settings."
+    ) : dashboardData?.revenueStatus === "forbidden" ? (
+      <>
+        Revenue access needs to be reconnected —{" "}
+        <Link to="/settings" className="font-medium text-primary underline">
+          reconnect YouTube
+        </Link>{" "}
+        to fix it.
+      </>
+    ) : dashboardData?.analyticsStatus === "available" ? (
+      "No estimated revenue was reported for this period."
+    ) : (
+      "YouTube Analytics revenue data isn't available yet."
+    );
   const totalRevenue =
     dashboardData?.revenueStatus === "available"
       ? dashboardData.analytics.reduce((sum, row) => sum + Number(row.estimatedRevenue ?? 0), 0)
@@ -264,6 +305,40 @@ function Dashboard() {
       ? Number(dashboardData.analytics.at(-1)?.estimatedRevenue ?? 0) -
         Number(dashboardData.analytics.at(-2)?.estimatedRevenue ?? 0)
       : 0;
+
+  // Per-metric monthly series (raw, not cumulative — shows real month-to-month shape rather than
+  // a curve that only ever trends up) backing the KPI trend cards below. Video counts aren't in
+  // the analytics rows, so that one is bucketed directly from each video's publish date instead.
+  const analyticsRows = useMemo(
+    () => (dashboardData?.analytics ?? []).filter((r) => r.month).slice().sort((a, b) => (a.month! > b.month! ? 1 : -1)),
+    [dashboardData],
+  );
+  const revenueSeries = analyticsRows.map((r) => Number(r.estimatedRevenue ?? 0));
+  const viewsSeries = analyticsRows.map((r) => Number(r.views ?? 0));
+  const subsSeries = analyticsRows.map((r) => Number(r.subscribersGained ?? 0));
+  const watchSeries = analyticsRows.map((r) => Number(r.watchTimeMinutes ?? 0));
+  const latestMonthLabel = monthLabel(analyticsRows.at(-1)?.month);
+  const trendPeriodLabel = analyticsRows.length ? `Past ${analyticsRows.length} months` : "";
+
+  const videosByMonth = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const v of dashboardData?.videos ?? []) {
+      if (!v.publishedAt) continue;
+      const key = v.publishedAt.slice(0, 7);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return Array.from(map.keys())
+      .sort()
+      .map((month) => ({ month, count: map.get(month)! }));
+  }, [dashboardData]);
+  const videosSeries = videosByMonth.map((m) => m.count);
+  const latestVideoMonthLabel = monthLabel(videosByMonth.at(-1)?.month);
+
+  const revenueChangePct = pctChange(revenueSeries);
+  const viewsChangePct = pctChange(viewsSeries);
+  const subsChangePct = pctChange(subsSeries);
+  const watchChangePct = pctChange(watchSeries);
+  const videosChangePct = pctChange(videosSeries);
   return (
     <DashboardLayout title="Dashboard">
       <GettingStarted />
@@ -276,11 +351,9 @@ function Dashboard() {
       )}
 
       {youtubeStatus === "loading" && (
-        <div className="card-gradient-outline space-y-3 p-5" aria-label="Loading YouTube data">
-          <h3 className="font-semibold">Loading your YouTube data...</h3>
-          <div className="h-5 w-48 animate-pulse rounded bg-accent" />
-          <div className="h-4 w-72 animate-pulse rounded bg-accent" />
-        </div>
+        <p className="mb-1 flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Loading your YouTube data…
+        </p>
       )}
       {youtubeStatus === "not_connected" && (
         <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -331,83 +404,104 @@ function Dashboard() {
 
       {/* Stat cards */}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-        <StatCard
-          glow
-          frost
-          icon={<DollarSign className="h-5 w-5" />}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}>
+      {youtubeStatus === "loading" ? (
+        Array.from({ length: 6 }).map((_, i) => <KpiTrendCardSkeleton key={i} />)
+      ) : (
+        <>
+        <KpiTrendCard
+          title="Estimated Revenue"
           value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
-          label="Estimated Revenue"
-          sub={
-            dashboardData?.revenueStatus === "unavailable"
-              ? "Revenue unavailable"
-              : "YouTube Analytics"
-          }
+          deltaLabel={revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"}
+          deltaSuffix="this month"
+          changePercent={revenueChangePct}
+          periodLabel={trendPeriodLabel}
+          series={revenueSeries}
+          markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+          markerSubtitle={latestMonthLabel}
+          positive={(revenueChangePct ?? 0) >= 0}
         />
-        <StatCard
-          glow
-          frost
-          icon={<TrendingUp className="h-5 w-5" />}
+        <KpiTrendCard
+          title="Latest Revenue"
           value={dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
-          label="Latest Revenue"
-          sub={
-            dashboardData?.revenueStatus === "unavailable"
-              ? "Revenue unavailable"
-              : "Latest available month"
-          }
-          change={
-            dashboardData?.revenueStatus === "available" && recentRevenueChange
-              ? formatMoney(Math.abs(recentRevenueChange))
-              : undefined
-          }
-          up={recentRevenueChange >= 0}
+          deltaLabel={signed(recentRevenueChange, formatMoney)}
+          deltaSuffix="vs last month"
+          changePercent={revenueChangePct}
+          periodLabel={trendPeriodLabel}
+          series={revenueSeries}
+          markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+          markerSubtitle={latestMonthLabel}
+          positive={recentRevenueChange >= 0}
         />
-        <StatCard
-          glow
-          frost
-          icon={<Eye className="h-5 w-5" />}
+        <KpiTrendCard
+          title="Total Views"
           value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
-          label="Total Views"
-          sub="YouTube channel total"
+          deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
+          deltaSuffix="this month"
+          changePercent={viewsChangePct}
+          periodLabel={trendPeriodLabel}
+          series={viewsSeries}
+          markerTitle={`${formatCount(viewsSeries.at(-1) ?? 0)} views`}
+          markerSubtitle={latestMonthLabel}
+          positive={(viewsChangePct ?? 0) >= 0}
         />
-        <StatCard
-          glow
-          frost
-          icon={<Youtube className="h-5 w-5" />}
+        <KpiTrendCard
+          title="Videos"
           value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
-          label="Videos"
-          sub="Published on channel"
+          deltaLabel={videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
+          deltaSuffix="published this month"
+          changePercent={videosChangePct}
+          periodLabel={trendPeriodLabel}
+          series={videosSeries}
+          markerTitle={`${videosSeries.at(-1) ?? 0} published`}
+          markerSubtitle={latestVideoMonthLabel}
+          positive={(videosChangePct ?? 0) >= 0}
         />
-        <StatCard
-          glow
-          frost
-          icon={<Users className="h-5 w-5" />}
+        <KpiTrendCard
+          title="Subscribers"
           value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
-          label="Subscribers"
-          sub="YouTube channel total"
+          deltaLabel={subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
+          deltaSuffix="gained this month"
+          changePercent={subsChangePct}
+          periodLabel={trendPeriodLabel}
+          series={subsSeries}
+          markerTitle={`+${subsSeries.at(-1) ?? 0} subs`}
+          markerSubtitle={latestMonthLabel}
+          positive={(subsChangePct ?? 0) >= 0}
         />
-        <StatCard
-          glow
-          frost
-          icon={<Eye className="h-5 w-5" />}
+        <KpiTrendCard
+          title="Watch Time"
           value={
             dashboardData?.watchTimeStatus === "available"
               ? `${formatHours(totalWatchTime)} hrs`
               : "—"
           }
-          label="Watch Time"
-          sub={
-            dashboardData?.watchTimeStatus === "unavailable"
-              ? "Watch time unavailable"
-              : "Latest available data"
-          }
+          deltaLabel={watchSeries.length ? signed(watchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`) : "—"}
+          deltaSuffix="this month"
+          changePercent={watchChangePct}
+          periodLabel={trendPeriodLabel}
+          series={watchSeries}
+          markerTitle={`${formatHours(watchSeries.at(-1) ?? 0)} hrs`}
+          markerSubtitle={latestMonthLabel}
+          positive={(watchChangePct ?? 0) >= 0}
         />
+        </>
+      )}
       </div>
 
       {dashboardData?.analyticsStatus === "unavailable" && (
         <p className="text-xs text-warning">
           YouTube Analytics is temporarily unavailable. Channel and video metrics are current;
           analytics data was not substituted.
+        </p>
+      )}
+      {dashboardData?.analyticsStatus === "forbidden" && (
+        <p className="text-xs text-warning">
+          YouTube declined this request — your connection may predate a required permission.{" "}
+          <Link to="/settings" className="font-medium underline">
+            Reconnect YouTube
+          </Link>{" "}
+          to fix it.
         </p>
       )}
       {dashboardData?.analyticsStatus === "disabled" && (
@@ -448,15 +542,14 @@ function Dashboard() {
           <div className="mt-4 flex items-center gap-5 text-xs">
             <Legend color="var(--color-brand-blue)" label="Estimated YouTube revenue" />
           </div>
-          {dashboardData?.revenueStatus === "unavailable" &&
-            dashboardData.analyticsStatus === "available" && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                YouTube did not provide estimated revenue data for this period.
-              </p>
-            )}
+          {dashboardData?.revenueStatus === "forbidden" && (
+            <p className="mt-2 text-xs text-warning">{revenueEmptyContent}</p>
+          )}
 
           <div className="mt-4 h-[300px]">
-            {trend.length ? (
+            {youtubeStatus === "loading" ? (
+              <Skeleton className="h-full w-full rounded-xl" />
+            ) : trend.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
                   <defs>
@@ -503,13 +596,7 @@ function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
-                {youtubeStatus === "connected"
-                  ? dashboardData?.revenueStatus === "disabled"
-                    ? "YouTube Analytics import is disabled in Integration settings."
-                    : dashboardData?.analyticsStatus === "available"
-                      ? "No estimated revenue was reported for this period."
-                      : "YouTube Analytics revenue data isn't available yet."
-                  : "Connect YouTube to view revenue trends."}
+                {revenueEmptyContent}
               </div>
             )}
           </div>
@@ -553,8 +640,10 @@ function Dashboard() {
             </Link>
           </div>
           {/* Mobile: stacked cards */}
-          <div className="mt-4 space-y-2.5 sm:hidden">
-            {videos.slice(0, 5).map((video, index) => (
+          <div className="mt-4 space-y-2.5 sm:hidden" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading recent videos" : undefined}>
+            {youtubeStatus === "loading" &&
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+            {youtubeStatus !== "loading" && videos.slice(0, 5).map((video, index) => (
               <a
                 key={video.id}
                 href={video.url}
@@ -584,7 +673,7 @@ function Dashboard() {
                 </p>
               </a>
             ))}
-            {!videos.length && (
+            {youtubeStatus !== "loading" && !videos.length && (
               <p className="py-6 text-sm text-muted-foreground">{videoEmptyMessage}</p>
             )}
           </div>
@@ -600,8 +689,16 @@ function Dashboard() {
                   <th className="pb-3 text-right font-medium">Comments</th>
                 </tr>
               </thead>
-              <tbody>
-                {videos.slice(0, 5).map((video, index) => (
+              <tbody aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading recent videos" : undefined}>
+                {youtubeStatus === "loading" &&
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-t border-border">
+                      <td className="py-3" colSpan={4}>
+                        <Skeleton className="h-4 w-full max-w-md" />
+                      </td>
+                    </tr>
+                  ))}
+                {youtubeStatus !== "loading" && videos.slice(0, 5).map((video, index) => (
                   <tr key={video.id} className="border-t border-border">
                     <td className="py-3">
                       <a
@@ -637,7 +734,7 @@ function Dashboard() {
                     </td>
                   </tr>
                 ))}
-                {!videos.length && (
+                {youtubeStatus !== "loading" && !videos.length && (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
                       {videoEmptyMessage}
@@ -656,21 +753,46 @@ function Dashboard() {
           <p className="mt-1 text-sm text-muted-foreground">
             Directly measured from YouTube Analytics
           </p>
-          <div className="mt-6 border-t border-border pt-4">
+          <div className="mt-6 border-t border-border pt-4" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading revenue total" : undefined}>
             <p className="text-sm text-muted-foreground">Available period total</p>
-            <p className="mt-1 text-2xl font-bold">
-              {dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {dashboardData?.revenueStatus === "available"
-                ? "Platform attribution is not included"
-                : "No current analytics value available"}
-            </p>
+            {youtubeStatus === "loading" ? (
+              <>
+                <Skeleton className="mt-2 h-7 w-24" />
+                <Skeleton className="mt-2 h-3 w-40" />
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-2xl font-bold">
+                  {dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {dashboardData?.revenueStatus === "available"
+                    ? "Platform attribution is not included"
+                    : "No current analytics value available"}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
+      {youtubeStatus === "loading" ? (
+        <div
+          className="relative mb-5 min-h-[112px] overflow-hidden rounded-2xl border border-border bg-card p-5 sm:min-h-[128px] sm:p-6"
+          aria-busy="true"
+          aria-label="Loading connected channel"
+        >
+          <div className="flex h-full items-center gap-4">
+            <SkeletonCircle className="h-11 w-11 sm:h-14 sm:w-14" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-2.5 w-32" />
+              <Skeleton className="h-5 w-48" />
+            </div>
+            <Skeleton className="hidden h-10 w-32 shrink-0 rounded-lg sm:block" />
+          </div>
+        </div>
+      ) : (
       <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
         <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 sm:flex-row sm:items-center sm:gap-6">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -699,11 +821,8 @@ function Dashboard() {
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-[11px]">
-                Connected YouTube channel
-              </p>
               {settings.showName && (
-                <p className="mt-1 truncate text-base font-semibold leading-tight text-white sm:text-lg">
+                <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">
                   {dashboardData?.channel.title ?? "YouTube channel"}
                 </p>
               )}
@@ -739,16 +858,26 @@ function Dashboard() {
               aria-label="Visit Channel"
               className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
             >
-              <Youtube className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={1.5} />
               <span className="hidden sm:inline">Visit channel</span>
               <ExternalLink className="h-3.5 w-3.5 shrink-0" />
             </a>
           )}
         </div>
       </div>
+      )}
 
       {/* Recent videos */}
-      {settings.showRecentPosts && (
+      {youtubeStatus === "loading" && settings.showRecentPosts && (
+        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl" aria-busy="true" aria-label="Loading recent videos">
+          <Skeleton className="h-5 w-32" />
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-video w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+      )}
+      {youtubeStatus !== "loading" && settings.showRecentPosts && (
         <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">

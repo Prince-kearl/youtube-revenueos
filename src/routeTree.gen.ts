@@ -9,199 +9,64 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VideosRouteImport } from './routes/videos'
-import { Route as TeamRouteImport } from './routes/team'
-import { Route as SupportRouteImport } from './routes/support'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RoadmapRouteImport } from './routes/roadmap'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
-import { Route as LeadsRouteImport } from './routes/leads'
-import { Route as LandingRouteImport } from './routes/landing'
-import { Route as FreebieRouteImport } from './routes/freebie'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as EmailRouteImport } from './routes/email'
-import { Route as DestinationsRouteImport } from './routes/destinations'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as CommentsRouteImport } from './routes/comments'
-import { Route as ChangelogRouteImport } from './routes/changelog'
-import { Route as BrandDealsRouteImport } from './routes/brand-deals'
-import { Route as BillingRouteImport } from './routes/billing'
-import { Route as AudienceRouteImport } from './routes/audience'
-import { Route as AnalyticsRouteImport } from './routes/analytics'
-import { Route as AiLabRouteImport } from './routes/ai-lab'
-import { Route as AffiliateRouteImport } from './routes/affiliate'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AddVideoRouteImport } from './routes/add-video'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
-import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
-import { Route as ApiVideosRouteImport } from './routes/api.videos'
-import { Route as ApiSettingsRouteImport } from './routes/api.settings'
-import { Route as ApiProfileRouteImport } from './routes/api.profile'
-import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
+import { Route as AddVideoRouteImport } from './routes/add-video'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AffiliateRouteImport } from './routes/affiliate'
+import { Route as AiLabRouteImport } from './routes/ai-lab'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AudienceRouteImport } from './routes/audience'
+import { Route as BillingRouteImport } from './routes/billing'
+import { Route as BrandDealsRouteImport } from './routes/brand-deals'
+import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as CommentsRouteImport } from './routes/comments'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DestinationsRouteImport } from './routes/destinations'
+import { Route as EmailRouteImport } from './routes/email'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as FreebieRouteImport } from './routes/freebie'
+import { Route as LandingRouteImport } from './routes/landing'
+import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as TeamRouteImport } from './routes/team'
+import { Route as VideosRouteImport } from './routes/videos'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
-import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
-import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
-import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
-import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
-import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
-import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
-import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
-import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
-import { Route as ApiYoutubeBreakdownsRouteImport } from './routes/api.youtube.breakdowns'
-import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
-import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
-import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
-import { Route as ApiVideosGenerateRouteImport } from './routes/api.videos.generate'
+import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
+import { Route as ApiProfileRouteImport } from './routes/api.profile'
+import { Route as ApiSettingsRouteImport } from './routes/api.settings'
+import { Route as ApiVideosRouteImport } from './routes/api.videos'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
-import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
-import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
+import { Route as ApiVideosGenerateRouteImport } from './routes/api.videos.generate'
+import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
+import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
+import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
+import { Route as ApiYoutubeBreakdownsRouteImport } from './routes/api.youtube.breakdowns'
+import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
+import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
+import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
+import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
+import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
+import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
+import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
+import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
 import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
+import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
+import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
 
-const VideosRoute = VideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TeamRoute = TeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SupportRoute = SupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RoadmapRoute = RoadmapRouteImport.update({
-  id: '/roadmap',
-  path: '/roadmap',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LinkTrackingRoute = LinkTrackingRouteImport.update({
-  id: '/link-tracking',
-  path: '/link-tracking',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeadsRoute = LeadsRouteImport.update({
-  id: '/leads',
-  path: '/leads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LandingRoute = LandingRouteImport.update({
-  id: '/landing',
-  path: '/landing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FreebieRoute = FreebieRouteImport.update({
-  id: '/freebie',
-  path: '/freebie',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmailRoute = EmailRouteImport.update({
-  id: '/email',
-  path: '/email',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DestinationsRoute = DestinationsRouteImport.update({
-  id: '/destinations',
-  path: '/destinations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CommentsRoute = CommentsRouteImport.update({
-  id: '/comments',
-  path: '/comments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChangelogRoute = ChangelogRouteImport.update({
-  id: '/changelog',
-  path: '/changelog',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BrandDealsRoute = BrandDealsRouteImport.update({
-  id: '/brand-deals',
-  path: '/brand-deals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BillingRoute = BillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AudienceRoute = AudienceRouteImport.update({
-  id: '/audience',
-  path: '/audience',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsRoute = AnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AiLabRoute = AiLabRouteImport.update({
-  id: '/ai-lab',
-  path: '/ai-lab',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AffiliateRoute = AffiliateRouteImport.update({
-  id: '/affiliate',
-  path: '/affiliate',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AddVideoRoute = AddVideoRouteImport.update({
@@ -209,39 +74,144 @@ const AddVideoRoute = AddVideoRouteImport.update({
   path: '/add-video',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VideosVideoIdRoute = VideosVideoIdRouteImport.update({
-  id: '/$videoId',
-  path: '/$videoId',
-  getParentRoute: () => VideosRoute,
-} as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/auth/callback',
-  path: '/auth/callback',
+const AffiliateRoute = AffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiVideosRoute = ApiVideosRouteImport.update({
-  id: '/api/videos',
-  path: '/api/videos',
+const AiLabRoute = AiLabRouteImport.update({
+  id: '/ai-lab',
+  path: '/ai-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSettingsRoute = ApiSettingsRouteImport.update({
-  id: '/api/settings',
-  path: '/api/settings',
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiProfileRoute = ApiProfileRouteImport.update({
-  id: '/api/profile',
-  path: '/api/profile',
+const AudienceRoute = AudienceRouteImport.update({
+  id: '/audience',
+  path: '/audience',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
-  id: '/api/integrations',
-  path: '/api/integrations',
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandDealsRoute = BrandDealsRouteImport.update({
+  id: '/brand-deals',
+  path: '/brand-deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommentsRoute = CommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DestinationsRoute = DestinationsRouteImport.update({
+  id: '/destinations',
+  path: '/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreebieRoute = FreebieRouteImport.update({
+  id: '/freebie',
+  path: '/freebie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LinkTrackingRoute = LinkTrackingRouteImport.update({
+  id: '/link-tracking',
+  path: '/link-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
@@ -249,70 +219,35 @@ const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   path: '/api/destinations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
-  id: '/api/youtube/videos',
-  path: '/api/youtube/videos',
+const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
+  id: '/api/integrations',
+  path: '/api/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeVideoRoute = ApiYoutubeVideoRouteImport.update({
-  id: '/api/youtube/video',
-  path: '/api/youtube/video',
+const ApiProfileRoute = ApiProfileRouteImport.update({
+  id: '/api/profile',
+  path: '/api/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeSyncRoute = ApiYoutubeSyncRouteImport.update({
-  id: '/api/youtube/sync',
-  path: '/api/youtube/sync',
+const ApiSettingsRoute = ApiSettingsRouteImport.update({
+  id: '/api/settings',
+  path: '/api/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeSettingsRoute = ApiYoutubeSettingsRouteImport.update({
-  id: '/api/youtube/settings',
-  path: '/api/youtube/settings',
+const ApiVideosRoute = ApiVideosRouteImport.update({
+  id: '/api/videos',
+  path: '/api/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
-  id: '/api/youtube/diagnostics',
-  path: '/api/youtube/diagnostics',
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
-  id: '/api/youtube/dashboard',
-  path: '/api/youtube/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
-  id: '/api/youtube/channels',
-  path: '/api/youtube/channels',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeCallbackRoute = ApiYoutubeCallbackRouteImport.update({
-  id: '/api/youtube/callback',
-  path: '/api/youtube/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeBreakdownsRoute = ApiYoutubeBreakdownsRouteImport.update({
-  id: '/api/youtube/breakdowns',
-  path: '/api/youtube/breakdowns',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeAuthRoute = ApiYoutubeAuthRouteImport.update({
-  id: '/api/youtube/auth',
-  path: '/api/youtube/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeAnalyzeVideoRoute = ApiYoutubeAnalyzeVideoRouteImport.update({
-  id: '/api/youtube/analyze-video',
-  path: '/api/youtube/analyze-video',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
-  id: '/api/youtube/analytics',
-  path: '/api/youtube/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiVideosGenerateRoute = ApiVideosGenerateRouteImport.update({
-  id: '/generate',
-  path: '/generate',
-  getParentRoute: () => ApiVideosRoute,
+const VideosVideoIdRoute = VideosVideoIdRouteImport.update({
+  id: '/$videoId',
+  path: '/$videoId',
+  getParentRoute: () => VideosRoute,
 } as any)
 const ApiSecurityRecoveryCodesRoute =
   ApiSecurityRecoveryCodesRouteImport.update({
@@ -320,10 +255,75 @@ const ApiSecurityRecoveryCodesRoute =
     path: '/api/security/recovery-codes',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiIntegrationsStripeCallbackRoute =
-  ApiIntegrationsStripeCallbackRouteImport.update({
-    id: '/stripe/callback',
-    path: '/stripe/callback',
+const ApiVideosGenerateRoute = ApiVideosGenerateRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => ApiVideosRoute,
+} as any)
+const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
+  id: '/api/youtube/analytics',
+  path: '/api/youtube/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeAnalyzeVideoRoute = ApiYoutubeAnalyzeVideoRouteImport.update({
+  id: '/api/youtube/analyze-video',
+  path: '/api/youtube/analyze-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeAuthRoute = ApiYoutubeAuthRouteImport.update({
+  id: '/api/youtube/auth',
+  path: '/api/youtube/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeBreakdownsRoute = ApiYoutubeBreakdownsRouteImport.update({
+  id: '/api/youtube/breakdowns',
+  path: '/api/youtube/breakdowns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeCallbackRoute = ApiYoutubeCallbackRouteImport.update({
+  id: '/api/youtube/callback',
+  path: '/api/youtube/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
+  id: '/api/youtube/channels',
+  path: '/api/youtube/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
+  id: '/api/youtube/dashboard',
+  path: '/api/youtube/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
+  id: '/api/youtube/diagnostics',
+  path: '/api/youtube/diagnostics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeSettingsRoute = ApiYoutubeSettingsRouteImport.update({
+  id: '/api/youtube/settings',
+  path: '/api/youtube/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeSyncRoute = ApiYoutubeSyncRouteImport.update({
+  id: '/api/youtube/sync',
+  path: '/api/youtube/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeVideoRoute = ApiYoutubeVideoRouteImport.update({
+  id: '/api/youtube/video',
+  path: '/api/youtube/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
+  id: '/api/youtube/videos',
+  path: '/api/youtube/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIntegrationsGoogleAnalyticsCallbackRoute =
+  ApiIntegrationsGoogleAnalyticsCallbackRouteImport.update({
+    id: '/google-analytics/callback',
+    path: '/google-analytics/callback',
     getParentRoute: () => ApiIntegrationsRoute,
   } as any)
 const ApiIntegrationsKitCallbackRoute =
@@ -332,10 +332,10 @@ const ApiIntegrationsKitCallbackRoute =
     path: '/kit/callback',
     getParentRoute: () => ApiIntegrationsRoute,
   } as any)
-const ApiIntegrationsGoogleAnalyticsCallbackRoute =
-  ApiIntegrationsGoogleAnalyticsCallbackRouteImport.update({
-    id: '/google-analytics/callback',
-    path: '/google-analytics/callback',
+const ApiIntegrationsStripeCallbackRoute =
+  ApiIntegrationsStripeCallbackRouteImport.update({
+    id: '/stripe/callback',
+    path: '/stripe/callback',
     getParentRoute: () => ApiIntegrationsRoute,
   } as any)
 
@@ -733,200 +733,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/videos': {
-      id: '/videos'
-      path: '/videos'
-      fullPath: '/videos'
-      preLoaderRoute: typeof VideosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/team': {
-      id: '/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof TeamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/support': {
-      id: '/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof SupportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/roadmap': {
-      id: '/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof RoadmapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reports': {
-      id: '/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/link-tracking': {
-      id: '/link-tracking'
-      path: '/link-tracking'
-      fullPath: '/link-tracking'
-      preLoaderRoute: typeof LinkTrackingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leads': {
-      id: '/leads'
-      path: '/leads'
-      fullPath: '/leads'
-      preLoaderRoute: typeof LeadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/landing': {
-      id: '/landing'
-      path: '/landing'
-      fullPath: '/landing'
-      preLoaderRoute: typeof LandingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/freebie': {
-      id: '/freebie'
-      path: '/freebie'
-      fullPath: '/freebie'
-      preLoaderRoute: typeof FreebieRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/email': {
-      id: '/email'
-      path: '/email'
-      fullPath: '/email'
-      preLoaderRoute: typeof EmailRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/destinations': {
-      id: '/destinations'
-      path: '/destinations'
-      fullPath: '/destinations'
-      preLoaderRoute: typeof DestinationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/comments': {
-      id: '/comments'
-      path: '/comments'
-      fullPath: '/comments'
-      preLoaderRoute: typeof CommentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/changelog': {
-      id: '/changelog'
-      path: '/changelog'
-      fullPath: '/changelog'
-      preLoaderRoute: typeof ChangelogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/brand-deals': {
-      id: '/brand-deals'
-      path: '/brand-deals'
-      fullPath: '/brand-deals'
-      preLoaderRoute: typeof BrandDealsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/billing': {
-      id: '/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof BillingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/audience': {
-      id: '/audience'
-      path: '/audience'
-      fullPath: '/audience'
-      preLoaderRoute: typeof AudienceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics': {
-      id: '/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ai-lab': {
-      id: '/ai-lab'
-      path: '/ai-lab'
-      fullPath: '/ai-lab'
-      preLoaderRoute: typeof AiLabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/affiliate': {
-      id: '/affiliate'
-      path: '/affiliate'
-      fullPath: '/affiliate'
-      preLoaderRoute: typeof AffiliateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/add-video': {
@@ -936,53 +747,200 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AddVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/videos/$videoId': {
-      id: '/videos/$videoId'
-      path: '/$videoId'
-      fullPath: '/videos/$videoId'
-      preLoaderRoute: typeof VideosVideoIdRouteImport
-      parentRoute: typeof VideosRoute
-    }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
+    '/affiliate': {
+      id: '/affiliate'
+      path: '/affiliate'
+      fullPath: '/affiliate'
+      preLoaderRoute: typeof AffiliateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/videos': {
-      id: '/api/videos'
-      path: '/api/videos'
-      fullPath: '/api/videos'
-      preLoaderRoute: typeof ApiVideosRouteImport
+    '/ai-lab': {
+      id: '/ai-lab'
+      path: '/ai-lab'
+      fullPath: '/ai-lab'
+      preLoaderRoute: typeof AiLabRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/settings': {
-      id: '/api/settings'
-      path: '/api/settings'
-      fullPath: '/api/settings'
-      preLoaderRoute: typeof ApiSettingsRouteImport
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/profile': {
-      id: '/api/profile'
-      path: '/api/profile'
-      fullPath: '/api/profile'
-      preLoaderRoute: typeof ApiProfileRouteImport
+    '/audience': {
+      id: '/audience'
+      path: '/audience'
+      fullPath: '/audience'
+      preLoaderRoute: typeof AudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/integrations': {
-      id: '/api/integrations'
-      path: '/api/integrations'
-      fullPath: '/api/integrations'
-      preLoaderRoute: typeof ApiIntegrationsRouteImport
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brand-deals': {
+      id: '/brand-deals'
+      path: '/brand-deals'
+      fullPath: '/brand-deals'
+      preLoaderRoute: typeof BrandDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comments': {
+      id: '/comments'
+      path: '/comments'
+      fullPath: '/comments'
+      preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/destinations': {
+      id: '/destinations'
+      path: '/destinations'
+      fullPath: '/destinations'
+      preLoaderRoute: typeof DestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/freebie': {
+      id: '/freebie'
+      path: '/freebie'
+      fullPath: '/freebie'
+      preLoaderRoute: typeof FreebieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/link-tracking': {
+      id: '/link-tracking'
+      path: '/link-tracking'
+      fullPath: '/link-tracking'
+      preLoaderRoute: typeof LinkTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/destinations': {
@@ -992,88 +950,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/videos': {
-      id: '/api/youtube/videos'
-      path: '/api/youtube/videos'
-      fullPath: '/api/youtube/videos'
-      preLoaderRoute: typeof ApiYoutubeVideosRouteImport
+    '/api/integrations': {
+      id: '/api/integrations'
+      path: '/api/integrations'
+      fullPath: '/api/integrations'
+      preLoaderRoute: typeof ApiIntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/video': {
-      id: '/api/youtube/video'
-      path: '/api/youtube/video'
-      fullPath: '/api/youtube/video'
-      preLoaderRoute: typeof ApiYoutubeVideoRouteImport
+    '/api/profile': {
+      id: '/api/profile'
+      path: '/api/profile'
+      fullPath: '/api/profile'
+      preLoaderRoute: typeof ApiProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/sync': {
-      id: '/api/youtube/sync'
-      path: '/api/youtube/sync'
-      fullPath: '/api/youtube/sync'
-      preLoaderRoute: typeof ApiYoutubeSyncRouteImport
+    '/api/settings': {
+      id: '/api/settings'
+      path: '/api/settings'
+      fullPath: '/api/settings'
+      preLoaderRoute: typeof ApiSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/settings': {
-      id: '/api/youtube/settings'
-      path: '/api/youtube/settings'
-      fullPath: '/api/youtube/settings'
-      preLoaderRoute: typeof ApiYoutubeSettingsRouteImport
+    '/api/videos': {
+      id: '/api/videos'
+      path: '/api/videos'
+      fullPath: '/api/videos'
+      preLoaderRoute: typeof ApiVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/diagnostics': {
-      id: '/api/youtube/diagnostics'
-      path: '/api/youtube/diagnostics'
-      fullPath: '/api/youtube/diagnostics'
-      preLoaderRoute: typeof ApiYoutubeDiagnosticsRouteImport
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/dashboard': {
-      id: '/api/youtube/dashboard'
-      path: '/api/youtube/dashboard'
-      fullPath: '/api/youtube/dashboard'
-      preLoaderRoute: typeof ApiYoutubeDashboardRouteImport
-      parentRoute: typeof rootRouteImport
+    '/videos/$videoId': {
+      id: '/videos/$videoId'
+      path: '/$videoId'
+      fullPath: '/videos/$videoId'
+      preLoaderRoute: typeof VideosVideoIdRouteImport
+      parentRoute: typeof VideosRoute
     }
-    '/api/youtube/channels': {
-      id: '/api/youtube/channels'
-      path: '/api/youtube/channels'
-      fullPath: '/api/youtube/channels'
-      preLoaderRoute: typeof ApiYoutubeChannelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/youtube/callback': {
-      id: '/api/youtube/callback'
-      path: '/api/youtube/callback'
-      fullPath: '/api/youtube/callback'
-      preLoaderRoute: typeof ApiYoutubeCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/youtube/breakdowns': {
-      id: '/api/youtube/breakdowns'
-      path: '/api/youtube/breakdowns'
-      fullPath: '/api/youtube/breakdowns'
-      preLoaderRoute: typeof ApiYoutubeBreakdownsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/youtube/auth': {
-      id: '/api/youtube/auth'
-      path: '/api/youtube/auth'
-      fullPath: '/api/youtube/auth'
-      preLoaderRoute: typeof ApiYoutubeAuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/youtube/analyze-video': {
-      id: '/api/youtube/analyze-video'
-      path: '/api/youtube/analyze-video'
-      fullPath: '/api/youtube/analyze-video'
-      preLoaderRoute: typeof ApiYoutubeAnalyzeVideoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/youtube/analytics': {
-      id: '/api/youtube/analytics'
-      path: '/api/youtube/analytics'
-      fullPath: '/api/youtube/analytics'
-      preLoaderRoute: typeof ApiYoutubeAnalyticsRouteImport
+    '/api/security/recovery-codes': {
+      id: '/api/security/recovery-codes'
+      path: '/api/security/recovery-codes'
+      fullPath: '/api/security/recovery-codes'
+      preLoaderRoute: typeof ApiSecurityRecoveryCodesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/videos/generate': {
@@ -1083,18 +1006,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideosGenerateRouteImport
       parentRoute: typeof ApiVideosRoute
     }
-    '/api/security/recovery-codes': {
-      id: '/api/security/recovery-codes'
-      path: '/api/security/recovery-codes'
-      fullPath: '/api/security/recovery-codes'
-      preLoaderRoute: typeof ApiSecurityRecoveryCodesRouteImport
+    '/api/youtube/analytics': {
+      id: '/api/youtube/analytics'
+      path: '/api/youtube/analytics'
+      fullPath: '/api/youtube/analytics'
+      preLoaderRoute: typeof ApiYoutubeAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/integrations/stripe/callback': {
-      id: '/api/integrations/stripe/callback'
-      path: '/stripe/callback'
-      fullPath: '/api/integrations/stripe/callback'
-      preLoaderRoute: typeof ApiIntegrationsStripeCallbackRouteImport
+    '/api/youtube/analyze-video': {
+      id: '/api/youtube/analyze-video'
+      path: '/api/youtube/analyze-video'
+      fullPath: '/api/youtube/analyze-video'
+      preLoaderRoute: typeof ApiYoutubeAnalyzeVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/auth': {
+      id: '/api/youtube/auth'
+      path: '/api/youtube/auth'
+      fullPath: '/api/youtube/auth'
+      preLoaderRoute: typeof ApiYoutubeAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/breakdowns': {
+      id: '/api/youtube/breakdowns'
+      path: '/api/youtube/breakdowns'
+      fullPath: '/api/youtube/breakdowns'
+      preLoaderRoute: typeof ApiYoutubeBreakdownsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/callback': {
+      id: '/api/youtube/callback'
+      path: '/api/youtube/callback'
+      fullPath: '/api/youtube/callback'
+      preLoaderRoute: typeof ApiYoutubeCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/channels': {
+      id: '/api/youtube/channels'
+      path: '/api/youtube/channels'
+      fullPath: '/api/youtube/channels'
+      preLoaderRoute: typeof ApiYoutubeChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/dashboard': {
+      id: '/api/youtube/dashboard'
+      path: '/api/youtube/dashboard'
+      fullPath: '/api/youtube/dashboard'
+      preLoaderRoute: typeof ApiYoutubeDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/diagnostics': {
+      id: '/api/youtube/diagnostics'
+      path: '/api/youtube/diagnostics'
+      fullPath: '/api/youtube/diagnostics'
+      preLoaderRoute: typeof ApiYoutubeDiagnosticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/settings': {
+      id: '/api/youtube/settings'
+      path: '/api/youtube/settings'
+      fullPath: '/api/youtube/settings'
+      preLoaderRoute: typeof ApiYoutubeSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/sync': {
+      id: '/api/youtube/sync'
+      path: '/api/youtube/sync'
+      fullPath: '/api/youtube/sync'
+      preLoaderRoute: typeof ApiYoutubeSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/video': {
+      id: '/api/youtube/video'
+      path: '/api/youtube/video'
+      fullPath: '/api/youtube/video'
+      preLoaderRoute: typeof ApiYoutubeVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/videos': {
+      id: '/api/youtube/videos'
+      path: '/api/youtube/videos'
+      fullPath: '/api/youtube/videos'
+      preLoaderRoute: typeof ApiYoutubeVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integrations/google-analytics/callback': {
+      id: '/api/integrations/google-analytics/callback'
+      path: '/google-analytics/callback'
+      fullPath: '/api/integrations/google-analytics/callback'
+      preLoaderRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRouteImport
       parentRoute: typeof ApiIntegrationsRoute
     }
     '/api/integrations/kit/callback': {
@@ -1104,11 +1104,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationsKitCallbackRouteImport
       parentRoute: typeof ApiIntegrationsRoute
     }
-    '/api/integrations/google-analytics/callback': {
-      id: '/api/integrations/google-analytics/callback'
-      path: '/google-analytics/callback'
-      fullPath: '/api/integrations/google-analytics/callback'
-      preLoaderRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRouteImport
+    '/api/integrations/stripe/callback': {
+      id: '/api/integrations/stripe/callback'
+      path: '/stripe/callback'
+      fullPath: '/api/integrations/stripe/callback'
+      preLoaderRoute: typeof ApiIntegrationsStripeCallbackRouteImport
       parentRoute: typeof ApiIntegrationsRoute
     }
   }

@@ -8,6 +8,7 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
+import { StatCardSkeleton, TableRowSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/analytics")({
   component: Analytics,
@@ -66,6 +67,8 @@ function Analytics() {
   const [tab, setTab] = useState<Tab>("video");
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     data: BreakdownData | null;
     loading: boolean;
@@ -74,7 +77,16 @@ function Analytics() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setResult((previous) => ({ ...previous, loading: true, error: null }));
+    setIsRefreshing(true);
+    setRefreshError(null);
+    // A range/tab/channel change with data already on screen keeps that data visible (loading
+    // stays false) instead of blanking back to the skeleton — matches the pattern already
+    // established in videos.$videoId.tsx for the same "refresh preserves data" requirement.
+    setResult((previous) => ({
+      ...previous,
+      loading: previous.data ? false : true,
+      error: previous.data ? previous.error : null,
+    }));
 
     const params = new URLSearchParams({ range });
     if (activeChannelId) params.set("channelId", activeChannelId);
@@ -92,14 +104,19 @@ function Analytics() {
       .then((data) => setResult({ data, loading: false, error: null }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setResult({
-          data: null,
-          loading: false,
-          error: error instanceof Error && error.message === "YOUTUBE_REAUTH_REQUIRED"
+        const message =
+          error instanceof Error && error.message === "YOUTUBE_REAUTH_REQUIRED"
             ? "YOUTUBE_REAUTH_REQUIRED"
-            : "Unable to load YouTube breakdowns.",
+            : "Unable to load YouTube breakdowns.";
+        setResult((previous) => {
+          if (previous.data) {
+            setRefreshError(message);
+            return { ...previous, loading: false, error: null };
+          }
+          return { data: null, loading: false, error: message };
         });
-      });
+      })
+      .finally(() => setIsRefreshing(false));
 
     return () => controller.abort();
   }, [range, activeChannelId, retryNonce]);
@@ -172,25 +189,47 @@ function Analytics() {
         </div>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard
-              icon={<DollarSign className="h-5 w-5" />}
-              value={result.loading ? "—" : revenueAvailable ? `$${totalRevenue.toFixed(2)}` : "—"}
-              label="Estimated earnings"
-              change={revenueAvailable ? "YouTube reported" : "Revenue unavailable"}
-            />
-            <StatCard
-              icon={<Eye className="h-5 w-5" />}
-              value={result.loading ? "—" : formatCount(totalViews)}
-              label="Views in period"
-              change="YouTube Analytics"
-            />
-            <StatCard
-              icon={<TrendingUp className="h-5 w-5" />}
-              value={result.loading ? "—" : String(videoRows.length)}
-              label="Video rows"
-              change="Selected range"
-            />
+          {refreshError && (
+            <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              We couldn&apos;t refresh this data just now. What&apos;s shown below is still your
+              last successful load.
+            </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-busy={result.loading} aria-label={result.loading ? "Loading analytics" : undefined}>
+            {result.loading ? (
+              <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </>
+            ) : (
+              <>
+                <StatCard
+                  icon={<DollarSign className="h-5 w-5" />}
+                  value={revenueAvailable ? `$${totalRevenue.toFixed(2)}` : "—"}
+                  label="Estimated earnings"
+                  change={revenueAvailable ? "YouTube reported" : "Revenue unavailable"}
+                />
+                <StatCard
+                  icon={<Eye className="h-5 w-5" />}
+                  value={formatCount(totalViews)}
+                  label="Views in period"
+                  change="YouTube Analytics"
+                />
+                <StatCard
+                  icon={<TrendingUp className="h-5 w-5" />}
+                  value={String(videoRows.length)}
+                  label="Video rows"
+                  change="Selected range"
+                />
+                {isRefreshing && (
+                  <p className="col-span-full -mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <RefreshCw className="h-3 w-3 animate-spin" /> Refreshing…
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
@@ -221,11 +260,13 @@ function Analytics() {
             </div>
 
             {tab === "video" ? (
-              <div className="mt-5 overflow-x-auto">
+              <div className="mt-5 overflow-x-auto" aria-busy={result.loading} aria-label={result.loading ? "Loading video earnings" : undefined}>
                 {result.loading ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    Loading video earnings…
-                  </p>
+                  <div className="rounded-xl border border-border">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <TableRowSkeleton key={i} columns={4} />
+                    ))}
+                  </div>
                 ) : videoRows.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     No video activity was returned for this period.
@@ -309,11 +350,13 @@ function Analytics() {
                   )}
               </div>
             ) : (
-              <div className="mt-5">
+              <div className="mt-5" aria-busy={result.loading} aria-label={result.loading ? "Loading traffic sources" : undefined}>
                 {result.loading ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    Loading traffic sources…
-                  </p>
+                  <div className="rounded-xl border border-border">
+                    {[1, 2, 3, 4].map((i) => (
+                      <TableRowSkeleton key={i} columns={3} />
+                    ))}
+                  </div>
                 ) : trafficRows.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     No traffic-source activity was returned for this period.

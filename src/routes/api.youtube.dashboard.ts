@@ -83,7 +83,18 @@ function recordQuotaEvent(
     });
 }
 
-type AnalyticsAvailability = "available" | "unavailable" | "disabled";
+// "forbidden" is distinct from "unavailable": the request reached YouTube and was rejected for
+// auth/permission reasons (401/403) — most commonly a token that predates a scope being added to
+// YOUTUBE_OAUTH_SCOPES (e.g. yt-analytics-monetary.readonly for revenue), fixable by
+// reconnecting — versus "unavailable", which means the request succeeded but YouTube genuinely
+// has nothing to report for the period (e.g. an unmonetized channel). The two need different UI:
+// one is actionable, the other isn't.
+type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
+
+function isPermissionError(error: unknown): boolean {
+  const reason = safeProviderReason(error);
+  return reason === "401" || reason === "403";
+}
 
 function mergeAnalyticsReports(
   ...payloads: Array<AnalyticsPayload | null>
@@ -243,7 +254,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
             } catch (error) {
-              analyticsStatus = "unavailable";
+              analyticsStatus = isPermissionError(error) ? "forbidden" : "unavailable";
               logOptionalFailure("analytics_core", channelRow.user_id, channelRow.id, error);
             }
             let revenue: AnalyticsPayload | null = null;
@@ -257,7 +268,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
             } catch (error) {
-              revenueStatus = "unavailable";
+              revenueStatus = isPermissionError(error) ? "forbidden" : "unavailable";
               logOptionalFailure("analytics_revenue", channelRow.user_id, channelRow.id, error);
             }
             let watchTime: AnalyticsPayload | null = null;
@@ -271,13 +282,17 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
             } catch (error) {
-              watchTimeStatus = "unavailable";
+              watchTimeStatus = isPermissionError(error) ? "forbidden" : "unavailable";
               logOptionalFailure("analytics_watch_time", channelRow.user_id, channelRow.id, error);
             }
             analytics = mergeAnalyticsReports(coreAnalytics, revenue, watchTime);
-            if (!coreAnalytics?.rows?.length) analyticsStatus = "unavailable";
-            if (!revenue?.rows?.length) revenueStatus = "unavailable";
-            if (!watchTime?.rows?.length) watchTimeStatus = "unavailable";
+            // Only downgrades a still-"available" status (the request succeeded but came back
+            // empty) — must not run when the catch blocks above already classified the failure as
+            // "forbidden", since the payload is null there too and this would otherwise silently
+            // relabel a permission error as "no data reported".
+            if (analyticsStatus === "available" && !coreAnalytics?.rows?.length) analyticsStatus = "unavailable";
+            if (revenueStatus === "available" && !revenue?.rows?.length) revenueStatus = "unavailable";
+            if (watchTimeStatus === "available" && !watchTime?.rows?.length) watchTimeStatus = "unavailable";
           }
           if (settings.import_analytics) {
             recordQuotaEvent(serviceClient, {

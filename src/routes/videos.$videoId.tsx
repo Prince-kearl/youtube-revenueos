@@ -36,6 +36,8 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChartSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/videos/$videoId")({
   component: VideoDetail,
@@ -759,13 +761,13 @@ function UnavailablePanel({ text }: { text: string }) {
 function DetailLoading() {
   return (
     <div className="mt-6 space-y-4" aria-busy="true" aria-label="Loading video analytics">
-      <div className="h-32 animate-pulse rounded-xl bg-accent/50" />
+      <Skeleton className="h-32 w-full rounded-xl" />
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
-          <div key={item} className="h-28 animate-pulse rounded-xl bg-accent/50" />
+          <Skeleton key={item} className="h-28 w-full rounded-xl" />
         ))}
       </div>
-      <div className="h-80 animate-pulse rounded-xl bg-accent/50" />
+      <ChartSkeleton className="h-80" />
     </div>
   );
 }

@@ -165,6 +165,14 @@
   }
 }
 
+/* Indeterminate sweep for RouteProgressBar (router-level defaultPendingComponent) — the bar is
+   w-1/3 of its track, so translateX in units of its OWN width (-100% to 300%) sweeps it fully
+   off-screen left to fully off-screen right, covering the whole track. */
+@keyframes route-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 /* Flowing gradient border, e.g. the AI suggestion cards in the Lead Inbox — the wrapper
    needs bg-[length:200%_200%] alongside this so the position shift actually reads as motion. */
 @keyframes gradient-flow {

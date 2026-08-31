@@ -38,6 +38,8 @@ import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useThemeMode, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
@@ -151,6 +153,11 @@ function renderPanel(active: string, setActive: (section: string) => void) {
   const [profile, setProfile] = useLocalStore("yroos.profile", { name: "", email: "", avatar: "", role: "Owner", timezone: "", bio: "", location: "", website: "", cover_url: "" });
   const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
   const [channelLoading, setChannelLoading] = useState(true);
+  // Only gates the fields /api/profile actually supplies (location/website below) — name/email
+  // already come from the auth session itself (real by the time this component mounts, since
+  // DashboardLayout doesn't render its children until authLoading resolves), so there's no
+  // fabricated-looking fallback to hide there.
+  const [profileFieldsLoading, setProfileFieldsLoading] = useState(true);
   const [editor, setEditor] = useState<ProfileEditorMode | null>(null);
   const fallbackName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? user?.email?.split("@")[0] ?? "Your profile";
   const name = profile.name || fallbackName;
@@ -179,7 +186,8 @@ function renderPanel(active: string, setActive: (section: string) => void) {
           cover_url: profileData.cover_url ?? "",
         }));
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setProfileFieldsLoading(false));
 
     fetch("/api/youtube/channels")
       .then(async (response) => {
@@ -245,7 +253,7 @@ function renderPanel(active: string, setActive: (section: string) => void) {
 
       <div className="space-y-4 p-5 sm:p-7">
         {profileTab === "Overview" && <>
-          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">About</h4><button onClick={() => setEditor("about")} className="text-muted-foreground hover:text-primary" aria-label="Edit about" title="Edit about"><Pencil className="h-3 w-3" /></button></div><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"><div><p className="text-[10px] text-muted-foreground">Account type</p><p className="mt-1 text-xs font-semibold">{role}</p></div><div><p className="text-[10px] text-muted-foreground">Email</p><p className="mt-1 truncate text-xs font-semibold">{email || "Not available"}</p></div><div><p className="text-[10px] text-muted-foreground">Location</p><p className="mt-1 text-xs font-semibold">{profile.location || "Not set"}</p></div><div><p className="text-[10px] text-muted-foreground">Website</p><p className="mt-1 truncate text-xs font-semibold text-primary">{profile.website || "Not set"}</p></div></div></div>
+          <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">About</h4><button onClick={() => setEditor("about")} className="text-muted-foreground hover:text-primary" aria-label="Edit about" title="Edit about"><Pencil className="h-3 w-3" /></button></div><div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"><div><p className="text-[10px] text-muted-foreground">Account type</p><p className="mt-1 text-xs font-semibold">{role}</p></div><div><p className="text-[10px] text-muted-foreground">Email</p><p className="mt-1 truncate text-xs font-semibold">{email || "Not available"}</p></div><div><p className="text-[10px] text-muted-foreground">Location</p>{profileFieldsLoading ? <Skeleton className="mt-1 h-3 w-16" /> : <p className="mt-1 text-xs font-semibold">{profile.location || "Not set"}</p>}</div><div><p className="text-[10px] text-muted-foreground">Website</p>{profileFieldsLoading ? <Skeleton className="mt-1 h-3 w-20" /> : <p className="mt-1 truncate text-xs font-semibold text-primary">{profile.website || "Not set"}</p>}</div></div></div>
           <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><h4 className="text-xs font-bold">Recently connected</h4><button onClick={() => setProfileTab("Connections")} className="text-[10px] font-semibold text-primary hover:underline">View all <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg border border-border p-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-red/10 text-brand-red">{channel?.thumbnail ? <img src={channel.thumbnail} alt="" className="h-full w-full object-cover" /> : <Youtube className="h-4 w-4" />}</span><div className="min-w-0"><p className="truncate text-xs font-semibold">{channel?.channel_name ?? "YouTube"}</p><p className="text-[10px] text-success">{channelLoading ? "Checking connection…" : channel ? `${channel.subscriber_count.toLocaleString()} subscribers` : "Not connected"}</p></div></div><button onClick={() => window.open(channelUrl, "_blank", "noopener,noreferrer")} disabled={!channel} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-[10px] font-semibold disabled:opacity-50">Manage <ExternalLink className="h-3 w-3" /></button></div></div>
           <div className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between"><div><h4 className="text-xs font-bold">Account security</h4><p className="mt-1 text-[10px] text-muted-foreground">Protect your account with two-factor authentication.</p></div><button onClick={onOpenSecurity} className="text-[10px] font-semibold text-primary">Manage <ArrowRight className="ml-1 inline h-3 w-3" /></button></div><div className="mt-3 flex items-center justify-between rounded-lg bg-success/5 p-3"><span className="text-[10px] text-muted-foreground">Two-factor authentication</span><button onClick={onOpenSecurity} className="rounded-full bg-success/10 px-2 py-1 text-[10px] font-bold text-success hover:bg-success/20">Review settings</button></div></div>
         </>}
@@ -431,6 +439,7 @@ function ConnectedAccountsPanel() {
       action: channels.length ? disconnectYoutube : () => { window.location.href = "/api/youtube/auth?returnTo=/settings"; },
       actionLabel: channels.length ? (disconnecting ? "Disconnecting…" : "Disconnect active") : "Connect",
       disabled: loading || disconnecting,
+      rowLoading: loading,
     },
     {
       title: "Google Analytics",
@@ -442,6 +451,7 @@ function ConnectedAccountsPanel() {
       action: googleConnected ? () => navigate({ to: "/analytics" }) : () => void connectExternal("google_analytics"),
       actionLabel: googleConnected ? "Open Analytics" : "Connect",
       disabled: integrationsLoading || connecting !== null,
+      rowLoading: integrationsLoading,
     },
     {
       title: "Stripe",
@@ -453,6 +463,7 @@ function ConnectedAccountsPanel() {
       action: stripeConnected ? () => void disconnectExternal("stripe") : () => void connectExternal("stripe"),
       actionLabel: connecting === "stripe" ? "Working…" : stripeConnected ? "Disconnect" : "Connect Stripe",
       disabled: integrationsLoading || connecting !== null,
+      rowLoading: integrationsLoading,
     },
     {
       title: "ConvertKit",
@@ -465,6 +476,7 @@ function ConnectedAccountsPanel() {
       action: kitConnected ? () => void disconnectExternal("kit") : () => void connectExternal("kit"),
       actionLabel: connecting === "kit" ? "Working…" : kitConnected ? "Disconnect" : "Connect Kit",
       disabled: integrationsLoading || connecting !== null,
+      rowLoading: integrationsLoading,
     },
   ];
 
@@ -480,11 +492,27 @@ function ConnectedAccountsPanel() {
             </div>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">Connect your other profiles to keep your creator presence in sync.</p>
           </div>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channels.length ? `${channels.length} YouTube channel${channels.length === 1 ? "" : "s"} connected` : "Connect YouTube"}</span>
+          {loading ? (
+            <Skeleton className="h-5 w-32 rounded-full" />
+          ) : (
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{channels.length ? `${channels.length} YouTube channel${channels.length === 1 ? "" : "s"} connected` : "Connect YouTube"}</span>
+          )}
         </div>
 
         <div className="mt-6 space-y-2">
-        {accounts.map((account) => (
+        {accounts.map((account) =>
+          account.rowLoading ? (
+            <div key={account.title} className="flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4" aria-busy="true" aria-label={`Checking ${account.title} connection`}>
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
+                <div className="min-w-0 space-y-1.5">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+              <Skeleton className="h-9 w-full rounded-lg sm:w-24" />
+            </div>
+          ) : (
           <div key={account.title} className="group flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-accent/50">
@@ -508,7 +536,8 @@ function ConnectedAccountsPanel() {
               {account.actionLabel}
             </button>
           </div>
-        ))}
+          ),
+        )}
         </div>
 
       </div>
@@ -675,7 +704,15 @@ function YouTubeIntegrationPanel() {
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-border bg-accent/20 p-5 text-sm text-muted-foreground">Loading connection status…</div>
+        <div className="rounded-xl border border-border bg-accent/20 p-5" aria-busy="true" aria-label="Loading connection status">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 shrink-0 rounded-3xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3.5 w-28" />
+            </div>
+          </div>
+        </div>
       ) : channels.length === 0 ? (
         <div className="rounded-xl border border-border bg-accent/20 p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -742,21 +779,30 @@ function YouTubeIntegrationPanel() {
           ))
         )}
 
-      <div className="space-y-4">
-        {([
-          ["auto_sync_videos", "Auto-sync videos", "Keep your channel videos up to date automatically."],
-          ["import_analytics", "Import analytics data", "Fetch watch time, revenue, and engagement stats."],
-          ["sync_comments", "Sync comment data", "Import comments for sentiment and reply tracking."],
-          ["import_chapters", "Import chapter markers", "Pull chapter timestamps from your video descriptions."],
-        ] as const).map(([key, label, description]) => (
-          <div key={key} className="flex flex-col gap-3 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-medium">{label}</p>
-              <p className="text-sm text-muted-foreground">{description}</p>
+      <div className="space-y-4" aria-busy={settingsLoading} aria-label={settingsLoading ? "Loading YouTube sync settings" : undefined}>
+        {settingsLoading ? (
+          <>
+            <ToggleRowSkeleton />
+            <ToggleRowSkeleton />
+            <ToggleRowSkeleton />
+            <ToggleRowSkeleton />
+          </>
+        ) : (
+          ([
+            ["auto_sync_videos", "Auto-sync videos", "Keep your channel videos up to date automatically."],
+            ["import_analytics", "Import analytics data", "Fetch watch time, revenue, and engagement stats."],
+            ["sync_comments", "Sync comment data", "Import comments for sentiment and reply tracking."],
+            ["import_chapters", "Import chapter markers", "Pull chapter timestamps from your video descriptions."],
+          ] as const).map(([key, label, description]) => (
+            <div key={key} className="flex flex-col gap-3 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium">{label}</p>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </div>
+              <Switch checked={integrationSettings[key]} disabled={loading || !channels.length || savingSetting !== null || syncing} onCheckedChange={(value) => void updateIntegrationSetting(key, value)} />
             </div>
-            <Switch checked={integrationSettings[key]} disabled={loading || settingsLoading || !channels.length || savingSetting !== null || syncing} onCheckedChange={(value) => void updateIntegrationSetting(key, value)} />
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {channels.length > 0 && (
@@ -1013,10 +1059,12 @@ function SecurityPanel() {
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold">Two-factor authentication (2FA)</h4>
+                {mfaLoading && <Skeleton className="h-5 w-24 rounded-full" aria-label="Checking 2FA status" />}
                 {!mfaLoading && mfaFactor && <span className="rounded-full bg-success/10 px-2.5 py-1 text-[10px] font-bold text-success">2FA is enabled <span aria-hidden="true">●</span></span>}
               </div>
               <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">Add an extra layer of security to your account. You'll be asked for a verification code each time you sign in on a new device.</p>
             </div>
+            {mfaLoading && <Skeleton className="h-9 w-28 shrink-0 rounded-[var(--button-radius)]" />}
             {!mfaLoading && !mfaFactor && <button onClick={() => void beginMfaEnrollment()} disabled={mfaSubmitting} className="shrink-0 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{mfaSubmitting ? "Starting…" : "Enable 2FA"}</button>}
           </div>
 

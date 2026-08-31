@@ -33,6 +33,7 @@ import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow } from "@/components/NotificationRow";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
 import { YoutubeChannelSwitcher } from "@/components/YoutubeChannelSwitcher";
 
@@ -171,7 +172,14 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     if (!authLoading && !user) navigate({ to: "/" });
   }, [authLoading, user, navigate]);
 
-  if (authLoading || !user) {
+  // Split intentionally: authLoading is the genuine "checking your session" moment, which gets a
+  // minimal branded loader rather than a blank white screen. Once that resolves, !user means
+  // we're actively redirecting away (the effect above just fired) — nothing meaningful to show
+  // there since the page is about to change out from under it regardless.
+  if (authLoading) {
+    return <BrandedLoader />;
+  }
+  if (!user) {
     return <div className="min-h-screen bg-background" />;
   }
 
