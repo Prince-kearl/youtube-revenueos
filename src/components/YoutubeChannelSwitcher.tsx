@@ -73,7 +73,7 @@ export function YoutubeChannelSwitcher() {
         aria-label="Active YouTube channel"
         value={activeChannel.id}
         onChange={(event) => switchChannel(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent font-semibold outline-none"
+        className="min-w-0 flex-1 origin-left scale-[0.8] bg-transparent font-semibold outline-none sm:scale-100"
       >
         {channels.map((channel) => (
           <option key={channel.id} value={channel.id}>

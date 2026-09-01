@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeInjector } from "@/components/ThemeInjector";
 import { ThemeModeApplier } from "@/components/ThemeModeApplier";
+import { NavGlowDriver } from "@/components/NavGlowDriver";
 
 // Sets the dark class before first paint, so there's no flash of the wrong theme while React
 // hydrates. Reads the same localStorage key useThemeMode()/useLocalStore write (JSON-encoded),
@@ -140,6 +141,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeInjector />
       <ThemeModeApplier />
+      <NavGlowDriver />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />

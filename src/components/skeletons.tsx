@@ -43,24 +43,24 @@ export function StatCardSkeleton() {
 
 // Mirrors KpiTrendCard's exact structure (title+badge row, big number, delta line, chart block)
 // so the dashboard's KPI grid keeps its shape/dimensions while data loads instead of jumping.
-export function KpiTrendCardSkeleton() {
+export function KpiTrendCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className="flex flex-col gap-5 rounded-[28px] border border-border bg-card p-5 sm:flex-row sm:items-stretch sm:gap-4 sm:p-6"
+      className={cn("flex flex-row items-stretch gap-3 rounded-xl border border-border bg-card p-4 sm:gap-3 sm:rounded-2xl sm:p-4", className)}
       aria-hidden="true"
     >
-      <div className="flex min-w-0 flex-1 flex-col justify-between">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 sm:justify-between sm:gap-0">
         <div className="flex items-center justify-between gap-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-3 w-20 sm:h-3.5 sm:w-24" />
+          <Skeleton className="h-4 w-12 rounded-full sm:h-5 sm:w-16" />
         </div>
-        <div className="mt-4">
-          <Skeleton className="h-10 w-32" />
-          <Skeleton className="mt-3 h-3.5 w-24" />
+        <div className="mt-2">
+          <Skeleton className="h-8 w-28 sm:h-7 sm:w-28" />
+          <Skeleton className="mt-1.5 h-3.5 w-20 sm:mt-2 sm:h-3 sm:w-20" />
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <Skeleton className="h-full min-h-[130px] w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-lg sm:h-[84px] sm:rounded-xl" />
       </div>
     </div>
   );

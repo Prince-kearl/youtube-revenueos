@@ -343,7 +343,7 @@ export const useTeam = () => useLocalStore<TeamMember[]>("yroos.team", seedTeam(
 // ============ UI PREFERENCES ============
 // Persisted so the collapsed state survives navigating between pages — DashboardLayout
 // remounts on every route change, so a plain useState would silently reset it each time.
-export const useSidebarCollapsed = () => useLocalStore<boolean>("yroos.sidebarCollapsed", false);
+export const useSidebarCollapsed = () => useLocalStore<boolean>("yroos.sidebarCollapsed", true);
 
 // ============ RBAC ============
 // Superadmin is a platform-level role (Tubify staff) that sits above every workspace's

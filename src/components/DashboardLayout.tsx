@@ -3,7 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
   TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
-  Bell, HelpCircle, Youtube, FolderKanban,
+  Bell, HelpCircle, FolderKanban,
   MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText, LifeBuoy, Inbox,
   LogOut, User as UserIcon,
   Send, Menu, Shield, Crown, Target, Pencil, Lock, ShieldAlert, ShieldCheck,
@@ -16,17 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import {
-  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-} from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  useDeals, useNotifications, useProfile, useViewerRole, useFeatureFlags, useSidebarCollapsed,
+  useDeals, useLeads, useNotifications, useProfile, useViewerRole, useFeatureFlags, useSidebarCollapsed,
   useSiteContent, canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
 } from "@/lib/stores";
-import { clearAllStores, uid } from "@/lib/local-store";
+import { clearAllStores, uid, useLocalStore } from "@/lib/local-store";
 import { clearChannelSettings } from "@/lib/channel-settings";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { llm } from "@/lib/llm";
@@ -35,30 +32,33 @@ import { NotificationRow } from "@/components/NotificationRow";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
-import { YoutubeChannelSwitcher } from "@/components/YoutubeChannelSwitcher";
+import { YoutubeChannelSwitcher, ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "@/lib/demo-youtube";
 
+// `keywords` back the smart search below with synonyms a literal label match would miss
+// (e.g. searching "money" or "sponsorship" should still surface Brand Deals).
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/videos", label: "Videos", icon: Video },
-  { to: "/projects", label: "Projects", icon: FolderKanban },
-  { to: "/ai-lab", label: "AI Lab", icon: Sparkles },
-  { to: "/destinations", label: "Destinations", icon: MapPin },
-  { to: "/link-tracking", label: "Link Tracking", icon: Link2 },
-  { to: "/comments", label: "Comment Automation", icon: MessageSquare },
-  { to: "/leads", label: "Lead Inbox", icon: Inbox },
-  { to: "/audience", label: "Audience", icon: Users },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/affiliate", label: "Affiliate", icon: Handshake },
-  { to: "/freebie", label: "AI Freebie", icon: Gift },
-  { to: "/email", label: "Email", icon: Mail },
-  { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp },
-  { to: "/team", label: "Team", icon: UserPlus },
-  { to: "/reports", label: "Reports", icon: FileText },
-  { to: "/roadmap", label: "Roadmap", icon: Rocket },
-  { to: "/changelog", label: "Changelog", icon: ScrollText },
-  { to: "/support", label: "Support", icon: LifeBuoy },
-  { to: "/settings", label: "Settings", icon: Settings },
-  { to: "/admin", label: "Admin Console", icon: Shield },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, keywords: "home overview stats summary revenue" },
+  { to: "/videos", label: "Videos", icon: Video, keywords: "clips uploads content youtube" },
+  { to: "/projects", label: "Projects", icon: FolderKanban, keywords: "campaigns work" },
+  { to: "/ai-lab", label: "AI Lab", icon: Sparkles, keywords: "ai tools generate assistant" },
+  { to: "/destinations", label: "Destinations", icon: MapPin, keywords: "bio link redirects" },
+  { to: "/link-tracking", label: "Link Tracking", icon: Link2, keywords: "links urls clicks utm" },
+  { to: "/comments", label: "Comment Automation", icon: MessageSquare, keywords: "auto reply bot comments" },
+  { to: "/leads", label: "Lead Inbox", icon: Inbox, keywords: "leads contacts inbox dm messages" },
+  { to: "/audience", label: "Audience", icon: Users, keywords: "demographics viewers subscribers age gender location" },
+  { to: "/analytics", label: "Analytics", icon: BarChart3, keywords: "stats metrics performance revenue insights" },
+  { to: "/affiliate", label: "Affiliate", icon: Handshake, keywords: "commission referral partner" },
+  { to: "/freebie", label: "AI Freebie", icon: Gift, keywords: "lead magnet giveaway freebie" },
+  { to: "/email", label: "Email", icon: Mail, keywords: "campaigns newsletter" },
+  { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp, keywords: "sponsorship partnership money income deals" },
+  { to: "/team", label: "Team", icon: UserPlus, keywords: "members roles staff invite" },
+  { to: "/reports", label: "Reports", icon: FileText, keywords: "exports csv summary" },
+  { to: "/roadmap", label: "Roadmap", icon: Rocket, keywords: "features upcoming plans" },
+  { to: "/changelog", label: "Changelog", icon: ScrollText, keywords: "updates releases new whats new" },
+  { to: "/support", label: "Support", icon: LifeBuoy, keywords: "help contact faq" },
+  { to: "/settings", label: "Settings", icon: Settings, keywords: "preferences config account" },
+  { to: "/admin", label: "Admin Console", icon: Shield, keywords: "superadmin platform" },
 ] as const;
 
 const primaryMobileNav = nav.filter((item) =>
@@ -86,25 +86,100 @@ const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
   (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(([key, meta]) => [meta.route, key]),
 );
 
+// ============ SMART SEARCH ============
+// Powers the global search below — tolerates typos and near-miss spelling (edit distance,
+// scaled to word length) and doesn't require word order to match ("revenue video" still finds
+// "Creator Revenue Systems"). Every query word must match *something* in the target text (AND
+// semantics) so unrelated multi-word queries don't return everything.
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let previousRow = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 0; i < a.length; i++) {
+    const currentRow = [i + 1];
+    for (let j = 0; j < b.length; j++) {
+      currentRow.push(
+        a[i] === b[j]
+          ? previousRow[j]
+          : 1 + Math.min(previousRow[j], previousRow[j + 1], currentRow[j]),
+      );
+    }
+    previousRow = currentRow;
+  }
+  return previousRow[b.length];
+}
+
+function searchMatchScore(query: string, text: string): number | null {
+  const trimmedQuery = query.trim().toLowerCase();
+  const targetText = text.toLowerCase();
+  if (!trimmedQuery) return null;
+  if (targetText.includes(trimmedQuery)) return 100;
+
+  const queryWords = trimmedQuery.split(/\s+/).filter(Boolean);
+  const targetWords = targetText.split(/\s+/).filter(Boolean);
+  let score = 0;
+  for (const queryWord of queryWords) {
+    let bestWordScore = 0;
+    for (const targetWord of targetWords) {
+      // Guard against trivial matches like "a"/"of"/"the" being a substring of nearly every
+      // longer query word — only take the substring shortcut once both sides have real content.
+      if (Math.min(queryWord.length, targetWord.length) >= 3 && (targetWord.includes(queryWord) || queryWord.includes(targetWord))) {
+        bestWordScore = Math.max(bestWordScore, 10);
+        continue;
+      }
+      const distance = levenshteinDistance(queryWord, targetWord);
+      const tolerance = queryWord.length <= 4 ? 1 : queryWord.length <= 7 ? 2 : 3;
+      if (distance <= tolerance) bestWordScore = Math.max(bestWordScore, 8 - distance);
+    }
+    if (bestWordScore === 0) return null; // this query word matched nothing at all — reject
+    score += bestWordScore;
+  }
+  return score;
+}
+
+function rankSearchMatches<T>(items: readonly T[], query: string, getText: (item: T) => string, limit: number): T[] {
+  return items
+    .map((item) => ({ item, score: searchMatchScore(query, getText(item)) }))
+    .filter((row): row is { item: T; score: number } => row.score !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((row) => row.item);
+}
+
 export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
   const { user, loading: authLoading } = useAuthSession();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [siteContent] = useSiteContent();
   const [moreOpen, setMoreOpen] = useState(false);
-  const [cmdOpen, setCmdOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [profile, setProfile] = useProfile();
   const [notifs, setNotifs] = useNotifications();
-  const [, setDeals] = useDeals();
+  const [deals, setDeals] = useDeals();
+  const [leads] = useLeads();
   const [viewerRole, setViewerRole] = useViewerRole();
   const [flags] = useFeatureFlags();
   const keyboardOpen = useKeyboardInset() > 150;
   const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
   const previousUserId = useRef<string | null>(null);
+  // Drives the connection dot on the sidebar's YouTube badge — null while still checking, so the
+  // dot doesn't flash "disconnected" before the real answer arrives.
+  const [youtubeConnected, setYoutubeConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/youtube/channels", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("channels_failed");
+        const body = (await response.json()) as { data?: unknown[] };
+        setYoutubeConnected(Boolean(body.data?.length));
+      })
+      .catch(() => setYoutubeConnected(false));
+    return () => controller.abort();
+  }, []);
 
   const isLocked = (to: string) => {
     const feature = ROUTE_FEATURE[to];
@@ -115,6 +190,183 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     .map((g) => ({ ...g, items: g.items.filter((to) => canAccessRoute(viewerRole, to)) }))
     .filter((g) => g.items.length > 0);
   const visiblePrimaryMobileNav = primaryMobileNav.filter((item) => canAccessRoute(viewerRole, item.to));
+
+  // Global search — searches pages plus real content (videos, leads, brand deals), not just nav
+  // labels. Videos are fetched lazily on first focus rather than eagerly on every page load, since
+  // this component mounts on every authenticated route.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchVideos, setSearchVideos] = useState<Array<{ id: string; title: string; thumbnail: string | null }>>([]);
+  const searchVideosLoadedRef = useRef(false);
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const loadSearchVideos = () => {
+    if (searchVideosLoadedRef.current) return;
+    searchVideosLoadedRef.current = true;
+    if (IS_LOCAL_DEMO) {
+      setSearchVideos(DEMO_YOUTUBE_DASHBOARD.videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail })));
+      return;
+    }
+    const params = new URLSearchParams({ limit: "50" });
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    fetch(`/api/youtube/videos?${params.toString()}`, { cache: "default" })
+      .then(async (response) => {
+        const body = (await response.json()) as { status?: string; data?: { videos?: Array<{ id: string; title: string; thumbnail: string | null }> } };
+        if (body.status === "connected" && body.data?.videos) {
+          setSearchVideos(body.data.videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail })));
+        }
+      })
+      .catch(() => {});
+  };
+
+  const openSearch = (input: "desktop" | "mobile") => {
+    setSearchOpen(true);
+    loadSearchVideos();
+    requestAnimationFrame(() => (input === "desktop" ? searchInputRef : mobileSearchInputRef).current?.focus());
+  };
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return { pages: [] as typeof visibleNav, videos: [] as typeof searchVideos, leads: [] as typeof leads, deals: [] as typeof deals };
+    return {
+      pages: rankSearchMatches(visibleNav, q, (item) => `${item.label} ${item.keywords}`, 5),
+      videos: rankSearchMatches(searchVideos, q, (v) => v.title, 5),
+      leads: rankSearchMatches(leads, q, (l) => `${l.name} ${l.handle}`, 5),
+      deals: rankSearchMatches(deals, q, (d) => `${d.company} ${d.contact}`, 5),
+    };
+  }, [searchQuery, visibleNav, searchVideos, leads, deals]);
+  const hasSearchResults =
+    searchResults.pages.length + searchResults.videos.length + searchResults.leads.length + searchResults.deals.length > 0;
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+  const goToSearchResult = (to: string) => {
+    closeSearch();
+    navigate({ to });
+  };
+
+  const renderSearchGroups = () => (
+    <>
+      {searchResults.pages.length > 0 && (
+        <div className="p-2">
+          <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Pages</p>
+          {searchResults.pages.map((item) => (
+            <button
+              key={item.to}
+              type="button"
+              onClick={() => goToSearchResult(item.to)}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+            >
+              <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {searchResults.videos.length > 0 && (
+        <div className="border-t border-border p-2">
+          <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Videos</p>
+          {searchResults.videos.map((video) => (
+            <button
+              key={video.id}
+              type="button"
+              onClick={() => goToSearchResult(`/videos/${video.id}`)}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+            >
+              {video.thumbnail ? (
+                <img src={video.thumbnail} alt="" className="h-6 w-10 shrink-0 rounded object-cover" />
+              ) : (
+                <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="truncate">{video.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {searchResults.leads.length > 0 && (
+        <div className="border-t border-border p-2">
+          <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Leads</p>
+          {searchResults.leads.map((lead) => (
+            <button
+              key={lead.id}
+              type="button"
+              onClick={() => goToSearchResult("/leads")}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+            >
+              <Inbox className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {lead.name} <span className="text-muted-foreground">{lead.handle}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {searchResults.deals.length > 0 && (
+        <div className="border-t border-border p-2">
+          <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Brand Deals</p>
+          {searchResults.deals.map((deal) => (
+            <button
+              key={deal.id}
+              type="button"
+              onClick={() => goToSearchResult("/brand-deals")}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+            >
+              <Handshake className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">
+                {deal.company} <span className="text-muted-foreground">— {deal.contact}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!hasSearchResults && (
+        <p className="p-6 text-center text-sm text-muted-foreground">
+          {searchQuery.trim() ? "No results." : "Start typing to search pages, videos, leads, and deals…"}
+        </p>
+      )}
+      <div className="border-t border-border p-2">
+        <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Actions</p>
+        <button
+          type="button"
+          onClick={() => {
+            closeSearch();
+            setDealOpen(true);
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+        >
+          <Plus className="h-4 w-4 shrink-0 text-muted-foreground" /> New brand deal
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            closeSearch();
+            setHelpOpen(true);
+          }}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
+        >
+          <HelpCircle className="h-4 w-4 shrink-0 text-muted-foreground" /> Open Tubi
+        </button>
+      </div>
+    </>
+  );
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (searchContainerRef.current?.contains(target)) return;
+      if (mobileSearchContainerRef.current?.contains(target)) return;
+      closeSearch();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [searchOpen]);
   const routeAllowed = canAccessRoute(viewerRole, pathname);
   const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
   const pageBlocked = !routeAllowed || (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin");
@@ -132,7 +384,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setCmdOpen((v) => !v);
+        openSearch(window.innerWidth >= 1024 ? "desktop" : "mobile");
       }
     };
     window.addEventListener("keydown", handler);
@@ -211,7 +463,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                     const locked = isLocked(item.to);
                     const Icon = item.icon;
                     return (
-                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed && siteContent.ios26Design ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
+                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
                         <Icon className="relative h-[18px] w-[18px] shrink-0" />
                         {!collapsed && <span className="relative flex-1">{item.label}</span>}
                         {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
@@ -225,16 +477,31 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
 
           <div className="p-3">
             <div className="card-frost flex items-center gap-3 px-3 py-3 backdrop-blur-lg">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
-                <Youtube className="h-4 w-4 text-white" fill="white" strokeWidth={1.5} />
+              <div className="relative shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center">
+                  <svg viewBox="0 0 24 18" className="h-6 w-8" fill="none" aria-hidden="true">
+                    <path
+                      d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
+                      fill="#ff0000"
+                    />
+                    <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="white" />
+                  </svg>
+                </div>
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
+                  title={youtubeConnected === null ? "Checking YouTube connection…" : youtubeConnected ? "YouTube connected" : "YouTube not connected"}
+                  role="status"
+                  aria-label={youtubeConnected === null ? "Checking YouTube connection" : youtubeConnected ? "YouTube connected" : "YouTube not connected"}
+                />
               </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground">Account</p>
-                  <p className="truncate text-sm font-semibold">YouTube channel</p>
+                  <p className="truncate text-sm font-semibold">
+                    {youtubeConnected === null ? "Checking…" : youtubeConnected ? "YouTube connected" : "Not connected"}
+                  </p>
                 </div>
               )}
-              {!collapsed && <span className="h-2 w-2 shrink-0 rounded-full bg-success" />}
             </div>
           </div>
         </aside>
@@ -247,21 +514,61 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={() => setCmdOpen(true)} className="glass-pill relative hidden h-9 w-64 items-center backdrop-blur-lg lg:flex">
-              <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 truncate pl-9 pr-12 text-sm text-muted-foreground">Search...</span>
-              <kbd className="absolute right-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
-            </button>
-            <button onClick={() => setCmdOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground sm:hidden" aria-label="Search">
-              <Search className="h-[18px] w-[18px]" />
-            </button>
+            <div ref={searchContainerRef} className="relative hidden lg:block">
+              <div className="glass-pill relative flex h-9 w-64 items-center backdrop-blur-lg">
+                <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => {
+                    setSearchOpen(true);
+                    loadSearchVideos();
+                  }}
+                  placeholder="Search pages, videos, leads…"
+                  aria-label="Search pages, videos, leads, and deals"
+                  className="h-9 w-full truncate bg-transparent pl-9 pr-12 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {!searchQuery && (
+                  <kbd className="pointer-events-none absolute right-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
+                )}
+              </div>
+              {searchOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-xl border border-border bg-popover shadow-xl">
+                  {renderSearchGroups()}
+                </div>
+              )}
+            </div>
+            <div ref={mobileSearchContainerRef} className="relative lg:hidden">
+              <button onClick={() => openSearch("mobile")} className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Search">
+                <Search className="h-[18px] w-[18px]" />
+              </button>
+              {searchOpen && (
+                <div className="fixed inset-x-0 top-[68px] z-50 border-b border-border bg-popover p-3 shadow-xl">
+                  <div className="glass-pill relative flex h-10 items-center backdrop-blur-lg">
+                    <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+                    <input
+                      ref={mobileSearchInputRef}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search pages, videos, leads…"
+                      aria-label="Search pages, videos, leads, and deals"
+                      className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover">
+                    {renderSearchGroups()}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* RBAC demo role switcher */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   title="Demo control — switch roles to preview RBAC"
-                  className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
+                  className={`flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
                 >
                   {(() => { const RoleIcon = ROLE_META[viewerRole].icon; return <RoleIcon className="h-3.5 w-3.5" />; })()}
                   <span className="hidden sm:inline">Viewing as {viewerRole}</span>
@@ -287,9 +594,13 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Notifications">
+                <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ""}`}>
                   <Bell className="h-[18px] w-[18px]" />
-                  {unread > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />}
+                  {unread > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-semibold leading-none text-white">
+                      {unread > 9 ? "9+" : unread}
+                    </span>
+                  )}
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
@@ -455,29 +766,6 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
           </Sheet>
         </>
       )}
-
-      {/* Global command search */}
-      <CommandDialog open={cmdOpen} onOpenChange={setCmdOpen}>
-        <CommandInput placeholder="Search pages, deals, links…" />
-        <CommandList>
-          <CommandEmpty>No results.</CommandEmpty>
-          <CommandGroup heading="Pages">
-            {visibleNav.map((item) => (
-              <CommandItem key={item.to} value={item.label} onSelect={() => { setCmdOpen(false); navigate({ to: item.to }); }}>
-                <item.icon className="mr-2 h-4 w-4" /> {item.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Actions">
-            <CommandItem value="new deal" onSelect={() => { setCmdOpen(false); setDealOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> New brand deal
-            </CommandItem>
-            <CommandItem value="help tubi assistant" onSelect={() => { setCmdOpen(false); setHelpOpen(true); }}>
-              <HelpCircle className="mr-2 h-4 w-4" /> Open Tubi
-            </CommandItem>
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
 
       {/* Help / Tubi assistant panel */}
       <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} />

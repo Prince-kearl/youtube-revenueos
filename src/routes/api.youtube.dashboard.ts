@@ -263,7 +263,13 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 channelId: channel.channelId,
                 startDate: isoDate(startDate),
                 endDate: isoDate(endDate),
-                metrics: ["estimatedRevenue"],
+                // estimatedAdRevenue / estimatedRedPartnerRevenue (YouTube Premium's revenue
+                // share) are real per-source breakdowns YouTube itself reports — used by the
+                // Revenue Split card. Anything not covered by those two (Shorts fund, Super
+                // Chat/Thanks, etc.) is shown there as "Other", computed client-side as the
+                // remainder against estimatedRevenue rather than fabricated categories YouTube
+                // doesn't actually track (e.g. brand deals, affiliate links).
+                metrics: ["estimatedRevenue", "estimatedAdRevenue", "estimatedRedPartnerRevenue"],
                 dimensions: ["day"],
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
@@ -301,6 +307,248 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               operation: "reports.query",
               quota_units: 3,
               succeeded: analyticsRequestSucceeded,
+            });
+          }
+
+          let audienceStatus: AnalyticsAvailability = settings.import_analytics
+            ? "available"
+            : "disabled";
+          let topCountries: Array<{ country: string; views: number }> = [];
+          let ageGroups: Array<{ ageGroup: string; viewerPercentage: number }> = [];
+          let genders: Array<{ gender: string; viewerPercentage: number }> = [];
+          if (settings.import_analytics) {
+            let audienceRequestSucceeded = false;
+            try {
+              const [countryPayload, agePayload, genderPayload] = await Promise.all([
+                queryYoutubeAnalytics(accessToken, {
+                  channelId: channel.channelId,
+                  startDate: isoDate(startDate),
+                  endDate: isoDate(endDate),
+                  metrics: ["views"],
+                  dimensions: ["country"],
+                  sort: "-views",
+                  maxResults: 10,
+                }) as Promise<AnalyticsPayload>,
+                queryYoutubeAnalytics(accessToken, {
+                  channelId: channel.channelId,
+                  startDate: isoDate(startDate),
+                  endDate: isoDate(endDate),
+                  metrics: ["viewerPercentage"],
+                  dimensions: ["ageGroup"],
+                }) as Promise<AnalyticsPayload>,
+                queryYoutubeAnalytics(accessToken, {
+                  channelId: channel.channelId,
+                  startDate: isoDate(startDate),
+                  endDate: isoDate(endDate),
+                  metrics: ["viewerPercentage"],
+                  dimensions: ["gender"],
+                }) as Promise<AnalyticsPayload>,
+              ]);
+              audienceRequestSucceeded = true;
+              topCountries = analyticsRows(countryPayload).map((row) => ({
+                country: String(row.country ?? ""),
+                views: Number(row.views ?? 0),
+              }));
+              ageGroups = analyticsRows(agePayload).map((row) => ({
+                ageGroup: String(row.ageGroup ?? ""),
+                viewerPercentage: Number(row.viewerPercentage ?? 0),
+              }));
+              genders = analyticsRows(genderPayload).map((row) => ({
+                gender: String(row.gender ?? ""),
+                viewerPercentage: Number(row.viewerPercentage ?? 0),
+              }));
+              if (!topCountries.length && !ageGroups.length && !genders.length)
+                audienceStatus = "unavailable";
+            } catch (error) {
+              audienceStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              logOptionalFailure("audience_breakdown", channelRow.user_id, channelRow.id, error);
+            }
+            recordQuotaEvent(serviceClient, {
+              user_id: channelRow.user_id,
+              channel_id: channelRow.id,
+              operation: "reports.query.audience",
+              quota_units: 3,
+              succeeded: audienceRequestSucceeded,
+            });
+          }
+
+          // Video Insights — the latest synced video's own performance. Views/engagement (likes +
+          // comments) come straight from the already-fetched `videos` list (zero extra API calls);
+          // only subscribersGained and the device-type split need a video-filtered analytics query.
+          const latestVideo = videos[0] ?? null;
+          let videoInsightsStatus: AnalyticsAvailability =
+            settings.import_analytics && settings.auto_sync_videos ? "available" : "disabled";
+          let videoSubscribersGained = 0;
+          let deviceViews: { desktop: number; mobile: number; tablet: number } = {
+            desktop: 0,
+            mobile: 0,
+            tablet: 0,
+          };
+          if (videoInsightsStatus === "available" && latestVideo) {
+            try {
+              const [subsPayload, devicePayload] = await Promise.all([
+                queryYoutubeAnalytics(accessToken, {
+                  channelId: channel.channelId,
+                  startDate: isoDate(startDate),
+                  endDate: isoDate(endDate),
+                  metrics: ["subscribersGained"],
+                  filters: `video==${latestVideo.id}`,
+                }) as Promise<AnalyticsPayload>,
+                queryYoutubeAnalytics(accessToken, {
+                  channelId: channel.channelId,
+                  startDate: isoDate(startDate),
+                  endDate: isoDate(endDate),
+                  metrics: ["views"],
+                  dimensions: ["deviceType"],
+                  filters: `video==${latestVideo.id}`,
+                }) as Promise<AnalyticsPayload>,
+              ]);
+              videoSubscribersGained = Number(analyticsRows(subsPayload)[0]?.subscribersGained ?? 0);
+              for (const row of analyticsRows(devicePayload)) {
+                const device = String(row.deviceType ?? "").toUpperCase();
+                const views = Number(row.views ?? 0);
+                if (device === "DESKTOP") deviceViews.desktop += views;
+                else if (device === "MOBILE") deviceViews.mobile += views;
+                else if (device === "TABLET") deviceViews.tablet += views;
+              }
+            } catch (error) {
+              videoInsightsStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              logOptionalFailure("video_insights", channelRow.user_id, channelRow.id, error);
+            }
+            recordQuotaEvent(serviceClient, {
+              user_id: channelRow.user_id,
+              channel_id: channelRow.id,
+              operation: "reports.query.video_insights",
+              quota_units: 2,
+              succeeded: videoInsightsStatus === "available",
+            });
+          } else if (videoInsightsStatus === "available" && !latestVideo) {
+            videoInsightsStatus = "unavailable";
+          }
+
+          // Weekly Engagement heatmap — daily channel views for the last 5 weeks, independent of
+          // the 12-month monthly trend above (that one merges daily rows into months and discards
+          // day-level granularity, which the heatmap needs).
+          let engagementHeatmapStatus: AnalyticsAvailability = settings.import_analytics
+            ? "available"
+            : "disabled";
+          let engagementHeatmap: Array<{ date: string; views: number }> = [];
+          if (engagementHeatmapStatus === "available") {
+            const heatmapStart = new Date();
+            heatmapStart.setUTCDate(heatmapStart.getUTCDate() - 34);
+            try {
+              const heatmapPayload = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(heatmapStart),
+                endDate: isoDate(endDate),
+                metrics: ["views"],
+                dimensions: ["day"],
+              })) as AnalyticsPayload;
+              engagementHeatmap = analyticsRows(heatmapPayload).map((row) => ({
+                date: String(row.day ?? ""),
+                views: Number(row.views ?? 0),
+              }));
+              if (!engagementHeatmap.length) engagementHeatmapStatus = "unavailable";
+            } catch (error) {
+              engagementHeatmapStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              logOptionalFailure("engagement_heatmap", channelRow.user_id, channelRow.id, error);
+            }
+            recordQuotaEvent(serviceClient, {
+              user_id: channelRow.user_id,
+              channel_id: channelRow.id,
+              operation: "reports.query.heatmap",
+              quota_units: 1,
+              succeeded: engagementHeatmapStatus === "available",
+            });
+          }
+
+          // Top Revenue Videos — ranked over the same 12-month window as the rest of the
+          // dashboard via YouTube Analytics' "video" dimension (one row per video, no per-video
+          // filtering needed). "Change" is a separate, more recent signal: trailing-30-days views
+          // vs the 30 days before that, for just these top videos — a longer ranking window and a
+          // shorter trend window answer different questions, so they're intentionally not the same
+          // date range.
+          let topRevenueVideosStatus: AnalyticsAvailability = settings.import_analytics
+            ? "available"
+            : "disabled";
+          let topRevenueVideos: Array<{
+            videoId: string;
+            views: number;
+            revenue: number;
+            changePercent: number | null;
+          }> = [];
+          if (topRevenueVideosStatus === "available") {
+            try {
+              const revenuePayload = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(startDate),
+                endDate: isoDate(endDate),
+                metrics: ["views", "estimatedRevenue"],
+                dimensions: ["video"],
+                sort: "-estimatedRevenue",
+                maxResults: 10,
+              })) as AnalyticsPayload;
+              const revenueRows = analyticsRows(revenuePayload)
+                .map((row) => ({
+                  videoId: String(row.video ?? ""),
+                  views: Number(row.views ?? 0),
+                  revenue: Number(row.estimatedRevenue ?? 0),
+                }))
+                .filter((row) => row.videoId && row.revenue > 0);
+
+              if (revenueRows.length) {
+                const trendEnd = new Date();
+                const trendStart = new Date();
+                trendStart.setUTCDate(trendStart.getUTCDate() - 30);
+                const prevTrendEnd = new Date(trendStart);
+                const prevTrendStart = new Date(trendStart);
+                prevTrendStart.setUTCDate(prevTrendStart.getUTCDate() - 30);
+                const videoIdFilter = revenueRows.map((row) => row.videoId).join(",");
+
+                const [currentTrendPayload, prevTrendPayload] = await Promise.all([
+                  queryYoutubeAnalytics(accessToken, {
+                    channelId: channel.channelId,
+                    startDate: isoDate(trendStart),
+                    endDate: isoDate(trendEnd),
+                    metrics: ["views"],
+                    dimensions: ["video"],
+                    filters: `video==${videoIdFilter}`,
+                  }).catch(() => null) as Promise<AnalyticsPayload | null>,
+                  queryYoutubeAnalytics(accessToken, {
+                    channelId: channel.channelId,
+                    startDate: isoDate(prevTrendStart),
+                    endDate: isoDate(prevTrendEnd),
+                    metrics: ["views"],
+                    dimensions: ["video"],
+                    filters: `video==${videoIdFilter}`,
+                  }).catch(() => null) as Promise<AnalyticsPayload | null>,
+                ]);
+                const currentTrendById = new Map(
+                  analyticsRows(currentTrendPayload).map((row) => [String(row.video ?? ""), Number(row.views ?? 0)]),
+                );
+                const prevTrendById = new Map(
+                  analyticsRows(prevTrendPayload).map((row) => [String(row.video ?? ""), Number(row.views ?? 0)]),
+                );
+
+                topRevenueVideos = revenueRows.map((row) => {
+                  const prevViews = prevTrendById.get(row.videoId) ?? 0;
+                  const currentViews = currentTrendById.get(row.videoId) ?? 0;
+                  const changePercent = prevViews > 0 ? ((currentViews - prevViews) / prevViews) * 100 : null;
+                  return { ...row, changePercent };
+                });
+              } else {
+                topRevenueVideosStatus = "unavailable";
+              }
+            } catch (error) {
+              topRevenueVideosStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              logOptionalFailure("top_revenue_videos", channelRow.user_id, channelRow.id, error);
+            }
+            recordQuotaEvent(serviceClient, {
+              user_id: channelRow.user_id,
+              channel_id: channelRow.id,
+              operation: "reports.query.top_revenue_videos",
+              quota_units: 3,
+              succeeded: topRevenueVideosStatus === "available",
             });
           }
 
@@ -358,6 +606,14 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 analyticsStatus,
                 revenueStatus,
                 watchTimeStatus,
+                audience: { topCountries, ageGroups, genders },
+                audienceStatus,
+                videoInsights: { subscribersGained: videoSubscribersGained, devices: deviceViews },
+                videoInsightsStatus,
+                engagementHeatmap,
+                engagementHeatmapStatus,
+                topRevenueVideos,
+                topRevenueVideosStatus,
                 fetchedAt,
                 meta: { lastUpdated: fetchedAt },
                 sections: {
@@ -366,6 +622,10 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                   analytics: { available: analyticsStatus === "available" },
                   revenue: { available: revenueStatus === "available" },
                   watchTime: { available: watchTimeStatus === "available" },
+                  audience: { available: audienceStatus === "available" },
+                  videoInsights: { available: videoInsightsStatus === "available" },
+                  engagementHeatmap: { available: engagementHeatmapStatus === "available" },
+                  topRevenueVideos: { available: topRevenueVideosStatus === "available" },
                 },
               },
             },

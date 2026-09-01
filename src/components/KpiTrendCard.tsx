@@ -33,7 +33,8 @@ function MiniAreaTrend({
   const gradientId = useId();
   const width = 280;
   const height = 160;
-  const pad = 10;
+  const padX = 0;
+  const padY = 10;
 
   // A single real point still needs two to draw a line — repeat it flat rather than collapsing
   // to [0,0], which would pin an otherwise-real value to an empty baseline.
@@ -54,8 +55,8 @@ function MiniAreaTrend({
   const range = max - min || 1;
 
   const points = safeData.map((v, i) => ({
-    x: pad + (i / (safeData.length - 1)) * (width - pad * 2),
-    y: height - pad - ((v - min) / range) * (height - pad * 2),
+    x: padX + (i / (safeData.length - 1)) * (width - padX * 2),
+    y: height - padY - ((v - min) / range) * (height - padY * 2),
   }));
 
   // Smooth curve: cubic Bezier per segment with control points at the horizontal midpoint —
@@ -77,7 +78,7 @@ function MiniAreaTrend({
   const color = positive ? "var(--success)" : "var(--destructive)";
 
   return (
-    <div className="relative h-full min-h-[130px] w-full">
+    <div className="relative h-32 w-full sm:h-[84px]">
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -91,7 +92,7 @@ function MiniAreaTrend({
         <circle cx={marker.x} cy={marker.y} r={4.5} fill={color} stroke="var(--card)" strokeWidth={2} />
       </svg>
       <div
-        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+12px)] whitespace-nowrap rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-md"
+        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+6px)] whitespace-nowrap rounded-lg border border-border bg-card px-1.5 py-0.5 text-[9px] shadow-md sm:-translate-y-[calc(100%+10px)] sm:px-2.5 sm:py-1 sm:text-xs"
         style={{ left: `${(marker.x / width) * 100}%`, top: `${(marker.y / height) * 100}%` }}
       >
         <p className="font-semibold text-foreground">{markerTitle}</p>
@@ -112,6 +113,7 @@ export function KpiTrendCard({
   markerTitle,
   markerSubtitle,
   positive,
+  accent = "var(--primary)",
   className,
 }: {
   title: string;
@@ -124,15 +126,19 @@ export function KpiTrendCard({
   markerTitle: string;
   markerSubtitle: string;
   positive: boolean;
+  accent?: string;
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-5 rounded-[28px] border border-border bg-card p-5 sm:flex-row sm:items-stretch sm:gap-4 sm:p-6", className)}>
-      <div className="flex min-w-0 flex-1 flex-col justify-between">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-foreground/80">{title}</p>
+    <div
+      className={cn("relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4", className)}
+      style={{ backgroundImage: `radial-gradient(140% 140% at 0% 0%, color-mix(in srgb, ${accent} 16%, transparent) 0%, transparent 60%)` }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2">
+          <p className="text-xs font-medium text-foreground/80">{title}</p>
           {changePercent !== null && (
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <div className="hidden items-center gap-1.5 text-xs sm:flex">
               <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-semibold", positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
                 {positive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
                 {Math.abs(changePercent).toFixed(1)}%
@@ -141,11 +147,17 @@ export function KpiTrendCard({
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
           )}
+          {changePercent !== null && (
+            <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold sm:hidden", positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
+              {positive ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+              {Math.abs(changePercent).toFixed(1)}%
+            </span>
+          )}
         </div>
 
-        <div className="mt-4">
-          <p className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">{value}</p>
-          <p className="mt-2 text-sm">
+        <div className="mt-2">
+          <p className="text-3xl font-bold leading-tight tracking-tight text-foreground">{value}</p>
+          <p className="mt-1.5 text-sm leading-tight sm:text-xs">
             <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>{deltaLabel}</span>{" "}
             <span className="text-muted-foreground">{deltaSuffix}</span>
           </p>

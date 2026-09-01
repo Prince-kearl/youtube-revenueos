@@ -349,27 +349,24 @@
    rotating conic-gradient masked down to a thin ring, plus a slow-breathing outer halo. Unlike
    .card-gradient-outline's static ring or GlowingEffect's mouse-tracking rainbow, this animates on
    its own and only uses --primary/the dark navy backdrop tones, so it reads as an extension of the
-   nav's own gradient rather than a different color language layered on top. */
-@property --nav-glow-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes nav-glow-spin {
-  to { --nav-glow-angle: 360deg; }
-}
+   nav's own gradient rather than a different color language layered on top.
+   The rotation is driven by NavGlowDriver.tsx writing --nav-glow-angle on :root every frame,
+   NOT a CSS @property + @keyframes animation — production CSS minifiers (esbuild/Lightning CSS)
+   have been observed to silently drop @property blocks during the build, which produced a static,
+   non-spinning (and on some builds entirely invisible) ring in production while dev-mode's
+   unminified CSS still worked fine. Plain var() reads don't have that failure mode. */
 @keyframes nav-glow-breathe {
-  0%, 100% { opacity: 0.55; }
+  0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
 .nav-glow-motion::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: -2px;
   border-radius: inherit;
-  padding: 1.5px;
+  padding: 2.5px;
   background: conic-gradient(
-    from var(--nav-glow-angle),
+    from var(--nav-glow-angle, 0deg),
     transparent 0%,
     color-mix(in srgb, var(--primary) 90%, white) 8%,
     var(--primary) 16%,
@@ -381,17 +378,16 @@
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: nav-glow-spin 5s linear infinite;
   pointer-events: none;
 }
 .nav-glow-motion::after {
   content: "";
   position: absolute;
-  inset: -10px;
+  inset: -13px;
   z-index: -1;
   border-radius: inherit;
-  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--primary) 55%, transparent) 0%, transparent 70%);
-  filter: blur(14px);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--primary) 62%, transparent) 0%, transparent 70%);
+  filter: blur(16px);
   animation: nav-glow-breathe 3s ease-in-out infinite;
   pointer-events: none;
 }
@@ -535,8 +531,9 @@
    var(--primary) so the Customization → Design Studio color picker drives this identically
    whether iOS 26 Design is on or off — the glass treatment changes, the color logic doesn't. */
 :root:not(.ios26) .glass-active-nav {
-  border-radius: 0.5rem;
+  border-radius: 9999px;
   background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 45%, transparent);
   color: var(--primary);
 }
 .ios26 .glass-active-nav {

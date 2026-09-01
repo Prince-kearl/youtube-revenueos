@@ -18,6 +18,10 @@ import {
   Circle,
   X,
   Sparkles,
+  Eye,
+  ThumbsUp,
+  MessageCircle,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -64,6 +68,8 @@ type DashboardAnalyticsRow = {
   month?: string;
   views?: number;
   estimatedRevenue?: number;
+  estimatedAdRevenue?: number;
+  estimatedRedPartnerRevenue?: number;
   subscribersGained?: number;
   watchTimeMinutes?: number;
 };
@@ -73,6 +79,10 @@ type DashboardAnalyticsRow = {
 // which means the request succeeded but there's genuinely nothing to report for the period.
 type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
 
+type AudienceCountryRow = { country: string; views: number };
+type AudienceAgeRow = { ageGroup: string; viewerPercentage: number };
+type AudienceGenderRow = { gender: string; viewerPercentage: number };
+
 type DashboardData = {
   channel: DashboardChannel;
   videos: DashboardVideo[];
@@ -81,6 +91,26 @@ type DashboardData = {
   analyticsStatus: AnalyticsAvailability;
   revenueStatus: AnalyticsAvailability;
   watchTimeStatus: AnalyticsAvailability;
+  audience: {
+    topCountries: AudienceCountryRow[];
+    ageGroups: AudienceAgeRow[];
+    genders: AudienceGenderRow[];
+  };
+  audienceStatus: AnalyticsAvailability;
+  videoInsights: {
+    subscribersGained: number;
+    devices: { desktop: number; mobile: number; tablet: number };
+  };
+  videoInsightsStatus: AnalyticsAvailability;
+  engagementHeatmap: Array<{ date: string; views: number }>;
+  engagementHeatmapStatus: AnalyticsAvailability;
+  topRevenueVideos: Array<{
+    videoId: string;
+    views: number;
+    revenue: number;
+    changePercent: number | null;
+  }>;
+  topRevenueVideosStatus: AnalyticsAvailability;
   fetchedAt: string;
 };
 
@@ -174,6 +204,14 @@ function signed(value: number, formatter: (n: number) => string): string {
   return `${value >= 0 ? "+" : "-"}${formatter(Math.abs(value))}`;
 }
 
+// Mobile carousel: exactly 1 KPI card visible per "page". sm+ resets back to a normal grid item.
+const kpiCardClassName = "w-full shrink-0 snap-start sm:w-auto sm:shrink sm:snap-align-none";
+// Clone of the first real card, appended after the last one so autoplay can scroll straight past
+// the end into a visually-identical duplicate, then jump back to the real first card the instant
+// that scroll finishes — the loop reads as continuous forward motion, never a snap-back. sm+ hides
+// it since the grid layout there has no scrolling to loop.
+const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
+
 function Dashboard() {
   const { settings } = useChannelSettings();
   const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
@@ -185,6 +223,8 @@ function Dashboard() {
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const youtubeAbortRef = useRef<AbortController | null>(null);
   const youtubeRequestRef = useRef(0);
+  const kpiScrollRef = useRef<HTMLDivElement | null>(null);
+  const [activeKpiIndex, setActiveKpiIndex] = useState(0);
   const loadYoutubeData = async (
     forceRefresh = false,
   ): Promise<"connected" | "not_connected" | "reauth" | "error" | null> => {
@@ -245,6 +285,75 @@ function Dashboard() {
     return () => youtubeAbortRef.current?.abort();
   }, [activeChannelId]);
 
+  // Mobile-only KPI carousel autoplay — no-ops on sm+ since the grid layout there never overflows
+  // (children.length < 2 there in practice). Stops permanently once the visitor swipes manually,
+  // so it never fights them. The real cards are followed by one clone of the first card (see
+  // kpiCloneClassName above); scrolling onto that clone and then instantly (behavior: "auto")
+  // resetting to the real first card the moment the smooth scroll lands is what makes the loop
+  // read as continuous forward motion instead of a visible snap-back to card 1.
+  useEffect(() => {
+    const el = kpiScrollRef.current;
+    if (!el) return;
+    let paused = false;
+    const pause = () => {
+      paused = true;
+    };
+    el.addEventListener("pointerdown", pause);
+    el.addEventListener("touchstart", pause, { passive: true });
+    const interval = setInterval(() => {
+      if (paused) return;
+      const children = Array.from(el.children) as HTMLElement[];
+      if (children.length < 2) return;
+      let currentIndex = 0;
+      let smallestDiff = Infinity;
+      children.forEach((child, i) => {
+        const diff = Math.abs(child.offsetLeft - el.scrollLeft);
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          currentIndex = i;
+        }
+      });
+      const nextIndex = currentIndex + 1;
+      if (nextIndex >= children.length) return;
+      el.scrollTo({ left: children[nextIndex].offsetLeft, behavior: "smooth" });
+      if (nextIndex === children.length - 1) {
+        window.setTimeout(() => {
+          if (!paused) el.scrollTo({ left: children[0].offsetLeft, behavior: "auto" });
+        }, 500);
+      }
+    }, 3000);
+    return () => {
+      clearInterval(interval);
+      el.removeEventListener("pointerdown", pause);
+      el.removeEventListener("touchstart", pause);
+    };
+  }, [youtubeStatus]);
+
+  // Drives the pagination dots below the carousel — the clone (last child) maps back to dot 0
+  // since it's a visual stand-in for the real first card.
+  useEffect(() => {
+    const el = kpiScrollRef.current;
+    if (!el) return;
+    const updateActiveIndex = () => {
+      const children = Array.from(el.children) as HTMLElement[];
+      const realCount = children.length - 1;
+      if (realCount < 1) return;
+      let nearest = 0;
+      let smallestDiff = Infinity;
+      children.forEach((child, i) => {
+        const diff = Math.abs(child.offsetLeft - el.scrollLeft);
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          nearest = i;
+        }
+      });
+      setActiveKpiIndex(nearest % realCount);
+    };
+    updateActiveIndex();
+    el.addEventListener("scroll", updateActiveIndex, { passive: true });
+    return () => el.removeEventListener("scroll", updateActiveIndex);
+  }, [youtubeStatus]);
+
   const trend = useMemo(() => {
     if (
       dashboardData?.analyticsStatus !== "available" ||
@@ -253,6 +362,10 @@ function Dashboard() {
       return [];
     return buildRevenueTrend(dashboardData.analytics ?? [], range);
   }, [dashboardData, range]);
+  // Zero-value axis shape shown in place of `trend` when analytics are unavailable/disabled — the
+  // chart frame (axes, gridlines) still renders instead of collapsing to a bare text message, per
+  // "show the chart at least even if there is no data". The empty-state message overlays on top.
+  const trendFallback = useMemo(() => buildRevenueTrend([], range), [range]);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
@@ -270,6 +383,22 @@ function Dashboard() {
       : dashboardData?.videosStatus === "disabled"
         ? "Recent video sync is disabled in YouTube Integration settings."
         : "No published videos are available.";
+  // Joined client-side against the already-fetched recent-videos list for title/thumbnail/url —
+  // the analytics "video" dimension only returns IDs. A top-revenue video outside the recent-sync
+  // window (rare for a small channel) has no metadata to show, so it's dropped rather than shown
+  // with a fabricated title.
+  const topRevenueVideos = useMemo(() => {
+    const byId = new Map(videos.map((video) => [video.id, video]));
+    return (dashboardData?.topRevenueVideos ?? [])
+      .map((row) => ({ ...row, video: byId.get(row.videoId) }))
+      .filter((row): row is typeof row & { video: DashboardVideo } => Boolean(row.video));
+  }, [dashboardData?.topRevenueVideos, videos]);
+  const topRevenueVideosEmptyMessage =
+    dashboardData?.topRevenueVideosStatus === "forbidden"
+      ? "Reconnect YouTube to view top revenue videos."
+      : dashboardData?.topRevenueVideosStatus === "disabled"
+        ? "Analytics import is disabled in YouTube Integration settings."
+        : "No video revenue was reported for this period.";
   const revenueEmptyContent =
     youtubeStatus !== "connected" ? (
       "Connect YouTube to view revenue trends."
@@ -335,6 +464,17 @@ function Dashboard() {
   const latestVideoMonthLabel = monthLabel(videosByMonth.at(-1)?.month);
 
   const revenueChangePct = pctChange(revenueSeries);
+  // Revenue Split — YouTube's own reported revenue types for the latest month. "Other" is the
+  // remainder against estimatedRevenue (Shorts fund, Super Chat/Thanks, etc.), not a fabricated
+  // category — YouTube doesn't track off-platform sources like brand deals or affiliate links.
+  const latestAdRevenue = analyticsRows.at(-1)?.estimatedAdRevenue ?? 0;
+  const latestPremiumRevenue = analyticsRows.at(-1)?.estimatedRedPartnerRevenue ?? 0;
+  const latestOtherRevenue = Math.max(0, latestRevenue - latestAdRevenue - latestPremiumRevenue);
+  const revenueSplitRows = [
+    { key: "ads", label: "Ad Revenue", value: latestAdRevenue, color: "var(--brand-blue)" },
+    { key: "premium", label: "YouTube Premium", value: latestPremiumRevenue, color: "var(--brand-purple)" },
+    { key: "other", label: "Other", value: latestOtherRevenue, color: "var(--brand-green)" },
+  ].filter((row) => row.value > 0);
   const viewsChangePct = pctChange(viewsSeries);
   const subsChangePct = pctChange(subsSeries);
   const watchChangePct = pctChange(watchSeries);
@@ -404,13 +544,20 @@ function Dashboard() {
 
       {/* Stat cards */}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}>
+      <div
+        ref={kpiScrollRef}
+        className="flex shrink-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pt-9 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:pb-0 sm:pt-0 xl:grid-cols-3 [&::-webkit-scrollbar]:hidden"
+        aria-busy={youtubeStatus === "loading"}
+        aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}
+      >
       {youtubeStatus === "loading" ? (
-        Array.from({ length: 6 }).map((_, i) => <KpiTrendCardSkeleton key={i} />)
+        Array.from({ length: 6 }).map((_, i) => <KpiTrendCardSkeleton key={i} className={kpiCardClassName} />)
       ) : (
         <>
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Estimated Revenue"
+          accent="var(--brand-green)"
           value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
           deltaLabel={revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"}
           deltaSuffix="this month"
@@ -422,7 +569,9 @@ function Dashboard() {
           positive={(revenueChangePct ?? 0) >= 0}
         />
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Latest Revenue"
+          accent="var(--brand-blue)"
           value={dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
           deltaLabel={signed(recentRevenueChange, formatMoney)}
           deltaSuffix="vs last month"
@@ -434,7 +583,9 @@ function Dashboard() {
           positive={recentRevenueChange >= 0}
         />
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Total Views"
+          accent="var(--brand-purple)"
           value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
           deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
           deltaSuffix="this month"
@@ -446,7 +597,9 @@ function Dashboard() {
           positive={(viewsChangePct ?? 0) >= 0}
         />
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Videos"
+          accent="var(--brand-red)"
           value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
           deltaLabel={videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
           deltaSuffix="published this month"
@@ -458,7 +611,9 @@ function Dashboard() {
           positive={(videosChangePct ?? 0) >= 0}
         />
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Subscribers"
+          accent="var(--brand-amber)"
           value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
           deltaLabel={subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
           deltaSuffix="gained this month"
@@ -470,7 +625,9 @@ function Dashboard() {
           positive={(subsChangePct ?? 0) >= 0}
         />
         <KpiTrendCard
+          className={kpiCardClassName}
           title="Watch Time"
+          accent="var(--primary)"
           value={
             dashboardData?.watchTimeStatus === "available"
               ? `${formatHours(totalWatchTime)} hrs`
@@ -485,9 +642,44 @@ function Dashboard() {
           markerSubtitle={latestMonthLabel}
           positive={(watchChangePct ?? 0) >= 0}
         />
+        <div aria-hidden="true" className={kpiCloneClassName}>
+          <KpiTrendCard
+            title="Estimated Revenue"
+            accent="var(--brand-green)"
+            value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
+            deltaLabel={revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"}
+            deltaSuffix="this month"
+            changePercent={revenueChangePct}
+            periodLabel={trendPeriodLabel}
+            series={revenueSeries}
+            markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+            markerSubtitle={latestMonthLabel}
+            positive={(revenueChangePct ?? 0) >= 0}
+          />
+        </div>
         </>
       )}
       </div>
+
+      {youtubeStatus !== "loading" && (
+        <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" role="tablist" aria-label="KPI card pagination">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={activeKpiIndex === i}
+              aria-label={`Go to KPI card ${i + 1}`}
+              onClick={() => {
+                const el = kpiScrollRef.current;
+                const child = el?.children[i] as HTMLElement | undefined;
+                if (child) el?.scrollTo({ left: child.offsetLeft, behavior: "smooth" });
+              }}
+              className={`h-1.5 rounded-full transition-all ${activeKpiIndex === i ? "w-6 bg-foreground" : "w-1.5 bg-foreground/25"}`}
+            />
+          ))}
+        </div>
+      )}
 
       {dashboardData?.analyticsStatus === "unavailable" && (
         <p className="text-xs text-warning">
@@ -517,9 +709,9 @@ function Dashboard() {
 
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
+        <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex items-start justify-between">
+          <div className="flex shrink-0 items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold">Revenue Trends</h3>
               <p className="text-sm text-muted-foreground">All revenue streams over time</p>
@@ -539,93 +731,112 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-5 text-xs">
+          <div className="mt-4 flex shrink-0 items-center gap-5 text-xs">
             <Legend color="var(--color-brand-blue)" label="Estimated YouTube revenue" />
           </div>
           {dashboardData?.revenueStatus === "forbidden" && (
-            <p className="mt-2 text-xs text-warning">{revenueEmptyContent}</p>
+            <p className="mt-2 shrink-0 text-xs text-warning">{revenueEmptyContent}</p>
           )}
 
-          <div className="mt-4 h-[300px]">
+          <div className="relative mt-4 min-h-[300px] flex-1">
             {youtubeStatus === "loading" ? (
               <Skeleton className="h-full w-full rounded-xl" />
-            ) : trend.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trend}>
-                  <defs>
-                    <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="var(--color-brand-purple)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--color-border)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => `$${v}k`}
-                    tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "color-mix(in srgb, var(--color-popover) 85%, transparent)",
-                      border: "1px solid color-mix(in srgb, white 20%, var(--color-border))",
-                      borderRadius: 16,
-                      fontSize: 12,
-                      boxShadow: "0 16px 32px -20px rgba(0,0,0,0.4)",
-                      backdropFilter: "blur(12px)",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--color-brand-blue)"
-                    strokeWidth={2.5}
-                    fill="url(#gBrand)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
-                {revenueEmptyContent}
-              </div>
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trend.length ? trend : trendFallback}>
+                    <defs>
+                      <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-brand-purple)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tickFormatter={(v) => `$${v}k`}
+                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    {trend.length > 0 && (
+                      <Tooltip
+                        contentStyle={{
+                          background: "color-mix(in srgb, var(--color-popover) 85%, transparent)",
+                          border: "1px solid color-mix(in srgb, white 20%, var(--color-border))",
+                          borderRadius: 16,
+                          fontSize: 12,
+                          boxShadow: "0 16px 32px -20px rgba(0,0,0,0.4)",
+                          backdropFilter: "blur(12px)",
+                        }}
+                      />
+                    )}
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-brand-blue)"
+                      strokeWidth={2.5}
+                      fill="url(#gBrand)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+                {!trend.length && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <p className="rounded-lg bg-card/90 px-3 py-1.5 text-center text-sm text-muted-foreground shadow-sm">
+                      {revenueEmptyContent}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Live Alerts */}
-        <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex shrink-0 items-center justify-between">
-            <h3 className="text-lg font-semibold">Live Alerts</h3>
-            <button
-              onClick={refresh}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Refresh"
+        {/* Audience breakdown + Live Alerts */}
+        <div className="flex h-full flex-col gap-5">
+          {youtubeStatus === "loading" ? (
+            <AudienceBreakdownCardSkeleton />
+          ) : (
+            <AudienceBreakdownCard
+              subscriberCount={dashboardData?.channel.subscriberCount ?? 0}
+              audience={dashboardData?.audience ?? { topCountries: [], ageGroups: [], genders: [] }}
+              status={dashboardData?.audienceStatus ?? "unavailable"}
+            />
+          )}
+
+          <div className="card-gradient-outline relative flex flex-1 flex-col p-5 backdrop-blur-xl">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+            <div className="flex shrink-0 items-center justify-between">
+              <h3 className="text-lg font-semibold">Live Alerts</h3>
+              <button
+                onClick={refresh}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Refresh"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing || youtubeRefreshing ? "animate-spin" : ""}`}
+                />
+              </button>
+            </div>
+            <div className="mt-4 flex-1 space-y-2.5">
+              <p className="py-4 text-sm text-muted-foreground">No new alerts</p>
+            </div>
+            <Link
+              to="/notifications"
+              className="mt-3 shrink-0 self-start text-sm font-medium text-primary hover:underline"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${refreshing || youtubeRefreshing ? "animate-spin" : ""}`}
-              />
-            </button>
+              View all alerts
+            </Link>
           </div>
-          <div className="mt-4 flex-1 space-y-2.5">
-            <p className="py-4 text-sm text-muted-foreground">No new alerts</p>
-          </div>
-          <Link
-            to="/notifications"
-            className="mt-3 shrink-0 self-start text-sm font-medium text-primary hover:underline"
-          >
-            View all alerts
-          </Link>
         </div>
       </div>
 
@@ -634,47 +845,70 @@ function Dashboard() {
         <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Recent YouTube Videos</h3>
+            <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">
               View all
             </Link>
           </div>
           {/* Mobile: stacked cards */}
-          <div className="mt-4 space-y-2.5 sm:hidden" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading recent videos" : undefined}>
+          <div className="mt-4 space-y-2.5 sm:hidden" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}>
             {youtubeStatus === "loading" &&
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-            {youtubeStatus !== "loading" && videos.slice(0, 5).map((video, index) => (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg">
+                  <Skeleton className="h-14 w-24 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-4/5" />
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
+            {youtubeStatus !== "loading" && topRevenueVideos.slice(0, 5).map((row, index) => (
               <a
-                key={video.id}
-                href={video.url}
+                key={row.videoId}
+                href={row.video.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="card-frost block p-3 backdrop-blur-lg"
+                className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{video.title}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{formatCount(video.views)} views</span>
-                  <span className="text-muted-foreground">
-                    {video.likes === null
-                      ? "Likes unavailable"
-                      : `${formatCount(video.likes)} likes`}
+                <div className="relative shrink-0">
+                  {row.video.thumbnail ? (
+                    <img
+                      src={row.video.thumbnail}
+                      alt=""
+                      className="h-14 w-24 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-24 items-center justify-center rounded-lg bg-accent">
+                      <Play className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <span className="absolute -left-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+                    {index + 1}
                   </span>
-                  <span className="text-muted-foreground">
-                    {video.comments === null
-                      ? "Comments unavailable"
-                      : `${formatCount(video.comments)} comments`}
-                  </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatDate(video.publishedAt)}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{row.video.title}</p>
+                  <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1" title="Views">
+                      <Eye className="h-3.5 w-3.5" />
+                      {formatCount(row.views)}
+                    </span>
+                    <span className="font-medium text-foreground">{formatMoney(row.revenue)}</span>
+                    {row.changePercent !== null ? (
+                      <span className={row.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                        {row.changePercent >= 0 ? "+" : ""}
+                        {row.changePercent.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span>New</span>
+                    )}
+                  </div>
+                </div>
               </a>
             ))}
-            {youtubeStatus !== "loading" && !videos.length && (
-              <p className="py-6 text-sm text-muted-foreground">{videoEmptyMessage}</p>
+            {youtubeStatus !== "loading" && !topRevenueVideos.length && (
+              <p className="py-6 text-sm text-muted-foreground">{topRevenueVideosEmptyMessage}</p>
             )}
           </div>
 
@@ -685,11 +919,11 @@ function Dashboard() {
                 <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="pb-3 font-medium">Video</th>
                   <th className="pb-3 font-medium">Views</th>
-                  <th className="pb-3 font-medium">Likes</th>
-                  <th className="pb-3 text-right font-medium">Comments</th>
+                  <th className="pb-3 font-medium">Revenue</th>
+                  <th className="pb-3 text-right font-medium">Change</th>
                 </tr>
               </thead>
-              <tbody aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading recent videos" : undefined}>
+              <tbody aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}>
                 {youtubeStatus === "loading" &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-t border-border">
@@ -698,46 +932,51 @@ function Dashboard() {
                       </td>
                     </tr>
                   ))}
-                {youtubeStatus !== "loading" && videos.slice(0, 5).map((video, index) => (
-                  <tr key={video.id} className="border-t border-border">
+                {youtubeStatus !== "loading" && topRevenueVideos.slice(0, 5).map((row, index) => (
+                  <tr key={row.videoId} className="border-t border-border">
                     <td className="py-3">
                       <a
-                        href={video.url}
+                        href={row.video.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3"
                       >
                         <span className="text-muted-foreground">{index + 1}</span>
-                        {video.thumbnail && (
+                        {row.video.thumbnail && (
                           <img
-                            src={video.thumbnail}
+                            src={row.video.thumbnail}
                             alt=""
                             className="h-10 w-16 shrink-0 rounded object-cover"
                           />
                         )}
                         <span className="min-w-0">
                           <span className="block max-w-[26rem] truncate font-medium">
-                            {video.title}
+                            {row.video.title}
                           </span>
                           <span className="block text-xs text-muted-foreground">
-                            {formatDate(video.publishedAt)}
+                            {formatDate(row.video.publishedAt)}
                           </span>
                         </span>
                       </a>
                     </td>
-                    <td className="py-3 text-muted-foreground">{formatCount(video.views)}</td>
-                    <td className="py-3 text-muted-foreground">
-                      {video.likes === null ? "—" : formatCount(video.likes)}
-                    </td>
-                    <td className="py-3 text-right text-muted-foreground">
-                      {video.comments === null ? "—" : formatCount(video.comments)}
+                    <td className="py-3 text-muted-foreground">{formatCount(row.views)}</td>
+                    <td className="py-3 font-medium text-foreground">{formatMoney(row.revenue)}</td>
+                    <td className="py-3 text-right">
+                      {row.changePercent !== null ? (
+                        <span className={row.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                          {row.changePercent >= 0 ? "+" : ""}
+                          {row.changePercent.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">New</span>
+                      )}
                     </td>
                   </tr>
                 ))}
-                {youtubeStatus !== "loading" && !videos.length && (
+                {youtubeStatus !== "loading" && !topRevenueVideos.length && (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
-                      {videoEmptyMessage}
+                      {topRevenueVideosEmptyMessage}
                     </td>
                   </tr>
                 )}
@@ -746,40 +985,107 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* YouTube revenue summary */}
+        {/* Revenue Split */}
         <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <h3 className="text-lg font-semibold">YouTube Revenue</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Directly measured from YouTube Analytics
-          </p>
-          <div className="mt-6 border-t border-border pt-4" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading revenue total" : undefined}>
-            <p className="text-sm text-muted-foreground">Available period total</p>
+          <h3 className="text-lg font-semibold">Revenue Split</h3>
+
+          <div className="mt-4 space-y-3.5" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading revenue split" : undefined}>
+            {youtubeStatus === "loading" ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className="h-3.5 w-16" />
+                  </div>
+                  <Skeleton className="mt-1.5 h-1.5 w-full rounded-full" />
+                </div>
+              ))
+            ) : dashboardData?.revenueStatus === "available" && revenueSplitRows.length ? (
+              revenueSplitRows.map((row) => (
+                <div key={row.key}>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} aria-hidden="true" />
+                      <span className="truncate">{row.label}</span>
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {formatMoney(row.value)}{" "}
+                      <span className="text-xs">{latestRevenue > 0 ? Math.round((row.value / latestRevenue) * 100) : 0}%</span>
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${latestRevenue > 0 ? Math.max((row.value / latestRevenue) * 100, 4) : 0}%`, backgroundColor: row.color }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="py-2 text-sm text-muted-foreground">
+                {dashboardData?.revenueStatus === "forbidden"
+                  ? "Reconnect YouTube to view your revenue split."
+                  : "No estimated revenue was reported for this period."}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="text-sm text-muted-foreground">This month total</p>
             {youtubeStatus === "loading" ? (
               <>
                 <Skeleton className="mt-2 h-7 w-24" />
-                <Skeleton className="mt-2 h-3 w-40" />
+                <Skeleton className="mt-2 h-3 w-32" />
               </>
             ) : (
               <>
                 <p className="mt-1 text-2xl font-bold">
-                  {dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
+                  {dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {dashboardData?.revenueStatus === "available"
-                    ? "Platform attribution is not included"
-                    : "No current analytics value available"}
-                </p>
+                {dashboardData?.revenueStatus === "available" && revenueChangePct !== null ? (
+                  <p className={`mt-1 text-xs font-medium ${revenueChangePct >= 0 ? "text-success" : "text-destructive"}`}>
+                    {revenueChangePct >= 0 ? "▲" : "▼"} {Math.abs(revenueChangePct).toFixed(1)}% vs last month
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">Platform attribution is not included</p>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
 
+      {/* Weekly Engagement + Video Insights */}
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          {youtubeStatus === "loading" ? (
+            <EngagementHeatmapSkeleton />
+          ) : (
+            <EngagementHeatmap
+              rows={dashboardData?.engagementHeatmap ?? []}
+              status={dashboardData?.engagementHeatmapStatus ?? "unavailable"}
+              onRefresh={refresh}
+              refreshing={refreshing || youtubeRefreshing}
+            />
+          )}
+        </div>
+        {youtubeStatus === "loading" ? (
+          <VideoInsightsCardSkeleton />
+        ) : (
+          <VideoInsightsCard
+            latestVideo={videos[0] ?? null}
+            videos={videos}
+            videoInsights={dashboardData?.videoInsights ?? { subscribersGained: 0, devices: { desktop: 0, mobile: 0, tablet: 0 } }}
+            status={dashboardData?.videoInsightsStatus ?? "unavailable"}
+          />
+        )}
+      </div>
+
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
       {youtubeStatus === "loading" ? (
         <div
-          className="relative mb-5 min-h-[112px] overflow-hidden rounded-2xl border border-border bg-card p-5 sm:min-h-[128px] sm:p-6"
+          className="relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl border border-border bg-card p-5 sm:min-h-[128px] sm:p-6"
           aria-busy="true"
           aria-label="Loading connected channel"
         >
@@ -793,7 +1099,7 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-      <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
+      <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
         <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 sm:flex-row sm:items-center sm:gap-6">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             {settings.showAvatar && dashboardData?.channel.thumbnail && (
@@ -842,7 +1148,7 @@ function Dashboard() {
                       <span className="font-medium text-white">
                         {formatCount(dashboardData.channel.subscriberCount)}
                       </span>
-                      <span className="hidden sm:inline">subscribers</span>
+                      <span>subscribers</span>
                     </span>
                   </>
                 )}
@@ -856,9 +1162,9 @@ function Dashboard() {
               rel="noopener noreferrer"
               aria-disabled={!dashboardData?.channel.url}
               aria-label="Visit Channel"
-              className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
+              className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
             >
-              <span className="hidden sm:inline">Visit channel</span>
+              <span>Visit channel</span>
               <ExternalLink className="h-3.5 w-3.5 shrink-0" />
             </a>
           )}
@@ -999,6 +1305,487 @@ function Legend({ color, label }: { color: string; label: string }) {
       <span className="h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
+  );
+}
+
+const AUDIENCE_TABS = [
+  { key: "location", label: "Top Location" },
+  { key: "age", label: "Age Range" },
+  { key: "gender", label: "Gender" },
+] as const;
+type AudienceTab = (typeof AUDIENCE_TABS)[number]["key"];
+
+const AUDIENCE_BAR_COLORS = ["#6366f1", "#38bdf8", "#a855f7", "#f97316", "#22c55e", "#ec4899"];
+
+const countryDisplayNames =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(["en"], { type: "region" })
+    : null;
+
+function formatCountry(code: string): string {
+  if (!code) return "Unknown";
+  try {
+    return countryDisplayNames?.of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function formatAgeGroup(raw: string): string {
+  const match = raw.match(/^age(\d+)-(\d+)$/);
+  if (match) return `${match[1]}-${match[2]}`;
+  if (/^age\d+-$/.test(raw)) return `${raw.replace(/^age/, "").replace("-", "")}+`;
+  return raw.replace(/^age/, "") || "Unknown";
+}
+
+function formatGender(raw: string): string {
+  if (raw === "male") return "Male";
+  if (raw === "female") return "Female";
+  if (raw === "user_specified" || raw === "OTHER") return "Other";
+  return raw || "Unknown";
+}
+
+const AUDIENCE_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
+  available: "",
+  disabled: "Analytics import is turned off in settings.",
+  forbidden: "Reconnect YouTube to view your audience breakdown.",
+  unavailable: "Audience data isn't available for this period yet.",
+};
+
+function AudienceBreakdownCard({
+  subscriberCount,
+  audience,
+  status,
+}: {
+  subscriberCount: number;
+  audience: DashboardData["audience"];
+  status: AnalyticsAvailability;
+}) {
+  const [tab, setTab] = useState<AudienceTab>("location");
+
+  const rows = useMemo(() => {
+    if (tab === "location") {
+      return audience.topCountries.map((row) => ({
+        key: row.country,
+        label: formatCountry(row.country),
+        valueLabel: formatCount(row.views),
+        weight: row.views,
+      }));
+    }
+    if (tab === "age") {
+      return [...audience.ageGroups]
+        .sort((a, b) => b.viewerPercentage - a.viewerPercentage)
+        .map((row) => ({
+          key: row.ageGroup,
+          label: formatAgeGroup(row.ageGroup),
+          valueLabel: `${row.viewerPercentage.toFixed(1)}%`,
+          weight: row.viewerPercentage,
+        }));
+    }
+    return [...audience.genders]
+      .sort((a, b) => b.viewerPercentage - a.viewerPercentage)
+      .map((row) => ({
+        key: row.gender,
+        label: formatGender(row.gender),
+        valueLabel: `${row.viewerPercentage.toFixed(1)}%`,
+        weight: row.viewerPercentage,
+      }));
+  }, [tab, audience]);
+
+  const maxWeight = Math.max(...rows.map((row) => row.weight), 1);
+  const unavailableMessage = AUDIENCE_UNAVAILABLE_MESSAGE[status];
+  const visibleRows = rows.slice(0, 5);
+  const hiddenCount = rows.length - visibleRows.length;
+
+  return (
+    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      <div className="flex shrink-0 items-start justify-between gap-2">
+        <div>
+          <p className="text-sm text-muted-foreground">Subscribers</p>
+          <p className="mt-1 text-2xl font-bold tracking-tight">{formatCount(subscriberCount)}</p>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-accent/40 px-2.5 py-1.5 text-xs font-medium">
+          YouTube
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </span>
+      </div>
+
+      <div className="mt-4 flex shrink-0 gap-1 rounded-full bg-accent/40 p-1 text-xs">
+        {AUDIENCE_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            aria-pressed={tab === t.key}
+            className={`flex-1 rounded-full px-2 py-1.5 font-medium transition-colors ${tab === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 flex-1 space-y-3.5">
+        {unavailableMessage ? (
+          <p className="py-4 text-sm text-muted-foreground">{unavailableMessage}</p>
+        ) : rows.length ? (
+          <>
+            {visibleRows.map((row, i) => (
+              <div key={row.key}>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate font-medium">{row.label}</span>
+                  <span className="shrink-0 text-muted-foreground">{row.valueLabel}</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.max((row.weight / maxWeight) * 100, 4)}%`,
+                      backgroundColor: AUDIENCE_BAR_COLORS[i % AUDIENCE_BAR_COLORS.length],
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {hiddenCount > 0 && (
+              <Link to="/audience" className="text-sm font-medium text-primary hover:underline">
+                View {hiddenCount} more
+              </Link>
+            )}
+          </>
+        ) : (
+          <p className="py-4 text-sm text-muted-foreground">No data for this period yet.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AudienceBreakdownCardSkeleton() {
+  return (
+    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl" aria-hidden="true">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="mt-2 h-7 w-16" />
+        </div>
+        <Skeleton className="h-7 w-24 rounded-full" />
+      </div>
+      <Skeleton className="mt-4 h-9 w-full rounded-full" />
+      <div className="mt-4 flex-1 space-y-3.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i}>
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-3.5 w-10" />
+            </div>
+            <Skeleton className="mt-1.5 h-1.5 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
+  available: "",
+  disabled: "Video sync or analytics import is turned off in settings.",
+  forbidden: "Reconnect YouTube to view video insights.",
+  unavailable: "Video insights aren't available for your latest video yet.",
+};
+
+// Average across the already-fetched recent-videos list — a real computed baseline, not a
+// fabricated number, so "vs avg" deltas below are honest even though there's no dedicated
+// channel-average endpoint.
+function average(values: number[]): number {
+  if (!values.length) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function VideoInsightsCard({
+  latestVideo,
+  videos,
+  videoInsights,
+  status,
+}: {
+  latestVideo: DashboardVideo | null;
+  videos: DashboardVideo[];
+  videoInsights: DashboardData["videoInsights"];
+  status: AnalyticsAvailability;
+}) {
+  const unavailableMessage = !latestVideo
+    ? VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE.unavailable
+    : VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE[status];
+
+  const thisViews = latestVideo?.views ?? 0;
+  const thisEngagement = (latestVideo?.likes ?? 0) + (latestVideo?.comments ?? 0);
+  const avgViews = average(videos.map((v) => v.views));
+  const avgEngagement = average(videos.map((v) => (v.likes ?? 0) + (v.comments ?? 0)));
+  const viewsDelta = avgViews > 0 ? ((thisViews - avgViews) / avgViews) * 100 : null;
+  const engagementDelta = avgEngagement > 0 ? ((thisEngagement - avgEngagement) / avgEngagement) * 100 : null;
+
+  const { desktop, mobile, tablet } = videoInsights.devices;
+  const deviceTotal = desktop + mobile + tablet;
+  const devices = [
+    { key: "desktop", label: "Desktop", pct: deviceTotal ? (desktop / deviceTotal) * 100 : 0, color: "#f59e0b" },
+    { key: "tablet", label: "Tablet", pct: deviceTotal ? (tablet / deviceTotal) * 100 : 0, color: "#3b82f6" },
+    { key: "mobile", label: "Mobile", pct: deviceTotal ? (mobile / deviceTotal) * 100 : 0, color: "#8b5cf6" },
+  ];
+
+  return (
+    <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      <div className="flex items-start gap-3">
+        {latestVideo?.thumbnail ? (
+          <img src={latestVideo.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent">
+            <Play className="h-5 w-5 text-muted-foreground" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold">Video Insights</h3>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {latestVideo?.title ?? "No recent video"}
+          </p>
+          {latestVideo?.publishedAt && (
+            <p className="text-xs text-muted-foreground">Published {formatDate(latestVideo.publishedAt)}</p>
+          )}
+        </div>
+      </div>
+
+      {unavailableMessage ? (
+        <p className="mt-4 border-t border-border py-6 text-center text-sm text-muted-foreground">
+          {unavailableMessage}
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 space-y-4 border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Views</p>
+                <p className="mt-0.5 text-xl font-bold tracking-tight">{formatCount(thisViews)}</p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="text-muted-foreground">Avg {formatCount(Math.round(avgViews))}</p>
+                {viewsDelta !== null && (
+                  <p className={viewsDelta >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                    {viewsDelta >= 0 ? "+" : ""}
+                    {viewsDelta.toFixed(1)}% vs avg
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Engagement</p>
+                <p className="mt-0.5 text-xl font-bold tracking-tight">{formatCount(thisEngagement)}</p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="text-muted-foreground">Avg {formatCount(Math.round(avgEngagement))}</p>
+                {engagementDelta !== null && (
+                  <p className={engagementDelta >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                    {engagementDelta >= 0 ? "+" : ""}
+                    {engagementDelta.toFixed(1)}% vs avg
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Subscribers gained</p>
+                <p className="mt-0.5 text-xl font-bold tracking-tight">
+                  {videoInsights.subscribersGained >= 0 ? "+" : ""}
+                  {formatCount(videoInsights.subscribersGained)}
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">from this video</p>
+            </div>
+          </div>
+
+          {deviceTotal > 0 && (
+            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
+              {devices.map((device) => (
+                <div key={device.key}>
+                  <p className="text-xs text-muted-foreground">{device.label}</p>
+                  <p className="mt-0.5 text-lg font-bold">{Math.round(device.pct)}%</p>
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-accent">
+                    <div className="h-full rounded-full" style={{ width: `${device.pct}%`, backgroundColor: device.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function VideoInsightsCardSkeleton() {
+  return (
+    <div className="card-gradient-outline relative p-5 backdrop-blur-xl" aria-hidden="true">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-14 w-14 shrink-0 rounded-lg" />
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="mt-2 h-3 w-40" />
+          <Skeleton className="mt-1.5 h-3 w-24" />
+        </div>
+      </div>
+      <div className="mt-4 space-y-4 border-t border-border pt-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between gap-3">
+            <div>
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="mt-1.5 h-6 w-14" />
+            </div>
+            <Skeleton className="h-8 w-16" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i}>
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="mt-1.5 h-5 w-10" />
+            <Skeleton className="mt-1.5 h-1 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const HEATMAP_LEVELS = [
+  { key: "low", label: "Low", color: "color-mix(in srgb, var(--brand-purple) 18%, var(--accent))" },
+  { key: "medium", label: "Medium", color: "color-mix(in srgb, var(--brand-purple) 42%, var(--accent))" },
+  { key: "high", label: "High", color: "color-mix(in srgb, var(--brand-purple) 68%, var(--accent))" },
+  { key: "best", label: "Best", color: "var(--brand-purple)" },
+];
+
+function levelIndexForValue(value: number, max: number): number {
+  if (max <= 0) return 0;
+  const ratio = value / max;
+  if (ratio >= 0.75) return 3;
+  if (ratio >= 0.5) return 2;
+  if (ratio >= 0.25) return 1;
+  return 0;
+}
+
+function formatShortDate(dateStr: string | undefined): string {
+  if (!dateStr) return "";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(dateStr));
+}
+
+const ENGAGEMENT_HEATMAP_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
+  available: "",
+  disabled: "Analytics import is turned off in settings.",
+  forbidden: "Reconnect YouTube to view daily engagement.",
+  unavailable: "Daily engagement data isn't available yet.",
+};
+
+function EngagementHeatmap({
+  rows,
+  status,
+  onRefresh,
+  refreshing,
+}: {
+  rows: Array<{ date: string; views: number }>;
+  status: AnalyticsAvailability;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  const weeks = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+    const chunks: Array<typeof sorted> = [];
+    for (let i = 0; i < sorted.length; i += 7) chunks.push(sorted.slice(i, i + 7));
+    return chunks;
+  }, [rows]);
+  const max = Math.max(...rows.map((r) => r.views), 1);
+  const unavailableMessage = ENGAGEMENT_HEATMAP_UNAVAILABLE_MESSAGE[status];
+
+  return (
+    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold">Weekly Engagement</h3>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link to="/analytics" className="text-sm font-medium text-primary hover:underline">
+            View all
+          </Link>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Refresh engagement data"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        {HEATMAP_LEVELS.map((level) => (
+          <span key={level.key} className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: level.color }} aria-hidden="true" />
+            {level.label}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-1 flex-col justify-center">
+        {unavailableMessage ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">{unavailableMessage}</p>
+        ) : weeks.length ? (
+          <div className="space-y-1.5 overflow-x-auto pb-1">
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="flex items-center gap-1.5">
+                <span className="w-14 shrink-0 text-xs text-muted-foreground">
+                  {formatShortDate(week[0]?.date)}
+                </span>
+                <div className="flex gap-1.5">
+                  {week.map((day) => (
+                    <div
+                      key={day.date}
+                      title={`${formatShortDate(day.date)}: ${formatCount(day.views)} views`}
+                      className="h-6 w-6 shrink-0 rounded-md sm:h-7 sm:w-7"
+                      style={{ background: HEATMAP_LEVELS[levelIndexForValue(day.views, max)].color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">No data for this period yet.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EngagementHeatmapSkeleton() {
+  return (
+    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl" aria-hidden="true">
+      <div className="flex shrink-0 items-center justify-between">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-4 w-14" />
+      </div>
+      <Skeleton className="mt-3 h-3 w-56 shrink-0" />
+      <div className="mt-4 flex flex-1 flex-col justify-center space-y-1.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <Skeleton className="h-3 w-12 shrink-0" />
+            <div className="flex gap-1.5">
+              {Array.from({ length: 7 }).map((_, j) => (
+                <Skeleton key={j} className="h-6 w-6 shrink-0 rounded-md sm:h-7 sm:w-7" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

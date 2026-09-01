@@ -144,6 +144,8 @@ const demoAnalytics = [
     month: "2026-07",
     views: 702,
     estimatedRevenue: 61.2,
+    estimatedAdRevenue: 47.1,
+    estimatedRedPartnerRevenue: 9.8,
     subscribersGained: 0,
     watchTimeMinutes: 281,
   },
@@ -151,10 +153,24 @@ const demoAnalytics = [
     month: "2026-08",
     views: 842,
     estimatedRevenue: 74.8,
+    estimatedAdRevenue: 57.6,
+    estimatedRedPartnerRevenue: 12.4,
     subscribersGained: 1,
     watchTimeMinutes: 337,
   },
 ] as const;
+
+// Deterministic (not Math.random) so the demo heatmap looks the same on every reload — a rough
+// weekday pattern with a small per-day wobble, anchored to the same snapshot date as the rest of
+// the demo dashboard data below.
+const HEATMAP_ANCHOR = new Date("2026-08-27T00:00:00.000Z");
+const demoEngagementHeatmap = Array.from({ length: 35 }, (_, i) => {
+  const date = new Date(HEATMAP_ANCHOR);
+  date.setUTCDate(date.getUTCDate() - (34 - i));
+  const weekdayBase = [8, 14, 22, 30, 45, 60, 25][date.getUTCDay()];
+  const wobble = ((i * 7) % 11) - 5;
+  return { date: date.toISOString().slice(0, 10), views: Math.max(0, weekdayBase + wobble) };
+});
 
 export const DEMO_YOUTUBE_DASHBOARD = {
   channel: {
@@ -174,6 +190,44 @@ export const DEMO_YOUTUBE_DASHBOARD = {
   analyticsStatus: "available",
   revenueStatus: "available",
   watchTimeStatus: "available",
+  audience: {
+    topCountries: [
+      { country: "US", views: 3120 },
+      { country: "IN", views: 1450 },
+      { country: "GB", views: 610 },
+      { country: "CA", views: 380 },
+      { country: "NG", views: 271 },
+      { country: "AU", views: 198 },
+      { country: "DE", views: 142 },
+    ],
+    ageGroups: [
+      { ageGroup: "age18-24", viewerPercentage: 34.5 },
+      { ageGroup: "age25-34", viewerPercentage: 41.2 },
+      { ageGroup: "age35-44", viewerPercentage: 14.1 },
+      { ageGroup: "age45-54", viewerPercentage: 6.4 },
+      { ageGroup: "age13-17", viewerPercentage: 3.8 },
+    ],
+    genders: [
+      { gender: "male", viewerPercentage: 63.5 },
+      { gender: "female", viewerPercentage: 34.9 },
+      { gender: "user_specified", viewerPercentage: 1.6 },
+    ],
+  },
+  audienceStatus: "available",
+  videoInsights: {
+    subscribersGained: 1,
+    devices: { desktop: 62, mobile: 265, tablet: 21 },
+  },
+  videoInsightsStatus: "available",
+  engagementHeatmap: demoEngagementHeatmap,
+  engagementHeatmapStatus: "available",
+  topRevenueVideos: [
+    { videoId: "demo-video-1", views: 842, revenue: 74.8, changePercent: 27.3 },
+    { videoId: "demo-video-2", views: 519, revenue: 46.2, changePercent: -4.1 },
+    { videoId: "demo-video-3", views: 311, revenue: 27.9, changePercent: 12.6 },
+    { videoId: "demo-video-4", views: 192, revenue: 17.1, changePercent: null },
+  ],
+  topRevenueVideosStatus: "available",
   fetchedAt: "2026-08-27T17:20:00.000Z",
   meta: { lastUpdated: "2026-08-27T17:20:00.000Z" },
   sections: {
@@ -182,5 +236,9 @@ export const DEMO_YOUTUBE_DASHBOARD = {
     analytics: { available: true },
     revenue: { available: true },
     watchTime: { available: true },
+    audience: { available: true },
+    videoInsights: { available: true },
+    engagementHeatmap: { available: true },
+    topRevenueVideos: { available: true },
   },
 };
