@@ -1,27 +1,77 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Video, Sparkles, MapPin, Link2, BarChart3,
-  TrendingUp, FileText, Settings, ChevronLeft, Search, Plus,
-  Bell, HelpCircle, FolderKanban,
-  MessageSquare, Users, Gift, Handshake, Mail, Rocket, UserPlus, ScrollText, LifeBuoy, Inbox,
-  LogOut, User as UserIcon,
-  Send, Menu, Shield, Crown, Target, Pencil, Lock, ShieldAlert, ShieldCheck,
+  LayoutDashboard,
+  Video,
+  Sparkles,
+  MapPin,
+  Link2,
+  BarChart3,
+  TrendingUp,
+  FileText,
+  Settings,
+  ChevronLeft,
+  Search,
+  Plus,
+  Bell,
+  HelpCircle,
+  FolderKanban,
+  MessageSquare,
+  Users,
+  Gift,
+  Handshake,
+  Mail,
+  Rocket,
+  UserPlus,
+  ScrollText,
+  LifeBuoy,
+  Inbox,
+  LogOut,
+  User as UserIcon,
+  Send,
+  Menu,
+  Shield,
+  Crown,
+  Target,
+  Pencil,
+  Lock,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  useDeals, useLeads, useNotifications, useProfile, useViewerRole, useFeatureFlags, useSidebarCollapsed,
-  useSiteContent, canAccessRoute, FEATURE_META, PLATFORM_ROLES, type PlatformRole, type FeatureKey,
+  useDeals,
+  useNotifications,
+  useProfile,
+  useViewerRole,
+  useFeatureFlags,
+  useSidebarCollapsed,
+  useSiteContent,
+  canAccessRoute,
+  FEATURE_META,
+  PLATFORM_ROLES,
+  type PlatformRole,
+  type FeatureKey,
 } from "@/lib/stores";
 import { clearAllStores, uid, useLocalStore } from "@/lib/local-store";
 import { clearChannelSettings } from "@/lib/channel-settings";
@@ -32,30 +82,68 @@ import { NotificationRow } from "@/components/NotificationRow";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
-import { YoutubeChannelSwitcher, ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import {
+  YoutubeChannelSwitcher,
+  ACTIVE_YOUTUBE_CHANNEL_KEY,
+} from "@/components/YoutubeChannelSwitcher";
 import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "@/lib/demo-youtube";
 
 // `keywords` back the smart search below with synonyms a literal label match would miss
 // (e.g. searching "money" or "sponsorship" should still surface Brand Deals).
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, keywords: "home overview stats summary revenue" },
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    keywords: "home overview stats summary revenue",
+  },
   { to: "/videos", label: "Videos", icon: Video, keywords: "clips uploads content youtube" },
   { to: "/projects", label: "Projects", icon: FolderKanban, keywords: "campaigns work" },
   { to: "/ai-lab", label: "AI Lab", icon: Sparkles, keywords: "ai tools generate assistant" },
   { to: "/destinations", label: "Destinations", icon: MapPin, keywords: "bio link redirects" },
   { to: "/link-tracking", label: "Link Tracking", icon: Link2, keywords: "links urls clicks utm" },
-  { to: "/comments", label: "Comment Automation", icon: MessageSquare, keywords: "auto reply bot comments" },
+  {
+    to: "/comments",
+    label: "Comment Automation",
+    icon: MessageSquare,
+    keywords: "auto reply bot comments",
+  },
   { to: "/leads", label: "Lead Inbox", icon: Inbox, keywords: "leads contacts inbox dm messages" },
-  { to: "/audience", label: "Audience", icon: Users, keywords: "demographics viewers subscribers age gender location" },
-  { to: "/analytics", label: "Analytics", icon: BarChart3, keywords: "stats metrics performance revenue insights" },
-  { to: "/affiliate", label: "Affiliate", icon: Handshake, keywords: "commission referral partner" },
+  {
+    to: "/audience",
+    label: "Audience",
+    icon: Users,
+    keywords: "demographics viewers subscribers age gender location",
+  },
+  {
+    to: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    keywords: "stats metrics performance revenue insights",
+  },
+  {
+    to: "/affiliate",
+    label: "Affiliate",
+    icon: Handshake,
+    keywords: "commission referral partner",
+  },
   { to: "/freebie", label: "AI Freebie", icon: Gift, keywords: "lead magnet giveaway freebie" },
   { to: "/email", label: "Email", icon: Mail, keywords: "campaigns newsletter" },
-  { to: "/brand-deals", label: "Brand Deals", icon: TrendingUp, keywords: "sponsorship partnership money income deals" },
+  {
+    to: "/brand-deals",
+    label: "Brand Deals",
+    icon: TrendingUp,
+    keywords: "sponsorship partnership money income deals",
+  },
   { to: "/team", label: "Team", icon: UserPlus, keywords: "members roles staff invite" },
   { to: "/reports", label: "Reports", icon: FileText, keywords: "exports csv summary" },
   { to: "/roadmap", label: "Roadmap", icon: Rocket, keywords: "features upcoming plans" },
-  { to: "/changelog", label: "Changelog", icon: ScrollText, keywords: "updates releases new whats new" },
+  {
+    to: "/changelog",
+    label: "Changelog",
+    icon: ScrollText,
+    keywords: "updates releases new whats new",
+  },
   { to: "/support", label: "Support", icon: LifeBuoy, keywords: "help contact faq" },
   { to: "/settings", label: "Settings", icon: Settings, keywords: "preferences config account" },
   { to: "/admin", label: "Admin Console", icon: Shield, keywords: "superadmin platform" },
@@ -68,7 +156,10 @@ const primaryMobileNav = nav.filter((item) =>
 const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Overview", items: ["/dashboard"] },
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
-  { label: "Growth", items: ["/destinations", "/link-tracking", "/comments", "/leads", "/audience", "/analytics"] },
+  {
+    label: "Growth",
+    items: ["/destinations", "/link-tracking", "/comments", "/leads", "/audience", "/analytics"],
+  },
   { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
   { label: "General", items: ["/reports", "/roadmap", "/changelog", "/support", "/settings"] },
   { label: "Platform", items: ["/admin"] },
@@ -83,7 +174,9 @@ const ROLE_META: Record<PlatformRole, { icon: typeof Shield; color: string }> = 
 };
 
 const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
-  (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(([key, meta]) => [meta.route, key]),
+  (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(
+    ([key, meta]) => [meta.route, key],
+  ),
 );
 
 // ============ SMART SEARCH ============
@@ -124,7 +217,10 @@ function searchMatchScore(query: string, text: string): number | null {
     for (const targetWord of targetWords) {
       // Guard against trivial matches like "a"/"of"/"the" being a substring of nearly every
       // longer query word — only take the substring shortcut once both sides have real content.
-      if (Math.min(queryWord.length, targetWord.length) >= 3 && (targetWord.includes(queryWord) || queryWord.includes(targetWord))) {
+      if (
+        Math.min(queryWord.length, targetWord.length) >= 3 &&
+        (targetWord.includes(queryWord) || queryWord.includes(targetWord))
+      ) {
         bestWordScore = Math.max(bestWordScore, 10);
         continue;
       }
@@ -138,7 +234,12 @@ function searchMatchScore(query: string, text: string): number | null {
   return score;
 }
 
-function rankSearchMatches<T>(items: readonly T[], query: string, getText: (item: T) => string, limit: number): T[] {
+function rankSearchMatches<T>(
+  items: readonly T[],
+  query: string,
+  getText: (item: T) => string,
+  limit: number,
+): T[] {
   return items
     .map((item) => ({ item, score: searchMatchScore(query, getText(item)) }))
     .filter((row): row is { item: T; score: number } => row.score !== null)
@@ -147,7 +248,15 @@ function rankSearchMatches<T>(items: readonly T[], query: string, getText: (item
     .map((row) => row.item);
 }
 
-export function DashboardLayout({ title, children, hideAppNav }: { title: string; children: ReactNode; hideAppNav?: boolean }) {
+export function DashboardLayout({
+  title,
+  children,
+  hideAppNav,
+}: {
+  title: string;
+  children: ReactNode;
+  hideAppNav?: boolean;
+}) {
   const { user, loading: authLoading } = useAuthSession();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [siteContent] = useSiteContent();
@@ -159,11 +268,12 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const [profile, setProfile] = useProfile();
   const [notifs, setNotifs] = useNotifications();
   const [deals, setDeals] = useDeals();
-  const [leads] = useLeads();
   const [viewerRole, setViewerRole] = useViewerRole();
   const [flags] = useFeatureFlags();
   const keyboardOpen = useKeyboardInset() > 150;
-  const visibleNotifs = notifs.filter((n) => !n.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const visibleNotifs = notifs
+    .filter((n) => !n.archived)
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const unread = notifs.filter((n) => !n.read && !n.archived).length;
   const previousUserId = useRef<string | null>(null);
   // Drives the connection dot on the sidebar's YouTube badge — null while still checking, so the
@@ -189,15 +299,23 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const visibleNavGroups = navGroups
     .map((g) => ({ ...g, items: g.items.filter((to) => canAccessRoute(viewerRole, to)) }))
     .filter((g) => g.items.length > 0);
-  const visiblePrimaryMobileNav = primaryMobileNav.filter((item) => canAccessRoute(viewerRole, item.to));
+  const visiblePrimaryMobileNav = primaryMobileNav.filter((item) =>
+    canAccessRoute(viewerRole, item.to),
+  );
 
   // Global search — searches pages plus real content (videos, leads, brand deals), not just nav
   // labels. Videos are fetched lazily on first focus rather than eagerly on every page load, since
   // this component mounts on every authenticated route.
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchVideos, setSearchVideos] = useState<Array<{ id: string; title: string; thumbnail: string | null }>>([]);
+  const [searchVideos, setSearchVideos] = useState<
+    Array<{ id: string; title: string; thumbnail: string | null }>
+  >([]);
   const searchVideosLoadedRef = useRef(false);
+  const [searchLeads, setSearchLeads] = useState<
+    Array<{ id: string; name: string; username: string | null }>
+  >([]);
+  const searchLeadsLoadedRef = useRef(false);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
@@ -208,16 +326,42 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     if (searchVideosLoadedRef.current) return;
     searchVideosLoadedRef.current = true;
     if (IS_LOCAL_DEMO) {
-      setSearchVideos(DEMO_YOUTUBE_DASHBOARD.videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail })));
+      setSearchVideos(
+        DEMO_YOUTUBE_DASHBOARD.videos.map((v) => ({
+          id: v.id,
+          title: v.title,
+          thumbnail: v.thumbnail,
+        })),
+      );
       return;
     }
     const params = new URLSearchParams({ limit: "50" });
     if (activeChannelId) params.set("channelId", activeChannelId);
     fetch(`/api/youtube/videos?${params.toString()}`, { cache: "default" })
       .then(async (response) => {
-        const body = (await response.json()) as { status?: string; data?: { videos?: Array<{ id: string; title: string; thumbnail: string | null }> } };
+        const body = (await response.json()) as {
+          status?: string;
+          data?: { videos?: Array<{ id: string; title: string; thumbnail: string | null }> };
+        };
         if (body.status === "connected" && body.data?.videos) {
-          setSearchVideos(body.data.videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail })));
+          setSearchVideos(
+            body.data.videos.map((v) => ({ id: v.id, title: v.title, thumbnail: v.thumbnail })),
+          );
+        }
+      })
+      .catch(() => {});
+  };
+
+  const loadSearchLeads = () => {
+    if (searchLeadsLoadedRef.current) return;
+    searchLeadsLoadedRef.current = true;
+    fetch("/api/leads", { cache: "default" })
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          data?: Array<{ id: string; name: string; username: string | null }>;
+        };
+        if (response.ok && body.data) {
+          setSearchLeads(body.data.map((l) => ({ id: l.id, name: l.name, username: l.username })));
         }
       })
       .catch(() => {});
@@ -226,21 +370,34 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   const openSearch = (input: "desktop" | "mobile") => {
     setSearchOpen(true);
     loadSearchVideos();
-    requestAnimationFrame(() => (input === "desktop" ? searchInputRef : mobileSearchInputRef).current?.focus());
+    loadSearchLeads();
+    requestAnimationFrame(() =>
+      (input === "desktop" ? searchInputRef : mobileSearchInputRef).current?.focus(),
+    );
   };
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim();
-    if (!q) return { pages: [] as typeof visibleNav, videos: [] as typeof searchVideos, leads: [] as typeof leads, deals: [] as typeof deals };
+    if (!q)
+      return {
+        pages: [] as typeof visibleNav,
+        videos: [] as typeof searchVideos,
+        leads: [] as typeof searchLeads,
+        deals: [] as typeof deals,
+      };
     return {
       pages: rankSearchMatches(visibleNav, q, (item) => `${item.label} ${item.keywords}`, 5),
       videos: rankSearchMatches(searchVideos, q, (v) => v.title, 5),
-      leads: rankSearchMatches(leads, q, (l) => `${l.name} ${l.handle}`, 5),
+      leads: rankSearchMatches(searchLeads, q, (l) => `${l.name} ${l.username ?? ""}`, 5),
       deals: rankSearchMatches(deals, q, (d) => `${d.company} ${d.contact}`, 5),
     };
-  }, [searchQuery, visibleNav, searchVideos, leads, deals]);
+  }, [searchQuery, visibleNav, searchVideos, searchLeads, deals]);
   const hasSearchResults =
-    searchResults.pages.length + searchResults.videos.length + searchResults.leads.length + searchResults.deals.length > 0;
+    searchResults.pages.length +
+      searchResults.videos.length +
+      searchResults.leads.length +
+      searchResults.deals.length >
+    0;
 
   const closeSearch = () => {
     setSearchOpen(false);
@@ -280,7 +437,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
               className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent"
             >
               {video.thumbnail ? (
-                <img src={video.thumbnail} alt="" className="h-6 w-10 shrink-0 rounded object-cover" />
+                <img
+                  src={video.thumbnail}
+                  alt=""
+                  className="h-6 w-10 shrink-0 rounded object-cover"
+                />
               ) : (
                 <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
@@ -301,7 +462,7 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             >
               <Inbox className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="truncate">
-                {lead.name} <span className="text-muted-foreground">{lead.handle}</span>
+                {lead.name} <span className="text-muted-foreground">{lead.username}</span>
               </span>
             </button>
           ))}
@@ -327,7 +488,9 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       )}
       {!hasSearchResults && (
         <p className="p-6 text-center text-sm text-muted-foreground">
-          {searchQuery.trim() ? "No results." : "Start typing to search pages, videos, leads, and deals…"}
+          {searchQuery.trim()
+            ? "No results."
+            : "Start typing to search pages, videos, leads, and deals…"}
         </p>
       )}
       <div className="border-t border-border p-2">
@@ -369,14 +532,18 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
   }, [searchOpen]);
   const routeAllowed = canAccessRoute(viewerRole, pathname);
   const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
-  const pageBlocked = !routeAllowed || (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin");
+  const pageBlocked =
+    !routeAllowed ||
+    (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin");
 
   const switchRole = (role: PlatformRole) => {
     setViewerRole(role);
     if (!canAccessRoute(role, pathname)) {
       navigate({ to: "/dashboard" });
     }
-    toast.success(`Viewing as ${role}`, { description: "This switches the RBAC demo — nothing else changes." });
+    toast.success(`Viewing as ${role}`, {
+      description: "This switches the RBAC demo — nothing else changes.",
+    });
   };
 
   // Cmd/Ctrl+K search
@@ -395,7 +562,10 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     toast.success("All notifications marked as read");
   };
-  const clearNotifs = () => { setNotifs([]); toast.success("Notifications cleared"); };
+  const clearNotifs = () => {
+    setNotifs([]);
+    toast.success("Notifications cleared");
+  };
   const signOut = async () => {
     await signOutSupabase();
     clearAllStores();
@@ -412,7 +582,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
     previousUserId.current = user.id;
     setProfile((current) => ({
       ...current,
-      name: user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? current.name,
+      name:
+        user.user_metadata?.name ??
+        user.user_metadata?.full_name ??
+        user.email?.split("@")[0] ??
+        current.name,
       email: user.email ?? current.email,
       avatar: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? current.avatar,
     }));
@@ -445,8 +619,13 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
         >
           <div className="flex items-center justify-between px-4 py-5">
             <Logo collapsed={collapsed} />
-            <button onClick={() => setCollapsed((c) => !c)} className="flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-              <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              className="flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <ChevronLeft
+                className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}
+              />
             </button>
           </div>
 
@@ -454,7 +633,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             {visibleNavGroups.map((group) => (
               <div key={group.label}>
                 {!collapsed && (
-                  <p className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${group.label === "Platform" ? "text-brand-purple/70" : "text-muted-foreground/60"}`}>{group.label}</p>
+                  <p
+                    className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${group.label === "Platform" ? "text-brand-purple/70" : "text-muted-foreground/60"}`}
+                  >
+                    {group.label}
+                  </p>
                 )}
                 <div className="space-y-1">
                   {group.items.map((to) => {
@@ -463,7 +646,12 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                     const locked = isLocked(item.to);
                     const Icon = item.icon;
                     return (
-                      <Link key={item.to} to={item.to} title={collapsed ? item.label : locked ? "Disabled by admin" : undefined} className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}>
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        title={collapsed ? item.label : locked ? "Disabled by admin" : undefined}
+                        className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
+                      >
                         <Icon className="relative h-[18px] w-[18px] shrink-0" />
                         {!collapsed && <span className="relative flex-1">{item.label}</span>}
                         {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
@@ -489,16 +677,32 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 </div>
                 <span
                   className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
-                  title={youtubeConnected === null ? "Checking YouTube connection…" : youtubeConnected ? "YouTube connected" : "YouTube not connected"}
+                  title={
+                    youtubeConnected === null
+                      ? "Checking YouTube connection…"
+                      : youtubeConnected
+                        ? "YouTube connected"
+                        : "YouTube not connected"
+                  }
                   role="status"
-                  aria-label={youtubeConnected === null ? "Checking YouTube connection" : youtubeConnected ? "YouTube connected" : "YouTube not connected"}
+                  aria-label={
+                    youtubeConnected === null
+                      ? "Checking YouTube connection"
+                      : youtubeConnected
+                        ? "YouTube connected"
+                        : "YouTube not connected"
+                  }
                 />
               </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground">Account</p>
                   <p className="truncate text-sm font-semibold">
-                    {youtubeConnected === null ? "Checking…" : youtubeConnected ? "YouTube connected" : "Not connected"}
+                    {youtubeConnected === null
+                      ? "Checking…"
+                      : youtubeConnected
+                        ? "YouTube connected"
+                        : "Not connected"}
                   </p>
                 </div>
               )}
@@ -507,11 +711,17 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
         </aside>
       )}
 
-      <div className={`flex h-full min-h-0 flex-col transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}>
+      <div
+        className={`flex h-full min-h-0 flex-col transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}
+      >
         <header className="glass-bar z-20 flex h-[68px] shrink-0 items-center justify-between gap-3 px-4 backdrop-blur-2xl sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
-            <div className={hideAppNav ? "" : "md:hidden"}><Logo collapsed /></div>
-            <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">{title}</h2>
+            <div className={hideAppNav ? "" : "md:hidden"}>
+              <Logo collapsed />
+            </div>
+            <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">
+              {title}
+            </h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div ref={searchContainerRef} className="relative hidden lg:block">
@@ -524,13 +734,16 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                   onFocus={() => {
                     setSearchOpen(true);
                     loadSearchVideos();
+                    loadSearchLeads();
                   }}
                   placeholder="Search pages, videos, leads…"
                   aria-label="Search pages, videos, leads, and deals"
                   className="h-9 w-full truncate bg-transparent pl-9 pr-12 text-sm text-foreground outline-none placeholder:text-muted-foreground"
                 />
                 {!searchQuery && (
-                  <kbd className="pointer-events-none absolute right-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
+                  <kbd className="pointer-events-none absolute right-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    ⌘K
+                  </kbd>
                 )}
               </div>
               {searchOpen && (
@@ -540,7 +753,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
               )}
             </div>
             <div ref={mobileSearchContainerRef} className="relative lg:hidden">
-              <button onClick={() => openSearch("mobile")} className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Search">
+              <button
+                onClick={() => openSearch("mobile")}
+                className="flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Search"
+              >
                 <Search className="h-[18px] w-[18px]" />
               </button>
               {searchOpen && (
@@ -570,18 +787,27 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                   title="Demo control — switch roles to preview RBAC"
                   className={`flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
                 >
-                  {(() => { const RoleIcon = ROLE_META[viewerRole].icon; return <RoleIcon className="h-3.5 w-3.5" />; })()}
+                  {(() => {
+                    const RoleIcon = ROLE_META[viewerRole].icon;
+                    return <RoleIcon className="h-3.5 w-3.5" />;
+                  })()}
                   <span className="hidden sm:inline">Viewing as {viewerRole}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Preview as role</DropdownMenuLabel>
-                <p className="px-2 pb-2 text-xs text-muted-foreground">Demo control — switches nav access &amp; permissions live.</p>
+                <p className="px-2 pb-2 text-xs text-muted-foreground">
+                  Demo control — switches nav access &amp; permissions live.
+                </p>
                 <DropdownMenuSeparator />
                 {PLATFORM_ROLES.map((role) => {
                   const RoleIcon = ROLE_META[role].icon;
                   return (
-                    <DropdownMenuItem key={role} onSelect={() => switchRole(role)} className={role === viewerRole ? "bg-accent" : undefined}>
+                    <DropdownMenuItem
+                      key={role}
+                      onSelect={() => switchRole(role)}
+                      className={role === viewerRole ? "bg-accent" : undefined}
+                    >
                       <RoleIcon className="mr-2 h-4 w-4" />
                       <span className="flex-1">{role}</span>
                       {role === viewerRole && <ShieldCheck className="h-4 w-4 text-primary" />}
@@ -594,7 +820,10 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ""}`}>
+                <button
+                  className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ""}`}
+                >
                   <Bell className="h-[18px] w-[18px]" />
                   {unread > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-semibold leading-none text-white">
@@ -607,24 +836,47 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 <div className="flex items-center justify-between border-b border-border p-3">
                   <p className="text-sm font-semibold">Notifications</p>
                   <div className="flex gap-1">
-                    <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>
+                    <button onClick={markAllRead} className="text-xs text-primary hover:underline">
+                      Mark all read
+                    </button>
                     <span className="text-muted-foreground">·</span>
-                    <button onClick={clearNotifs} className="text-xs text-muted-foreground hover:text-destructive">Clear</button>
+                    <button
+                      onClick={clearNotifs}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
                 <div className="max-h-80 space-y-1.5 overflow-y-auto p-1.5">
                   {visibleNotifs.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-muted-foreground">No notifications</p>
-                  ) : visibleNotifs.map((n) => (
-                    <NotificationRow
-                      key={n.id}
-                      notification={n}
-                      onMarkRead={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))}
-                      onTogglePin={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)))}
-                      onToggleArchive={() => setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)))}
-                      onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
-                    />
-                  ))}
+                    <p className="p-6 text-center text-xs text-muted-foreground">
+                      No notifications
+                    </p>
+                  ) : (
+                    visibleNotifs.map((n) => (
+                      <NotificationRow
+                        key={n.id}
+                        notification={n}
+                        onMarkRead={() =>
+                          setNotifs((prev) =>
+                            prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
+                          )
+                        }
+                        onTogglePin={() =>
+                          setNotifs((prev) =>
+                            prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)),
+                          )
+                        }
+                        onToggleArchive={() =>
+                          setNotifs((prev) =>
+                            prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)),
+                          )
+                        }
+                        onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
+                      />
+                    ))
+                  )}
                 </div>
                 <Link
                   to="/notifications"
@@ -639,7 +891,11 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-[var(--button-radius)] px-1 py-1 hover:bg-accent">
-                  <img src={profile.avatar} alt={profile.name} className="h-8 w-8 rounded-full object-cover" />
+                  <img
+                    src={profile.avatar}
+                    alt={profile.name}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
                   <span className="hidden text-sm font-medium sm:block">{profile.name}</span>
                 </button>
               </DropdownMenuTrigger>
@@ -661,7 +917,10 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                   <HelpCircle className="mr-2 h-4 w-4" /> Help & Tubi
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={signOut} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onSelect={signOut}
+                  className="text-destructive focus:text-destructive"
+                >
                   <LogOut className="mr-2 h-4 w-4" /> Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -679,18 +938,24 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 <>
                   <h2 className="mt-4 text-lg font-semibold">This feature has been disabled</h2>
                   <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                    A Superadmin has temporarily turned off {lockedFeatureOnPage ? FEATURE_META[lockedFeatureOnPage].label : "this feature"} for all users.
+                    A Superadmin has temporarily turned off{" "}
+                    {lockedFeatureOnPage ? FEATURE_META[lockedFeatureOnPage].label : "this feature"}{" "}
+                    for all users.
                   </p>
                 </>
               ) : (
                 <>
                   <h2 className="mt-4 text-lg font-semibold">Access restricted</h2>
                   <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                    Your role ({viewerRole}) doesn't have permission to view this page. Ask an Owner or Superadmin for access.
+                    Your role ({viewerRole}) doesn't have permission to view this page. Ask an Owner
+                    or Superadmin for access.
                   </p>
                 </>
               )}
-              <button onClick={() => navigate({ to: "/dashboard" })} className="mt-5 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <button
+                onClick={() => navigate({ to: "/dashboard" })}
+                className="mt-5 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
                 Back to Dashboard
               </button>
             </div>
@@ -701,20 +966,42 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
       </div>
 
       {/* Help FAB */}
-      <button onClick={() => setHelpOpen(true)} className="glass-fab fixed bottom-6 right-6 z-30 hidden h-12 w-12 items-center justify-center backdrop-blur-lg transition-transform hover:scale-105 md:flex print:hidden" aria-label="Help">
+      <button
+        onClick={() => setHelpOpen(true)}
+        className="glass-fab fixed bottom-6 right-6 z-30 hidden h-12 w-12 items-center justify-center backdrop-blur-lg transition-transform hover:scale-105 md:flex print:hidden"
+        aria-label="Help"
+      >
         <HelpCircle className="h-5 w-5" />
       </button>
 
       {/* Mobile pill nav */}
       {!hideAppNav && (
         <>
-          <nav aria-label="Primary" className={cn("fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden", keyboardOpen && "hidden")} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <nav
+            aria-label="Primary"
+            className={cn(
+              "fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden",
+              keyboardOpen && "hidden",
+            )}
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
             <div className="glass-pill flex items-center gap-1 px-2 py-1.5 backdrop-blur-2xl">
               {visiblePrimaryMobileNav.map((item) => {
                 const active = pathname === item.to;
                 const Icon = item.icon;
                 return (
-                  <Link key={item.to} to={item.to} aria-label={item.label} title={item.label} className={cn("group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all", active ? "glass-tab-active" : "text-muted-foreground hover:bg-accent hover:text-foreground")}>
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    aria-label={item.label}
+                    title={item.label}
+                    className={cn(
+                      "group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+                      active
+                        ? "glass-tab-active"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    )}
+                  >
                     <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
                   </Link>
                 );
@@ -725,7 +1012,8 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                 title="More"
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-                  !visiblePrimaryMobileNav.some((item) => item.to === pathname) && visibleNav.some((item) => item.to === pathname)
+                  !visiblePrimaryMobileNav.some((item) => item.to === pathname) &&
+                    visibleNav.some((item) => item.to === pathname)
                     ? "glass-tab-active"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
@@ -737,7 +1025,10 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
 
           {/* Mobile "more" nav sheet */}
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-            <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden">
+            <SheetContent
+              side="bottom"
+              className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden"
+            >
               <SheetHeader>
                 <SheetTitle>All Features</SheetTitle>
               </SheetHeader>
@@ -753,11 +1044,29 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
                       onClick={() => setMoreOpen(false)}
                       className="relative flex flex-col items-center gap-1.5 text-center"
                     >
-                      <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl transition-colors", active ? "bg-primary text-primary-foreground" : locked ? "bg-accent text-muted-foreground/40" : "bg-accent text-muted-foreground")}>
+                      <span
+                        className={cn(
+                          "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : locked
+                              ? "bg-accent text-muted-foreground/40"
+                              : "bg-accent text-muted-foreground",
+                        )}
+                      >
                         <Icon className="h-5 w-5" strokeWidth={2} />
                       </span>
-                      {locked && <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />}
-                      <span className={cn("text-xs leading-tight", active ? "font-semibold text-primary" : "text-muted-foreground")}>{item.label}</span>
+                      {locked && (
+                        <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
+                      )}
+                      <span
+                        className={cn(
+                          "text-xs leading-tight",
+                          active ? "font-semibold text-primary" : "text-muted-foreground",
+                        )}
+                      >
+                        {item.label}
+                      </span>
                     </Link>
                   );
                 })}
@@ -782,15 +1091,22 @@ export function DashboardLayout({ title, children, hideAppNav }: { title: string
 
 function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [msgs, setMsgs] = useState<{ id: string; role: "user" | "bot"; text: string }[]>([
-    { id: uid(), role: "bot", text: "Hi! I'm Tubi, your assistant. Ask about revenue trends, deals, links, or how to use any feature." },
+    {
+      id: uid(),
+      role: "bot",
+      text: "Hi! I'm Tubi, your assistant. Ask about revenue trends, deals, links, or how to use any feature.",
+    },
   ]);
   const [input, setInput] = useState("");
-  const suggestions = useMemo(() => [
-    "How do I create a tracking link?",
-    "Explain the deal pipeline stages",
-    "Why is data 24–72h delayed?",
-    "How do comment rules work?",
-  ], []);
+  const suggestions = useMemo(
+    () => [
+      "How do I create a tracking link?",
+      "Explain the deal pipeline stages",
+      "Why is data 24–72h delayed?",
+      "How do comment rules work?",
+    ],
+    [],
+  );
 
   const send = (text: string) => {
     if (!text.trim()) return;
@@ -814,27 +1130,49 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
         </SheetHeader>
         <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
           {msgs.map((m) => (
-            <div key={m.id} className={`rounded-xl px-3 py-2 text-sm ${m.role === "user" ? "ml-8 bg-primary text-primary-foreground" : "mr-8 bg-accent/50"}`}>
+            <div
+              key={m.id}
+              className={`rounded-xl px-3 py-2 text-sm ${m.role === "user" ? "ml-8 bg-primary text-primary-foreground" : "mr-8 bg-accent/50"}`}
+            >
               {m.text}
             </div>
           ))}
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {suggestions.map((s) => (
-            <button key={s} onClick={() => send(s)} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground">
+            <button
+              key={s}
+              onClick={() => send(s)}
+              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
+            >
               {s}
             </button>
           ))}
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="mt-3 flex gap-2">
-          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask anything…" />
-          <Button type="submit" size="icon"><Send className="h-4 w-4" /></Button>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(input);
+          }}
+          className="mt-3 flex gap-2"
+        >
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask anything…"
+          />
+          <Button type="submit" size="icon">
+            <Send className="h-4 w-4" />
+          </Button>
         </form>
-        <Link to="/support" onClick={() => onOpenChange(false)} className="mt-3 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+        <Link
+          to="/support"
+          onClick={() => onOpenChange(false)}
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
           <LifeBuoy className="h-3.5 w-3.5" /> Need a human? Report a problem →
         </Link>
       </SheetContent>
     </Sheet>
   );
 }
-

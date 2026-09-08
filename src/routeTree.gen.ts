@@ -39,27 +39,50 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as VideosRouteImport } from './routes/videos'
+import { Route as ApiCommentRulesRouteImport } from './routes/api.comment-rules'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
+import { Route as ApiLeadsRouteImport } from './routes/api.leads'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
+import { Route as ApiProjectsRouteImport } from './routes/api.projects'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
+import { Route as ApiTrackingLinksRouteImport } from './routes/api.tracking-links'
 import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
+import { Route as ApiAdminPlansRouteImport } from './routes/api.admin.plans'
+import { Route as ApiAdminWhoamiRouteImport } from './routes/api.admin.whoami'
+import { Route as ApiAffiliateSummaryRouteImport } from './routes/api.affiliate.summary'
+import { Route as ApiBillingCheckoutRouteImport } from './routes/api.billing.checkout'
+import { Route as ApiBillingPortalRouteImport } from './routes/api.billing.portal'
+import { Route as ApiBillingSubscriptionRouteImport } from './routes/api.billing.subscription'
+import { Route as ApiCommentRulesRepliesRouteImport } from './routes/api.comment-rules.replies'
+import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
+import { Route as ApiLeadsSummaryRouteImport } from './routes/api.leads.summary'
+import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.click'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
-import { Route as ApiVideosGenerateRouteImport } from './routes/api.videos.generate'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe.webhook'
+import { Route as ApiVideosAnalyzeContentRouteImport } from './routes/api.videos.analyze-content'
+import { Route as ApiVideosOptimizeRouteImport } from './routes/api.videos.optimize'
 import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
+import { Route as ApiYoutubeAudienceRouteImport } from './routes/api.youtube.audience'
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
 import { Route as ApiYoutubeBreakdownsRouteImport } from './routes/api.youtube.breakdowns'
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
 import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
+import { Route as ApiYoutubeCommentsRouteImport } from './routes/api.youtube.comments'
 import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
+import { Route as ApiYoutubeQuotaRouteImport } from './routes/api.youtube.quota'
 import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
 import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
 import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
+import { Route as ApiAdminPlansAuditRouteImport } from './routes/api.admin.plans.audit'
+import { Route as ApiAdminPlansPricesRouteImport } from './routes/api.admin.plans.prices'
+import { Route as ApiAdminPlansSeedLegacyRouteImport } from './routes/api.admin.plans.seed-legacy'
 import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
 import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
 import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
@@ -214,6 +237,11 @@ const VideosRoute = VideosRouteImport.update({
   path: '/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommentRulesRoute = ApiCommentRulesRouteImport.update({
+  id: '/api/comment-rules',
+  path: '/api/comment-rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
   id: '/api/destinations',
   path: '/api/destinations',
@@ -224,14 +252,29 @@ const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
   path: '/api/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLeadsRoute = ApiLeadsRouteImport.update({
+  id: '/api/leads',
+  path: '/api/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProfileRoute = ApiProfileRouteImport.update({
   id: '/api/profile',
   path: '/api/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectsRoute = ApiProjectsRouteImport.update({
+  id: '/api/projects',
+  path: '/api/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSettingsRoute = ApiSettingsRouteImport.update({
   id: '/api/settings',
   path: '/api/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTrackingLinksRoute = ApiTrackingLinksRouteImport.update({
+  id: '/api/tracking-links',
+  path: '/api/tracking-links',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVideosRoute = ApiVideosRouteImport.update({
@@ -244,10 +287,65 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RSlugRoute = RSlugRouteImport.update({
+  id: '/r/$slug',
+  path: '/r/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VideosVideoIdRoute = VideosVideoIdRouteImport.update({
   id: '/$videoId',
   path: '/$videoId',
   getParentRoute: () => VideosRoute,
+} as any)
+const ApiAdminPlansRoute = ApiAdminPlansRouteImport.update({
+  id: '/api/admin/plans',
+  path: '/api/admin/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminWhoamiRoute = ApiAdminWhoamiRouteImport.update({
+  id: '/api/admin/whoami',
+  path: '/api/admin/whoami',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAffiliateSummaryRoute = ApiAffiliateSummaryRouteImport.update({
+  id: '/api/affiliate/summary',
+  path: '/api/affiliate/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingCheckoutRoute = ApiBillingCheckoutRouteImport.update({
+  id: '/api/billing/checkout',
+  path: '/api/billing/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingPortalRoute = ApiBillingPortalRouteImport.update({
+  id: '/api/billing/portal',
+  path: '/api/billing/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBillingSubscriptionRoute = ApiBillingSubscriptionRouteImport.update({
+  id: '/api/billing/subscription',
+  path: '/api/billing/subscription',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommentRulesRepliesRoute = ApiCommentRulesRepliesRouteImport.update({
+  id: '/replies',
+  path: '/replies',
+  getParentRoute: () => ApiCommentRulesRoute,
+} as any)
+const ApiLeadsMessagesRoute = ApiLeadsMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => ApiLeadsRoute,
+} as any)
+const ApiLeadsSummaryRoute = ApiLeadsSummaryRouteImport.update({
+  id: '/summary',
+  path: '/summary',
+  getParentRoute: () => ApiLeadsRoute,
+} as any)
+const ApiReferralsClickRoute = ApiReferralsClickRouteImport.update({
+  id: '/api/referrals/click',
+  path: '/api/referrals/click',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSecurityRecoveryCodesRoute =
   ApiSecurityRecoveryCodesRouteImport.update({
@@ -255,9 +353,19 @@ const ApiSecurityRecoveryCodesRoute =
     path: '/api/security/recovery-codes',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiVideosGenerateRoute = ApiVideosGenerateRouteImport.update({
-  id: '/generate',
-  path: '/generate',
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe/webhook',
+  path: '/api/stripe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVideosAnalyzeContentRoute = ApiVideosAnalyzeContentRouteImport.update({
+  id: '/analyze-content',
+  path: '/analyze-content',
+  getParentRoute: () => ApiVideosRoute,
+} as any)
+const ApiVideosOptimizeRoute = ApiVideosOptimizeRouteImport.update({
+  id: '/optimize',
+  path: '/optimize',
   getParentRoute: () => ApiVideosRoute,
 } as any)
 const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
@@ -268,6 +376,11 @@ const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
 const ApiYoutubeAnalyzeVideoRoute = ApiYoutubeAnalyzeVideoRouteImport.update({
   id: '/api/youtube/analyze-video',
   path: '/api/youtube/analyze-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeAudienceRoute = ApiYoutubeAudienceRouteImport.update({
+  id: '/api/youtube/audience',
+  path: '/api/youtube/audience',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiYoutubeAuthRoute = ApiYoutubeAuthRouteImport.update({
@@ -290,6 +403,11 @@ const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
   path: '/api/youtube/channels',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeCommentsRoute = ApiYoutubeCommentsRouteImport.update({
+  id: '/api/youtube/comments',
+  path: '/api/youtube/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
   id: '/api/youtube/dashboard',
   path: '/api/youtube/dashboard',
@@ -298,6 +416,11 @@ const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
 const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
   id: '/api/youtube/diagnostics',
   path: '/api/youtube/diagnostics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeQuotaRoute = ApiYoutubeQuotaRouteImport.update({
+  id: '/api/youtube/quota',
+  path: '/api/youtube/quota',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiYoutubeSettingsRoute = ApiYoutubeSettingsRouteImport.update({
@@ -319,6 +442,21 @@ const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
   id: '/api/youtube/videos',
   path: '/api/youtube/videos',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPlansAuditRoute = ApiAdminPlansAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ApiAdminPlansRoute,
+} as any)
+const ApiAdminPlansPricesRoute = ApiAdminPlansPricesRouteImport.update({
+  id: '/prices',
+  path: '/prices',
+  getParentRoute: () => ApiAdminPlansRoute,
+} as any)
+const ApiAdminPlansSeedLegacyRoute = ApiAdminPlansSeedLegacyRouteImport.update({
+  id: '/seed-legacy',
+  path: '/seed-legacy',
+  getParentRoute: () => ApiAdminPlansRoute,
 } as any)
 const ApiIntegrationsGoogleAnalyticsCallbackRoute =
   ApiIntegrationsGoogleAnalyticsCallbackRouteImport.update({
@@ -370,27 +508,50 @@ export interface FileRoutesByFullPath {
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRouteWithChildren
+  '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
+  '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
+  '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
+  '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/billing/checkout': typeof ApiBillingCheckoutRoute
+  '/api/billing/portal': typeof ApiBillingPortalRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/leads/messages': typeof ApiLeadsMessagesRoute
+  '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
-  '/api/videos/generate': typeof ApiVideosGenerateRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
+  '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
+  '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
+  '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
+  '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -426,27 +587,50 @@ export interface FileRoutesByTo {
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRouteWithChildren
+  '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
+  '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
+  '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
+  '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/billing/checkout': typeof ApiBillingCheckoutRoute
+  '/api/billing/portal': typeof ApiBillingPortalRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/leads/messages': typeof ApiLeadsMessagesRoute
+  '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
-  '/api/videos/generate': typeof ApiVideosGenerateRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
+  '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
+  '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
+  '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
+  '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -483,27 +667,50 @@ export interface FileRoutesById {
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
   '/videos': typeof VideosRouteWithChildren
+  '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
+  '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
+  '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
+  '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/billing/checkout': typeof ApiBillingCheckoutRoute
+  '/api/billing/portal': typeof ApiBillingPortalRoute
+  '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/leads/messages': typeof ApiLeadsMessagesRoute
+  '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
-  '/api/videos/generate': typeof ApiVideosGenerateRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
+  '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
+  '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
   '/api/youtube/breakdowns': typeof ApiYoutubeBreakdownsRoute
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
+  '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
+  '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
+  '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -541,27 +748,50 @@ export interface FileRouteTypes {
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/comment-rules'
     | '/api/destinations'
     | '/api/integrations'
+    | '/api/leads'
     | '/api/profile'
+    | '/api/projects'
     | '/api/settings'
+    | '/api/tracking-links'
     | '/api/videos'
     | '/auth/callback'
+    | '/r/$slug'
     | '/videos/$videoId'
+    | '/api/admin/plans'
+    | '/api/admin/whoami'
+    | '/api/affiliate/summary'
+    | '/api/billing/checkout'
+    | '/api/billing/portal'
+    | '/api/billing/subscription'
+    | '/api/comment-rules/replies'
+    | '/api/leads/messages'
+    | '/api/leads/summary'
+    | '/api/referrals/click'
     | '/api/security/recovery-codes'
-    | '/api/videos/generate'
+    | '/api/stripe/webhook'
+    | '/api/videos/analyze-content'
+    | '/api/videos/optimize'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
+    | '/api/youtube/audience'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/comments'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/plans/audit'
+    | '/api/admin/plans/prices'
+    | '/api/admin/plans/seed-legacy'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -597,27 +827,50 @@ export interface FileRouteTypes {
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/comment-rules'
     | '/api/destinations'
     | '/api/integrations'
+    | '/api/leads'
     | '/api/profile'
+    | '/api/projects'
     | '/api/settings'
+    | '/api/tracking-links'
     | '/api/videos'
     | '/auth/callback'
+    | '/r/$slug'
     | '/videos/$videoId'
+    | '/api/admin/plans'
+    | '/api/admin/whoami'
+    | '/api/affiliate/summary'
+    | '/api/billing/checkout'
+    | '/api/billing/portal'
+    | '/api/billing/subscription'
+    | '/api/comment-rules/replies'
+    | '/api/leads/messages'
+    | '/api/leads/summary'
+    | '/api/referrals/click'
     | '/api/security/recovery-codes'
-    | '/api/videos/generate'
+    | '/api/stripe/webhook'
+    | '/api/videos/analyze-content'
+    | '/api/videos/optimize'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
+    | '/api/youtube/audience'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/comments'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/plans/audit'
+    | '/api/admin/plans/prices'
+    | '/api/admin/plans/seed-legacy'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -653,27 +906,50 @@ export interface FileRouteTypes {
     | '/support'
     | '/team'
     | '/videos'
+    | '/api/comment-rules'
     | '/api/destinations'
     | '/api/integrations'
+    | '/api/leads'
     | '/api/profile'
+    | '/api/projects'
     | '/api/settings'
+    | '/api/tracking-links'
     | '/api/videos'
     | '/auth/callback'
+    | '/r/$slug'
     | '/videos/$videoId'
+    | '/api/admin/plans'
+    | '/api/admin/whoami'
+    | '/api/affiliate/summary'
+    | '/api/billing/checkout'
+    | '/api/billing/portal'
+    | '/api/billing/subscription'
+    | '/api/comment-rules/replies'
+    | '/api/leads/messages'
+    | '/api/leads/summary'
+    | '/api/referrals/click'
     | '/api/security/recovery-codes'
-    | '/api/videos/generate'
+    | '/api/stripe/webhook'
+    | '/api/videos/analyze-content'
+    | '/api/videos/optimize'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
+    | '/api/youtube/audience'
     | '/api/youtube/auth'
     | '/api/youtube/breakdowns'
     | '/api/youtube/callback'
     | '/api/youtube/channels'
+    | '/api/youtube/comments'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/plans/audit'
+    | '/api/admin/plans/prices'
+    | '/api/admin/plans/seed-legacy'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -710,21 +986,37 @@ export interface RootRouteChildren {
   SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
   VideosRoute: typeof VideosRouteWithChildren
+  ApiCommentRulesRoute: typeof ApiCommentRulesRouteWithChildren
   ApiDestinationsRoute: typeof ApiDestinationsRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
+  ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
+  ApiProjectsRoute: typeof ApiProjectsRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
+  ApiTrackingLinksRoute: typeof ApiTrackingLinksRoute
   ApiVideosRoute: typeof ApiVideosRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  RSlugRoute: typeof RSlugRoute
+  ApiAdminPlansRoute: typeof ApiAdminPlansRouteWithChildren
+  ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
+  ApiAffiliateSummaryRoute: typeof ApiAffiliateSummaryRoute
+  ApiBillingCheckoutRoute: typeof ApiBillingCheckoutRoute
+  ApiBillingPortalRoute: typeof ApiBillingPortalRoute
+  ApiBillingSubscriptionRoute: typeof ApiBillingSubscriptionRoute
+  ApiReferralsClickRoute: typeof ApiReferralsClickRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
   ApiYoutubeAnalyzeVideoRoute: typeof ApiYoutubeAnalyzeVideoRoute
+  ApiYoutubeAudienceRoute: typeof ApiYoutubeAudienceRoute
   ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
   ApiYoutubeBreakdownsRoute: typeof ApiYoutubeBreakdownsRoute
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
   ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
+  ApiYoutubeCommentsRoute: typeof ApiYoutubeCommentsRoute
   ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
+  ApiYoutubeQuotaRoute: typeof ApiYoutubeQuotaRoute
   ApiYoutubeSettingsRoute: typeof ApiYoutubeSettingsRoute
   ApiYoutubeSyncRoute: typeof ApiYoutubeSyncRoute
   ApiYoutubeVideoRoute: typeof ApiYoutubeVideoRoute
@@ -943,6 +1235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VideosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/comment-rules': {
+      id: '/api/comment-rules'
+      path: '/api/comment-rules'
+      fullPath: '/api/comment-rules'
+      preLoaderRoute: typeof ApiCommentRulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/destinations': {
       id: '/api/destinations'
       path: '/api/destinations'
@@ -957,6 +1256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/leads': {
+      id: '/api/leads'
+      path: '/api/leads'
+      fullPath: '/api/leads'
+      preLoaderRoute: typeof ApiLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/profile': {
       id: '/api/profile'
       path: '/api/profile'
@@ -964,11 +1270,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/projects': {
+      id: '/api/projects'
+      path: '/api/projects'
+      fullPath: '/api/projects'
+      preLoaderRoute: typeof ApiProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/settings': {
       id: '/api/settings'
       path: '/api/settings'
       fullPath: '/api/settings'
       preLoaderRoute: typeof ApiSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tracking-links': {
+      id: '/api/tracking-links'
+      path: '/api/tracking-links'
+      fullPath: '/api/tracking-links'
+      preLoaderRoute: typeof ApiTrackingLinksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/videos': {
@@ -985,12 +1305,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$slug': {
+      id: '/r/$slug'
+      path: '/r/$slug'
+      fullPath: '/r/$slug'
+      preLoaderRoute: typeof RSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/videos/$videoId': {
       id: '/videos/$videoId'
       path: '/$videoId'
       fullPath: '/videos/$videoId'
       preLoaderRoute: typeof VideosVideoIdRouteImport
       parentRoute: typeof VideosRoute
+    }
+    '/api/admin/plans': {
+      id: '/api/admin/plans'
+      path: '/api/admin/plans'
+      fullPath: '/api/admin/plans'
+      preLoaderRoute: typeof ApiAdminPlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/whoami': {
+      id: '/api/admin/whoami'
+      path: '/api/admin/whoami'
+      fullPath: '/api/admin/whoami'
+      preLoaderRoute: typeof ApiAdminWhoamiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/affiliate/summary': {
+      id: '/api/affiliate/summary'
+      path: '/api/affiliate/summary'
+      fullPath: '/api/affiliate/summary'
+      preLoaderRoute: typeof ApiAffiliateSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/checkout': {
+      id: '/api/billing/checkout'
+      path: '/api/billing/checkout'
+      fullPath: '/api/billing/checkout'
+      preLoaderRoute: typeof ApiBillingCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/portal': {
+      id: '/api/billing/portal'
+      path: '/api/billing/portal'
+      fullPath: '/api/billing/portal'
+      preLoaderRoute: typeof ApiBillingPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/billing/subscription': {
+      id: '/api/billing/subscription'
+      path: '/api/billing/subscription'
+      fullPath: '/api/billing/subscription'
+      preLoaderRoute: typeof ApiBillingSubscriptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/comment-rules/replies': {
+      id: '/api/comment-rules/replies'
+      path: '/replies'
+      fullPath: '/api/comment-rules/replies'
+      preLoaderRoute: typeof ApiCommentRulesRepliesRouteImport
+      parentRoute: typeof ApiCommentRulesRoute
+    }
+    '/api/leads/messages': {
+      id: '/api/leads/messages'
+      path: '/messages'
+      fullPath: '/api/leads/messages'
+      preLoaderRoute: typeof ApiLeadsMessagesRouteImport
+      parentRoute: typeof ApiLeadsRoute
+    }
+    '/api/leads/summary': {
+      id: '/api/leads/summary'
+      path: '/summary'
+      fullPath: '/api/leads/summary'
+      preLoaderRoute: typeof ApiLeadsSummaryRouteImport
+      parentRoute: typeof ApiLeadsRoute
+    }
+    '/api/referrals/click': {
+      id: '/api/referrals/click'
+      path: '/api/referrals/click'
+      fullPath: '/api/referrals/click'
+      preLoaderRoute: typeof ApiReferralsClickRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/security/recovery-codes': {
       id: '/api/security/recovery-codes'
@@ -999,11 +1396,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSecurityRecoveryCodesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/videos/generate': {
-      id: '/api/videos/generate'
-      path: '/generate'
-      fullPath: '/api/videos/generate'
-      preLoaderRoute: typeof ApiVideosGenerateRouteImport
+    '/api/stripe/webhook': {
+      id: '/api/stripe/webhook'
+      path: '/api/stripe/webhook'
+      fullPath: '/api/stripe/webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/videos/analyze-content': {
+      id: '/api/videos/analyze-content'
+      path: '/analyze-content'
+      fullPath: '/api/videos/analyze-content'
+      preLoaderRoute: typeof ApiVideosAnalyzeContentRouteImport
+      parentRoute: typeof ApiVideosRoute
+    }
+    '/api/videos/optimize': {
+      id: '/api/videos/optimize'
+      path: '/optimize'
+      fullPath: '/api/videos/optimize'
+      preLoaderRoute: typeof ApiVideosOptimizeRouteImport
       parentRoute: typeof ApiVideosRoute
     }
     '/api/youtube/analytics': {
@@ -1018,6 +1429,13 @@ declare module '@tanstack/react-router' {
       path: '/api/youtube/analyze-video'
       fullPath: '/api/youtube/analyze-video'
       preLoaderRoute: typeof ApiYoutubeAnalyzeVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/audience': {
+      id: '/api/youtube/audience'
+      path: '/api/youtube/audience'
+      fullPath: '/api/youtube/audience'
+      preLoaderRoute: typeof ApiYoutubeAudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/youtube/auth': {
@@ -1048,6 +1466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeChannelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/comments': {
+      id: '/api/youtube/comments'
+      path: '/api/youtube/comments'
+      fullPath: '/api/youtube/comments'
+      preLoaderRoute: typeof ApiYoutubeCommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/dashboard': {
       id: '/api/youtube/dashboard'
       path: '/api/youtube/dashboard'
@@ -1060,6 +1485,13 @@ declare module '@tanstack/react-router' {
       path: '/api/youtube/diagnostics'
       fullPath: '/api/youtube/diagnostics'
       preLoaderRoute: typeof ApiYoutubeDiagnosticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/youtube/quota': {
+      id: '/api/youtube/quota'
+      path: '/api/youtube/quota'
+      fullPath: '/api/youtube/quota'
+      preLoaderRoute: typeof ApiYoutubeQuotaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/youtube/settings': {
@@ -1089,6 +1521,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/youtube/videos'
       preLoaderRoute: typeof ApiYoutubeVideosRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/plans/audit': {
+      id: '/api/admin/plans/audit'
+      path: '/audit'
+      fullPath: '/api/admin/plans/audit'
+      preLoaderRoute: typeof ApiAdminPlansAuditRouteImport
+      parentRoute: typeof ApiAdminPlansRoute
+    }
+    '/api/admin/plans/prices': {
+      id: '/api/admin/plans/prices'
+      path: '/prices'
+      fullPath: '/api/admin/plans/prices'
+      preLoaderRoute: typeof ApiAdminPlansPricesRouteImport
+      parentRoute: typeof ApiAdminPlansRoute
+    }
+    '/api/admin/plans/seed-legacy': {
+      id: '/api/admin/plans/seed-legacy'
+      path: '/seed-legacy'
+      fullPath: '/api/admin/plans/seed-legacy'
+      preLoaderRoute: typeof ApiAdminPlansSeedLegacyRouteImport
+      parentRoute: typeof ApiAdminPlansRoute
     }
     '/api/integrations/google-analytics/callback': {
       id: '/api/integrations/google-analytics/callback'
@@ -1125,6 +1578,18 @@ const VideosRouteChildren: VideosRouteChildren = {
 const VideosRouteWithChildren =
   VideosRoute._addFileChildren(VideosRouteChildren)
 
+interface ApiCommentRulesRouteChildren {
+  ApiCommentRulesRepliesRoute: typeof ApiCommentRulesRepliesRoute
+}
+
+const ApiCommentRulesRouteChildren: ApiCommentRulesRouteChildren = {
+  ApiCommentRulesRepliesRoute: ApiCommentRulesRepliesRoute,
+}
+
+const ApiCommentRulesRouteWithChildren = ApiCommentRulesRoute._addFileChildren(
+  ApiCommentRulesRouteChildren,
+)
+
 interface ApiIntegrationsRouteChildren {
   ApiIntegrationsGoogleAnalyticsCallbackRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   ApiIntegrationsKitCallbackRoute: typeof ApiIntegrationsKitCallbackRoute
@@ -1142,16 +1607,48 @@ const ApiIntegrationsRouteWithChildren = ApiIntegrationsRoute._addFileChildren(
   ApiIntegrationsRouteChildren,
 )
 
+interface ApiLeadsRouteChildren {
+  ApiLeadsMessagesRoute: typeof ApiLeadsMessagesRoute
+  ApiLeadsSummaryRoute: typeof ApiLeadsSummaryRoute
+}
+
+const ApiLeadsRouteChildren: ApiLeadsRouteChildren = {
+  ApiLeadsMessagesRoute: ApiLeadsMessagesRoute,
+  ApiLeadsSummaryRoute: ApiLeadsSummaryRoute,
+}
+
+const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(
+  ApiLeadsRouteChildren,
+)
+
 interface ApiVideosRouteChildren {
-  ApiVideosGenerateRoute: typeof ApiVideosGenerateRoute
+  ApiVideosAnalyzeContentRoute: typeof ApiVideosAnalyzeContentRoute
+  ApiVideosOptimizeRoute: typeof ApiVideosOptimizeRoute
 }
 
 const ApiVideosRouteChildren: ApiVideosRouteChildren = {
-  ApiVideosGenerateRoute: ApiVideosGenerateRoute,
+  ApiVideosAnalyzeContentRoute: ApiVideosAnalyzeContentRoute,
+  ApiVideosOptimizeRoute: ApiVideosOptimizeRoute,
 }
 
 const ApiVideosRouteWithChildren = ApiVideosRoute._addFileChildren(
   ApiVideosRouteChildren,
+)
+
+interface ApiAdminPlansRouteChildren {
+  ApiAdminPlansAuditRoute: typeof ApiAdminPlansAuditRoute
+  ApiAdminPlansPricesRoute: typeof ApiAdminPlansPricesRoute
+  ApiAdminPlansSeedLegacyRoute: typeof ApiAdminPlansSeedLegacyRoute
+}
+
+const ApiAdminPlansRouteChildren: ApiAdminPlansRouteChildren = {
+  ApiAdminPlansAuditRoute: ApiAdminPlansAuditRoute,
+  ApiAdminPlansPricesRoute: ApiAdminPlansPricesRoute,
+  ApiAdminPlansSeedLegacyRoute: ApiAdminPlansSeedLegacyRoute,
+}
+
+const ApiAdminPlansRouteWithChildren = ApiAdminPlansRoute._addFileChildren(
+  ApiAdminPlansRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
@@ -1185,21 +1682,37 @@ const rootRouteChildren: RootRouteChildren = {
   SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
   VideosRoute: VideosRouteWithChildren,
+  ApiCommentRulesRoute: ApiCommentRulesRouteWithChildren,
   ApiDestinationsRoute: ApiDestinationsRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
+  ApiLeadsRoute: ApiLeadsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
+  ApiProjectsRoute: ApiProjectsRoute,
   ApiSettingsRoute: ApiSettingsRoute,
+  ApiTrackingLinksRoute: ApiTrackingLinksRoute,
   ApiVideosRoute: ApiVideosRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  RSlugRoute: RSlugRoute,
+  ApiAdminPlansRoute: ApiAdminPlansRouteWithChildren,
+  ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
+  ApiAffiliateSummaryRoute: ApiAffiliateSummaryRoute,
+  ApiBillingCheckoutRoute: ApiBillingCheckoutRoute,
+  ApiBillingPortalRoute: ApiBillingPortalRoute,
+  ApiBillingSubscriptionRoute: ApiBillingSubscriptionRoute,
+  ApiReferralsClickRoute: ApiReferralsClickRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
   ApiYoutubeAnalyzeVideoRoute: ApiYoutubeAnalyzeVideoRoute,
+  ApiYoutubeAudienceRoute: ApiYoutubeAudienceRoute,
   ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,
   ApiYoutubeBreakdownsRoute: ApiYoutubeBreakdownsRoute,
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
   ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
+  ApiYoutubeCommentsRoute: ApiYoutubeCommentsRoute,
   ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
+  ApiYoutubeQuotaRoute: ApiYoutubeQuotaRoute,
   ApiYoutubeSettingsRoute: ApiYoutubeSettingsRoute,
   ApiYoutubeSyncRoute: ApiYoutubeSyncRoute,
   ApiYoutubeVideoRoute: ApiYoutubeVideoRoute,

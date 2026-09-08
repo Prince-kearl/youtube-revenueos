@@ -24,7 +24,7 @@ export function YoutubeReauthNotice({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <a
             href="/api/youtube/auth?returnTo=/settings"
-            className="inline-flex items-center rounded-[var(--button-radius)] bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"
+            className="inline-flex items-center rounded-full bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"
           >
             Reconnect YouTube
           </a>
@@ -32,7 +32,7 @@ export function YoutubeReauthNotice({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 rounded-[var(--button-radius)] border border-destructive/30 px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10"
+              className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Try again
             </button>
