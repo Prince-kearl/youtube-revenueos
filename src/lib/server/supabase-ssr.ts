@@ -13,20 +13,28 @@ interface SessionClient {
 // frontend cannot attach an Authorization header the way it can for a fetch() call.
 export function createSessionSupabaseClient(request: Request): SessionClient {
   const setCookieHeaders: string[] = [];
-  const client = createServerClient(requireServerEnv("SUPABASE_URL"), requireServerEnv("SUPABASE_ANON_KEY"), {
-    cookies: {
-      getAll: () => parseCookies(request),
-      setAll: (cookiesToSet) => {
-        for (const { name, value, options } of cookiesToSet) {
-          const segments = [`${name}=${value}`, `Path=${options?.path ?? "/"}`, `SameSite=${options?.sameSite ?? "Lax"}`];
-          if (options?.maxAge !== undefined) segments.push(`Max-Age=${options.maxAge}`);
-          if (options?.httpOnly !== false) segments.push("HttpOnly");
-          if (options?.secure) segments.push("Secure");
-          setCookieHeaders.push(segments.join("; "));
-        }
+  const client = createServerClient(
+    requireServerEnv("SUPABASE_URL"),
+    requireServerEnv("SUPABASE_ANON_KEY"),
+    {
+      cookies: {
+        getAll: () => parseCookies(request),
+        setAll: (cookiesToSet) => {
+          for (const { name, value, options } of cookiesToSet) {
+            const segments = [
+              `${name}=${value}`,
+              `Path=${options?.path ?? "/"}`,
+              `SameSite=${options?.sameSite ?? "Lax"}`,
+            ];
+            if (options?.maxAge !== undefined) segments.push(`Max-Age=${options.maxAge}`);
+            if (options?.httpOnly !== false) segments.push("HttpOnly");
+            if (options?.secure) segments.push("Secure");
+            setCookieHeaders.push(segments.join("; "));
+          }
+        },
       },
     },
-  });
+  );
   return { client, setCookieHeaders };
 }
 
@@ -47,4 +55,26 @@ export async function requireSessionUser(
 export function applySetCookies(response: Response, setCookieHeaders: string[]): Response {
   for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
   return response;
+}
+
+// Real server-side authorization for Superadmin-only routes — the admin console itself has no
+// gating (the "Viewing as Superadmin" switcher in DashboardLayout is a client-side demo toggle,
+// not auth), so every admin-write endpoint must check this independently rather than trust that
+// the request only came from someone who could see the admin UI.
+export async function requireAdminUser(
+  request: Request,
+): Promise<{ client: SupabaseClient; user: User; setCookieHeaders: string[] }> {
+  const session = await requireSessionUser(request);
+  const { data: profile, error } = await session.client
+    .from("profiles")
+    .select("role")
+    .eq("id", session.user.id)
+    .maybeSingle();
+  if (error || profile?.role !== "admin") {
+    throw new Response(JSON.stringify({ error: "ADMIN_REQUIRED" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return session;
 }

@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, Shield } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Loader2, Shield } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminNav, type AdminSection } from "@/components/admin/AdminNav";
 import { ExecutiveDashboard } from "@/components/admin/sections/ExecutiveDashboard";
@@ -40,8 +40,33 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
 };
 
 function AdminConsole() {
+  const navigate = useNavigate();
   const [section, setSection] = useState<AdminSection>("dashboard");
+  // Real server-side authorization lives in every admin API route (requireAdminUser) — this is
+  // only a UX guard so a non-admin who navigates here sees a redirect instead of the console
+  // shell, not the actual security boundary.
+  const [authStatus, setAuthStatus] = useState<"checking" | "allowed" | "denied">("checking");
   const Section = SECTIONS[section];
+
+  useEffect(() => {
+    fetch("/api/admin/whoami", { cache: "no-store" })
+      .then((response) => setAuthStatus(response.ok ? "allowed" : "denied"))
+      .catch(() => setAuthStatus("denied"));
+  }, []);
+
+  useEffect(() => {
+    if (authStatus === "denied") navigate({ to: "/dashboard" });
+  }, [authStatus, navigate]);
+
+  if (authStatus !== "allowed") {
+    return (
+      <DashboardLayout title="Admin Console" hideAppNav>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Admin Console" hideAppNav>
@@ -50,10 +75,15 @@ function AdminConsole() {
           <Shield className="h-5 w-5 text-brand-purple" />
           <div>
             <p className="text-sm font-semibold">Super Admin Console</p>
-            <p className="text-xs text-muted-foreground">Command center for the entire platform — visible only to Superadmins.</p>
+            <p className="text-xs text-muted-foreground">
+              Command center for the entire platform — visible only to Superadmins.
+            </p>
           </div>
         </div>
-        <Link to="/dashboard" className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
           <ArrowLeft className="h-3.5 w-3.5" /> Exit to Workspace
         </Link>
       </div>

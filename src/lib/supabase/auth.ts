@@ -5,12 +5,20 @@ function currentOrigin(): string {
   return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-export function signUpWithPassword(email: string, password: string, name: string) {
+export function signUpWithPassword(
+  email: string,
+  password: string,
+  name: string,
+  referredByCode?: string | null,
+) {
   const supabase = getSupabaseBrowserClient();
   return supabase.auth.signUp({
     email,
     password,
-    options: { data: { name }, emailRedirectTo: `${currentOrigin()}/auth/callback` },
+    options: {
+      data: { name, ...(referredByCode ? { referred_by_code: referredByCode } : {}) },
+      emailRedirectTo: `${currentOrigin()}/auth/callback`,
+    },
   });
 }
 

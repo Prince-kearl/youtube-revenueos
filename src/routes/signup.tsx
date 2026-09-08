@@ -1,6 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Zap, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Zap,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
@@ -23,9 +33,22 @@ function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
 
+  const [referredByCode] = useState(() => new URLSearchParams(window.location.search).get("ref"));
+
   useEffect(() => {
     if (!sessionLoading && user) navigate({ to: "/dashboard" });
   }, [sessionLoading, user, navigate]);
+
+  // Real click logging — best-effort, never blocks or affects the signup form. Runs once per
+  // mount; the click endpoint itself dedupes repeat visits from the same browser.
+  useEffect(() => {
+    if (!referredByCode) return;
+    fetch("/api/referrals/click", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: referredByCode }),
+    }).catch(() => {});
+  }, [referredByCode]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -36,7 +59,12 @@ function Signup() {
     if (password !== confirmPassword) return setError("Passwords do not match.");
 
     setSubmitting(true);
-    const { data, error: signUpError } = await signUpWithPassword(email, password, name.trim());
+    const { data, error: signUpError } = await signUpWithPassword(
+      email,
+      password,
+      name.trim(),
+      referredByCode,
+    );
     setSubmitting(false);
     if (signUpError) {
       setError(signUpError.message);
@@ -80,7 +108,9 @@ function Signup() {
             <CheckCircle2 className="h-10 w-10 text-success" />
             <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
             <p className="text-sm text-muted-foreground">
-              We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>. Click it to activate your account.
+              We sent a confirmation link to{" "}
+              <span className="font-medium text-foreground">{email}</span>. Click it to activate
+              your account.
             </p>
             <Link to="/" className="mt-2 text-sm font-medium text-primary hover:underline">
               Back to sign in
@@ -89,7 +119,9 @@ function Signup() {
         ) : (
           <>
             <h1 className="text-3xl font-extrabold tracking-tight">Create your account</h1>
-            <p className="mt-1 text-muted-foreground">Start turning your channel into a sales engine</p>
+            <p className="mt-1 text-muted-foreground">
+              Start turning your channel into a sales engine
+            </p>
 
             <button
               type="button"
@@ -97,7 +129,11 @@ function Signup() {
               disabled={googleSubmitting || submitting}
               className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-[var(--button-radius)] border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
             >
-              {googleSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />}
+              {googleSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />
+              )}
               Continue with Google
             </button>
 
@@ -109,7 +145,9 @@ function Signup() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
               )}
 
               <div>
@@ -158,7 +196,11 @@ function Signup() {
                     onClick={() => setShow((s) => !s)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {show ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                    {show ? (
+                      <EyeOff className="h-[18px] w-[18px]" />
+                    ) : (
+                      <Eye className="h-[18px] w-[18px]" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -182,7 +224,13 @@ function Signup() {
                 disabled={submitting || googleSubmitting}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Create Account <ArrowRight className="h-4 w-4" /></>}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Create Account <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </form>
 

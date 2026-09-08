@@ -30,7 +30,7 @@ import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
-import { useOnboarding } from "@/lib/stores";
+import { useOnboarding, useProfile } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
@@ -214,6 +214,7 @@ const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
 
 function Dashboard() {
   const { settings } = useChannelSettings();
+  const [profile] = useProfile();
   const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<
@@ -479,8 +480,10 @@ function Dashboard() {
   const subsChangePct = pctChange(subsSeries);
   const watchChangePct = pctChange(watchSeries);
   const videosChangePct = pctChange(videosSeries);
+  const firstName = profile.name.trim().split(/\s+/)[0] || profile.name;
   return (
     <DashboardLayout title="Dashboard">
+      <h1 className="mb-4 text-2xl font-bold tracking-tight">Hello, {firstName}</h1>
       <GettingStarted />
 
       {IS_LOCAL_DEMO && (
