@@ -7,15 +7,28 @@ import { fetchYoutubeVideoById } from "@/lib/server/google-oauth";
 
 const idSchema = z.string().uuid();
 const youtubeVideoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
+const contentAnalysisSchema = z.object({
+  mainTopic: z.string(),
+  contentType: z.string(),
+  audienceIntent: z.string(),
+  complexity: z.string(),
+  engagementPotential: z.string(),
+  summary: z.string(),
+  topics: z.array(z.string()),
+  strengths: z.array(z.string()),
+  opportunities: z.array(z.string()),
+});
 const saveVideoSchema = z.object({
   channelId: idSchema.optional(),
   youtubeVideoId: youtubeVideoIdSchema,
   description: z.string().trim().max(100_000).nullable().optional(),
   transcript: z.string().trim().max(500_000).nullable().optional(),
+  contentAnalysis: contentAnalysisSchema.nullable().optional(),
 });
 const updateVideoSchema = z.object({
   description: z.string().trim().max(100_000).nullable().optional(),
   transcript: z.string().trim().max(500_000).nullable().optional(),
+  contentAnalysis: contentAnalysisSchema.nullable().optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -138,7 +151,7 @@ export const Route = createFileRoute("/api/videos")({
             const { data: savedVideo, error: videoError } = await client
               .from("videos")
               .select(
-                "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at",
+                "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, content_analysis, analytics_updated_at, created_at, updated_at",
               )
               .eq("channel_id", channel.id)
               .eq("youtube_video_id", youtubeVideoId)
@@ -154,7 +167,7 @@ export const Route = createFileRoute("/api/videos")({
           const { data: videos, error: videosError } = await client
             .from("videos")
             .select(
-              "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at",
+              "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, content_analysis, analytics_updated_at, created_at, updated_at",
             )
             .eq("channel_id", channel.id)
             .order("published_at", { ascending: false });
@@ -203,7 +216,7 @@ export const Route = createFileRoute("/api/videos")({
 
           const { data: existingVideo, error: existingVideoError } = await client
             .from("videos")
-            .select("description")
+            .select("description, content_analysis")
             .eq("channel_id", channel.id)
             .eq("youtube_video_id", video.id)
             .maybeSingle();
@@ -217,6 +230,10 @@ export const Route = createFileRoute("/api/videos")({
                 youtube_video_id: video.id,
                 title: video.title,
                 description: input.description ?? existingVideo?.description ?? video.description,
+                content_analysis:
+                  input.contentAnalysis !== undefined
+                    ? input.contentAnalysis
+                    : (existingVideo?.content_analysis ?? null),
                 thumbnail: video.thumbnail,
                 published_at: video.publishedAt,
                 duration_seconds: video.durationSeconds,
@@ -225,7 +242,7 @@ export const Route = createFileRoute("/api/videos")({
               { onConflict: "channel_id,youtube_video_id" },
             )
             .select(
-              "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at",
+              "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, content_analysis, analytics_updated_at, created_at, updated_at",
             )
             .single();
           if (saveError || !savedVideo) return json({ error: "DATABASE_ERROR" }, { status: 500 });
@@ -269,8 +286,9 @@ export const Route = createFileRoute("/api/videos")({
 
           const update: Record<string, unknown> = {};
           if (input.description !== undefined) update.description = input.description;
+          if (input.contentAnalysis !== undefined) update.content_analysis = input.contentAnalysis;
           const videoColumns =
-            "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, analytics_updated_at, created_at, updated_at";
+            "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, content_analysis, analytics_updated_at, created_at, updated_at";
           let savedVideo;
           if (Object.keys(update).length > 0) {
             const { data, error: updateError } = await client

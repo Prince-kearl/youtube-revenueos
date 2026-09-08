@@ -244,10 +244,10 @@ function Videos() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search videos..."
-              className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary"
+              className="h-9 w-full rounded-full border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary"
             />
           </div>
-          <label className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] border border-border bg-card px-3 text-sm text-muted-foreground">
+          <label className="flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3 text-sm text-muted-foreground">
             <Filter className="h-4 w-4" />
             <span className="sr-only">Sort videos</span>
             <select
@@ -263,7 +263,7 @@ function Videos() {
           </label>
           <Link
             to="/add-video"
-            className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" /> Analyze Video
           </Link>

@@ -1,9 +1,14 @@
 import { getServerEnv, requireServerEnv } from "./env";
 
 // Do NOT request the youtubepartner scope (out of MVP scope) — read-only access is sufficient
-// for channel metadata, analytics, and revenue reporting.
+// for channel metadata, analytics, and revenue reporting. youtube.force-ssl IS requested despite
+// otherwise favoring read-only scopes: Comment Automation's whole point is posting real replies
+// (comments.insert), which read-only access cannot do. Channels connected before this scope was
+// added won't have it on their existing token — see isInsufficientScopeError in youtube-tokens.ts
+// for how that's detected and surfaced as a reconnect prompt rather than a silent failure.
 export const YOUTUBE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/youtube.readonly",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/yt-analytics.readonly",
   "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
 ];
@@ -378,6 +383,7 @@ export interface YoutubeCommentSummary {
   parentCommentId: string | null;
   authorName: string | null;
   authorChannelId: string | null;
+  authorAvatarUrl: string | null;
   text: string;
   likeCount: number;
   publishedAt: string | null;
@@ -392,19 +398,26 @@ export async function fetchRecentYoutubeComments(
 ): Promise<YoutubeCommentSummary[]> {
   const comments: YoutubeCommentSummary[] = [];
   for (const videoId of videoIds.slice(0, 12)) {
+    // The actual comment text/author live under snippet.topLevelComment.snippet — the thread's
+    // own snippet only carries thread-level fields (canReply, totalReplyCount, videoId, etc).
     const response = await youtubeApiRequest<{
       items?: Array<{
         id: string;
         snippet: {
           videoId: string;
-          parentId?: string;
-          textDisplay?: string;
-          authorDisplayName?: string;
-          authorChannelId?: { value?: string };
-          likeCount?: number;
-          publishedAt?: string;
-          updatedAt?: string;
           canReply?: boolean;
+          topLevelComment?: {
+            snippet?: {
+              parentId?: string;
+              textDisplay?: string;
+              authorDisplayName?: string;
+              authorProfileImageUrl?: string;
+              authorChannelId?: { value?: string };
+              likeCount?: number;
+              publishedAt?: string;
+              updatedAt?: string;
+            };
+          };
         };
       }>;
     }>(accessToken, "commentThreads", {
@@ -414,22 +427,67 @@ export async function fetchRecentYoutubeComments(
       order: "time",
     });
     for (const item of response.items ?? []) {
-      const snippet = item.snippet;
+      const threadSnippet = item.snippet;
+      const snippet = threadSnippet.topLevelComment?.snippet;
+      if (!snippet) continue;
       comments.push({
         id: item.id,
-        videoId: snippet.videoId,
+        videoId: threadSnippet.videoId,
         parentCommentId: snippet.parentId ?? null,
         authorName: snippet.authorDisplayName ?? null,
         authorChannelId: snippet.authorChannelId?.value ?? null,
+        authorAvatarUrl: snippet.authorProfileImageUrl ?? null,
         text: snippet.textDisplay ?? "",
         likeCount: Number(snippet.likeCount ?? 0),
         publishedAt: snippet.publishedAt ?? null,
         updatedAt: snippet.updatedAt ?? null,
-        canReply: snippet.canReply ?? null,
+        canReply: threadSnippet.canReply ?? null,
       });
     }
   }
   return comments.filter((comment) => comment.text);
+}
+
+export class YoutubeInsufficientScopeError extends Error {
+  constructor() {
+    super("YOUTUBE_INSUFFICIENT_SCOPE");
+    this.name = "YoutubeInsufficientScopeError";
+  }
+}
+
+// Posts a real, public reply to a top-level comment (YouTube Data API: comments.insert with
+// snippet.parentId). Costs 50 quota units — the caller is responsible for logging that, this
+// function only knows how to make the call. Channels connected before youtube.force-ssl was added
+// to YOUTUBE_OAUTH_SCOPES will get a 403 here; that's surfaced as YoutubeInsufficientScopeError so
+// the route can tell the user to reconnect instead of a generic failure.
+export async function postYoutubeCommentReply(
+  accessToken: string,
+  parentCommentId: string,
+  text: string,
+): Promise<{ id: string; publishedAt: string | null }> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/comments");
+  url.searchParams.set("part", "snippet");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ snippet: { parentId: parentCommentId, textOriginal: text } }),
+  });
+  if (!response.ok) {
+    if (response.status === 403) {
+      const body = await response.json().catch(() => null);
+      const reason = (body as { error?: { errors?: Array<{ reason?: string }> } } | null)?.error
+        ?.errors?.[0]?.reason;
+      if (reason === "insufficientPermissions" || reason === "forbidden") {
+        throw new YoutubeInsufficientScopeError();
+      }
+    }
+    throw new Error(`YOUTUBE_COMMENT_REPLY_FAILED:${response.status}`);
+  }
+  const data = (await response.json()) as { id: string; snippet?: { publishedAt?: string } };
+  return { id: data.id, publishedAt: data.snippet?.publishedAt ?? null };
 }
 
 export interface YoutubeAnalyticsQuery {

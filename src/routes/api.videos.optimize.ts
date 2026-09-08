@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { generateVideoDescription } from "@/lib/server/ai-generation";
+import { generateOptimizationSuggestions } from "@/lib/server/ai-generation";
 
 const inputSchema = z.object({
   channelId: z.string().uuid(),
@@ -17,6 +17,8 @@ const inputSchema = z.object({
     )
     .max(12)
     .optional(),
+  voice: z.string().trim().max(60).nullable().optional(),
+  customInstructions: z.string().trim().max(2_000).nullable().optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -38,7 +40,7 @@ async function parseJson(request: Request): Promise<unknown> {
   }
 }
 
-export const Route = createFileRoute("/api/videos/generate")({
+export const Route = createFileRoute("/api/videos/optimize")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -53,13 +55,15 @@ export const Route = createFileRoute("/api/videos/generate")({
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
-          const description = await generateVideoDescription({
+          const suggestions = await generateOptimizationSuggestions({
             title: input.title,
             currentDescription: input.currentDescription,
             transcript: input.transcript,
             destinations: input.destinations,
+            voice: input.voice,
+            customInstructions: input.customInstructions,
           });
-          return json({ data: { description } });
+          return json({ data: suggestions });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
@@ -70,7 +74,7 @@ export const Route = createFileRoute("/api/videos/generate")({
           if (error instanceof Error && error.message.startsWith("AI_PROVIDER_FAILED:")) {
             return json({ error: "AI_PROVIDER_FAILED" }, { status: 502 });
           }
-          console.error("Video description generation failed");
+          console.error("Video optimization generation failed");
           return json({ error: "AI_PROVIDER_FAILED" }, { status: 502 });
         }
       },

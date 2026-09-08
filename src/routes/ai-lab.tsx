@@ -1,77 +1,292 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Sparkles, Zap, FileText, ChevronDown, RefreshCw, Pencil, Copy, Check, Loader2 } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Sparkles,
+  FileText,
+  RefreshCw,
+  Copy,
+  Check,
+  Loader2,
+  ChevronDown,
+  Search,
+  Play,
+} from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { llm } from "@/lib/llm";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { useLocalStore } from "@/lib/local-store";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/ai-lab")({
   component: AILab,
 });
 
 const voices = ["Professional", "Casual", "Educational", "Energetic"];
-const ctas = ["Course signup", "Newsletter", "Coaching", "Affiliates"];
 
-const transcript = `In today's video, I'm going to break down exactly how I generated over $100,000 in revenue from my YouTube channel in the past 12 months. This isn't just AdSense money — I'm talking about the full stack: brand deals, digital products, memberships, and affiliate revenue. I'll show you the exact split, what worked, what didn't, and how you can replicate this for your own channel regardless of your subscriber count...`;
+type Destination = {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  description: string | null;
+  status: "active" | "archived";
+};
 
-const DEFAULT_DESCRIPTION = `🚀 How I Made $100K on YouTube (Complete Revenue Breakdown)
+type YoutubeVideo = {
+  id: string;
+  channelId: string | null;
+  title: string;
+  description: string | null;
+  thumbnail: string | null;
+  publishedAt: string | null;
+  duration: string | null;
+  privacyStatus: string | null;
+  url: string;
+  views: number;
+  likes: number | null;
+  comments: number | null;
+};
 
-In this video, I reveal the exact strategies that helped me generate $100,000+ in YouTube revenue — covering every monetization stream from AdSense to 6-figure brand deals.
+type AnalyzeVideoResponse =
+  | {
+      data: {
+        channel: { id: string; youtubeChannelId: string; title: string; handle: string | null };
+        video: YoutubeVideo;
+        savedVideo: { id: string; description: string | null } | null;
+        transcript: { id: string; transcript: string } | null;
+      };
+    }
+  | { error: string };
 
-✅ What you'll learn:
-→ The 4 revenue streams that actually matter
-→ How to land premium brand deals (script included)
-→ My membership funnel that converts at 8%
-→ Affiliate stacking strategy for passive income
+type MyVideosResponse =
+  | { status: "not_connected"; data: null }
+  | {
+      status: "connected";
+      data: { videos: YoutubeVideo[]; videosStatus: "available" | "disabled" };
+    }
+  | { error: string };
 
-📌 RESOURCES MENTIONED:
-→ Free Creator Business Toolkit: https://creator.io/toolkit
-→ My Course (Tubify): https://creator.io/course
+type DestinationResponse = { data?: Destination[]; error?: string };
 
-🎬 CHAPTERS:
-0:00 - The Full Picture
-2:30 - AdSense Optimization
-8:45 - Landing Brand Deals
-15:20 - Membership Strategy
-22:10 - Affiliate Revenue Stacking
-28:00 - Putting It Together
+type OptimizeResponse =
+  | { data: { description: string; titleIdeas: string[]; tags: string[]; ctaIdeas: string[] } }
+  | { error: string };
 
-🔔 Subscribe for weekly creator business content → @YourChannel
+function formatDate(value: string | null): string {
+  if (!value) return "Date unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+        date,
+      );
+}
 
-#YouTubeRevenue #CreatorEconomy #YouTubeMonetization #ContentCreator #PassiveIncome`;
+function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
+    value,
+  );
+}
+
+function errorMessage(error: string): string {
+  const messages: Record<string, string> = {
+    CHANNEL_NOT_FOUND:
+      "We couldn’t find the selected YouTube channel. Choose another channel and try again.",
+    DATABASE_ERROR: "We couldn’t load that. Please try again.",
+    SERVER_ERROR: "Something went wrong. Please try again in a moment.",
+    YOUTUBE_DATA_UNAVAILABLE: "YouTube isn’t responding right now. Please try again in a moment.",
+    AI_PROVIDER_NOT_CONFIGURED:
+      "AI writing isn’t available yet. Add a provider API key in Settings.",
+    AI_PROVIDER_FAILED: "We couldn’t complete that AI request right now. Please try again.",
+  };
+  return messages[error] ?? "Something went wrong. Try again.";
+}
 
 function AILab() {
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+
+  const [myVideos, setMyVideos] = useState<YoutubeVideo[]>([]);
+  const [myVideosStatus, setMyVideosStatus] = useState<
+    "idle" | "loading" | "loaded" | "error" | "not_connected"
+  >("idle");
+  const [myVideosSyncDisabled, setMyVideosSyncDisabled] = useState(false);
+  const [myVideosRetryToken, setMyVideosRetryToken] = useState(0);
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+  const [videoSearch, setVideoSearch] = useState("");
+
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [video, setVideo] = useState<YoutubeVideo | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [videoLoadStatus, setVideoLoadStatus] = useState<"idle" | "loading" | "loaded" | "error">(
+    "idle",
+  );
+  const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
+
+  const [description, setDescription] = useState("");
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [voice, setVoice] = useState("Professional");
-  const [cta, setCta] = useState("Course signup");
-  const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
+  const [customInstructions, setCustomInstructions] = useState("");
+
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinationsStatus, setDestinationsStatus] = useState<"loading" | "loaded" | "error">(
+    "loading",
+  );
+  const [selectedDestinationId, setSelectedDestinationId] = useState<string>("");
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    setMyVideosStatus("loading");
+    const params = new URLSearchParams({ limit: "25" });
+    if (activeChannelId) params.set("channelId", activeChannelId);
+
+    (async () => {
+      const response = await fetch(`/api/youtube/videos?${params.toString()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const body = (await response.json()) as MyVideosResponse;
+      if ("status" in body && body.status === "not_connected") {
+        setMyVideosStatus("not_connected");
+        return;
+      }
+      if (!response.ok || !("data" in body) || !body.data) {
+        throw new Error("error" in body ? body.error : "SERVER_ERROR");
+      }
+      setMyVideos(body.data.videos);
+      setMyVideosSyncDisabled(body.data.videosStatus === "disabled");
+      setMyVideosStatus("loaded");
+    })().catch((reason: unknown) => {
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      setMyVideosStatus("error");
+    });
+    return () => controller.abort();
+  }, [activeChannelId, myVideosRetryToken]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/destinations?status=active", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as DestinationResponse;
+        if (!response.ok || !body.data) throw new Error();
+        setDestinations(body.data);
+        setDestinationsStatus("loaded");
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setDestinationsStatus("error");
+      });
+    return () => controller.abort();
+  }, []);
+
+  const filteredMyVideos = useMemo(() => {
+    const query = videoSearch.trim().toLowerCase();
+    if (!query) return myVideos;
+    return myVideos.filter((item) => item.title.toLowerCase().includes(query));
+  }, [myVideos, videoSearch]);
+
+  const selectedVideoSummary = myVideos.find((item) => item.id === selectedVideoId) ?? null;
+
+  const loadVideo = async (youtubeVideoId: string) => {
+    setSelectedVideoId(youtubeVideoId);
+    setVideoPickerOpen(false);
+    setVideoSearch("");
+    setVideoLoadStatus("loading");
+    setVideoLoadError(null);
+    setVideo(null);
+    setTranscript("");
+    setDescription("");
+    setDescriptionTouched(false);
+    try {
+      const params = new URLSearchParams({ videoId: youtubeVideoId });
+      if (activeChannelId) params.set("channelId", activeChannelId);
+      const response = await fetch(`/api/youtube/analyze-video?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const body = (await response.json()) as AnalyzeVideoResponse;
+      if (!response.ok || !("data" in body)) {
+        throw new Error("error" in body ? body.error : "SERVER_ERROR");
+      }
+      setVideo(body.data.video);
+      setSelectedChannelId(body.data.channel.id);
+      setTranscript(body.data.transcript?.transcript ?? "");
+      const startingDescription =
+        body.data.savedVideo?.description ?? body.data.video.description ?? "";
+      setDescription(startingDescription);
+      setDescriptionTouched(Boolean(body.data.savedVideo?.description));
+      setVideoLoadStatus("loaded");
+    } catch (reason: unknown) {
+      const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
+      setVideoLoadError(errorMessage(code));
+      setVideoLoadStatus("error");
+    }
+  };
+
   const handleGenerate = async () => {
+    if (!video || !selectedChannelId) return;
     setIsGenerating(true);
-    const result = await llm.generateVideoDescription({ transcript, voice, cta });
-    setDescription(result);
-    setIsGenerating(false);
+    try {
+      const destination = destinations.find((d) => d.id === selectedDestinationId);
+      const response = await fetch("/api/videos/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: selectedChannelId,
+          title: video.title,
+          currentDescription: description || video.description,
+          transcript: transcript || null,
+          destinations: destination ? [{ name: destination.name, url: destination.url }] : [],
+          voice,
+          customInstructions: customInstructions || null,
+        }),
+      });
+      const body = (await response.json()) as OptimizeResponse;
+      if (!response.ok || !("data" in body)) {
+        throw new Error("error" in body ? body.error : "AI_PROVIDER_FAILED");
+      }
+      setDescription(body.data.description);
+      setDescriptionTouched(true);
+      toast.success("Description generated");
+    } catch (reason: unknown) {
+      toast.error(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCopy = () => {
+    if (!description) return;
     navigator.clipboard?.writeText(description);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const linkCount = (description.match(/https:\/\//g) ?? []).length;
-  const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
+  const linkCount = useMemo(() => (description.match(/https?:\/\//g) ?? []).length, [description]);
+  const wordCount = useMemo(
+    () => description.trim().split(/\s+/).filter(Boolean).length,
+    [description],
+  );
+
+  const loaded = videoLoadStatus === "loaded" && Boolean(video);
+  const triggerVideo = video && video.id === selectedVideoId ? video : selectedVideoSummary;
 
   return (
     <DashboardLayout title="AI Lab">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">AI Description Lab</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Generate high-converting descriptions powered by AI</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Generate a description for one of your videos, powered by AI
+          </p>
         </div>
-        <span className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
-          <Zap className="h-4 w-4" fill="currentColor" /> 47 credits remaining
+        <span className="flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+          <Sparkles className="h-4 w-4" /> AI-generated descriptions
         </span>
       </div>
 
@@ -81,21 +296,182 @@ function AILab() {
           <div className="relative rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h3 className="font-semibold">Select Video</h3>
-            <button className="mt-3 flex w-full items-center justify-between rounded-[var(--button-radius)] border border-border bg-accent/30 px-4 py-3 text-sm">
-              How I Made $100K on YouTube
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </button>
+
+            {myVideosStatus === "loading" && (
+              <Skeleton className="mt-3 h-11 w-full rounded-[var(--button-radius)]" />
+            )}
+
+            {myVideosStatus === "not_connected" && (
+              <p className="mt-3 rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
+                Connect a YouTube channel in{" "}
+                <Link to="/settings" className="text-primary hover:underline">
+                  Settings
+                </Link>{" "}
+                to select a video.
+              </p>
+            )}
+
+            {myVideosStatus === "error" && (
+              <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
+                <span>We couldn’t load your videos.</span>
+                <button
+                  type="button"
+                  onClick={() => setMyVideosRetryToken((n) => n + 1)}
+                  className="flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Try again
+                </button>
+              </div>
+            )}
+
+            {myVideosStatus === "loaded" && myVideos.length === 0 && (
+              <p className="mt-3 rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
+                {myVideosSyncDisabled
+                  ? "Video sync is turned off in Settings, so no videos are available here."
+                  : "No published videos are available for this channel."}
+              </p>
+            )}
+
+            {myVideosStatus === "loaded" && myVideos.length > 0 && (
+              <Popover
+                open={videoPickerOpen}
+                onOpenChange={(open) => {
+                  setVideoPickerOpen(open);
+                  if (!open) setVideoSearch("");
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="mt-3 flex w-full items-center gap-3 rounded-[var(--button-radius)] border border-border bg-accent/30 px-3 py-2.5 text-left text-sm outline-none focus:border-primary"
+                  >
+                    {triggerVideo ? (
+                      triggerVideo.thumbnail ? (
+                        <img
+                          src={triggerVideo.thumbnail}
+                          alt=""
+                          className="h-9 w-16 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded bg-accent">
+                          <Play className="h-3.5 w-3.5" />
+                        </div>
+                      )
+                    ) : null}
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        !triggerVideo && "text-muted-foreground",
+                      )}
+                    >
+                      {triggerVideo ? triggerVideo.title : "Choose a video…"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                >
+                  <div className="relative border-b border-border p-2">
+                    <Search className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      autoFocus
+                      value={videoSearch}
+                      onChange={(event) => setVideoSearch(event.target.value)}
+                      placeholder="Search your videos..."
+                      aria-label="Search your videos"
+                      className="h-9 w-full rounded-lg border border-transparent bg-accent/30 pl-9 pr-3 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                  {filteredMyVideos.length === 0 ? (
+                    <p className="p-6 text-center text-sm text-muted-foreground">
+                      No videos match “{videoSearch}”.
+                    </p>
+                  ) : (
+                    <div className="max-h-72 space-y-1 overflow-y-auto p-1.5">
+                      {filteredMyVideos.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => void loadVideo(item.id)}
+                          className={cn(
+                            "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors",
+                            item.id === selectedVideoId ? "bg-primary/10" : "hover:bg-accent",
+                          )}
+                        >
+                          {item.thumbnail ? (
+                            <img
+                              src={item.thumbnail}
+                              alt=""
+                              className="h-10 w-[4.5rem] shrink-0 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-10 w-[4.5rem] shrink-0 items-center justify-center rounded bg-accent">
+                              <Play className="h-3.5 w-3.5" />
+                            </div>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{item.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {item.duration ?? "Duration unavailable"} ·{" "}
+                              {formatDate(item.publishedAt)} · {formatCompactNumber(item.views)}{" "}
+                              views
+                            </span>
+                          </span>
+                          {videoLoadStatus === "loading" && item.id === selectedVideoId && (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {videoLoadStatus === "error" && videoLoadError && (
+              <p className="mt-2 text-sm text-destructive">{videoLoadError}</p>
+            )}
           </div>
 
           <div className="relative rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4 text-brand-blue" /> Transcript</h3>
-              <span className="rounded-md bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">Auto-imported</span>
+              <h3 className="flex items-center gap-2 font-semibold">
+                <FileText className="h-4 w-4 text-brand-blue" /> Transcript
+              </h3>
+              {loaded && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    transcript ? "bg-success/15 text-success" : "bg-accent text-muted-foreground",
+                  )}
+                >
+                  {transcript ? "Saved" : "Not available"}
+                </span>
+              )}
             </div>
-            <div className="mt-3 rounded-xl border border-border bg-accent/20 p-4 text-sm leading-relaxed text-muted-foreground">
-              {transcript}
-            </div>
+            {videoLoadStatus === "loading" ? (
+              <Skeleton className="mt-3 h-24 w-full rounded-xl" />
+            ) : !loaded ? (
+              <p className="mt-3 rounded-xl border border-border bg-accent/20 p-4 text-sm text-muted-foreground">
+                Select a video to see its transcript.
+              </p>
+            ) : transcript ? (
+              <div className="mt-3 max-h-40 overflow-y-auto rounded-xl border border-border bg-accent/20 p-4 text-sm leading-relaxed text-muted-foreground">
+                {transcript}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl border border-border bg-accent/20 p-4 text-sm text-muted-foreground">
+                No transcript saved for this video yet. Descriptions generate fine from the title
+                alone, but adding a transcript in{" "}
+                <Link to="/add-video" className="text-primary hover:underline">
+                  Analyze Video
+                </Link>{" "}
+                gives sharper results.
+              </p>
+            )}
           </div>
 
           <div className="relative rounded-xl card-gradient-outline p-5">
@@ -107,9 +483,12 @@ function AILab() {
               {voices.map((v) => (
                 <button
                   key={v}
+                  type="button"
                   onClick={() => setVoice(v)}
-                  className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                    voice === v ? "border-primary bg-primary/15 text-primary" : "border-border bg-accent/20 text-muted-foreground hover:text-foreground"
+                  className={`rounded-full border py-2.5 text-sm font-medium transition-colors ${
+                    voice === v
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border bg-accent/20 text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {v}
@@ -117,34 +496,60 @@ function AILab() {
               ))}
             </div>
 
-            <p className="mt-4 text-sm text-muted-foreground">Primary CTA</p>
-            <div className="mt-2 grid grid-cols-2 gap-2.5">
-              {ctas.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCta(c)}
-                  className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                    cta === c ? "border-primary bg-primary/15 text-primary" : "border-border bg-accent/20 text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+            <p className="mt-4 text-sm text-muted-foreground">Feature a destination (optional)</p>
+            {destinationsStatus === "loading" && (
+              <Skeleton className="mt-2 h-11 w-full rounded-lg" />
+            )}
+            {destinationsStatus === "error" && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                We couldn’t load your destinations.
+              </p>
+            )}
+            {destinationsStatus === "loaded" && destinations.length === 0 && (
+              <p className="mt-2 rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
+                No destinations yet.{" "}
+                <Link to="/link-tracking" className="text-primary hover:underline">
+                  Add one in Link Tracking
+                </Link>{" "}
+                to feature it here.
+              </p>
+            )}
+            {destinationsStatus === "loaded" && destinations.length > 0 && (
+              <select
+                aria-label="Feature a destination"
+                value={selectedDestinationId}
+                onChange={(event) => setSelectedDestinationId(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+              >
+                <option value="">None</option>
+                {destinations.map((destination) => (
+                  <option key={destination.id} value={destination.id}>
+                    {destination.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <p className="mt-4 text-sm text-muted-foreground">Custom Instructions</p>
             <textarea
               rows={3}
+              value={customInstructions}
+              onChange={(event) => setCustomInstructions(event.target.value)}
               placeholder="e.g., Always mention the free toolkit first, use emojis sparingly..."
               className="mt-2 w-full resize-none rounded-xl border border-border bg-accent/20 p-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
             />
 
             <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={() => void handleGenerate()}
+              disabled={!loaded || isGenerating}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
               {isGenerating ? "Generating…" : "Generate Description"}
             </button>
           </div>
@@ -154,29 +559,58 @@ function AILab() {
         <div className="relative rounded-xl card-gradient-outline p-5">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" /> Generated Description</h3>
+            <h3 className="flex items-center gap-2 font-semibold">
+              <Sparkles className="h-4 w-4 text-primary" /> Generated Description
+            </h3>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <button onClick={handleGenerate} disabled={isGenerating} className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground disabled:opacity-50" aria-label="Regenerate">
+              <button
+                type="button"
+                onClick={() => void handleGenerate()}
+                disabled={!loaded || isGenerating}
+                className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground disabled:opacity-50"
+                aria-label="Regenerate"
+              >
                 <RefreshCw className={`h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
               </button>
-              <button className="flex h-8 w-8 items-center justify-center rounded-[var(--button-radius)] hover:bg-accent hover:text-foreground" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
-              <button onClick={handleCopy} className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={!description}
+                className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground disabled:opacity-50"
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied" : "Copy"}
               </button>
             </div>
           </div>
 
-          <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">{description}</pre>
+          <textarea
+            value={description}
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setDescriptionTouched(true);
+            }}
+            disabled={!loaded}
+            rows={16}
+            placeholder={
+              loaded
+                ? "Click Generate Description, or write your own here..."
+                : "Select a video to get started..."
+            }
+            className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          />
 
-          <div className="mt-5 flex items-end justify-between border-t border-border pt-4">
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
             <div className="flex gap-8">
               <Stat value={description.length.toLocaleString()} label="Characters" />
               <Stat value={wordCount.toLocaleString()} label="Words" />
               <Stat value={String(linkCount)} label="Links" />
             </div>
-            <span className="flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" /> Optimized
-            </span>
+            {descriptionTouched && (
+              <span className="flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" /> Optimized
+              </span>
+            )}
           </div>
         </div>
       </div>

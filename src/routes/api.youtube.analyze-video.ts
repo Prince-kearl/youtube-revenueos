@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/youtube/analyze-video")({
             ? await client
                 .from("videos")
                 .select(
-                  "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status",
+                  "id, channel_id, youtube_video_id, title, description, thumbnail, published_at, duration_seconds, status, content_analysis",
                 )
                 .eq("channel_id", channel.id)
                 .eq("youtube_video_id", videoId)

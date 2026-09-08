@@ -96,6 +96,32 @@ function isPermissionError(error: unknown): boolean {
   return reason === "401" || reason === "403";
 }
 
+// cpm is a rate, not additive — summing a month's worth of daily cpm values (what
+// mergeAnalyticsReports does for real additive metrics like views/revenue) would produce a
+// meaningless inflated number, so it gets its own averaging pass instead of going through that
+// function.
+function averageCpmByMonth(payload: AnalyticsPayload | null): Map<string, number> {
+  const result = new Map<string, number>();
+  if (!payload?.columnHeaders?.length) return result;
+  const headers = payload.columnHeaders.map((header) => header.name);
+  const dayIndex = headers.indexOf("day");
+  const cpmIndex = headers.indexOf("cpm");
+  if (dayIndex < 0 || cpmIndex < 0) return result;
+
+  const sums = new Map<string, { total: number; count: number }>();
+  for (const row of payload.rows ?? []) {
+    const month = String(row[dayIndex] ?? "").slice(0, 7);
+    const value = row[cpmIndex];
+    if (month.length !== 7 || typeof value !== "number") continue;
+    const entry = sums.get(month) ?? { total: 0, count: 0 };
+    entry.total += value;
+    entry.count += 1;
+    sums.set(month, entry);
+  }
+  for (const [month, { total, count }] of sums) result.set(month, total / count);
+  return result;
+}
+
 function mergeAnalyticsReports(
   ...payloads: Array<AnalyticsPayload | null>
 ): AnalyticsPayload | null {
@@ -238,10 +264,13 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           let analyticsStatus: AnalyticsAvailability = "available";
           let revenueStatus: AnalyticsAvailability = "available";
           let watchTimeStatus: AnalyticsAvailability = "available";
+          let cpmStatus: AnalyticsAvailability = "available";
+          let cpmByMonth: Array<{ month: string; cpm: number }> = [];
           if (!settings.import_analytics) {
             analyticsStatus = "disabled";
             revenueStatus = "disabled";
             watchTimeStatus = "disabled";
+            cpmStatus = "disabled";
           } else {
             let coreAnalytics: AnalyticsPayload | null = null;
             try {
@@ -291,21 +320,43 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               watchTimeStatus = isPermissionError(error) ? "forbidden" : "unavailable";
               logOptionalFailure("analytics_watch_time", channelRow.user_id, channelRow.id, error);
             }
+            // cpm belongs to a different YouTube Analytics metric group than estimatedRevenue and
+            // can't be requested in the same call — see averageCpmByMonth for why it's aggregated
+            // separately from the additive metrics above too.
+            let cpmPayload: AnalyticsPayload | null = null;
+            try {
+              cpmPayload = (await queryYoutubeAnalytics(accessToken, {
+                channelId: channel.channelId,
+                startDate: isoDate(startDate),
+                endDate: isoDate(endDate),
+                metrics: ["cpm"],
+                dimensions: ["day"],
+              })) as AnalyticsPayload;
+              analyticsRequestSucceeded = true;
+            } catch (error) {
+              cpmStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              logOptionalFailure("analytics_cpm", channelRow.user_id, channelRow.id, error);
+            }
+            cpmByMonth = [...averageCpmByMonth(cpmPayload)].map(([month, cpm]) => ({ month, cpm }));
+            if (cpmStatus === "available" && !cpmByMonth.length) cpmStatus = "unavailable";
             analytics = mergeAnalyticsReports(coreAnalytics, revenue, watchTime);
             // Only downgrades a still-"available" status (the request succeeded but came back
             // empty) — must not run when the catch blocks above already classified the failure as
             // "forbidden", since the payload is null there too and this would otherwise silently
             // relabel a permission error as "no data reported".
-            if (analyticsStatus === "available" && !coreAnalytics?.rows?.length) analyticsStatus = "unavailable";
-            if (revenueStatus === "available" && !revenue?.rows?.length) revenueStatus = "unavailable";
-            if (watchTimeStatus === "available" && !watchTime?.rows?.length) watchTimeStatus = "unavailable";
+            if (analyticsStatus === "available" && !coreAnalytics?.rows?.length)
+              analyticsStatus = "unavailable";
+            if (revenueStatus === "available" && !revenue?.rows?.length)
+              revenueStatus = "unavailable";
+            if (watchTimeStatus === "available" && !watchTime?.rows?.length)
+              watchTimeStatus = "unavailable";
           }
           if (settings.import_analytics) {
             recordQuotaEvent(serviceClient, {
               user_id: channelRow.user_id,
               channel_id: channelRow.id,
               operation: "reports.query",
-              quota_units: 3,
+              quota_units: 4,
               succeeded: analyticsRequestSucceeded,
             });
           }
@@ -379,7 +430,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           let videoInsightsStatus: AnalyticsAvailability =
             settings.import_analytics && settings.auto_sync_videos ? "available" : "disabled";
           let videoSubscribersGained = 0;
-          let deviceViews: { desktop: number; mobile: number; tablet: number } = {
+          const deviceViews: { desktop: number; mobile: number; tablet: number } = {
             desktop: 0,
             mobile: 0,
             tablet: 0,
@@ -403,7 +454,9 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                   filters: `video==${latestVideo.id}`,
                 }) as Promise<AnalyticsPayload>,
               ]);
-              videoSubscribersGained = Number(analyticsRows(subsPayload)[0]?.subscribersGained ?? 0);
+              videoSubscribersGained = Number(
+                analyticsRows(subsPayload)[0]?.subscribersGained ?? 0,
+              );
               for (const row of analyticsRows(devicePayload)) {
                 const device = String(row.deviceType ?? "").toUpperCase();
                 const views = Number(row.views ?? 0);
@@ -524,16 +577,23 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                   }).catch(() => null) as Promise<AnalyticsPayload | null>,
                 ]);
                 const currentTrendById = new Map(
-                  analyticsRows(currentTrendPayload).map((row) => [String(row.video ?? ""), Number(row.views ?? 0)]),
+                  analyticsRows(currentTrendPayload).map((row) => [
+                    String(row.video ?? ""),
+                    Number(row.views ?? 0),
+                  ]),
                 );
                 const prevTrendById = new Map(
-                  analyticsRows(prevTrendPayload).map((row) => [String(row.video ?? ""), Number(row.views ?? 0)]),
+                  analyticsRows(prevTrendPayload).map((row) => [
+                    String(row.video ?? ""),
+                    Number(row.views ?? 0),
+                  ]),
                 );
 
                 topRevenueVideos = revenueRows.map((row) => {
                   const prevViews = prevTrendById.get(row.videoId) ?? 0;
                   const currentViews = currentTrendById.get(row.videoId) ?? 0;
-                  const changePercent = prevViews > 0 ? ((currentViews - prevViews) / prevViews) * 100 : null;
+                  const changePercent =
+                    prevViews > 0 ? ((currentViews - prevViews) / prevViews) * 100 : null;
                   return { ...row, changePercent };
                 });
               } else {
@@ -606,6 +666,8 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 analyticsStatus,
                 revenueStatus,
                 watchTimeStatus,
+                cpmByMonth,
+                cpmStatus,
                 audience: { topCountries, ageGroups, genders },
                 audienceStatus,
                 videoInsights: { subscribersGained: videoSubscribersGained, devices: deviceViews },

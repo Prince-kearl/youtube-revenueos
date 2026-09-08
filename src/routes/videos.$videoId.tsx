@@ -314,18 +314,18 @@ function VideoDetail() {
             type="button"
             onClick={() => setRetryNonce((value) => value + 1)}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing" : "Refresh"}
           </button>
-          <div className="flex rounded-lg bg-accent p-1 text-xs">
+          <div className="flex rounded-full bg-accent p-1 text-xs">
             {ranges.map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => setRange(item)}
-                className={`rounded-[var(--button-radius)] px-3 py-1.5 font-medium transition-colors ${item === range ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-full px-3 py-1.5 font-medium transition-colors ${item === range ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {item}
               </button>

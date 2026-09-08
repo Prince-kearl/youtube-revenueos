@@ -1,21 +1,119 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { DollarSign, Eye, RefreshCw, TrendingUp, Youtube } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  PieChart,
+  Pie,
+  Cell,
+  Line,
+  LineChart,
+} from "recharts";
+import { RefreshCw, Youtube } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { StatCard } from "@/components/ui-bits";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
-import { StatCardSkeleton, TableRowSkeleton } from "@/components/skeletons";
+import { TableRowSkeleton, KpiTrendCardSkeleton } from "@/components/skeletons";
+import { KpiTrendCard } from "@/components/KpiTrendCard";
 
 export const Route = createFileRoute("/analytics")({
   component: Analytics,
 });
 
+type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
+type TrendRow = {
+  month?: string;
+  views?: number;
+  estimatedRevenue?: number;
+  estimatedAdRevenue?: number;
+  estimatedRedPartnerRevenue?: number;
+  watchTimeMinutes?: number;
+};
+type CpmMonth = { month: string; cpm: number };
+type TrendData = {
+  analytics: TrendRow[];
+  revenueStatus: AnalyticsAvailability;
+  watchTimeStatus: AnalyticsAvailability;
+  cpmByMonth: CpmMonth[];
+  cpmStatus: AnalyticsAvailability;
+};
+type TrendResponse = { status?: string; data?: TrendData | null; error?: string };
+
+// YouTube itself only ever distinguishes these two revenue types plus an unlabeled remainder
+// (Shorts fund, Super Chat/Thanks, channel memberships, etc. are all folded into estimatedRevenue
+// without their own line item in the public API) — "Other" is that remainder, computed here, not
+// a stand-in for brand deals or affiliate income, which YouTube has no visibility into at all.
+const REVENUE_SOURCE_COLORS = {
+  ads: "var(--color-brand-blue)",
+  premium: "var(--color-brand-purple)",
+  other: "var(--color-brand-green)",
+} as const;
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatHours(value: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
+    value / 60,
+  );
+}
+
+function formatCpm(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatRevenuePerView(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(value);
+}
+
+function monthLabel(monthKey: string | undefined): string {
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "";
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// Month-over-month % change between the last two points of a raw (non-cumulative) series — null
+// when there isn't enough data or the baseline is zero (percent change is undefined there).
+function pctChange(series: number[]): number | null {
+  if (series.length < 2) return null;
+  const prev = series.at(-2)!;
+  const curr = series.at(-1)!;
+  if (prev === 0) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+function signed(value: number, formatter: (n: number) => string): string {
+  return `${value >= 0 ? "+" : "-"}${formatter(Math.abs(value))}`;
+}
+
 type Range = "3M" | "6M" | "12M";
 type Tab = "video" | "traffic";
+type SourceTab = "revenue" | "cpm";
 type BreakdownRow = Record<string, string | number | null>;
 
 type BreakdownData = {
@@ -65,6 +163,7 @@ function formatTrafficSource(value: string | number | null | undefined): string 
 function Analytics() {
   const [range, setRange] = useState<Range>("12M");
   const [tab, setTab] = useState<Tab>("video");
+  const [sourceTab, setSourceTab] = useState<SourceTab>("revenue");
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [retryNonce, setRetryNonce] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -121,19 +220,79 @@ function Analytics() {
     return () => controller.abort();
   }, [range, activeChannelId, retryNonce]);
 
+  // Backs the KpiTrendCards below, same as the Dashboard page — always a trailing 12-month window
+  // (that's what /api/youtube/dashboard reports), independent of the 3M/6M/12M range control above,
+  // which only affects the breakdown table. Fetched separately so a failure here doesn't block the
+  // breakdown table from rendering.
+  const [trend, setTrend] = useState<{
+    data: TrendData | null;
+    status: "loading" | "ready" | "error";
+  }>({ data: null, status: "loading" });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setTrend((previous) => ({ data: previous.data, status: previous.data ? "ready" : "loading" }));
+    const params = new URLSearchParams();
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    const query = params.toString();
+    fetch(`/api/youtube/dashboard${query ? `?${query}` : ""}`, {
+      cache: "default",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = (await response.json()) as TrendResponse;
+        if (!response.ok || !body.data) throw new Error();
+        setTrend({ data: body.data, status: "ready" });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setTrend({ data: null, status: "error" });
+      });
+    return () => controller.abort();
+  }, [activeChannelId, retryNonce]);
+
+  const trendRows = useMemo(
+    () =>
+      (trend.data?.analytics ?? [])
+        .filter((r) => r.month)
+        .slice()
+        .sort((a, b) => (a.month! > b.month! ? 1 : -1)),
+    [trend.data],
+  );
+  const trendRevenueSeries = trendRows.map((r) => Number(r.estimatedRevenue ?? 0));
+  const trendViewsSeries = trendRows.map((r) => Number(r.views ?? 0));
+  const trendWatchSeries = trendRows.map((r) => Number(r.watchTimeMinutes ?? 0));
+  const trendLatestMonthLabel = monthLabel(trendRows.at(-1)?.month);
+  const trendPeriodLabel = trendRows.length ? `Past ${trendRows.length} months` : "";
+  const trendRevenueChangePct = pctChange(trendRevenueSeries);
+  const trendViewsChangePct = pctChange(trendViewsSeries);
+  const trendWatchChangePct = pctChange(trendWatchSeries);
+  const trendTotalRevenue = trendRevenueSeries.reduce((sum, v) => sum + v, 0);
+  const trendTotalViews = trendViewsSeries.reduce((sum, v) => sum + v, 0);
+  const trendTotalWatch = trendWatchSeries.reduce((sum, v) => sum + v, 0);
+
+  // Revenue per view: a real ratio per month (not summed — a "sum of monthly rates" is
+  // meaningless), same trailing-12-month window as the cards above.
+  const trendRevenuePerViewSeries = trendRows.map((r) => {
+    const views = Number(r.views ?? 0);
+    return views > 0 ? Number(r.estimatedRevenue ?? 0) / views : 0;
+  });
+  const trendRevenuePerViewChangePct = pctChange(trendRevenuePerViewSeries);
+  const trendAvgRevenuePerView = trendTotalViews > 0 ? trendTotalRevenue / trendTotalViews : 0;
+
+  // cpm is already a monthly average from the server (see averageCpmByMonth in
+  // api.youtube.dashboard.ts) — looked up by month key since cpmByMonth only contains months that
+  // actually had ad-performance data, which can differ from the revenue/views months above.
+  const cpmByMonthMap = new Map((trend.data?.cpmByMonth ?? []).map((row) => [row.month, row.cpm]));
+  const trendCpmSeries = trendRows.map((r) => cpmByMonthMap.get(r.month ?? "") ?? 0);
+  const trendCpmChangePct = pctChange(trendCpmSeries);
+  const cpmValues = [...cpmByMonthMap.values()];
+  const trendAvgCpm = cpmValues.length
+    ? cpmValues.reduce((sum, v) => sum + v, 0) / cpmValues.length
+    : 0;
+
   const videoRows = useMemo(() => result.data?.video.rows ?? [], [result.data]);
   const trafficRows = useMemo(() => result.data?.trafficSources.rows ?? [], [result.data]);
-  const revenueAvailable = Boolean(
-    result.data?.video.revenueAvailable || result.data?.trafficSources.revenueAvailable,
-  );
-  const totalViews = useMemo(
-    () => videoRows.reduce((total, row) => total + numericValue(row.views), 0),
-    [videoRows],
-  );
-  const totalRevenue = useMemo(
-    () => videoRows.reduce((total, row) => total + numericValue(row.estimatedRevenue), 0),
-    [videoRows],
-  );
   const trafficChartData = useMemo(
     () =>
       trafficRows.slice(0, 10).map((row) => ({
@@ -144,6 +303,57 @@ function Analytics() {
     [trafficRows],
   );
 
+  // Monthly Ad Revenue / YouTube Premium / Other split for the trailing 12 months, same honest
+  // 3-category breakdown as the Dashboard's Revenue Split card, just shown as a trend instead of a
+  // single latest-month snapshot.
+  const revenueSourceSeries = trendRows.map((row) => {
+    const total = Number(row.estimatedRevenue ?? 0);
+    const ads = Number(row.estimatedAdRevenue ?? 0);
+    const premium = Number(row.estimatedRedPartnerRevenue ?? 0);
+    return {
+      month: monthLabel(row.month),
+      ads,
+      premium,
+      other: Math.max(0, total - ads - premium),
+    };
+  });
+  const revenueShareTotals = revenueSourceSeries.reduce(
+    (acc, row) => ({
+      ads: acc.ads + row.ads,
+      premium: acc.premium + row.premium,
+      other: acc.other + row.other,
+    }),
+    { ads: 0, premium: 0, other: 0 },
+  );
+  const revenueShareTotal =
+    revenueShareTotals.ads + revenueShareTotals.premium + revenueShareTotals.other;
+  const revenueShareData = [
+    {
+      key: "ads",
+      label: "Ad Revenue",
+      value: revenueShareTotals.ads,
+      color: REVENUE_SOURCE_COLORS.ads,
+    },
+    {
+      key: "premium",
+      label: "YouTube Premium",
+      value: revenueShareTotals.premium,
+      color: REVENUE_SOURCE_COLORS.premium,
+    },
+    {
+      key: "other",
+      label: "Other",
+      value: revenueShareTotals.other,
+      color: REVENUE_SOURCE_COLORS.other,
+    },
+  ].filter((row) => row.value > 0);
+
+  const cpmChartData = trendRows.map((row) => ({
+    month: monthLabel(row.month),
+    cpm: cpmByMonthMap.get(row.month ?? "") ?? null,
+  }));
+  const hasCpmData = cpmChartData.some((row) => row.cpm !== null);
+
   return (
     <DashboardLayout title="Analytics">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -153,12 +363,12 @@ function Analytics() {
             Authenticated channel earnings and audience breakdowns
           </p>
         </div>
-        <div className="flex rounded-lg bg-accent p-1 text-xs">
+        <div className="flex rounded-full bg-accent p-1 text-xs">
           {ranges.map((item) => (
             <button
               key={item}
               onClick={() => setRange(item)}
-              className={`rounded-[var(--button-radius)] px-3 py-1.5 font-medium transition-colors ${
+              className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
                 item === range
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -196,39 +406,308 @@ function Analytics() {
             </div>
           )}
 
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-busy={result.loading} aria-label={result.loading ? "Loading analytics" : undefined}>
-            {result.loading ? (
+          <div
+            className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
+            aria-busy={trend.status === "loading"}
+            aria-label={trend.status === "loading" ? "Loading key metrics" : undefined}
+          >
+            {trend.status === "loading" ? (
               <>
-                <StatCardSkeleton />
-                <StatCardSkeleton />
-                <StatCardSkeleton />
+                <KpiTrendCardSkeleton />
+                <KpiTrendCardSkeleton />
+                <KpiTrendCardSkeleton />
+                <KpiTrendCardSkeleton />
+                <KpiTrendCardSkeleton />
               </>
             ) : (
               <>
-                <StatCard
-                  icon={<DollarSign className="h-5 w-5" />}
-                  value={revenueAvailable ? `$${totalRevenue.toFixed(2)}` : "—"}
-                  label="Estimated earnings"
-                  change={revenueAvailable ? "YouTube reported" : "Revenue unavailable"}
+                <KpiTrendCard
+                  title="Estimated Revenue"
+                  accent="var(--brand-green)"
+                  value={
+                    trend.data?.revenueStatus === "available" ? formatMoney(trendTotalRevenue) : "—"
+                  }
+                  deltaLabel={
+                    trendRevenueSeries.length
+                      ? signed(trendRevenueSeries.at(-1) ?? 0, formatMoney)
+                      : "—"
+                  }
+                  deltaSuffix="this month"
+                  changePercent={trendRevenueChangePct}
+                  periodLabel={trendPeriodLabel}
+                  series={trendRevenueSeries}
+                  markerTitle={formatMoney(trendRevenueSeries.at(-1) ?? 0)}
+                  markerSubtitle={trendLatestMonthLabel}
+                  positive={(trendRevenueChangePct ?? 0) >= 0}
                 />
-                <StatCard
-                  icon={<Eye className="h-5 w-5" />}
-                  value={formatCount(totalViews)}
-                  label="Views in period"
-                  change="YouTube Analytics"
+                <KpiTrendCard
+                  title="Views"
+                  accent="var(--brand-purple)"
+                  value={formatCount(trendTotalViews)}
+                  deltaLabel={
+                    trendViewsSeries.length
+                      ? signed(trendViewsSeries.at(-1) ?? 0, formatCount)
+                      : "—"
+                  }
+                  deltaSuffix="this month"
+                  changePercent={trendViewsChangePct}
+                  periodLabel={trendPeriodLabel}
+                  series={trendViewsSeries}
+                  markerTitle={`${formatCount(trendViewsSeries.at(-1) ?? 0)} views`}
+                  markerSubtitle={trendLatestMonthLabel}
+                  positive={(trendViewsChangePct ?? 0) >= 0}
                 />
-                <StatCard
-                  icon={<TrendingUp className="h-5 w-5" />}
-                  value={String(videoRows.length)}
-                  label="Video rows"
-                  change="Selected range"
+                <KpiTrendCard
+                  title="Watch Time"
+                  accent="var(--primary)"
+                  value={
+                    trend.data?.watchTimeStatus === "available"
+                      ? `${formatHours(trendTotalWatch)} hrs`
+                      : "—"
+                  }
+                  deltaLabel={
+                    trendWatchSeries.length
+                      ? signed(trendWatchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`)
+                      : "—"
+                  }
+                  deltaSuffix="this month"
+                  changePercent={trendWatchChangePct}
+                  periodLabel={trendPeriodLabel}
+                  series={trendWatchSeries}
+                  markerTitle={`${formatHours(trendWatchSeries.at(-1) ?? 0)} hrs`}
+                  markerSubtitle={trendLatestMonthLabel}
+                  positive={(trendWatchChangePct ?? 0) >= 0}
                 />
-                {isRefreshing && (
-                  <p className="col-span-full -mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <RefreshCw className="h-3 w-3 animate-spin" /> Refreshing…
-                  </p>
-                )}
+                <KpiTrendCard
+                  title="Revenue per View"
+                  accent="var(--brand-amber)"
+                  value={
+                    trend.data?.revenueStatus === "available"
+                      ? formatRevenuePerView(trendAvgRevenuePerView)
+                      : "—"
+                  }
+                  deltaLabel={
+                    trendRevenuePerViewSeries.length
+                      ? signed(trendRevenuePerViewSeries.at(-1) ?? 0, formatRevenuePerView)
+                      : "—"
+                  }
+                  deltaSuffix="this month"
+                  changePercent={trendRevenuePerViewChangePct}
+                  periodLabel={trendPeriodLabel}
+                  series={trendRevenuePerViewSeries}
+                  markerTitle={formatRevenuePerView(trendRevenuePerViewSeries.at(-1) ?? 0)}
+                  markerSubtitle={trendLatestMonthLabel}
+                  positive={(trendRevenuePerViewChangePct ?? 0) >= 0}
+                />
+                <KpiTrendCard
+                  title="Avg CPM"
+                  accent="var(--brand-red)"
+                  value={trend.data?.cpmStatus === "available" ? formatCpm(trendAvgCpm) : "—"}
+                  deltaLabel={
+                    trendCpmSeries.length ? signed(trendCpmSeries.at(-1) ?? 0, formatCpm) : "—"
+                  }
+                  deltaSuffix="this month"
+                  changePercent={trendCpmChangePct}
+                  periodLabel={trendPeriodLabel}
+                  series={trendCpmSeries}
+                  markerTitle={formatCpm(trendCpmSeries.at(-1) ?? 0)}
+                  markerSubtitle={trendLatestMonthLabel}
+                  positive={(trendCpmChangePct ?? 0) >= 0}
+                />
               </>
+            )}
+            {isRefreshing && (
+              <p className="col-span-full -mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Refreshing…
+              </p>
+            )}
+          </div>
+
+          <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {sourceTab === "revenue" ? "Revenue by Source" : "CPM Trend"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {trendPeriodLabel || "Trailing months"}
+                  {sourceTab === "revenue" ? " · YouTube-reported revenue types only" : ""}
+                </p>
+              </div>
+              <div className="flex rounded-full bg-accent/60 p-1 text-sm">
+                <button
+                  onClick={() => setSourceTab("revenue")}
+                  className={`rounded-full px-4 py-2 font-medium transition-colors ${sourceTab === "revenue" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Revenue Sources
+                </button>
+                <button
+                  onClick={() => setSourceTab("cpm")}
+                  className={`rounded-full px-4 py-2 font-medium transition-colors ${sourceTab === "cpm" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  CPM Trend
+                </button>
+              </div>
+            </div>
+            {sourceTab === "cpm" ? (
+              !hasCpmData ? (
+                <p className="mt-4 py-6 text-center text-sm text-muted-foreground">
+                  No monthly CPM data available yet.
+                </p>
+              ) : (
+                <>
+                  <div className="mt-4 h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={cpmChartData}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="var(--color-border)"
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tickFormatter={(v) => `$${v}`}
+                          tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [formatCpm(value), "Avg CPM"]}
+                          contentStyle={{
+                            background: "var(--color-popover)",
+                            border: "1px solid var(--color-border)",
+                            borderRadius: 12,
+                            fontSize: 12,
+                          }}
+                        />
+                        <Line
+                          dataKey="cpm"
+                          name="Avg CPM"
+                          stroke="var(--color-brand-red)"
+                          strokeWidth={2.5}
+                          dot={{ r: 3 }}
+                          connectNulls
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-[11px] text-muted-foreground">
+                    Each point is the channel-wide average of YouTube's daily reported CPM for that
+                    month — not a guaranteed rate, and it can vary a lot by video, audience, and ad
+                    inventory.
+                  </p>
+                </>
+              )
+            ) : revenueSourceSeries.length === 0 ? (
+              <p className="mt-4 py-6 text-center text-sm text-muted-foreground">
+                No monthly revenue data available yet.
+              </p>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                <div className="h-[280px] lg:col-span-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueSourceSeries}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--color-border)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={(v) => `$${v}`}
+                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+                        contentStyle={{
+                          background: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar
+                        dataKey="ads"
+                        name="Ad Revenue"
+                        stackId="rev"
+                        fill={REVENUE_SOURCE_COLORS.ads}
+                      />
+                      <Bar
+                        dataKey="premium"
+                        name="YouTube Premium"
+                        stackId="rev"
+                        fill={REVENUE_SOURCE_COLORS.premium}
+                      />
+                      <Bar
+                        dataKey="other"
+                        name="Other"
+                        stackId="rev"
+                        fill={REVENUE_SOURCE_COLORS.other}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="h-[160px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={revenueShareData}
+                          dataKey="value"
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={2}
+                          stroke="none"
+                        >
+                          {revenueShareData.map((row) => (
+                            <Cell key={row.key} fill={row.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm">
+                    {revenueShareData.map((row) => (
+                      <div key={row.key} className="flex items-center justify-between">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ background: row.color }}
+                          />
+                          {row.label}
+                        </span>
+                        <span className="font-semibold">
+                          {revenueShareTotal
+                            ? `${((row.value / revenueShareTotal) * 100).toFixed(0)}%`
+                            : "0%"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            {sourceTab === "revenue" && (
+              <p className="mt-4 text-[11px] text-muted-foreground">
+                YouTube only reports Ad Revenue and YouTube Premium as distinct categories — "Other"
+                covers everything else it doesn't break out separately (Shorts fund, Super
+                Chat/Thanks, channel memberships). Brand deals and affiliate income aren't shown
+                here because YouTube has no visibility into off-platform revenue.
+              </p>
             )}
           </div>
 
@@ -243,16 +722,16 @@ function Analytics() {
                     : "Loading authenticated data"}
                 </p>
               </div>
-              <div className="flex rounded-lg bg-accent/60 p-1 text-sm">
+              <div className="flex rounded-full bg-accent/60 p-1 text-sm">
                 <button
                   onClick={() => setTab("video")}
-                  className={`rounded-md px-4 py-2 font-medium transition-colors ${tab === "video" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`rounded-full px-4 py-2 font-medium transition-colors ${tab === "video" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Earnings by video
                 </button>
                 <button
                   onClick={() => setTab("traffic")}
-                  className={`rounded-md px-4 py-2 font-medium transition-colors ${tab === "traffic" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`rounded-full px-4 py-2 font-medium transition-colors ${tab === "traffic" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Traffic sources
                 </button>
@@ -260,7 +739,11 @@ function Analytics() {
             </div>
 
             {tab === "video" ? (
-              <div className="mt-5 overflow-x-auto" aria-busy={result.loading} aria-label={result.loading ? "Loading video earnings" : undefined}>
+              <div
+                className="mt-5 overflow-x-auto"
+                aria-busy={result.loading}
+                aria-label={result.loading ? "Loading video earnings" : undefined}
+              >
                 {result.loading ? (
                   <div className="rounded-xl border border-border">
                     {[1, 2, 3, 4, 5].map((i) => (
@@ -350,7 +833,11 @@ function Analytics() {
                   )}
               </div>
             ) : (
-              <div className="mt-5" aria-busy={result.loading} aria-label={result.loading ? "Loading traffic sources" : undefined}>
+              <div
+                className="mt-5"
+                aria-busy={result.loading}
+                aria-label={result.loading ? "Loading traffic sources" : undefined}
+              >
                 {result.loading ? (
                   <div className="rounded-xl border border-border">
                     {[1, 2, 3, 4].map((i) => (
