@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import {
@@ -110,7 +110,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user } = await requireWorkspaceFeature(request, "analytics");
           const requestUrl = new URL(request.url);
           const requestedChannelId = requestUrl.searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))

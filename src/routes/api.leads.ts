@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 
 const idSchema = z.string().uuid();
 
@@ -52,10 +52,11 @@ export const Route = createFileRoute("/api/leads")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client, workspaceId } = await requireWorkspaceFeature(request, "leads");
           const { data, error } = await client
             .from("leads")
             .select("*")
+            .eq("workspace_id", workspaceId)
             .order("pinned", { ascending: false })
             .order("updated_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
@@ -67,12 +68,13 @@ export const Route = createFileRoute("/api/leads")({
       },
       POST: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user, workspaceId } = await requireWorkspaceFeature(request, "leads");
           const input = createLeadSchema.parse(await parseJson(request));
           const { data, error } = await client
             .from("leads")
             .insert({
               user_id: user.id,
+              workspace_id: workspaceId,
               name: input.name,
               platform: input.platform,
               username: input.username ?? null,
@@ -94,7 +96,7 @@ export const Route = createFileRoute("/api/leads")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateLeadSchema.parse(await parseJson(request));
           const update: Record<string, unknown> = {};
@@ -133,7 +135,7 @@ export const Route = createFileRoute("/api/leads")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const { error } = await client.from("leads").delete().eq("id", id);
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });

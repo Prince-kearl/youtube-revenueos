@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { applySetCookies, requireSessionUser } from "@/lib/server/supabase-ssr";
+import { applySetCookies } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 
 const createLinkSchema = z.object({
   destinationId: z.string().uuid(),
@@ -57,7 +58,7 @@ function randomSlug(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
-type SupabaseClientLike = Awaited<ReturnType<typeof requireSessionUser>>["client"];
+type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
 async function assertOwnedDestination(client: SupabaseClientLike, destinationId: string) {
   const { data, error } = await client
@@ -97,10 +98,14 @@ export const Route = createFileRoute("/api/tracking-links")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
+            request,
+            "link_tracking",
+          );
           const { data, error } = await client
             .from("tracking_links")
             .select(linkColumns)
+            .eq("workspace_id", workspaceId)
             .order("created_at", { ascending: false });
           if (error)
             return withCookies(
@@ -116,7 +121,10 @@ export const Route = createFileRoute("/api/tracking-links")({
       },
       POST: async ({ request }) => {
         try {
-          const { client, user, setCookieHeaders } = await requireSessionUser(request);
+          const { client, user, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
+            request,
+            "link_tracking",
+          );
           const input = createLinkSchema.parse(await parseJson(request));
           await assertOwnedDestination(client, input.destinationId);
           if (input.videoId) await assertOwnedVideo(client, input.videoId);
@@ -129,6 +137,7 @@ export const Route = createFileRoute("/api/tracking-links")({
               .from("tracking_links")
               .insert({
                 user_id: user.id,
+                workspace_id: workspaceId,
                 destination_id: input.destinationId,
                 video_id: input.videoId ?? null,
                 slug,
@@ -165,7 +174,10 @@ export const Route = createFileRoute("/api/tracking-links")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, setCookieHeaders } = await requireWorkspaceFeature(
+            request,
+            "link_tracking",
+          );
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const input = updateLinkSchema.parse(await parseJson(request));
@@ -206,7 +218,10 @@ export const Route = createFileRoute("/api/tracking-links")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, setCookieHeaders } = await requireWorkspaceFeature(
+            request,
+            "link_tracking",
+          );
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const { error } = await client.from("tracking_links").delete().eq("id", id);

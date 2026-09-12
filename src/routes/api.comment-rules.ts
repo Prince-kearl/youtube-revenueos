@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 
 const idSchema = z.string().uuid();
 
@@ -32,7 +32,7 @@ async function parseJson(request: Request) {
   }
 }
 
-type SupabaseClientLike = Awaited<ReturnType<typeof requireSessionUser>>["client"];
+type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
 async function findOwnedChannel(client: SupabaseClientLike, requestedId: string | null) {
   let query = client
@@ -113,7 +113,7 @@ export const Route = createFileRoute("/api/comment-rules")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const channelId = await findOwnedChannel(
             client,
             new URL(request.url).searchParams.get("channelId"),
@@ -159,7 +159,7 @@ export const Route = createFileRoute("/api/comment-rules")({
       },
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const url = new URL(request.url);
           const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
           const input = ruleSchema.parse(await parseJson(request));
@@ -188,7 +188,7 @@ export const Route = createFileRoute("/api/comment-rules")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
@@ -225,7 +225,7 @@ export const Route = createFileRoute("/api/comment-rules")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const { error } = await client.from("comment_automation_rules").delete().eq("id", id);
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });

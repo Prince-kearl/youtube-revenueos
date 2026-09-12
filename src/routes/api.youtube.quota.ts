@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 
 // 10,000 units/day is Google's default YouTube Data API v3 quota per project — not a number this
 // app can query per-user, so it's a documented constant rather than a fabricated one.
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/youtube/quota")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           let channelQuery = client
             .from("youtube_channels")

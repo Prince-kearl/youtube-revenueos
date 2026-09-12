@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import {
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/youtube/comments")({
       // needs current comments to match rules against, not whatever was last synced.
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user } = await requireWorkspaceFeature(request, "comment_automation");
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           let channelQuery = client
             .from("youtube_channels")

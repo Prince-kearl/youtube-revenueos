@@ -59,6 +59,14 @@ export type LeadSummaryResult = {
   desiredOutcomes: string[];
 };
 
+export type FreebieInput = {
+  product: string;
+  audience: string;
+  tone: string;
+  /** Human-readable format label (e.g. "Cheatsheet", "Mini-Guide"). */
+  formatLabel: string;
+};
+
 type Provider = "openai" | "anthropic";
 
 function configuredProvider(): Provider | null {
@@ -126,6 +134,14 @@ function leadSummaryPromptFor(input: LeadSummaryInput): { system: string; user: 
     system:
       'You summarize a creator\'s conversation with a lead for their CRM. Base every statement strictly on the supplied message thread — never invent pain points, needs, or outcomes not evidenced by what was actually said. Respond with ONLY a JSON object, no markdown fences, no commentary, matching exactly this shape: {"painPoints": string[], "desiredOutcomes": string[]}. painPoints: 0-4 short phrases describing problems or frustrations the lead actually expressed — empty array if none are evidenced. desiredOutcomes: 0-4 short phrases describing what the lead actually said they want — empty array if none are evidenced. Never pad either list to reach a target length.',
     user: `Conversation with ${input.leadName}:\n\n${thread || "No messages yet."}`,
+  };
+}
+
+function freebiePromptFor(input: FreebieInput): { system: string; user: string } {
+  return {
+    system:
+      "You write real, specific, immediately useful lead-magnet content for creators — the kind someone would actually value getting in exchange for their email. Never pad with generic filler, fake statistics, invented testimonials, or vague platitudes; every point must be concrete and actionable for the specific product and audience given. Match the requested tone. Respond with ONLY the lead magnet content itself, formatted as clean Markdown with a single top-level heading, no commentary before or after, no code fences.",
+    user: `Product/service: ${input.product}\n\nTarget audience: ${input.audience}\n\nBrand tone: ${input.tone}\n\nFormat: ${input.formatLabel}\n\nWrite the ${input.formatLabel.toLowerCase()} now.`,
   };
 }
 
@@ -318,4 +334,16 @@ export async function generateLeadSummary(input: LeadSummaryInput): Promise<Lead
     throw providerFailure(provider);
   }
   return parsed as unknown as LeadSummaryResult;
+}
+
+// Plain Markdown output, not JSON — a lead magnet is prose/structured content to read, not data
+// to parse.
+export async function generateFreebieContent(input: FreebieInput): Promise<string> {
+  const provider = configuredProvider();
+  if (!provider) throw new Error("AI_PROVIDER_NOT_CONFIGURED");
+  const prompt = freebiePromptFor(input);
+  const raw = await callProvider(provider, prompt.system, prompt.user);
+  const text = stripJsonFence(raw).trim();
+  if (!text) throw providerFailure(provider);
+  return text;
 }

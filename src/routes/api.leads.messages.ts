@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 
 const idSchema = z.string().uuid();
 
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/leads/messages")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const leadId = idSchema.parse(new URL(request.url).searchParams.get("leadId"));
           const { data, error } = await client
             .from("lead_messages")
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/leads/messages")({
       // comment replies are logged automatically by api.comment-rules.replies.ts instead.
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const input = createMessageSchema.parse(await parseJson(request));
           const { data: lead, error: leadError } = await client
             .from("leads")
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/api/leads/messages")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const body = z.object({ pinned: z.boolean() }).parse(await parseJson(request));
           const { data, error } = await client
@@ -109,7 +109,7 @@ export const Route = createFileRoute("/api/leads/messages")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const url = new URL(request.url);
           const leadId = url.searchParams.get("leadId");
           const id = url.searchParams.get("id");

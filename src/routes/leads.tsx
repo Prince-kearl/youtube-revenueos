@@ -56,7 +56,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
-import { useTeam } from "@/lib/stores";
 
 export const Route = createFileRoute("/leads")({
   component: LeadInbox,
@@ -238,8 +237,27 @@ function errorMessage(error: string): string {
   return messages[error] ?? "Something went wrong. Try again.";
 }
 
+type TeamMemberOption = { id: string; name: string };
+
 function LeadInbox() {
-  const [team] = useTeam();
+  const [team, setTeam] = useState<TeamMemberOption[]>([]);
+  useEffect(() => {
+    fetch("/api/workspace/members", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok || !body.data) return;
+        const options: TeamMemberOption[] = body.data
+          .filter((m: { status: string }) => m.status === "active")
+          .map(
+            (m: { id: string; member: { name: string | null } | null; invited_email: string }) => ({
+              id: m.id,
+              name: m.member?.name || m.invited_email,
+            }),
+          );
+        setTeam(options);
+      })
+      .catch(() => setTeam([]));
+  }, []);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadsStatus, setLeadsStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retryToken, setRetryToken] = useState(0);

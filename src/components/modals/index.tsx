@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { DEAL_STAGES, DealStage, Deal, Campaign, TeamMember, TeamRole } from "@/lib/stores";
+import { DEAL_STAGES, DealStage, Deal, Campaign } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 
 // Destinations are backed by the real /api/destinations table (see api.destinations.ts), not a
@@ -797,132 +797,8 @@ export function CampaignDialog({
   );
 }
 
-// ---------- Team ----------
-const TEAM_ROLES: TeamRole[] = ["Owner", "Manager", "Setter", "Editor"];
-
-export function TeamMemberDialog({
-  open,
-  onOpenChange,
-  initial,
-  onSave,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  initial?: TeamMember | null;
-  onSave: (m: TeamMember) => void;
-}) {
-  const [form, setForm] = useState<TeamMember>({
-    id: "",
-    name: "",
-    email: "",
-    avatar: "",
-    role: "Setter",
-    commission: 0,
-    leadShare: 0,
-    status: "Invited",
-  });
-  useEffect(() => {
-    if (open) {
-      setForm(
-        initial ?? {
-          id: uid(),
-          name: "",
-          email: "",
-          avatar: `https://i.pravatar.cc/64?img=${Math.floor(Math.random() * 70) + 1}`,
-          role: "Setter",
-          commission: 10,
-          leadShare: 0,
-          status: "Invited",
-        },
-      );
-    }
-  }, [open, initial]);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) return toast.error("Name is required");
-    if (!form.email.trim()) return toast.error("Email is required");
-    if (form.leadShare < 0 || form.leadShare > 100) return toast.error("Lead share must be 0–100%");
-    onSave({ ...form, id: form.id || uid() });
-    onOpenChange(false);
-    toast.success(initial ? "Team member updated" : "Invite sent");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Edit Team Member" : "Invite Team Member"}</DialogTitle>
-          <DialogDescription>
-            Assign a role, lead share, and commission for the pipeline.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
-          <Field label="Full name">
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-              maxLength={80}
-            />
-          </Field>
-          <Field label="Email">
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-              maxLength={120}
-            />
-          </Field>
-          <Field label="Role">
-            <Select
-              value={form.role}
-              onValueChange={(v) => setForm({ ...form, role: v as TeamRole })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TEAM_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Lead share %">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={form.leadShare}
-                onChange={(e) => setForm({ ...form, leadShare: Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Commission %">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={form.commission}
-                onChange={(e) => setForm({ ...form, commission: Number(e.target.value) })}
-              />
-            </Field>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">{initial ? "Save" : "Send Invite"}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Team member invites are now real (see src/routes/team.tsx, backed by workspace_members) —
+// the mock TeamMemberDialog that used to live here was removed along with useTeam in stores.ts.
 
 // ---------- Confirm ----------
 export function ConfirmDialog({

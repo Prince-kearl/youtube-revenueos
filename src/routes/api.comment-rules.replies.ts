@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import { postYoutubeCommentReply, YoutubeInsufficientScopeError } from "@/lib/server/google-oauth";
@@ -35,7 +35,7 @@ async function parseJson(request: Request) {
   }
 }
 
-type SupabaseClientLike = Awaited<ReturnType<typeof requireSessionUser>>["client"];
+type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
 async function findOwnedChannel(client: SupabaseClientLike, requestedId: string | null) {
   let query = client
@@ -56,6 +56,7 @@ async function findOwnedChannel(client: SupabaseClientLike, requestedId: string 
 async function upsertLeadForReply(
   client: SupabaseClientLike,
   userId: string,
+  workspaceId: string,
   input: {
     authorName: string | null;
     authorChannelId: string | null;
@@ -70,7 +71,7 @@ async function upsertLeadForReply(
     const { data: existing } = await client
       .from("leads")
       .select("id")
-      .eq("user_id", userId)
+      .eq("workspace_id", workspaceId)
       .eq("platform", "YouTube Comment")
       .eq("username", username)
       .maybeSingle();
@@ -83,6 +84,7 @@ async function upsertLeadForReply(
         .from("leads")
         .insert({
           user_id: userId,
+          workspace_id: workspaceId,
           name: input.authorName ?? "YouTube commenter",
           platform: "YouTube Comment",
           username,
@@ -111,7 +113,7 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "comment_automation");
           const url = new URL(request.url);
           const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
           const limit = Math.min(Number(url.searchParams.get("limit") ?? "10") || 10, 50);
@@ -163,7 +165,10 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
       // history instead of silently vanishing.
       POST: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const url = new URL(request.url);
           const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
           const input = replySchema.parse(await parseJson(request));
@@ -201,7 +206,7 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
               .select()
               .single();
             if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-            void upsertLeadForReply(client, user.id, {
+            void upsertLeadForReply(client, user.id, workspaceId, {
               authorName: input.authorName ?? null,
               authorChannelId: input.authorChannelId ?? null,
               authorAvatarUrl: input.authorAvatarUrl ?? null,

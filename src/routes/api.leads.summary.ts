@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { generateLeadSummary } from "@/lib/server/ai-generation";
 
 const bodySchema = z.object({ leadId: z.string().uuid() });
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/leads/summary")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requireWorkspaceFeature(request, "leads");
           const input = bodySchema.parse(await parseJson(request));
           const { data: lead, error: leadError } = await client
             .from("leads")

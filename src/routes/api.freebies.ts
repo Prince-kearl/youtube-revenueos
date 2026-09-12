@@ -2,11 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
-import { generateProjectConcept } from "@/lib/server/ai-generation";
+import { generateFreebieContent } from "@/lib/server/ai-generation";
 
-const createProjectSchema = z.object({
-  title: z.string().trim().min(1).max(120),
-  prompt: z.string().trim().min(1).max(4000),
+const generateSchema = z.object({
+  product: z.string().trim().min(1).max(200),
+  audience: z.string().trim().min(1).max(200),
+  tone: z.string().trim().min(1).max(200),
+  format: z.string().trim().min(1).max(60),
+  formatLabel: z.string().trim().min(1).max(60),
 });
 
 const idSchema = z.string().uuid();
@@ -34,17 +37,17 @@ async function parseJson(request: Request) {
   }
 }
 
-export const Route = createFileRoute("/api/projects")({
+export const Route = createFileRoute("/api/freebies")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
           const { client, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
             request,
-            "projects",
+            "freebie",
           );
           const { data, error } = await client
-            .from("projects")
+            .from("lead_magnets")
             .select("*")
             .eq("workspace_id", workspaceId)
             .order("created_at", { ascending: false });
@@ -59,20 +62,24 @@ export const Route = createFileRoute("/api/projects")({
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
-      // Synchronous create+generate: the AI call happens inside this request rather than through
-      // a separate polling step, since it resolves in a few seconds and the old mock flow already
-      // awaited generation immediately after creating the job client-side.
+      // Synchronous generate+save, matching AI Lab's optimize route — nothing is persisted if
+      // generation fails, since a failed attempt has no content worth keeping.
       POST: async ({ request }) => {
         try {
           const { client, user, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
             request,
-            "projects",
+            "freebie",
           );
-          const input = createProjectSchema.parse(await parseJson(request));
+          const input = generateSchema.parse(await parseJson(request));
 
-          let generation: Awaited<ReturnType<typeof generateProjectConcept>>;
+          let content: string;
           try {
-            generation = await generateProjectConcept(input);
+            content = await generateFreebieContent({
+              product: input.product,
+              audience: input.audience,
+              tone: input.tone,
+              formatLabel: input.formatLabel,
+            });
           } catch (error) {
             if (error instanceof Error && error.message === "AI_PROVIDER_NOT_CONFIGURED") {
               return withCookies(
@@ -80,35 +87,24 @@ export const Route = createFileRoute("/api/projects")({
                 setCookieHeaders,
               );
             }
-            // Generation failed after we'd normally have a job — persist the failure so it shows
-            // up as a real "Failed" project instead of silently vanishing.
-            const { data, error: insertError } = await client
-              .from("projects")
-              .insert({
-                ...input,
-                user_id: user.id,
-                workspace_id: workspaceId,
-                status: "failed",
-                error: "Generation failed. Try creating the project again.",
-              })
-              .select()
-              .single();
-            if (insertError)
-              return withCookies(
-                json({ error: "DATABASE_ERROR" }, { status: 500 }),
-                setCookieHeaders,
-              );
-            return withCookies(json({ data }, { status: 201 }), setCookieHeaders);
+            return withCookies(
+              json({ error: "GENERATION_FAILED" }, { status: 502 }),
+              setCookieHeaders,
+            );
           }
 
+          const title = `${input.product} ${input.formatLabel}`.slice(0, 120);
           const { data, error } = await client
-            .from("projects")
+            .from("lead_magnets")
             .insert({
-              ...input,
               user_id: user.id,
               workspace_id: workspaceId,
-              status: "completed",
-              output: generation,
+              title,
+              product: input.product,
+              audience: input.audience,
+              tone: input.tone,
+              format: input.format,
+              content,
             })
             .select()
             .single();
@@ -127,10 +123,10 @@ export const Route = createFileRoute("/api/projects")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireWorkspaceFeature(request, "projects");
+          const { client, setCookieHeaders } = await requireWorkspaceFeature(request, "freebie");
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
-          const { error } = await client.from("projects").delete().eq("id", id);
+          const { error } = await client.from("lead_magnets").delete().eq("id", id);
           if (error)
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),

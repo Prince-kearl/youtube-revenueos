@@ -21,9 +21,7 @@ import {
   Gift,
   Handshake,
   Mail,
-  Rocket,
   UserPlus,
-  ScrollText,
   LifeBuoy,
   Inbox,
   LogOut,
@@ -137,13 +135,6 @@ const nav = [
   },
   { to: "/team", label: "Team", icon: UserPlus, keywords: "members roles staff invite" },
   { to: "/reports", label: "Reports", icon: FileText, keywords: "exports csv summary" },
-  { to: "/roadmap", label: "Roadmap", icon: Rocket, keywords: "features upcoming plans" },
-  {
-    to: "/changelog",
-    label: "Changelog",
-    icon: ScrollText,
-    keywords: "updates releases new whats new",
-  },
   { to: "/support", label: "Support", icon: LifeBuoy, keywords: "help contact faq" },
   { to: "/settings", label: "Settings", icon: Settings, keywords: "preferences config account" },
   { to: "/admin", label: "Admin Console", icon: Shield, keywords: "superadmin platform" },
@@ -161,7 +152,7 @@ const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
     items: ["/destinations", "/link-tracking", "/comments", "/leads", "/audience", "/analytics"],
   },
   { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
-  { label: "General", items: ["/reports", "/roadmap", "/changelog", "/support", "/settings"] },
+  { label: "General", items: ["/reports", "/support", "/settings"] },
   { label: "Platform", items: ["/admin"] },
 ];
 
@@ -173,11 +164,38 @@ const ROLE_META: Record<PlatformRole, { icon: typeof Shield; color: string }> = 
   Editor: { icon: Pencil, color: "text-muted-foreground bg-accent" },
 };
 
+// "Preview as role" now simulates real WORKSPACE roles (see api.features.access.ts) — Superadmin
+// isn't a workspace role at all, so it's excluded here even though PLATFORM_ROLES (the older demo
+// nav-gating list) still includes it for its own unrelated purpose.
+const WORKSPACE_PREVIEW_ROLES = PLATFORM_ROLES.filter((role) => role !== "Superadmin");
+
 const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
   (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(
     ([key, meta]) => [meta.route, key],
   ),
 );
+
+// Maps each route to the `features.key` row it corresponds to in the database (see the
+// 202609120001_feature_management.sql migration) — the real, Superadmin-managed, per-role system.
+// Distinct from ROUTE_FEATURE above, which drives the older, flat, non-role-specific demo toggle.
+const NAV_ROUTE_TO_FEATURE_KEY: Record<string, string> = {
+  "/dashboard": "dashboard",
+  "/videos": "videos",
+  "/projects": "projects",
+  "/ai-lab": "ai_lab",
+  "/destinations": "destinations",
+  "/link-tracking": "link_tracking",
+  "/comments": "comment_automation",
+  "/leads": "leads",
+  "/audience": "audience",
+  "/analytics": "analytics",
+  "/affiliate": "affiliate",
+  "/freebie": "freebie",
+  "/email": "email",
+  "/brand-deals": "brand_deals",
+  "/team": "team",
+  "/reports": "reports",
+};
 
 // ============ SMART SEARCH ============
 // Powers the global search below — tolerates typos and near-miss spelling (edit distance,
@@ -295,12 +313,84 @@ export function DashboardLayout({
     const feature = ROUTE_FEATURE[to];
     return !!feature && !flags[feature] && viewerRole !== "Superadmin";
   };
-  const visibleNav = nav.filter((item) => canAccessRoute(viewerRole, item.to));
+
+  // Real, server-backed feature access for the signed-in user's actual role (see
+  // src/lib/server/feature-access.ts) — additive on top of the demo PlatformRole/flags system
+  // above, never looser than it. null while loading means "don't hide anything yet" so nav
+  // doesn't flash empty before the real answer arrives; every route this gates is also enforced
+  // server-side independently, so this is UX only, not the real security boundary.
+  //
+  // authenticatedRole is the caller's REAL workspace membership role (lowercase —
+  // owner/manager/setter/editor — see src/lib/server/workspace.ts; NOT profiles.role, the
+  // separate platform-staff role behind the Superadmin console), never influenced by the
+  // viewerRole demo switcher below. Only a workspace owner or manager may turn viewerRole into a
+  // genuine "Preview as role" simulation — for everyone else it's ignored (see the reset effect
+  // further down), so a stale/restrictive localStorage value from playing with the old demo can
+  // never leave a non-privileged real user under-navigated.
+  const [realFeatureAccess, setRealFeatureAccess] = useState<Record<string, boolean> | null>(null);
+  const [authenticatedRole, setAuthenticatedRole] = useState<string | null>(null);
+  const canPreviewRoles = authenticatedRole === "owner" || authenticatedRole === "manager";
+  useEffect(() => {
+    const controller = new AbortController();
+    const previewParam = canPreviewRoles ? `?previewRole=${viewerRole.toLowerCase()}` : "";
+    fetch(`/api/features/access${previewParam}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("features_failed");
+        const body = (await response.json()) as {
+          data?: { role: string; features: Record<string, boolean> };
+        };
+        if (body.data?.role) setAuthenticatedRole(body.data.role);
+        setRealFeatureAccess(body.data?.features ?? {});
+      })
+      .catch(() => setRealFeatureAccess({}));
+    return () => controller.abort();
+    // canPreviewRoles derives from authenticatedRole itself (state this same effect sets), so
+    // including it would refetch on every response with no new intent — viewerRole is the only
+    // real trigger for a new preview simulation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerRole]);
+
+  // A real, non-privileged user whose browser still has a restrictive value saved from the old
+  // demo switcher (e.g. "Setter") gets snapped back to the fully-open baseline the first time we
+  // learn their real role — the real feature-access fetch above is what actually governs their
+  // nav from here on, not this legacy value.
+  useEffect(() => {
+    if (authenticatedRole && !canPreviewRoles && viewerRole !== "Owner") {
+      setViewerRole("Owner");
+    }
+  }, [authenticatedRole, canPreviewRoles, viewerRole, setViewerRole]);
+
+  // For a Superadmin/Owner who's never touched the preview switcher, viewerRole still sits at the
+  // old demo's generic default ("Owner") — without this, that default reads as "previewing Owner"
+  // the instant we learn a real role like Superadmin, showing the preview banner to someone who
+  // never asked for a preview. Sync it to their own real role once per page load; any deliberate
+  // choice they make afterward (including choosing "Owner" on purpose) is left alone.
+  const previewRoleInitialized = useRef(false);
+  useEffect(() => {
+    if (!authenticatedRole || !canPreviewRoles || previewRoleInitialized.current) return;
+    previewRoleInitialized.current = true;
+    const ownRole = (authenticatedRole.charAt(0).toUpperCase() +
+      authenticatedRole.slice(1)) as PlatformRole;
+    if (viewerRole !== ownRole) setViewerRole(ownRole);
+  }, [authenticatedRole, canPreviewRoles, viewerRole, setViewerRole]);
+
+  const realFeatureEnabledFor = (to: string) => {
+    if (!realFeatureAccess) return true;
+    const key = NAV_ROUTE_TO_FEATURE_KEY[to];
+    if (!key) return true;
+    return realFeatureAccess[key] ?? true;
+  };
+  const visibleNav = nav.filter(
+    (item) => canAccessRoute(viewerRole, item.to) && realFeatureEnabledFor(item.to),
+  );
   const visibleNavGroups = navGroups
-    .map((g) => ({ ...g, items: g.items.filter((to) => canAccessRoute(viewerRole, to)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((to) => canAccessRoute(viewerRole, to) && realFeatureEnabledFor(to)),
+    }))
     .filter((g) => g.items.length > 0);
-  const visiblePrimaryMobileNav = primaryMobileNav.filter((item) =>
-    canAccessRoute(viewerRole, item.to),
+  const visiblePrimaryMobileNav = primaryMobileNav.filter(
+    (item) => canAccessRoute(viewerRole, item.to) && realFeatureEnabledFor(item.to),
   );
 
   // Global search — searches pages plus real content (videos, leads, brand deals), not just nav
@@ -532,9 +622,14 @@ export function DashboardLayout({
   }, [searchOpen]);
   const routeAllowed = canAccessRoute(viewerRole, pathname);
   const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
+  // realFeatureEnabledFor is the real, server-backed, per-role check — this is the client-side UX
+  // half of it (immediately hides page content on direct navigation); every API the page calls
+  // enforces the same rule independently via requireFeatureEnabled, since a client check alone
+  // can always be bypassed.
   const pageBlocked =
     !routeAllowed ||
-    (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin");
+    (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin") ||
+    !realFeatureEnabledFor(pathname);
 
   const switchRole = (role: PlatformRole) => {
     setViewerRole(role);
@@ -542,7 +637,7 @@ export function DashboardLayout({
       navigate({ to: "/dashboard" });
     }
     toast.success(`Viewing as ${role}`, {
-      description: "This switches the RBAC demo — nothing else changes.",
+      description: "Real nav & feature access for that role — your own account never changes.",
     });
   };
 
@@ -780,42 +875,47 @@ export function DashboardLayout({
               )}
             </div>
 
-            {/* RBAC demo role switcher */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  title="Demo control — switch roles to preview RBAC"
-                  className={`flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
-                >
-                  {(() => {
-                    const RoleIcon = ROLE_META[viewerRole].icon;
-                    return <RoleIcon className="h-3.5 w-3.5" />;
-                  })()}
-                  <span className="hidden sm:inline">Viewing as {viewerRole}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>Preview as role</DropdownMenuLabel>
-                <p className="px-2 pb-2 text-xs text-muted-foreground">
-                  Demo control — switches nav access &amp; permissions live.
-                </p>
-                <DropdownMenuSeparator />
-                {PLATFORM_ROLES.map((role) => {
-                  const RoleIcon = ROLE_META[role].icon;
-                  return (
-                    <DropdownMenuItem
-                      key={role}
-                      onSelect={() => switchRole(role)}
-                      className={role === viewerRole ? "bg-accent" : undefined}
-                    >
-                      <RoleIcon className="mr-2 h-4 w-4" />
-                      <span className="flex-1">{role}</span>
-                      {role === viewerRole && <ShieldCheck className="h-4 w-4 text-primary" />}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Workspace owner/manager-only role preview — a real simulation backed by
+                role_feature_access (see the previewRole param above), never an actual role
+                change. Hidden entirely for setter/editor. */}
+            {canPreviewRoles && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    title="Preview how another role's navigation and feature access looks"
+                    className={`flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
+                  >
+                    {(() => {
+                      const RoleIcon = ROLE_META[viewerRole].icon;
+                      return <RoleIcon className="h-3.5 w-3.5" />;
+                    })()}
+                    <span className="hidden sm:inline">Viewing as {viewerRole}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>Preview as role</DropdownMenuLabel>
+                  <p className="px-2 pb-2 text-xs text-muted-foreground">
+                    Shows real nav &amp; feature access for another role. Your own account and
+                    permissions never change.
+                  </p>
+                  <DropdownMenuSeparator />
+                  {WORKSPACE_PREVIEW_ROLES.map((role) => {
+                    const RoleIcon = ROLE_META[role].icon;
+                    return (
+                      <DropdownMenuItem
+                        key={role}
+                        onSelect={() => switchRole(role)}
+                        className={role === viewerRole ? "bg-accent" : undefined}
+                      >
+                        <RoleIcon className="mr-2 h-4 w-4" />
+                        <span className="flex-1">{role}</span>
+                        {role === viewerRole && <ShieldCheck className="h-4 w-4 text-primary" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Notifications */}
             <Popover>
@@ -929,6 +1029,25 @@ export function DashboardLayout({
         </header>
 
         <main className="dashboard-main min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6 md:pb-6">
+          {canPreviewRoles && viewerRole.toLowerCase() !== authenticatedRole && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-purple/30 bg-brand-purple/10 px-4 py-2.5 text-sm">
+              <span className="text-brand-purple">
+                <span className="font-semibold">Viewing as {viewerRole}</span> — Preview mode. Your
+                actual role is {authenticatedRole}.
+              </span>
+              <button
+                onClick={() =>
+                  setViewerRole(
+                    ((authenticatedRole ?? "owner").charAt(0).toUpperCase() +
+                      (authenticatedRole ?? "owner").slice(1)) as PlatformRole,
+                  )
+                }
+                className="rounded-full border border-brand-purple/40 px-3 py-1 text-xs font-semibold text-brand-purple hover:bg-brand-purple/10"
+              >
+                Exit preview
+              </button>
+            </div>
+          )}
           {pageBlocked ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">

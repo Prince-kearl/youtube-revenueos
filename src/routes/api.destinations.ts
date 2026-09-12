@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { applySetCookies, requireSessionUser } from "@/lib/server/supabase-ssr";
+import { applySetCookies } from "@/lib/server/supabase-ssr";
+import { getWorkspaceContext } from "@/lib/server/workspace";
 
 const destinationSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -42,12 +43,13 @@ export const Route = createFileRoute("/api/destinations")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, workspaceId, setCookieHeaders } = await getWorkspaceContext(request);
           const url = new URL(request.url);
           const status = url.searchParams.get("status");
           const query = client
             .from("destinations")
             .select("*")
+            .eq("workspace_id", workspaceId)
             .order("created_at", { ascending: false });
           const result =
             status === "active" || status === "archived"
@@ -66,11 +68,12 @@ export const Route = createFileRoute("/api/destinations")({
       },
       POST: async ({ request }) => {
         try {
-          const { client, user, setCookieHeaders } = await requireSessionUser(request);
+          const { client, user, workspaceId, setCookieHeaders } =
+            await getWorkspaceContext(request);
           const input = destinationSchema.parse(await parseJson(request));
           const { data, error } = await client
             .from("destinations")
-            .insert({ ...input, user_id: user.id })
+            .insert({ ...input, user_id: user.id, workspace_id: workspaceId })
             .select()
             .single();
           if (error)
@@ -88,7 +91,7 @@ export const Route = createFileRoute("/api/destinations")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, setCookieHeaders } = await getWorkspaceContext(request);
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const input = destinationSchema.partial().parse(await parseJson(request));
@@ -118,7 +121,7 @@ export const Route = createFileRoute("/api/destinations")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireSessionUser(request);
+          const { client, setCookieHeaders } = await getWorkspaceContext(request);
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const { error } = await client.from("destinations").delete().eq("id", id);
