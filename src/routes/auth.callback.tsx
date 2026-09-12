@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { applySetCookies, createSessionSupabaseClient } from "@/lib/server/supabase-ssr";
 import { getServerEnv } from "@/lib/server/env";
+import { fetchAuthorizedYoutubeChannel } from "@/lib/server/google-oauth";
+import { encryptSecretToBytea } from "@/lib/server/crypto";
 
 function redirectResponse(location: string): Response {
   return new Response(null, { status: 302, headers: { Location: location } });
@@ -24,11 +26,64 @@ export const Route = createFileRoute("/auth/callback")({
 
         try {
           const { client, setCookieHeaders } = createSessionSupabaseClient(request);
-          const { error } = await client.auth.exchangeCodeForSession(code);
-          if (error) {
+          const { data, error } = await client.auth.exchangeCodeForSession(code);
+          if (error || !data.session) {
             return redirectResponse(`${appUrl}/?auth_error=code_exchange_failed`);
           }
 
+          // Google sign-in/up now requests the YouTube scopes directly (see signInWithGoogle), so
+          // a provider token here means this session's Google consent already covers YouTube data
+          // access — store the channel connection right away instead of sending the user through
+          // a second, separate consent screen.
+          const { provider_token: providerToken, provider_refresh_token: providerRefreshToken } =
+            data.session;
+          if (providerToken && providerRefreshToken) {
+            try {
+              const channel = await fetchAuthorizedYoutubeChannel(providerToken);
+              const { data: membership } = await client
+                .from("workspace_members")
+                .select("workspace_id")
+                .eq("user_id", data.session.user.id)
+                .eq("status", "active")
+                .limit(1)
+                .maybeSingle();
+              if (membership) {
+                const accessTokenCiphertext = await encryptSecretToBytea(providerToken);
+                const refreshTokenCiphertext = await encryptSecretToBytea(providerRefreshToken);
+                await client.from("youtube_channels").upsert(
+                  {
+                    user_id: data.session.user.id,
+                    workspace_id: membership.workspace_id,
+                    youtube_channel_id: channel.channelId,
+                    channel_name: channel.title,
+                    channel_handle: channel.handle,
+                    thumbnail: channel.thumbnail,
+                    subscriber_count: channel.subscriberCount,
+                    view_count: channel.viewCount,
+                    video_count: channel.videoCount,
+                    uploads_playlist_id: channel.uploadsPlaylistId,
+                    access_token_ciphertext: accessTokenCiphertext,
+                    refresh_token_ciphertext: refreshTokenCiphertext,
+                    // Supabase doesn't expose the provider token's actual expiry, only the token
+                    // itself — an hour is Google's standard access-token lifetime, and the normal
+                    // refresh-token flow (see youtube-tokens.ts) takes over well before then.
+                    token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
+                    connected_at: new Date().toISOString(),
+                  },
+                  { onConflict: "workspace_id,youtube_channel_id" },
+                );
+              }
+            } catch (channelError) {
+              // Not fatal — sign-in itself succeeded, and the user can still connect manually
+              // from Settings if this best-effort auto-connect didn't go through.
+              console.error("Auto-connecting YouTube after sign-in failed", channelError);
+            }
+            return applySetCookies(redirectResponse(`${appUrl}/dashboard`), setCookieHeaders);
+          }
+
+          // No provider token — an email/password signup confirmation link, or a Google session
+          // that for some reason didn't come back with the YouTube scopes. Fall back to the
+          // separate YouTube consent flow.
           const youtubeAuthUrl = `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent("/dashboard")}`;
           return applySetCookies(redirectResponse(youtubeAuthUrl), setCookieHeaders);
         } catch (error) {
