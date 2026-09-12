@@ -418,23 +418,23 @@ function Comments() {
             Auto-reply to real comments on your videos — keyword matches, @handles, or questions.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/leads"
-            className="flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
+            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
           >
             <Inbox className="h-4 w-4" /> Lead Inbox
           </Link>
           <button
             onClick={() => setViewingComments(true)}
-            className="flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
+            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
           >
             <Eye className="h-4 w-4" /> View All Comments
           </button>
           <button
             onClick={() => setCreating(true)}
             data-onboarding-step="comments"
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" /> New Rule
           </button>
