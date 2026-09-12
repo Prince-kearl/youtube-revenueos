@@ -12,19 +12,22 @@ function json(body: unknown, init?: ResponseInit) {
   });
 }
 
-export const Route = createFileRoute("/api/admin/plans/audit")({
+// Shared read endpoint for admin_audit_log, used by both Feature Management and Version Control
+// (filtered client-side by action-name prefix: "feature_" vs "release_") rather than building two
+// near-identical read routes for one generic table.
+export const Route = createFileRoute("/api/admin/audit")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePermission(request, "manage_plans");
+          const { client } = await requirePermission(request, "view_audit_logs");
           const { data, error } = await client
-            .from("plan_audit_log")
+            .from("admin_audit_log")
             .select(
-              "id, action, plan_name, old_value, new_value, created_at, admin:profiles!plan_audit_log_admin_user_id_fkey(name, email)",
+              "id, action, target, old_value, new_value, created_at, admin:profiles!admin_audit_log_admin_user_id_fkey(name, email)",
             )
             .order("created_at", { ascending: false })
-            .limit(30);
+            .limit(50);
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           return json({ data });
         } catch (error) {

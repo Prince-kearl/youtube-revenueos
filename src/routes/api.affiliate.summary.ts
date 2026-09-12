@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requireFeatureEnabled } from "@/lib/server/feature-access";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
+import { createServiceSupabaseClient } from "@/lib/server/supabase";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/api/affiliate/summary")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user } = await requireFeatureEnabled(request, "affiliate");
 
           // Lazily backfill referral_code for accounts created before this column existed —
           // handle_new_user only sets it for signups going forward.
@@ -60,7 +61,17 @@ export const Route = createFileRoute("/api/affiliate/summary")({
           let referralCode = profile?.referral_code ?? null;
           if (!referralCode) {
             referralCode = user.id.replace(/-/g, "").slice(0, 10);
-            await client.from("profiles").update({ referral_code: referralCode }).eq("id", user.id);
+            // profiles_self_update (see 202609130002_rbac_data.sql) pins referral_code to its
+            // current value for the session-bound client — correct, since a user should never be
+            // able to rewrite their own referral code. This one value is fully deterministic
+            // (derived from the user's own id, no user input involved), so the service-role client
+            // performs this one-time backfill instead, the same way handle_new_user() sets it for
+            // new signups.
+            const service = createServiceSupabaseClient();
+            await service
+              .from("profiles")
+              .update({ referral_code: referralCode })
+              .eq("id", user.id);
           }
 
           const [

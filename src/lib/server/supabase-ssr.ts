@@ -58,9 +58,15 @@ export function applySetCookies(response: Response, setCookieHeaders: string[]):
 }
 
 // Real server-side authorization for Superadmin-only routes — the admin console itself has no
-// gating (the "Viewing as Superadmin" switcher in DashboardLayout is a client-side demo toggle,
-// not auth), so every admin-write endpoint must check this independently rather than trust that
-// the request only came from someone who could see the admin UI.
+// gating (the "Preview as role" switcher in DashboardLayout is a client-side UX simulation, not
+// auth), so every admin-write endpoint must check this independently rather than trust that the
+// request only came from someone who could see the admin UI.
+//
+// 'admin' is accepted alongside 'superadmin' only as a defensive fallback for a profile row that
+// somehow still carries the pre-RBAC legacy value (see 202609130002_rbac_data.sql, which promotes
+// every existing 'admin' row to 'superadmin') — no code should ever newly assign 'admin' again.
+// Kept as `requireAdminUser` (not renamed) since ~15 existing admin API routes already call it;
+// `requireSuperadmin` is the same function under the clearer name for new code.
 export async function requireAdminUser(
   request: Request,
 ): Promise<{ client: SupabaseClient; user: User; setCookieHeaders: string[] }> {
@@ -70,7 +76,7 @@ export async function requireAdminUser(
     .select("role")
     .eq("id", session.user.id)
     .maybeSingle();
-  if (error || profile?.role !== "admin") {
+  if (error || (profile?.role !== "admin" && profile?.role !== "superadmin")) {
     throw new Response(JSON.stringify({ error: "ADMIN_REQUIRED" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -78,3 +84,5 @@ export async function requireAdminUser(
   }
   return session;
 }
+
+export const requireSuperadmin = requireAdminUser;

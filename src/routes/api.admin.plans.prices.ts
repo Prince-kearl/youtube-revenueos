@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireAdminUser } from "@/lib/server/supabase-ssr";
+import { requirePermission } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { createPrice, isStripeConfigured } from "@/lib/server/stripe";
 import { logPlanAudit } from "@/lib/server/plan-audit";
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/admin/plans/prices")({
         try {
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requireAdminUser(request);
+          const { user } = await requirePermission(request, "manage_plans");
           const service = createServiceSupabaseClient();
           const input = bodySchema.parse(await parseJson(request));
 

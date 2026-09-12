@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAdminUser } from "@/lib/server/supabase-ssr";
+import { requirePermission } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 import { retrievePrice, isStripeConfigured } from "@/lib/server/stripe";
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/admin/plans/seed-legacy")({
         try {
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requireAdminUser(request);
+          const { user } = await requirePermission(request, "manage_plans");
           // Admin authorization above runs on the session-bound client (subject to RLS), but plans/
           // plan_prices/plan_audit_log deliberately have no insert/update policy for regular
           // authenticated users — only the service-role client can write here, by design.

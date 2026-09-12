@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireAdminUser } from "@/lib/server/supabase-ssr";
+import { requirePermission } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { createProduct, createPrice, updateProduct, isStripeConfigured } from "@/lib/server/stripe";
 import { logPlanAudit } from "@/lib/server/plan-audit";
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/admin/plans")({
       // listing used by billing.tsx (GET /api/billing/subscription) filters that down separately.
       GET: async ({ request }) => {
         try {
-          const { client } = await requireAdminUser(request);
+          const { client } = await requirePermission(request, "manage_plans");
           const { data, error } = await client
             .from("plans")
             .select(planColumns)
@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/admin/plans")({
         try {
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requireAdminUser(request);
+          const { user } = await requirePermission(request, "manage_plans");
           // plans/plan_prices/plan_audit_log have no write policy for regular authenticated users
           // by design — only the service-role client (used only after requireAdminUser has already
           // verified this caller is an admin) can insert/update them.
@@ -198,7 +198,7 @@ export const Route = createFileRoute("/api/admin/plans")({
       // creates a new Stripe Price rather than mutating this plan's existing one.
       PATCH: async ({ request }) => {
         try {
-          const { user } = await requireAdminUser(request);
+          const { user } = await requirePermission(request, "manage_plans");
           const service = createServiceSupabaseClient();
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = editSchema.parse(await parseJson(request));
