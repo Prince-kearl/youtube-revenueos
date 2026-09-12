@@ -1855,7 +1855,7 @@ function SecurityPanel() {
   return (
     <div className="relative space-y-4">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <div className="relative rounded-xl card-gradient-outline p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-lg font-bold tracking-tight">Security</h3>
@@ -1865,7 +1865,7 @@ function SecurityPanel() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-xl border border-border bg-background p-4 sm:p-5">
+        <div className="mt-5 card-frost backdrop-blur-lg p-4 sm:p-5">
           <div>
             <h4 className="text-sm font-bold">Password</h4>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -1897,7 +1897,7 @@ function SecurityPanel() {
           </button>
         </div>
 
-        <div className="mt-5 rounded-xl border border-border bg-background p-4 sm:p-5">
+        <div className="mt-5 card-frost backdrop-blur-lg p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -2073,7 +2073,7 @@ function SecurityPanel() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      <div className="relative rounded-xl card-gradient-outline p-5 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-bold">Recent security activity</h4>
@@ -2122,7 +2122,7 @@ function SecurityPanel() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="relative flex flex-col gap-3 rounded-xl card-gradient-outline p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive">
             <CircleHelp className="h-4 w-4" />
@@ -2142,7 +2142,7 @@ function SecurityPanel() {
         </Link>
       </div>
 
-      <details className="rounded-xl border border-border bg-card shadow-sm">
+      <details className="relative rounded-xl card-gradient-outline">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
           <div>
             <h4 className="text-sm font-bold">How two-factor authentication works</h4>
