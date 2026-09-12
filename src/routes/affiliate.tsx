@@ -229,12 +229,12 @@ function Affiliate() {
             ) : (
               <>
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <div className="flex h-11 flex-1 items-center overflow-x-auto rounded-lg border border-border bg-background px-3 font-mono text-sm text-muted-foreground">
+                  <div className="flex h-11 flex-1 items-center overflow-x-auto rounded-full border border-border bg-background px-4 font-mono text-sm text-muted-foreground">
                     {data!.referralLink}
                   </div>
                   <button
                     onClick={() => void copy()}
-                    className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     {copied ? "Copied" : "Copy Link"}

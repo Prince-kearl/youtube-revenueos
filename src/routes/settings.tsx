@@ -56,6 +56,11 @@ import {
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
+  // Lets links from elsewhere in the app (e.g. a YouTube reconnect prompt) open straight to the
+  // relevant panel instead of always landing on Profile and making the user find it themselves.
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
+  }),
 });
 
 const menu = [
@@ -71,7 +76,8 @@ const menu = [
 ];
 
 function Settings() {
-  const [active, setActive] = useState("Profile");
+  const { tab } = Route.useSearch();
+  const [active, setActive] = useState(tab && menu.some((m) => m.label === tab) ? tab : "Profile");
 
   return (
     <DashboardLayout title="Settings">
@@ -82,7 +88,7 @@ function Settings() {
 
       {/* Mobile tab nav */}
       <div className="mt-5 lg:hidden">
-        <div className="flex items-stretch border border-border bg-card p-1">
+        <div className="flex items-stretch rounded-full border border-border bg-card p-1">
           {menu.map((m) => {
             const isActive = active === m.label;
             return (
@@ -91,7 +97,7 @@ function Settings() {
                 onClick={() => setActive(m.label)}
                 aria-label={m.label}
                 title={m.label}
-                className={`flex h-10 min-w-0 flex-1 items-center justify-center transition-colors ${
+                className={`flex h-10 min-w-0 flex-1 items-center justify-center rounded-full transition-colors ${
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -152,6 +158,22 @@ function renderPanel(active: string, setActive: (section: string) => void) {
   }
 }
 
+// Maps the real profiles.role value (see src/lib/server/roles.ts's AppRole) to a display label.
+// 'admin' is kept only as a defensive fallback for a legacy row that somehow still carries it —
+// no profile should have that value after the 202609130002_rbac_data.sql migration.
+const ROLE_LABELS: Record<string, string> = {
+  superadmin: "Superadmin",
+  admin: "Superadmin",
+  owner: "Owner",
+  manager: "Manager",
+  setter: "Setter",
+  editor: "Editor",
+  user: "Member",
+};
+function roleLabel(role: string): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
 function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   const { user } = useAuthSession();
   const [profile, setProfile] = useLocalStore("yroos.profile", {
@@ -184,7 +206,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
     profile.avatar ||
     (user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture) ||
     channel?.thumbnail;
-  const role = profile.role === "admin" ? "Admin" : "Owner";
+  const role = roleLabel(profile.role);
   const [bio, setBio] = useState(profile.bio ?? "");
   const [saved, setSaved] = useState(false);
   const [profileTab, setProfileTab] = useState<
@@ -233,12 +255,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
       name: next.name ?? current.name,
       email: next.email ?? current.email,
       avatar: next.avatar ?? current.avatar,
-      role:
-        next.role === "admin"
-          ? "Admin"
-          : next.role === "user"
-            ? "Owner"
-            : (next.role ?? current.role),
+      role: next.role ? roleLabel(next.role) : current.role,
       location: next.location ?? current.location,
       website: next.website ?? current.website,
       bio: next.bio ?? current.bio,
@@ -305,7 +322,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
           </div>
           <button
             onClick={() => setEditor("profile")}
-            className="inline-flex items-center justify-center gap-2 rounded-[var(--button-radius)] border border-border px-4 py-2 text-xs font-semibold hover:border-primary"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-primary"
           >
             <Pencil className="h-3.5 w-3.5" /> Edit profile
           </button>
@@ -428,7 +445,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 <button
                   onClick={() => window.open(channelUrl, "_blank", "noopener,noreferrer")}
                   disabled={!channel}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-[10px] font-semibold disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[10px] font-semibold disabled:opacity-50"
                 >
                   Manage <ExternalLink className="h-3 w-3" />
                 </button>
@@ -524,7 +541,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                     toast.error("Could not save profile preferences");
                   }
                 }}
-                className="mt-4 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+                className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
               >
                 {saved ? "Saved" : "Save changes"}
               </button>
@@ -756,7 +773,7 @@ function ProfileEditor({
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
@@ -1042,7 +1059,7 @@ function ConnectedAccountsPanel() {
                 <button
                   onClick={account.action}
                   disabled={account.disabled}
-                  className={`w-full rounded-lg px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
+                  className={`w-full rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
                     (account.title === "YouTube" ||
                       account.title === "Stripe" ||
                       account.title === "ConvertKit") &&
@@ -1282,7 +1299,7 @@ function YouTubeIntegrationPanel() {
             </div>
             <a
               href="/api/youtube/auth"
-              className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="whitespace-nowrap rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Connect YouTube Channel
             </a>
@@ -1414,7 +1431,7 @@ function YouTubeIntegrationPanel() {
         <button
           onClick={() => void syncNow()}
           disabled={syncing || loading || savingSetting !== null}
-          className="flex items-center gap-2 rounded-[var(--button-radius)] border border-border px-4 py-2 text-sm font-semibold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Syncing…" : "Sync now"}
@@ -1591,7 +1608,7 @@ function BillingPanel() {
         </div>
         <Link
           to="/billing"
-          className="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:mt-0"
+          className="mt-4 inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:mt-0"
         >
           {activePlan ? "Manage billing" : "Choose a plan"}
         </Link>
@@ -1631,9 +1648,19 @@ function SecurityPanel() {
       );
       setMfaFactor(factor ? { id: factor.id, friendlyName: factor.friendly_name } : null);
       if (factor) {
-        const response = await fetch("/api/security/recovery-codes");
-        const body = (await response.json()) as { remaining?: number };
-        if (response.ok) setRecoveryRemaining(body.remaining ?? 0);
+        // Best-effort only — the recovery-code count is a secondary detail, and a request right
+        // after an MFA challenge can briefly 403 (session cookie hasn't reflected the new
+        // assurance level yet server-side). That shouldn't blank out the factor state we already
+        // loaded above or show a misleading "couldn't load 2FA" error.
+        try {
+          const response = await fetch("/api/security/recovery-codes");
+          if (response.ok) {
+            const body = (await response.json()) as { remaining?: number };
+            setRecoveryRemaining(body.remaining ?? 0);
+          }
+        } catch {
+          // ignore — see comment above
+        }
       } else {
         setRecoveryRemaining(null);
       }
@@ -1690,9 +1717,12 @@ function SecurityPanel() {
       if (challengeError || !challenge) throw challengeError ?? new Error("challenge_failed");
       const { error } = await verifyMfaFactor(pendingEnrollment.id, challenge.id, verificationCode);
       if (error) throw error;
+      // Set the factor directly from what we already know instead of re-fetching via
+      // loadMfaFactor() — an immediate listFactors() call right after verify() can race the
+      // session cookie update and spuriously fail with a misleading "couldn't load 2FA" error.
+      setMfaFactor({ id: pendingEnrollment.id, friendlyName: "Tubify" });
       setPendingEnrollment(null);
       setVerificationCode("");
-      await loadMfaFactor();
       const recoveryResponse = await fetch("/api/security/recovery-codes", { method: "POST" });
       const recoveryBody = (await recoveryResponse.json()) as { codes?: string[] };
       if (!recoveryResponse.ok || !recoveryBody.codes) throw new Error("recovery_codes_failed");
@@ -1794,7 +1824,7 @@ function SecurityPanel() {
           <button
             onClick={() => void handlePasswordUpdate()}
             disabled={updating}
-            className="mt-4 rounded-[var(--button-radius)] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {updating ? "Updating…" : "Update password"}
           </button>
@@ -1826,7 +1856,7 @@ function SecurityPanel() {
               <button
                 onClick={() => void beginMfaEnrollment()}
                 disabled={mfaSubmitting}
-                className="shrink-0 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
               >
                 {mfaSubmitting ? "Starting…" : "Enable 2FA"}
               </button>
@@ -1923,7 +1953,7 @@ function SecurityPanel() {
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}
-                  className="rounded-[var(--button-radius)] bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                  className="rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
                 >
                   Copy codes
                 </button>
@@ -1939,7 +1969,7 @@ function SecurityPanel() {
                     link.click();
                     URL.revokeObjectURL(link.href);
                   }}
-                  className="rounded-[var(--button-radius)] border border-border px-3 py-2 text-sm font-semibold"
+                  className="rounded-full border border-border px-3 py-2 text-sm font-semibold"
                 >
                   Download
                 </button>
@@ -1984,7 +2014,7 @@ function SecurityPanel() {
               Keep an eye on important changes to your account.
             </p>
           </div>
-          <button className="rounded-lg border border-border px-3 py-2 text-[10px] font-semibold">
+          <button className="rounded-full border border-border px-3 py-2 text-[10px] font-semibold">
             View all activity
           </button>
         </div>
@@ -2039,7 +2069,7 @@ function SecurityPanel() {
         </div>
         <Link
           to="/support"
-          className="rounded-lg border border-border px-3 py-2 text-[10px] font-semibold"
+          className="rounded-full border border-border px-3 py-2 text-[10px] font-semibold"
         >
           Contact support <ArrowRight className="ml-1 inline h-3 w-3" />
         </Link>
@@ -2311,7 +2341,7 @@ function DashboardBannerPanel() {
             });
           }
         }}
-        className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
         {saved ? (
           <>

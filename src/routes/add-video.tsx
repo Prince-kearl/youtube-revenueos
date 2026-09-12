@@ -810,7 +810,11 @@ function AddVideo() {
                   {myVideosStatus === "not_connected" && (
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       Connect your YouTube channel in{" "}
-                      <Link to="/settings" className="font-medium text-primary hover:underline">
+                      <Link
+                        to="/settings"
+                        search={{ tab: "YouTube Integration" }}
+                        className="font-medium text-primary hover:underline"
+                      >
                         Settings
                       </Link>{" "}
                       to select from your own videos, or paste a public video URL instead.
@@ -831,7 +835,11 @@ function AddVideo() {
                   {myVideosStatus === "loaded" && !myVideos.length && myVideosSyncDisabled && (
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       Video sync is turned off for your channel in{" "}
-                      <Link to="/settings" className="font-medium text-primary hover:underline">
+                      <Link
+                        to="/settings"
+                        search={{ tab: "YouTube Integration" }}
+                        className="font-medium text-primary hover:underline"
+                      >
                         Settings
                       </Link>
                       . Turn it on to select from your videos here, or paste a URL instead.
@@ -1495,6 +1503,7 @@ function MessageState({
       </div>
       <Link
         to="/settings"
+        search={{ tab: "YouTube Integration" }}
         className="rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
         {action}

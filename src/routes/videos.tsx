@@ -384,6 +384,7 @@ function MessageState({
       </div>
       <Link
         to="/settings"
+        search={{ tab: "YouTube Integration" }}
         className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       >
         {action}

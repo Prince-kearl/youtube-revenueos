@@ -408,7 +408,11 @@ function Dashboard() {
     ) : dashboardData?.revenueStatus === "forbidden" ? (
       <>
         Revenue access needs to be reconnected —{" "}
-        <Link to="/settings" className="font-medium text-primary underline">
+        <Link
+          to="/settings"
+          search={{ tab: "YouTube Integration" }}
+          className="font-medium text-primary underline"
+        >
           reconnect YouTube
         </Link>{" "}
         to fix it.
@@ -508,6 +512,7 @@ function Dashboard() {
           </div>
           <Link
             to="/settings"
+            search={{ tab: "YouTube Integration" }}
             className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             Open Settings
@@ -537,6 +542,7 @@ function Dashboard() {
             </button>
             <Link
               to="/settings"
+              search={{ tab: "YouTube Integration" }}
               className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Open Settings
@@ -693,7 +699,11 @@ function Dashboard() {
       {dashboardData?.analyticsStatus === "forbidden" && (
         <p className="text-xs text-warning">
           YouTube declined this request — your connection may predate a required permission.{" "}
-          <Link to="/settings" className="font-medium underline">
+          <Link
+            to="/settings"
+            search={{ tab: "YouTube Integration" }}
+            className="font-medium underline"
+          >
             Reconnect YouTube
           </Link>{" "}
           to fix it.
