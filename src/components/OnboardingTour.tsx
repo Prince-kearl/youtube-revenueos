@@ -2,39 +2,32 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { useOnboarding } from "@/lib/stores";
-import { ONBOARDING_STEPS, type OnboardingStepId, type OnboardingStatus } from "@/lib/onboarding";
+import { ONBOARDING_STEPS, type OnboardingStatus } from "@/lib/onboarding";
 
 const SPOTLIGHT_PADDING = 8;
 const TOOLTIP_WIDTH = 320;
-const SKIPPED_KEY = "yroos.onboarding.skipped";
+const MANUAL_INDEX_KEY = "yroos.onboarding.manualIndex";
 
-// Session-only, in skip order (most-recently-skipped last) so "Back" can pop the last one — moves
-// the spotlight without claiming the step is actually done (only real account state does that).
+// Explicit Back/Next navigation overrides the default "first incomplete step" pick, so the user
+// can browse the whole tour — including steps already done — not just the next thing to do.
 // Backed by sessionStorage (not component state) because DashboardLayout, and this component with
-// it, remounts on every route change, which would otherwise wipe the skip the instant "Next" or
-// "Back" navigated anywhere.
-function getSkippedSteps(): OnboardingStepId[] {
+// it, remounts on every route change, which would otherwise forget the override the instant
+// Back/Next navigated anywhere.
+function getManualIndex(): number | null {
   try {
-    const raw = window.sessionStorage.getItem(SKIPPED_KEY);
-    return raw ? (JSON.parse(raw) as OnboardingStepId[]) : [];
+    const raw = window.sessionStorage.getItem(MANUAL_INDEX_KEY);
+    return raw === null ? null : Number(raw);
   } catch {
-    return [];
+    return null;
   }
 }
-function persistSkippedSteps(ids: OnboardingStepId[]): OnboardingStepId[] {
+function setManualIndex(index: number): number {
   try {
-    window.sessionStorage.setItem(SKIPPED_KEY, JSON.stringify(ids));
+    window.sessionStorage.setItem(MANUAL_INDEX_KEY, String(index));
   } catch {
-    // ignore — worst case the skip doesn't stick across a navigation
+    // ignore — worst case Back/Next forgets its place across a navigation
   }
-  return ids;
-}
-function addSkippedStep(id: OnboardingStepId): OnboardingStepId[] {
-  const current = getSkippedSteps();
-  return persistSkippedSteps(current.includes(id) ? current : [...current, id]);
-}
-function removeLastSkippedStep(): OnboardingStepId[] {
-  return persistSkippedSteps(getSkippedSteps().slice(0, -1));
+  return index;
 }
 
 // Replaces the old fixed dashboard banner with a contextual spotlight tour: a small floating nudge
@@ -46,7 +39,7 @@ export function OnboardingTour() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
-  const [skipped, setSkipped] = useState<OnboardingStepId[]>(() => getSkippedSteps());
+  const [manualIndex, setManualIndexState] = useState<number | null>(() => getManualIndex());
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -64,9 +57,10 @@ export function OnboardingTour() {
     // redirect) is picked up without needing a full page reload.
   }, [onboarding.dismissed, pathname]);
 
-  const currentStep = status
-    ? ONBOARDING_STEPS.find((step) => !status[step.id] && !skipped.includes(step.id))
-    : undefined;
+  const allDone = status ? ONBOARDING_STEPS.every((step) => status[step.id]) : false;
+  const autoIndex = status ? ONBOARDING_STEPS.findIndex((step) => !status[step.id]) : -1;
+  const activeIndex = manualIndex ?? autoIndex;
+  const currentStep = allDone || activeIndex < 0 ? undefined : ONBOARDING_STEPS[activeIndex];
   const onTargetPage = currentStep?.to === pathname;
 
   useLayoutEffect(() => {
@@ -93,26 +87,16 @@ export function OnboardingTour() {
   if (onboarding.dismissed || !currentStep) return null;
 
   const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
-  const stepIndex = ONBOARDING_STEPS.findIndex((step) => step.id === currentStep.id);
 
-  const goNext = () => {
-    setSkipped(addSkippedStep(currentStep.id));
-    const next = ONBOARDING_STEPS.find((step) => step.id !== currentStep.id && !status?.[step.id]);
-    if (next && next.to !== pathname) navigate({ to: next.to, search: next.search });
+  const goToIndex = (index: number) => {
+    const target = ONBOARDING_STEPS[index];
+    setManualIndexState(setManualIndex(index));
+    if (target.to !== pathname) navigate({ to: target.to, search: target.search });
   };
-  // Only meaningful once "Next" has skipped past at least one step — earlier steps that are
-  // simply done (not skipped) have nothing to go back to show, since currentStep only ever
-  // points at an incomplete one.
-  const previousStepId = skipped[skipped.length - 1];
-  const previousStep = ONBOARDING_STEPS.find((step) => step.id === previousStepId);
-  const goBack = () => {
-    if (!previousStep) return;
-    setSkipped(removeLastSkippedStep());
-    if (previousStep.to !== pathname)
-      navigate({ to: previousStep.to, search: previousStep.search });
-  };
+  const canGoBack = activeIndex > 0;
+  const canGoNext = activeIndex < ONBOARDING_STEPS.length - 1;
 
-  if (!onTargetPage || !rect) {
+  if (!onTargetPage) {
     return (
       <Link
         to={currentStep.to}
@@ -120,7 +104,7 @@ export function OnboardingTour() {
         className="fixed bottom-20 left-4 z-40 flex items-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-medium text-background shadow-xl sm:bottom-6"
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-          {stepIndex + 1}
+          {activeIndex + 1}
         </span>
         {currentStep.label}
         <button
@@ -135,6 +119,32 @@ export function OnboardingTour() {
           <X className="h-3.5 w-3.5" />
         </button>
       </Link>
+    );
+  }
+
+  // On the right page, but the real target element isn't there (the step is already done, e.g.
+  // reviewing "Connect your channel" after it's connected — that UI is gone). Still let the user
+  // browse via Back/Next, just without a spotlight to anchor to.
+  if (!rect) {
+    return (
+      <div className="fixed bottom-20 left-4 z-40 w-80 rounded-2xl border border-border bg-background p-5 shadow-2xl sm:bottom-6">
+        <button
+          onClick={dismiss}
+          className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+          aria-label="Dismiss getting started guide"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <h3 className="pr-6 text-base font-bold">{currentStep.label}</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground">{currentStep.desc}</p>
+        <TourFooter
+          activeIndex={activeIndex}
+          canGoBack={canGoBack}
+          canGoNext={canGoNext}
+          onBack={() => goToIndex(activeIndex - 1)}
+          onNext={() => goToIndex(activeIndex + 1)}
+        />
+      </div>
     );
   }
 
@@ -170,32 +180,58 @@ export function OnboardingTour() {
         </button>
         <h3 className="pr-6 text-base font-bold">{currentStep.label}</h3>
         <p className="mt-1.5 text-sm text-muted-foreground">{currentStep.desc}</p>
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {ONBOARDING_STEPS.map((step, i) => (
-              <span
-                key={step.id}
-                className={`h-1.5 w-1.5 rounded-full ${i === stepIndex ? "bg-primary" : "bg-muted-foreground/25"}`}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            {previousStep && (
-              <button
-                onClick={goBack}
-                className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> Back
-              </button>
-            )}
-            <button
-              onClick={goNext}
-              className="flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
+        <TourFooter
+          activeIndex={activeIndex}
+          canGoBack={canGoBack}
+          canGoNext={canGoNext}
+          onBack={() => goToIndex(activeIndex - 1)}
+          onNext={() => goToIndex(activeIndex + 1)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TourFooter({
+  activeIndex,
+  canGoBack,
+  canGoNext,
+  onBack,
+  onNext,
+}: {
+  activeIndex: number;
+  canGoBack: boolean;
+  canGoNext: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between">
+      <div className="flex items-center gap-1.5">
+        {ONBOARDING_STEPS.map((step, i) => (
+          <span
+            key={step.id}
+            className={`h-1.5 w-1.5 rounded-full ${i === activeIndex ? "bg-primary" : "bg-muted-foreground/25"}`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        {canGoBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Back
+          </button>
+        )}
+        {canGoNext && (
+          <button
+            onClick={onNext}
+            className="flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );
