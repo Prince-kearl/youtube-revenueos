@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { CreditCard, DollarSign, AlertTriangle, Ticket, Plus, Power } from "lucide-react";
+import { Plus, Power } from "lucide-react";
 import { toast } from "sonner";
-import { StatCard, Tag } from "@/components/ui-bits";
+import { Tag } from "@/components/ui-bits";
+import { FlatKpiCard } from "@/components/KpiTrendCard";
 import {
   useCoupons,
   usePayments,
@@ -48,25 +49,15 @@ export function BillingSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          icon={<DollarSign className="h-5 w-5" />}
-          value={`$${mrr.toLocaleString()}`}
-          label="MRR"
-        />
-        <StatCard
-          icon={<CreditCard className="h-5 w-5" />}
+        <FlatKpiCard title="MRR" value={`$${mrr.toLocaleString()}`} />
+        <FlatKpiCard
+          title="Payments (30d)"
           value={String(payments.filter((p) => p.status === "Paid").length)}
-          label="Payments (30d)"
         />
-        <StatCard
-          icon={<AlertTriangle className="h-5 w-5" />}
-          value={String(failed.length)}
-          label="Failed Payments"
-        />
-        <StatCard
-          icon={<Ticket className="h-5 w-5" />}
+        <FlatKpiCard title="Failed Payments" value={String(failed.length)} />
+        <FlatKpiCard
+          title="Active Coupons"
           value={String(coupons.filter((c) => c.active).length)}
-          label="Active Coupons"
         />
       </div>
 

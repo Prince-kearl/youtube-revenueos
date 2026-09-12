@@ -79,7 +79,11 @@ function MiniAreaTrend({
 
   return (
     <div className="relative h-32 w-full sm:h-[84px]">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="h-full w-full overflow-visible"
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.28} />
@@ -87,9 +91,32 @@ function MiniAreaTrend({
           </linearGradient>
         </defs>
         <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-        <path d={linePath} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-        <line x1={marker.x} x2={marker.x} y1={marker.y} y2={height} stroke={color} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="3 4" />
-        <circle cx={marker.x} cy={marker.y} r={4.5} fill={color} stroke="var(--card)" strokeWidth={2} />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1={marker.x}
+          x2={marker.x}
+          y1={marker.y}
+          y2={height}
+          stroke={color}
+          strokeOpacity={0.35}
+          strokeWidth={1.5}
+          strokeDasharray="3 4"
+        />
+        <circle
+          cx={marker.x}
+          cy={marker.y}
+          r={4.5}
+          fill={color}
+          stroke="var(--card)"
+          strokeWidth={2}
+        />
       </svg>
       <div
         className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+6px)] whitespace-nowrap rounded-lg border border-border bg-card px-1.5 py-0.5 text-[9px] shadow-md sm:-translate-y-[calc(100%+10px)] sm:px-2.5 sm:py-1 sm:text-xs"
@@ -99,6 +126,44 @@ function MiniAreaTrend({
         <p className="text-muted-foreground">{markerSubtitle}</p>
       </div>
     </div>
+  );
+}
+
+// For pages backed by mock/localStorage data with no real history to trend (admin console demo
+// sections, Team, Support) — same visual shell as KpiTrendCard, but never claims a trend that
+// doesn't exist: a flat line at the current value, no change%/delta badge. Converts a plain
+// StatCard-shaped call (title/value/caption) into KpiTrendCard's fuller prop set so those pages
+// don't each have to hand-roll the "no real trend" convention.
+export function FlatKpiCard({
+  title,
+  value,
+  caption = "",
+  accent,
+  className,
+}: {
+  title: string;
+  value: string;
+  caption?: string;
+  accent?: string;
+  className?: string;
+}) {
+  const numeric = Number(String(value).replace(/[^0-9.-]/g, ""));
+  const flat = Number.isFinite(numeric) ? numeric : 0;
+  return (
+    <KpiTrendCard
+      title={title}
+      value={value}
+      deltaLabel=""
+      deltaSuffix={caption}
+      changePercent={null}
+      periodLabel=""
+      series={[flat, flat]}
+      markerTitle={value}
+      markerSubtitle={title}
+      positive
+      accent={accent}
+      className={className}
+    />
   );
 }
 
@@ -131,16 +196,30 @@ export function KpiTrendCard({
 }) {
   return (
     <div
-      className={cn("relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4", className)}
-      style={{ backgroundImage: `radial-gradient(140% 140% at 0% 0%, color-mix(in srgb, ${accent} 16%, transparent) 0%, transparent 60%)` }}
+      className={cn(
+        "relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4",
+        className,
+      )}
+      style={{
+        backgroundImage: `radial-gradient(140% 140% at 0% 0%, color-mix(in srgb, ${accent} 16%, transparent) 0%, transparent 60%)`,
+      }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">
         <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2">
           <p className="text-xs font-medium text-foreground/80">{title}</p>
           {changePercent !== null && (
             <div className="hidden items-center gap-1.5 text-xs sm:flex">
-              <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-semibold", positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
-                {positive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+              <span
+                className={cn(
+                  "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-semibold",
+                  positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
+                )}
+              >
+                {positive ? (
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDownRight className="h-3.5 w-3.5" />
+                )}
                 {Math.abs(changePercent).toFixed(1)}%
               </span>
               <span className="hidden text-muted-foreground md:inline">{periodLabel}</span>
@@ -148,8 +227,17 @@ export function KpiTrendCard({
             </div>
           )}
           {changePercent !== null && (
-            <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold sm:hidden", positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive")}>
-              {positive ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+            <span
+              className={cn(
+                "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold sm:hidden",
+                positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
+              )}
+            >
+              {positive ? (
+                <ArrowUpRight className="h-2.5 w-2.5" />
+              ) : (
+                <ArrowDownRight className="h-2.5 w-2.5" />
+              )}
               {Math.abs(changePercent).toFixed(1)}%
             </span>
           )}
@@ -158,14 +246,21 @@ export function KpiTrendCard({
         <div className="mt-2">
           <p className="text-3xl font-bold leading-tight tracking-tight text-foreground">{value}</p>
           <p className="mt-1.5 text-sm leading-tight sm:text-xs">
-            <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>{deltaLabel}</span>{" "}
+            <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>
+              {deltaLabel}
+            </span>{" "}
             <span className="text-muted-foreground">{deltaSuffix}</span>
           </p>
         </div>
       </div>
 
       <div className="min-w-0 flex-1">
-        <MiniAreaTrend data={series} positive={positive} markerTitle={markerTitle} markerSubtitle={markerSubtitle} />
+        <MiniAreaTrend
+          data={series}
+          positive={positive}
+          markerTitle={markerTitle}
+          markerSubtitle={markerSubtitle}
+        />
       </div>
     </div>
   );

@@ -3,16 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BarChart3,
-  Clock3,
-  DollarSign,
-  Eye,
   ExternalLink,
   MessageCircle,
-  Percent,
   RefreshCw,
   Share2,
   ThumbsUp,
-  TrendingUp,
   Users,
   Youtube,
 } from "lucide-react";
@@ -31,7 +26,7 @@ import {
   YAxis,
 } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { StatCard } from "@/components/ui-bits";
+import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
@@ -298,6 +293,44 @@ function VideoDetail() {
     [result.data?.retention.rows],
   );
 
+  // Real daily series from YouTube's own timeline rows, not invented — the change% compares the
+  // average of the second half of the selected period against the first half (a stable "trending
+  // up/down within this window" signal; comparing just the last two days would be far too noisy
+  // for daily data).
+  const kpiTrends = useMemo(() => {
+    const rows = result.data?.timeline.rows ?? [];
+    const seriesFor = (pick: (row: TimelineRow) => number | null) =>
+      rows.map((row) => numericValue(pick(row)) ?? 0);
+    const changePercent = (series: number[]): number | null => {
+      if (series.length < 2) return null;
+      const mid = Math.floor(series.length / 2);
+      const first = series.slice(0, mid);
+      const second = series.slice(mid);
+      if (!first.length || !second.length) return null;
+      const firstAvg = first.reduce((a, b) => a + b, 0) / first.length;
+      const secondAvg = second.reduce((a, b) => a + b, 0) / second.length;
+      if (firstAvg === 0) return secondAvg > 0 ? 100 : null;
+      return ((secondAvg - firstAvg) / firstAvg) * 100;
+    };
+    const views = seriesFor((r) => r.views);
+    const watchTime = seriesFor((r) => r.watchTimeMinutes);
+    const avgDuration = seriesFor((r) => r.averageViewDurationSeconds);
+    const avgPercentage = seriesFor((r) => r.averageViewPercentage);
+    const revenue = seriesFor((r) => r.estimatedRevenue);
+    return {
+      views,
+      viewsChangePct: changePercent(views),
+      watchTime,
+      watchTimeChangePct: changePercent(watchTime),
+      avgDuration,
+      avgDurationChangePct: changePercent(avgDuration),
+      avgPercentage,
+      avgPercentageChangePct: changePercent(avgPercentage),
+      revenue,
+      revenueChangePct: changePercent(revenue),
+    };
+  }, [result.data?.timeline.rows]);
+
   const data = result.data;
   return (
     <DashboardLayout title="Video analytics">
@@ -401,39 +434,77 @@ function VideoDetail() {
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard
-              icon={<Eye className="h-5 w-5" />}
+            <KpiTrendCard
+              title="Views in period"
+              accent="var(--brand-blue)"
               value={formatCount(data.summary.views)}
-              label="Views in period"
-              change={`${data.startDate} to ${data.endDate}`}
+              deltaLabel={`${data.startDate} to ${data.endDate}`}
+              deltaSuffix=""
+              changePercent={kpiTrends.viewsChangePct}
+              periodLabel="vs. first half of period"
+              series={kpiTrends.views}
+              markerTitle={formatCount(kpiTrends.views.at(-1))}
+              markerSubtitle="Latest day"
+              positive={(kpiTrends.viewsChangePct ?? 0) >= 0}
             />
-            <StatCard
-              icon={<Clock3 className="h-5 w-5" />}
+            <KpiTrendCard
+              title="Watch time"
+              accent="var(--brand-purple)"
               value={formatMinutes(data.summary.watchTimeMinutes)}
-              label="Watch time"
-              change="YouTube Analytics"
+              deltaLabel="YouTube Analytics"
+              deltaSuffix=""
+              changePercent={kpiTrends.watchTimeChangePct}
+              periodLabel="vs. first half of period"
+              series={kpiTrends.watchTime}
+              markerTitle={formatMinutes(kpiTrends.watchTime.at(-1))}
+              markerSubtitle="Latest day"
+              positive={(kpiTrends.watchTimeChangePct ?? 0) >= 0}
             />
-            <StatCard
-              icon={<TrendingUp className="h-5 w-5" />}
+            <KpiTrendCard
+              title="Average view duration"
+              accent="var(--brand-green)"
               value={formatDuration(data.summary.averageViewDurationSeconds)}
-              label="Average view duration"
-              change="Per playback"
+              deltaLabel="Per playback"
+              deltaSuffix=""
+              changePercent={kpiTrends.avgDurationChangePct}
+              periodLabel="vs. first half of period"
+              series={kpiTrends.avgDuration}
+              markerTitle={formatDuration(kpiTrends.avgDuration.at(-1))}
+              markerSubtitle="Latest day"
+              positive={(kpiTrends.avgDurationChangePct ?? 0) >= 0}
             />
-            <StatCard
-              icon={<Percent className="h-5 w-5" />}
+            <KpiTrendCard
+              title="Average viewed"
+              accent="var(--brand-amber)"
               value={formatPercentage(data.summary.averageViewPercentage)}
-              label="Average viewed"
-              change="YouTube Analytics"
+              deltaLabel="YouTube Analytics"
+              deltaSuffix=""
+              changePercent={kpiTrends.avgPercentageChangePct}
+              periodLabel="vs. first half of period"
+              series={kpiTrends.avgPercentage}
+              markerTitle={formatPercentage(kpiTrends.avgPercentage.at(-1))}
+              markerSubtitle="Latest day"
+              positive={(kpiTrends.avgPercentageChangePct ?? 0) >= 0}
             />
-            <StatCard
-              icon={<DollarSign className="h-5 w-5" />}
+            <KpiTrendCard
+              title={data.summary.revenueAvailable ? "Estimated revenue" : "Revenue unavailable"}
+              accent="var(--success)"
               value={formatCurrency(data.summary.estimatedRevenue, data.summary.revenueAvailable)}
-              label={data.summary.revenueAvailable ? "Estimated revenue" : "Revenue unavailable"}
-              change={
+              deltaLabel={
                 data.summary.revenueAvailable
                   ? "YouTube-reported estimated revenue"
                   : "Not provided by YouTube for this period"
               }
+              deltaSuffix=""
+              changePercent={data.summary.revenueAvailable ? kpiTrends.revenueChangePct : null}
+              periodLabel="vs. first half of period"
+              series={kpiTrends.revenue}
+              markerTitle={formatCurrency(
+                kpiTrends.revenue.at(-1) ?? null,
+                data.summary.revenueAvailable,
+              )}
+              markerSubtitle="Latest day"
+              positive={(kpiTrends.revenueChangePct ?? 0) >= 0}
             />
           </div>
 
