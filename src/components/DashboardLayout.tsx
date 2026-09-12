@@ -310,6 +310,20 @@ export function DashboardLayout({
     return () => controller.abort();
   }, []);
 
+  // Real platform-staff admin status (profiles.role, distinct from the workspace-role
+  // viewerRole/authenticatedRole below) — the only thing that should decide whether the Admin
+  // Console nav link and route are reachable. admin.tsx independently re-verifies this server-side
+  // on every request, so this is purely for nav visibility / avoiding the "Access restricted"
+  // dead end for a real superadmin whose workspace role isn't Owner/Manager.
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/admin/whoami", { signal: controller.signal, cache: "no-store" })
+      .then((response) => setIsPlatformAdmin(response.ok))
+      .catch(() => setIsPlatformAdmin(false));
+    return () => controller.abort();
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/notifications", { signal: controller.signal, cache: "no-store" })
@@ -393,17 +407,20 @@ export function DashboardLayout({
     if (!key) return true;
     return realFeatureAccess[key] ?? true;
   };
-  const visibleNav = nav.filter(
-    (item) => canAccessRoute(viewerRole, item.to) && realFeatureEnabledFor(item.to),
-  );
+  // /admin defers to the real platform-staff check (isPlatformAdmin) instead of the workspace-role
+  // preview — see the routeAllowed comment below for why canAccessRoute alone can never admit a
+  // real Superadmin/Owner here.
+  const canReachRoute = (to: string) =>
+    to === "/admin" ? isPlatformAdmin : canAccessRoute(viewerRole, to);
+  const visibleNav = nav.filter((item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to));
   const visibleNavGroups = navGroups
     .map((g) => ({
       ...g,
-      items: g.items.filter((to) => canAccessRoute(viewerRole, to) && realFeatureEnabledFor(to)),
+      items: g.items.filter((to) => canReachRoute(to) && realFeatureEnabledFor(to)),
     }))
     .filter((g) => g.items.length > 0);
   const visiblePrimaryMobileNav = primaryMobileNav.filter(
-    (item) => canAccessRoute(viewerRole, item.to) && realFeatureEnabledFor(item.to),
+    (item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to),
   );
 
   // Global search — searches pages plus real content (videos, leads, brand deals), not just nav
@@ -633,7 +650,12 @@ export function DashboardLayout({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [searchOpen]);
-  const routeAllowed = canAccessRoute(viewerRole, pathname);
+  // /admin is exempt from the workspace-role preview gate below: canAccessRoute's Superadmin
+  // check exists to hide the nav link during role preview, but there's no way to ever *preview*
+  // Superadmin (WORKSPACE_PREVIEW_ROLES deliberately excludes it — it isn't a workspace role), so
+  // a real platform-staff Superadmin/Owner would otherwise get "Access restricted" here before
+  // admin.tsx's own real, server-verified profiles.role check ever runs.
+  const routeAllowed = pathname === "/admin" || canAccessRoute(viewerRole, pathname);
   const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
   // realFeatureEnabledFor is the real, server-backed, per-role check — this is the client-side UX
   // half of it (immediately hides page content on direct navigation); every API the page calls
