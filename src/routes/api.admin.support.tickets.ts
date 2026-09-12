@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { notifyWorkspace } from "@/lib/server/notify";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -64,7 +65,7 @@ export const Route = createFileRoute("/api/admin/support/tickets")({
             .from("support_tickets")
             .update({ status: input.status })
             .eq("id", ticketId)
-            .select("id, subject, status")
+            .select("id, subject, status, workspace_id, user_id")
             .single();
           if (error || !updated) return json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
 
@@ -75,7 +76,18 @@ export const Route = createFileRoute("/api/admin/support/tickets")({
             newValue: { status: input.status },
           });
 
-          return json({ data: updated });
+          if (input.status === "Resolved" && updated.workspace_id && updated.user_id) {
+            void notifyWorkspace(service, {
+              workspaceId: updated.workspace_id,
+              userId: updated.user_id,
+              type: "check",
+              title: "Your support ticket was resolved",
+              message: updated.subject,
+            });
+          }
+
+          const { workspace_id: _workspaceId, user_id: _userId, ...rest } = updated;
+          return json({ data: rest });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)

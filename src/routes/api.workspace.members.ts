@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { requireServerEnv, getServerEnv } from "@/lib/server/env";
+import { notifyWorkspace } from "@/lib/server/notify";
 
 const workspaceRoleEnum = z.enum(["owner", "manager", "setter", "editor"]);
 
@@ -146,6 +147,13 @@ export const Route = createFileRoute("/api/workspace/members")({
               .select(memberColumns)
               .single();
             if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            void notifyWorkspace(service, {
+              workspaceId: ctx.workspaceId,
+              userId: existingProfile.id,
+              type: "message",
+              title: "New teammate joined",
+              message: `${input.email} joined as ${input.role}`,
+            });
             return json({ data }, { status: 201 });
           }
 

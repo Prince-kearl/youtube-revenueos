@@ -59,7 +59,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   useDeals,
-  useNotifications,
   useProfile,
   useViewerRole,
   useFeatureFlags,
@@ -76,7 +75,7 @@ import { clearChannelSettings } from "@/lib/channel-settings";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
-import { NotificationRow } from "@/components/NotificationRow";
+import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
@@ -284,7 +283,7 @@ export function DashboardLayout({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [profile, setProfile] = useProfile();
-  const [notifs, setNotifs] = useNotifications();
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [deals, setDeals] = useDeals();
   const [viewerRole, setViewerRole] = useViewerRole();
   const [flags] = useFeatureFlags();
@@ -306,6 +305,18 @@ export function DashboardLayout({
         setYoutubeConnected(Boolean(body.data?.length));
       })
       .catch(() => setYoutubeConnected(false));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/notifications", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as { data?: AppNotification[] };
+        setNotifs(body.data ?? []);
+      })
+      .catch(() => {});
     return () => controller.abort();
   }, []);
 
@@ -655,11 +666,33 @@ export function DashboardLayout({
 
   const markAllRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    void fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "mark_all_read" }),
+    });
     toast.success("All notifications marked as read");
   };
   const clearNotifs = () => {
     setNotifs([]);
+    void fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear_all" }),
+    });
     toast.success("Notifications cleared");
+  };
+  const patchNotification = (id: string, patch: Partial<AppNotification>) => {
+    setNotifs((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    void fetch(`/api/notifications?id=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+  };
+  const deleteNotification = (id: string) => {
+    setNotifs((prev) => prev.filter((x) => x.id !== id));
+    void fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
   };
   const signOut = async () => {
     await signOutSupabase();
@@ -958,22 +991,10 @@ export function DashboardLayout({
                       <NotificationRow
                         key={n.id}
                         notification={n}
-                        onMarkRead={() =>
-                          setNotifs((prev) =>
-                            prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
-                          )
-                        }
-                        onTogglePin={() =>
-                          setNotifs((prev) =>
-                            prev.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)),
-                          )
-                        }
-                        onToggleArchive={() =>
-                          setNotifs((prev) =>
-                            prev.map((x) => (x.id === n.id ? { ...x, archived: !x.archived } : x)),
-                          )
-                        }
-                        onDelete={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))}
+                        onMarkRead={() => patchNotification(n.id, { read: true })}
+                        onTogglePin={() => patchNotification(n.id, { pinned: !n.pinned })}
+                        onToggleArchive={() => patchNotification(n.id, { archived: !n.archived })}
+                        onDelete={() => deleteNotification(n.id)}
                       />
                     ))
                   )}

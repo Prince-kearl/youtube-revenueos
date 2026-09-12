@@ -44,6 +44,7 @@ import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiFreebiesRouteImport } from './routes/api.freebies'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
 import { Route as ApiLeadsRouteImport } from './routes/api.leads'
+import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiProjectsRouteImport } from './routes/api.projects'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
@@ -276,6 +277,11 @@ const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
 const ApiLeadsRoute = ApiLeadsRouteImport.update({
   id: '/api/leads',
   path: '/api/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
+  id: '/api/notifications',
+  path: '/api/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProfileRoute = ApiProfileRouteImport.update({
@@ -609,6 +615,7 @@ export interface FileRoutesByFullPath {
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
+  '/api/notifications': typeof ApiNotificationsRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -704,6 +711,7 @@ export interface FileRoutesByTo {
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
+  '/api/notifications': typeof ApiNotificationsRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -800,6 +808,7 @@ export interface FileRoutesById {
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
+  '/api/notifications': typeof ApiNotificationsRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -897,6 +906,7 @@ export interface FileRouteTypes {
     | '/api/freebies'
     | '/api/integrations'
     | '/api/leads'
+    | '/api/notifications'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -992,6 +1002,7 @@ export interface FileRouteTypes {
     | '/api/freebies'
     | '/api/integrations'
     | '/api/leads'
+    | '/api/notifications'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -1087,6 +1098,7 @@ export interface FileRouteTypes {
     | '/api/freebies'
     | '/api/integrations'
     | '/api/leads'
+    | '/api/notifications'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -1183,6 +1195,7 @@ export interface RootRouteChildren {
   ApiFreebiesRoute: typeof ApiFreebiesRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
+  ApiNotificationsRoute: typeof ApiNotificationsRoute
   ApiProfileRoute: typeof ApiProfileRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -1474,6 +1487,13 @@ declare module '@tanstack/react-router' {
       path: '/api/leads'
       fullPath: '/api/leads'
       preLoaderRoute: typeof ApiLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notifications': {
+      id: '/api/notifications'
+      path: '/api/notifications'
+      fullPath: '/api/notifications'
+      preLoaderRoute: typeof ApiNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/profile': {
@@ -2027,6 +2047,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFreebiesRoute: ApiFreebiesRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,
+  ApiNotificationsRoute: ApiNotificationsRoute,
   ApiProfileRoute: ApiProfileRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiSettingsRoute: ApiSettingsRoute,
