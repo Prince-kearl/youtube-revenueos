@@ -345,11 +345,12 @@
   animation: none;
 }
 
-/* Under iOS 26 Design, the shell's own opaque fill would otherwise sit on top of and completely
-   hide the .ios26_light/.ios26_dark wallpaper set on <body> — go transparent here so it shows
-   through the gaps around cards/nav instead, the way the rest of this system's glass surfaces
-   already assume a real backdrop behind them. */
-.ios26 .dashboard-shell.min-h-screen.bg-background {
+/* With the wallpaper on, the shell's own opaque fill would otherwise sit on top of and completely
+   hide the .ios26_light/.ios26_dark image set on <body> — go transparent here so it shows through
+   the gaps around cards/nav instead, the way the rest of this system's glass surfaces already
+   assume a real backdrop behind them. Gated the same as the wallpaper itself (see above) — no
+   image means nothing to reveal, so the shell stays opaque when just .ios26 is on. */
+.ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
   background-color: transparent;
 }
 
@@ -509,8 +510,10 @@
    reads as a backdrop, not a repeating pattern. A flat --background-tinted scrim (background-image
    doesn't support opacity directly — this is the standard two-layer stand-in) is layered on top so
    the photo reads as a subtle wash behind the glass surfaces rather than a bold, competing image;
-   the same solid color-stop trick as the motion background above, just without the gradient. */
-.ios26 body {
+   the same solid color-stop trick as the motion background above, just without the gradient.
+   Gated behind .ios26-wallpaper (Settings → Preferences), a separate sub-toggle of .ios26 itself —
+   someone can keep the glass surfaces/rounded corners without the photo backdrop. */
+.ios26.ios26-wallpaper body {
   background-image: linear-gradient(
       color-mix(in srgb, var(--background) 78%, transparent),
       color-mix(in srgb, var(--background) 78%, transparent)
@@ -519,7 +522,7 @@
   background-position: center;
   background-attachment: fixed;
 }
-.ios26.dark body {
+.ios26.ios26-wallpaper.dark body {
   background-image: linear-gradient(
       color-mix(in srgb, var(--background) 78%, transparent),
       color-mix(in srgb, var(--background) 78%, transparent)

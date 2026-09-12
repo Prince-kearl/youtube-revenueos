@@ -36,7 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { useThemeMode, useIos26Design, type ThemeMode } from "@/lib/theme";
+import { useThemeMode, useIos26Design, useIos26Wallpaper, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleRowSkeleton } from "@/components/skeletons";
@@ -185,6 +185,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuthSession();
   const [ios26Design, setIos26Design] = useIos26Design();
+  const [ios26Wallpaper, setIos26Wallpaper] = useIos26Wallpaper();
   const [profile, setProfile] = useLocalStore("yroos.profile", {
     name: "",
     email: "",
@@ -556,6 +557,22 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                   className="shrink-0"
                 />
               </div>
+              {ios26Design && (
+                <div className="mt-3 flex items-center justify-between gap-4 border-t border-border pt-3">
+                  <div className="min-w-0">
+                    <h5 className="text-[11px] font-semibold">Background image</h5>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      Show the Liquid Glass wallpaper behind cards and navigation.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={ios26Wallpaper}
+                    onCheckedChange={setIos26Wallpaper}
+                    aria-label="Toggle iOS 26 background image"
+                    className="shrink-0"
+                  />
+                </div>
+              )}
             </div>
             <div className="rounded-xl border border-border bg-background p-5">
               <label className="mb-2 block text-xs font-semibold">Bio</label>
