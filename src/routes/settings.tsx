@@ -379,7 +379,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
       <div className="space-y-4 p-5 sm:p-7">
         {profileTab === "Overview" && (
           <>
-            <div className="rounded-xl border border-border bg-background p-4">
+            <div className="card-frost backdrop-blur-lg p-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold">About</h4>
                 <button
@@ -420,7 +420,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 </div>
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-background p-4">
+            <div className="card-frost backdrop-blur-lg p-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold">Recently connected</h4>
                 <button
@@ -461,7 +461,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 </button>
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-background p-4">
+            <div className="card-frost backdrop-blur-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold">Account security</h4>
@@ -483,7 +483,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 </button>
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-background p-4">
+            <div className="card-frost backdrop-blur-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold">Getting started guide</h4>
@@ -502,13 +502,13 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
           </>
         )}
         {profileTab === "Activity" && (
-          <div className="rounded-xl border border-border bg-background p-5 text-xs text-muted-foreground">
+          <div className="card-frost backdrop-blur-lg p-5 text-xs text-muted-foreground">
             Your profile activity will appear here as you connect services and update account
             settings.
           </div>
         )}
         {profileTab === "Connections" && (
-          <div className="rounded-xl border border-border bg-background p-5">
+          <div className="card-frost backdrop-blur-lg p-5">
             <h4 className="text-xs font-bold">Connected services</h4>
             <div className="mt-4 flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -530,7 +530,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
         )}
         {profileTab === "Preferences" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-background p-5">
+            <div className="card-frost backdrop-blur-lg p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold">Appearance</h4>
@@ -541,7 +541,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 <AppearanceModeControl />
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-background p-5">
+            <div className="card-frost backdrop-blur-lg p-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h4 className="text-xs font-bold">iOS 26 Design</h4>
@@ -574,7 +574,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-border bg-background p-5">
+            <div className="card-frost backdrop-blur-lg p-5">
               <label className="mb-2 block text-xs font-semibold">Bio</label>
               <textarea
                 rows={4}
