@@ -275,7 +275,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="relative overflow-hidden rounded-xl card-gradient-outline shadow-sm">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="relative h-32 overflow-hidden bg-[#151515] sm:h-40">
         {profile.cover_url ? (
