@@ -27,30 +27,11 @@ export function signInWithPassword(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password });
 }
 
-// Requesting the YouTube scopes here too (must match YOUTUBE_OAUTH_SCOPES in
-// lib/server/google-oauth.ts) means signing in/up with Google is ALSO authorizing YouTube data
-// access — one consent screen instead of a separate "Connect YouTube Channel" step afterward. See
-// /auth/callback, which reads session.provider_token/provider_refresh_token to store the channel
-// connection directly when they're present, falling back to the separate /api/youtube/auth flow
-// (e.g. for email/password signups, which have no Google provider token at all) when they're not.
-const YOUTUBE_SCOPES_FOR_SIGN_IN = [
-  "https://www.googleapis.com/auth/youtube.readonly",
-  "https://www.googleapis.com/auth/youtube.force-ssl",
-  "https://www.googleapis.com/auth/yt-analytics.readonly",
-  "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
-].join(" ");
-
 export function signInWithGoogle() {
   const supabase = getSupabaseBrowserClient();
   return supabase.auth.signInWithOAuth({
     provider: "google",
-    options: {
-      redirectTo: `${currentOrigin()}/auth/callback`,
-      scopes: YOUTUBE_SCOPES_FOR_SIGN_IN,
-      // access_type=offline + prompt=consent is required to reliably get a refresh token back,
-      // otherwise the connection would silently stop working once the access token expires.
-      queryParams: { access_type: "offline", prompt: "consent" },
-    },
+    options: { redirectTo: `${currentOrigin()}/auth/callback` },
   });
 }
 
