@@ -273,6 +273,24 @@
    CSSOM inspection: absent from both serialized cssText and computed style), while Tailwind's own
    generated backdrop-blur-* utility applies correctly. */
 
+/* Dashboard KPI cards (KpiTrendCard) keep their own thick-border/accent-tinted design rather than
+   becoming plain .card-frost — the accent radial-gradient wash (per-metric color, applied inline
+   via the `accent` prop) stays untouched since it targets background-image specifically, while
+   these rules only touch border/background-color/shadow, the same split .card-frost relies on.
+   Only background-color (not the `background` shorthand) is set here so the inline gradient is
+   never reset. */
+.ios26 .kpi-trend-card {
+  border-color: color-mix(in srgb, white 40%, transparent);
+  background-color: color-mix(in srgb, var(--card) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 30%, transparent),
+    0 14px 30px -20px rgba(0, 0, 0, 0.35);
+}
+.ios26.dark .kpi-trend-card {
+  border-color: color-mix(in srgb, white 12%, transparent);
+  background-color: color-mix(in srgb, var(--card) 62%, transparent);
+}
+
 /* Gradient variant of .card-frost — same translucent base + backdrop-blur-lg pairing, but the
    fill is a soft diagonal wash instead of a flat tone: primary-tinted in one corner fading through
    plain frosted glass to a brand-purple tint in the other, mirroring .card-gradient-outline's

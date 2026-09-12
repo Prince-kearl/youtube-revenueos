@@ -197,7 +197,7 @@ export function KpiTrendCard({
   return (
     <div
       className={cn(
-        "relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4",
+        "kpi-trend-card relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-lg dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4",
         className,
       )}
       style={{
