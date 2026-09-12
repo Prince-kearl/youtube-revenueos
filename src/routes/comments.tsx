@@ -79,7 +79,7 @@ type YoutubeComment = {
   canReply: boolean | null;
 };
 type YoutubeVideoOption = { id: string; title: string };
-type SavedVideoOption = { id: string; title: string };
+type SavedVideoOption = { id: string; title: string; youtube_video_id: string };
 type RecentReply = {
   id: string;
   youtube_comment_id: string;
@@ -120,8 +120,18 @@ function errorMessage(error: string): string {
   return messages[error] ?? "Something went wrong. Try again.";
 }
 
-function matchRule(comment: YoutubeComment, rules: CommentRule[]): CommentRule | undefined {
-  const active = rules.filter((r) => r.active);
+// videoIdByRuleVideoId maps a rule's video (our internal videos.id, the value stored in
+// rule.video.id) to that video's real YouTube video ID, since incoming comments are keyed by the
+// latter (see fetchRecentYoutubeComments) — without this a rule scoped to "this video only" would
+// never actually match anything, or would need string comparison across two different ID spaces.
+function matchRule(
+  comment: YoutubeComment,
+  rules: CommentRule[],
+  videoIdByRuleVideoId: Map<string, string>,
+): CommentRule | undefined {
+  const active = rules.filter(
+    (r) => r.active && (!r.video || videoIdByRuleVideoId.get(r.video.id) === comment.videoId),
+  );
   if (/@\w+/.test(comment.text)) {
     const handleRule = active.find((r) => r.trigger_type === "handle");
     if (handleRule) return handleRule;
@@ -155,6 +165,10 @@ function Comments() {
   const [rulesStatus, setRulesStatus] = useState<"loading" | "ready" | "error">("loading");
   const [rulesRetryToken, setRulesRetryToken] = useState(0);
   const [savedVideos, setSavedVideos] = useState<SavedVideoOption[]>([]);
+  const videoIdByRuleVideoId = useMemo(
+    () => new Map(savedVideos.map((v) => [v.id, v.youtube_video_id])),
+    [savedVideos],
+  );
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CommentRule | null>(null);
   const [deleting, setDeleting] = useState<CommentRule | null>(null);
@@ -705,6 +719,7 @@ function Comments() {
         comments={comments}
         videos={commentVideos}
         rules={rules}
+        videoIdByRuleVideoId={videoIdByRuleVideoId}
         repliedCommentIds={repliedCommentIds}
         onSendReply={sendReply}
       />
@@ -720,6 +735,7 @@ function AllCommentsDialog({
   comments,
   videos,
   rules,
+  videoIdByRuleVideoId,
   repliedCommentIds,
   onSendReply,
 }: {
@@ -730,6 +746,7 @@ function AllCommentsDialog({
   comments: YoutubeComment[];
   videos: YoutubeVideoOption[];
   rules: CommentRule[];
+  videoIdByRuleVideoId: Map<string, string>;
   repliedCommentIds: Set<string>;
   onSendReply: (
     comment: YoutubeComment,
@@ -779,7 +796,7 @@ function AllCommentsDialog({
   };
 
   const replyOne = async (comment: YoutubeComment, replyText: string) => {
-    const rule = matchRule(comment, rules);
+    const rule = matchRule(comment, rules, videoIdByRuleVideoId);
     setSendingIds((prev) => new Set(prev).add(comment.id));
     try {
       await onSendReply(comment, rule, replyText);
@@ -802,7 +819,7 @@ function AllCommentsDialog({
     for (const id of ids) {
       const comment = comments.find((c) => c.id === id);
       if (!comment) continue;
-      const rule = matchRule(comment, rules);
+      const rule = matchRule(comment, rules, videoIdByRuleVideoId);
       try {
         await onSendReply(comment, rule, rule?.reply_template ?? GENERIC_REPLY);
         sent += 1;
@@ -931,7 +948,7 @@ function AllCommentsDialog({
                   key={c.id}
                   comment={c}
                   videoTitle={videoTitle(c.videoId)}
-                  rule={matchRule(c, rules)}
+                  rule={matchRule(c, rules, videoIdByRuleVideoId)}
                   replied={repliedCommentIds.has(c.id)}
                   sending={sendingIds.has(c.id)}
                   selected={selected.has(c.id)}
