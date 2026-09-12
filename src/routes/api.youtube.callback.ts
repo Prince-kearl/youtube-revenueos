@@ -73,6 +73,11 @@ export const Route = createFileRoute("/api/youtube/callback")({
               refresh_token_ciphertext: refreshTokenCiphertext,
               token_expiry: tokenExpiry,
               connected_at: new Date().toISOString(),
+              // A successful reconnect means the new token is valid — clear a stale
+              // reauth_required (or failed) flag from a previous connection immediately, rather
+              // than leaving the UI stuck on "Reconnect required" until the next sync job runs.
+              last_sync_status: "never_synced",
+              last_sync_error: null,
             },
             { onConflict: "workspace_id,youtube_channel_id" },
           );
