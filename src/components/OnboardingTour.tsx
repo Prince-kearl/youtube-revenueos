@@ -1,34 +1,40 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { X, ChevronRight } from "lucide-react";
+import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { useOnboarding } from "@/lib/stores";
-import { ONBOARDING_STEPS, type OnboardingStatus } from "@/lib/onboarding";
+import { ONBOARDING_STEPS, type OnboardingStepId, type OnboardingStatus } from "@/lib/onboarding";
 
 const SPOTLIGHT_PADDING = 8;
 const TOOLTIP_WIDTH = 320;
 const SKIPPED_KEY = "yroos.onboarding.skipped";
 
-// Session-only — "Next" moves the spotlight along without claiming the step is actually done
-// (only real account state does that). Backed by sessionStorage (not component state) because
-// DashboardLayout, and this component with it, remounts on every route change, which would
-// otherwise wipe the skip the instant "Next" navigated anywhere.
-function getSkippedSteps(): Set<string> {
+// Session-only, in skip order (most-recently-skipped last) so "Back" can pop the last one — moves
+// the spotlight without claiming the step is actually done (only real account state does that).
+// Backed by sessionStorage (not component state) because DashboardLayout, and this component with
+// it, remounts on every route change, which would otherwise wipe the skip the instant "Next" or
+// "Back" navigated anywhere.
+function getSkippedSteps(): OnboardingStepId[] {
   try {
     const raw = window.sessionStorage.getItem(SKIPPED_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    return raw ? (JSON.parse(raw) as OnboardingStepId[]) : [];
   } catch {
-    return new Set();
+    return [];
   }
 }
-function addSkippedStep(id: string): Set<string> {
-  const next = getSkippedSteps();
-  next.add(id);
+function persistSkippedSteps(ids: OnboardingStepId[]): OnboardingStepId[] {
   try {
-    window.sessionStorage.setItem(SKIPPED_KEY, JSON.stringify([...next]));
+    window.sessionStorage.setItem(SKIPPED_KEY, JSON.stringify(ids));
   } catch {
     // ignore — worst case the skip doesn't stick across a navigation
   }
-  return next;
+  return ids;
+}
+function addSkippedStep(id: OnboardingStepId): OnboardingStepId[] {
+  const current = getSkippedSteps();
+  return persistSkippedSteps(current.includes(id) ? current : [...current, id]);
+}
+function removeLastSkippedStep(): OnboardingStepId[] {
+  return persistSkippedSteps(getSkippedSteps().slice(0, -1));
 }
 
 // Replaces the old fixed dashboard banner with a contextual spotlight tour: a small floating nudge
@@ -40,7 +46,7 @@ export function OnboardingTour() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
-  const [skipped, setSkipped] = useState<Set<string>>(() => getSkippedSteps());
+  const [skipped, setSkipped] = useState<OnboardingStepId[]>(() => getSkippedSteps());
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export function OnboardingTour() {
   }, [onboarding.dismissed, pathname]);
 
   const currentStep = status
-    ? ONBOARDING_STEPS.find((step) => !status[step.id] && !skipped.has(step.id))
+    ? ONBOARDING_STEPS.find((step) => !status[step.id] && !skipped.includes(step.id))
     : undefined;
   const onTargetPage = currentStep?.to === pathname;
 
@@ -87,8 +93,24 @@ export function OnboardingTour() {
   if (onboarding.dismissed || !currentStep) return null;
 
   const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
-  const skipToNext = () => setSkipped(addSkippedStep(currentStep.id));
   const stepIndex = ONBOARDING_STEPS.findIndex((step) => step.id === currentStep.id);
+
+  const goNext = () => {
+    setSkipped(addSkippedStep(currentStep.id));
+    const next = ONBOARDING_STEPS.find((step) => step.id !== currentStep.id && !status?.[step.id]);
+    if (next && next.to !== pathname) navigate({ to: next.to, search: next.search });
+  };
+  // Only meaningful once "Next" has skipped past at least one step — earlier steps that are
+  // simply done (not skipped) have nothing to go back to show, since currentStep only ever
+  // points at an incomplete one.
+  const previousStepId = skipped[skipped.length - 1];
+  const previousStep = ONBOARDING_STEPS.find((step) => step.id === previousStepId);
+  const goBack = () => {
+    if (!previousStep) return;
+    setSkipped(removeLastSkippedStep());
+    if (previousStep.to !== pathname)
+      navigate({ to: previousStep.to, search: previousStep.search });
+  };
 
   if (!onTargetPage || !rect) {
     return (
@@ -157,18 +179,22 @@ export function OnboardingTour() {
               />
             ))}
           </div>
-          <button
-            onClick={() => {
-              skipToNext();
-              const next = ONBOARDING_STEPS.find(
-                (step) => step.id !== currentStep.id && !status?.[step.id],
-              );
-              if (next && next.to !== pathname) navigate({ to: next.to, search: next.search });
-            }}
-            className="flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            Next <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {previousStep && (
+              <button
+                onClick={goBack}
+                className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Back
+              </button>
+            )}
+            <button
+              onClick={goNext}
+              className="flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
