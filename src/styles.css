@@ -506,15 +506,24 @@
 
 /* App background — swaps in the Liquid Glass wallpaper behind the translucent glass surfaces
    above, picking the light/dark asset to match whichever theme is active. Fixed + cover so it
-   reads as a backdrop, not a repeating pattern. */
+   reads as a backdrop, not a repeating pattern. A flat --background-tinted scrim (background-image
+   doesn't support opacity directly — this is the standard two-layer stand-in) is layered on top so
+   the photo reads as a subtle wash behind the glass surfaces rather than a bold, competing image;
+   the same solid color-stop trick as the motion background above, just without the gradient. */
 .ios26 body {
-  background-image: url("/ios26_light.png");
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--background) 78%, transparent),
+      color-mix(in srgb, var(--background) 78%, transparent)
+    ), url("/ios26_light.png");
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
 }
 .ios26.dark body {
-  background-image: url("/ios26_dark.png");
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--background) 78%, transparent),
+      color-mix(in srgb, var(--background) 78%, transparent)
+    ), url("/ios26_dark.png");
 }
 
 /* Pill/capsule surfaces — search bar, segmented controls, nav rail, bottom tab bar. */
