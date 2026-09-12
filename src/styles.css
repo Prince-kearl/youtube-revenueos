@@ -345,6 +345,14 @@
   animation: none;
 }
 
+/* Under iOS 26 Design, the shell's own opaque fill would otherwise sit on top of and completely
+   hide the .ios26_light/.ios26_dark wallpaper set on <body> — go transparent here so it shows
+   through the gaps around cards/nav instead, the way the rest of this system's glass surfaces
+   already assume a real backdrop behind them. */
+.ios26 .dashboard-shell.min-h-screen.bg-background {
+  background-color: transparent;
+}
+
 /* Motion glow ring (landing page nav pill) — a light continuously travels around the border via a
    rotating conic-gradient masked down to a thin ring, plus a slow-breathing outer halo. Unlike
    .card-gradient-outline's static ring or GlowingEffect's mouse-tracking rainbow, this animates on
@@ -454,8 +462,9 @@
 
 /* ============================================================================================
    iOS 26 Design — application-wide theme switch, not a Dashboard skin. Gated behind the .ios26
-   class on <html>, toggled by the Superadmin's "iOS 26 Design" switch (Customization → General →
-   Visual Style, ThemeInjector.tsx) and persisted on SiteContent.ios26Design. There is exactly one
+   class on <html>, toggled by each user's own "iOS 26 Design" preference (Settings → Profile →
+   Preferences, ThemeInjector.tsx + useIos26Design in lib/theme.ts) rather than an admin-wide
+   setting. There is exactly one
    centralized ON/OFF signal (the .ios26 class); every rule in this file that reacts to it reads
    that same class, and every page/component that wants the treatment does so by using one of the
    *shared* classes below (.card-gradient-outline, .card-frost, .ios26-glass, StatCard's
@@ -493,6 +502,19 @@
   --sidebar-offset-collapsed: 6.75rem;   /* 12px gap + 80px rail + 16px breathing room */
   --sidebar-offset-expanded: 14.875rem;  /* 12px gap + 210px rail + 16px breathing room */
   --hero-radius: 28px;                   /* glass: hero-card radius, not a pill */
+}
+
+/* App background — swaps in the Liquid Glass wallpaper behind the translucent glass surfaces
+   above, picking the light/dark asset to match whichever theme is active. Fixed + cover so it
+   reads as a backdrop, not a repeating pattern. */
+.ios26 body {
+  background-image: url("/ios26_light.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.ios26.dark body {
+  background-image: url("/ios26_dark.png");
 }
 
 /* Pill/capsule surfaces — search bar, segmented controls, nav rail, bottom tab bar. */
