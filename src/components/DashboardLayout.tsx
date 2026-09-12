@@ -76,6 +76,7 @@ import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
@@ -1225,6 +1226,8 @@ export function DashboardLayout({
         onOpenChange={setDealOpen}
         onSave={(deal) => setDeals((prev) => [deal, ...prev])}
       />
+
+      <OnboardingTour />
     </div>
   );
 }

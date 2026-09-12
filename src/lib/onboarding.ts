@@ -7,24 +7,28 @@ export const ONBOARDING_STEPS = [
     label: "Connect your YouTube channel",
     desc: "Sync real analytics and revenue data.",
     to: "/settings",
+    search: { tab: "YouTube Integration" },
   },
   {
     id: "video",
     label: "Add your first video",
     desc: "Paste a YouTube URL to auto-generate an AI description.",
     to: "/add-video",
+    search: undefined,
   },
   {
     id: "comments",
     label: "Create a comment automation rule",
     desc: "Auto-reply to comments asking for links or info.",
     to: "/comments",
+    search: undefined,
   },
   {
     id: "link",
     label: "Create a tracked link",
     desc: "Track clicks and revenue from your video descriptions.",
     to: "/link-tracking",
+    search: undefined,
   },
 ] as const;
 
@@ -45,7 +49,7 @@ function isOnboardingDismissed(): boolean {
 // incomplete step — skipping any already done — or back to the dashboard once everything is,
 // instead of leaving them to find the next thing themselves.
 export async function goToNextOnboardingStep(
-  navigate: (opts: { to: string }) => void,
+  navigate: (opts: { to: string; search?: Record<string, string> }) => void,
   completedStepId: OnboardingStepId,
 ): Promise<void> {
   if (isOnboardingDismissed()) return;
@@ -55,7 +59,7 @@ export async function goToNextOnboardingStep(
     const { data } = (await response.json()) as { data?: OnboardingStatus };
     if (!data) return;
     const next = ONBOARDING_STEPS.find((step) => step.id !== completedStepId && !data[step.id]);
-    navigate({ to: next ? next.to : "/dashboard" });
+    navigate(next ? { to: next.to, search: next.search } : { to: "/dashboard" });
   } catch {
     // Best-effort — never block the page's own success flow over this.
   }

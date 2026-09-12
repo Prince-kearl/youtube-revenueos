@@ -786,7 +786,10 @@ function AddVideo() {
         {/* Left column */}
         <div className="space-y-5 lg:col-span-2">
           {/* Select video source */}
-          <div className="relative rounded-xl card-gradient-outline p-5">
+          <div
+            data-onboarding-step="video"
+            className="relative rounded-xl card-gradient-outline p-5"
+          >
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h2 className="text-base font-semibold">Select video source</h2>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -1307,6 +1307,7 @@ function YouTubeIntegrationPanel() {
             </div>
             <a
               href="/api/youtube/auth"
+              data-onboarding-step="channel"
               className="whitespace-nowrap rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Connect YouTube Channel

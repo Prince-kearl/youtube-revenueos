@@ -30,8 +30,7 @@ import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
-import { useOnboarding, useProfile } from "@/lib/stores";
-import { ONBOARDING_STEPS, type OnboardingStatus } from "@/lib/onboarding";
+import { useProfile } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
@@ -506,7 +505,6 @@ function Dashboard() {
       <h1 className="mb-4 text-2xl font-bold tracking-tight">
         {greeting}, {firstName}
       </h1>
-      <GettingStarted />
 
       {IS_LOCAL_DEMO && (
         <div className="mb-5 rounded-xl border border-brand-amber/30 bg-brand-amber/10 px-4 py-3 text-sm text-brand-amber">
@@ -1956,97 +1954,6 @@ function EngagementHeatmapSkeleton() {
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function GettingStarted() {
-  const [onboarding, setOnboarding] = useOnboarding();
-  const [status, setStatus] = useState<OnboardingStatus | null>(null);
-
-  useEffect(() => {
-    if (onboarding.dismissed) return;
-    const controller = new AbortController();
-    fetch("/api/onboarding/status", { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const body = (await response.json()) as { data?: OnboardingStatus };
-        if (body.data) setStatus(body.data);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-    // Re-checked once per mount — a completed step redirects the user onward (see
-    // goToNextOnboardingStep) rather than relying on this component to notice mid-session.
-  }, [onboarding.dismissed]);
-
-  if (onboarding.dismissed || !status) return null;
-
-  const doneCount = ONBOARDING_STEPS.filter((step) => status[step.id]).length;
-  const allDone = doneCount === ONBOARDING_STEPS.length;
-  const nextStepId = ONBOARDING_STEPS.find((step) => !status[step.id])?.id;
-  const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
-
-  return (
-    <div className="card-gradient-outline relative mb-5 p-4 backdrop-blur-xl sm:p-5">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <div>
-            <h3 className="font-semibold">{allDone ? "You're all set! 🎉" : "Getting started"}</h3>
-            <p className="text-xs text-muted-foreground">
-              {doneCount} of {ONBOARDING_STEPS.length} steps complete
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={dismiss}
-          className="text-muted-foreground hover:text-foreground"
-          aria-label="Dismiss getting started checklist"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-accent">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${(doneCount / ONBOARDING_STEPS.length) * 100}%` }}
-        />
-      </div>
-
-      <div className="mt-4 space-y-1">
-        {ONBOARDING_STEPS.map((step) => {
-          const done = status[step.id];
-          const isNext = step.id === nextStepId;
-          return (
-            <Link
-              key={step.id}
-              to={step.to}
-              className={`flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-accent/40 ${isNext ? "bg-primary/5 ring-1 ring-primary/20" : ""}`}
-            >
-              {done ? (
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-              ) : (
-                <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p
-                  className={`text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}
-                >
-                  {step.label}
-                </p>
-                <p className="text-xs text-muted-foreground">{step.desc}</p>
-              </div>
-              {isNext && (
-                <span className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
-                  Continue
-                </span>
-              )}
-            </Link>
-          );
-        })}
       </div>
     </div>
   );
