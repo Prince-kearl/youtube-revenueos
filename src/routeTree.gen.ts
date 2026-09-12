@@ -69,6 +69,7 @@ import { Route as ApiEmailAudienceRouteImport } from './routes/api.email.audienc
 import { Route as ApiFeaturesAccessRouteImport } from './routes/api.features.access'
 import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
 import { Route as ApiLeadsSummaryRouteImport } from './routes/api.leads.summary'
+import { Route as ApiOnboardingStatusRouteImport } from './routes/api.onboarding.status'
 import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.click'
 import { Route as ApiReportsExportRouteImport } from './routes/api.reports.export'
 import { Route as ApiReportsSummaryRouteImport } from './routes/api.reports.summary'
@@ -404,6 +405,11 @@ const ApiLeadsSummaryRoute = ApiLeadsSummaryRouteImport.update({
   path: '/summary',
   getParentRoute: () => ApiLeadsRoute,
 } as any)
+const ApiOnboardingStatusRoute = ApiOnboardingStatusRouteImport.update({
+  id: '/api/onboarding/status',
+  path: '/api/onboarding/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReferralsClickRoute = ApiReferralsClickRouteImport.update({
   id: '/api/referrals/click',
   path: '/api/referrals/click',
@@ -640,6 +646,7 @@ export interface FileRoutesByFullPath {
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -736,6 +743,7 @@ export interface FileRoutesByTo {
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -833,6 +841,7 @@ export interface FileRoutesById {
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -931,6 +940,7 @@ export interface FileRouteTypes {
     | '/api/features/access'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/onboarding/status'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1027,6 +1037,7 @@ export interface FileRouteTypes {
     | '/api/features/access'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/onboarding/status'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1123,6 +1134,7 @@ export interface FileRouteTypes {
     | '/api/features/access'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/onboarding/status'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1216,6 +1228,7 @@ export interface RootRouteChildren {
   ApiBillingSubscriptionRoute: typeof ApiBillingSubscriptionRoute
   ApiEmailAudienceRoute: typeof ApiEmailAudienceRoute
   ApiFeaturesAccessRoute: typeof ApiFeaturesAccessRoute
+  ApiOnboardingStatusRoute: typeof ApiOnboardingStatusRoute
   ApiReferralsClickRoute: typeof ApiReferralsClickRoute
   ApiReportsExportRoute: typeof ApiReportsExportRoute
   ApiReportsSummaryRoute: typeof ApiReportsSummaryRoute
@@ -1664,6 +1677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLeadsSummaryRouteImport
       parentRoute: typeof ApiLeadsRoute
     }
+    '/api/onboarding/status': {
+      id: '/api/onboarding/status'
+      path: '/api/onboarding/status'
+      fullPath: '/api/onboarding/status'
+      preLoaderRoute: typeof ApiOnboardingStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/referrals/click': {
       id: '/api/referrals/click'
       path: '/api/referrals/click'
@@ -2068,6 +2088,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBillingSubscriptionRoute: ApiBillingSubscriptionRoute,
   ApiEmailAudienceRoute: ApiEmailAudienceRoute,
   ApiFeaturesAccessRoute: ApiFeaturesAccessRoute,
+  ApiOnboardingStatusRoute: ApiOnboardingStatusRoute,
   ApiReferralsClickRoute: ApiReferralsClickRoute,
   ApiReportsExportRoute: ApiReportsExportRoute,
   ApiReportsSummaryRoute: ApiReportsSummaryRoute,

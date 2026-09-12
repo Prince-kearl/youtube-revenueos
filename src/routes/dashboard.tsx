@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useOnboarding, useProfile } from "@/lib/stores";
+import { ONBOARDING_STEPS, type OnboardingStatus } from "@/lib/onboarding";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
@@ -187,7 +188,11 @@ function formatDate(value: string | null): string {
 function monthLabel(monthKey: string | undefined): string {
   if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return "";
   const [year, month] = monthKey.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" });
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // Month-over-month % change between the last two points of a raw (non-cumulative) series — null
@@ -444,7 +449,11 @@ function Dashboard() {
   // a curve that only ever trends up) backing the KPI trend cards below. Video counts aren't in
   // the analytics rows, so that one is bucketed directly from each video's publish date instead.
   const analyticsRows = useMemo(
-    () => (dashboardData?.analytics ?? []).filter((r) => r.month).slice().sort((a, b) => (a.month! > b.month! ? 1 : -1)),
+    () =>
+      (dashboardData?.analytics ?? [])
+        .filter((r) => r.month)
+        .slice()
+        .sort((a, b) => (a.month! > b.month! ? 1 : -1)),
     [dashboardData],
   );
   const revenueSeries = analyticsRows.map((r) => Number(r.estimatedRevenue ?? 0));
@@ -477,7 +486,12 @@ function Dashboard() {
   const latestOtherRevenue = Math.max(0, latestRevenue - latestAdRevenue - latestPremiumRevenue);
   const revenueSplitRows = [
     { key: "ads", label: "Ad Revenue", value: latestAdRevenue, color: "var(--brand-blue)" },
-    { key: "premium", label: "YouTube Premium", value: latestPremiumRevenue, color: "var(--brand-purple)" },
+    {
+      key: "premium",
+      label: "YouTube Premium",
+      value: latestPremiumRevenue,
+      color: "var(--brand-purple)",
+    },
     { key: "other", label: "Other", value: latestOtherRevenue, color: "var(--brand-green)" },
   ].filter((row) => row.value > 0);
   const viewsChangePct = pctChange(viewsSeries);
@@ -485,9 +499,13 @@ function Dashboard() {
   const watchChangePct = pctChange(watchSeries);
   const videosChangePct = pctChange(videosSeries);
   const firstName = profile.name.trim().split(/\s+/)[0] || profile.name;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
     <DashboardLayout title="Dashboard">
-      <h1 className="mb-4 text-2xl font-bold tracking-tight">Hello, {firstName}</h1>
+      <h1 className="mb-4 text-2xl font-bold tracking-tight">
+        {greeting}, {firstName}
+      </h1>
       <GettingStarted />
 
       {IS_LOCAL_DEMO && (
@@ -498,7 +516,11 @@ function Dashboard() {
       )}
 
       {youtubeStatus === "loading" && (
-        <p className="mb-1 flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+        <p
+          className="mb-1 flex items-center gap-2 text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
           <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Loading your YouTube data…
         </p>
       )}
@@ -559,119 +581,141 @@ function Dashboard() {
         aria-busy={youtubeStatus === "loading"}
         aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}
       >
-      {youtubeStatus === "loading" ? (
-        Array.from({ length: 6 }).map((_, i) => <KpiTrendCardSkeleton key={i} className={kpiCardClassName} />)
-      ) : (
-        <>
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Estimated Revenue"
-          accent="var(--brand-green)"
-          value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
-          deltaLabel={revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"}
-          deltaSuffix="this month"
-          changePercent={revenueChangePct}
-          periodLabel={trendPeriodLabel}
-          series={revenueSeries}
-          markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-          markerSubtitle={latestMonthLabel}
-          positive={(revenueChangePct ?? 0) >= 0}
-        />
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Latest Revenue"
-          accent="var(--brand-blue)"
-          value={dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
-          deltaLabel={signed(recentRevenueChange, formatMoney)}
-          deltaSuffix="vs last month"
-          changePercent={revenueChangePct}
-          periodLabel={trendPeriodLabel}
-          series={revenueSeries}
-          markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-          markerSubtitle={latestMonthLabel}
-          positive={recentRevenueChange >= 0}
-        />
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Total Views"
-          accent="var(--brand-purple)"
-          value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
-          deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
-          deltaSuffix="this month"
-          changePercent={viewsChangePct}
-          periodLabel={trendPeriodLabel}
-          series={viewsSeries}
-          markerTitle={`${formatCount(viewsSeries.at(-1) ?? 0)} views`}
-          markerSubtitle={latestMonthLabel}
-          positive={(viewsChangePct ?? 0) >= 0}
-        />
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Videos"
-          accent="var(--brand-red)"
-          value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
-          deltaLabel={videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
-          deltaSuffix="published this month"
-          changePercent={videosChangePct}
-          periodLabel={trendPeriodLabel}
-          series={videosSeries}
-          markerTitle={`${videosSeries.at(-1) ?? 0} published`}
-          markerSubtitle={latestVideoMonthLabel}
-          positive={(videosChangePct ?? 0) >= 0}
-        />
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Subscribers"
-          accent="var(--brand-amber)"
-          value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
-          deltaLabel={subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"}
-          deltaSuffix="gained this month"
-          changePercent={subsChangePct}
-          periodLabel={trendPeriodLabel}
-          series={subsSeries}
-          markerTitle={`+${subsSeries.at(-1) ?? 0} subs`}
-          markerSubtitle={latestMonthLabel}
-          positive={(subsChangePct ?? 0) >= 0}
-        />
-        <KpiTrendCard
-          className={kpiCardClassName}
-          title="Watch Time"
-          accent="var(--primary)"
-          value={
-            dashboardData?.watchTimeStatus === "available"
-              ? `${formatHours(totalWatchTime)} hrs`
-              : "—"
-          }
-          deltaLabel={watchSeries.length ? signed(watchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`) : "—"}
-          deltaSuffix="this month"
-          changePercent={watchChangePct}
-          periodLabel={trendPeriodLabel}
-          series={watchSeries}
-          markerTitle={`${formatHours(watchSeries.at(-1) ?? 0)} hrs`}
-          markerSubtitle={latestMonthLabel}
-          positive={(watchChangePct ?? 0) >= 0}
-        />
-        <div aria-hidden="true" className={kpiCloneClassName}>
-          <KpiTrendCard
-            title="Estimated Revenue"
-            accent="var(--brand-green)"
-            value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
-            deltaLabel={revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"}
-            deltaSuffix="this month"
-            changePercent={revenueChangePct}
-            periodLabel={trendPeriodLabel}
-            series={revenueSeries}
-            markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-            markerSubtitle={latestMonthLabel}
-            positive={(revenueChangePct ?? 0) >= 0}
-          />
-        </div>
-        </>
-      )}
+        {youtubeStatus === "loading" ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <KpiTrendCardSkeleton key={i} className={kpiCardClassName} />
+          ))
+        ) : (
+          <>
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Estimated Revenue"
+              accent="var(--brand-green)"
+              value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
+              deltaLabel={
+                revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
+              }
+              deltaSuffix="this month"
+              changePercent={revenueChangePct}
+              periodLabel={trendPeriodLabel}
+              series={revenueSeries}
+              markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+              markerSubtitle={latestMonthLabel}
+              positive={(revenueChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Latest Revenue"
+              accent="var(--brand-blue)"
+              value={
+                dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"
+              }
+              deltaLabel={signed(recentRevenueChange, formatMoney)}
+              deltaSuffix="vs last month"
+              changePercent={revenueChangePct}
+              periodLabel={trendPeriodLabel}
+              series={revenueSeries}
+              markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+              markerSubtitle={latestMonthLabel}
+              positive={recentRevenueChange >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Total Views"
+              accent="var(--brand-purple)"
+              value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
+              deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
+              deltaSuffix="this month"
+              changePercent={viewsChangePct}
+              periodLabel={trendPeriodLabel}
+              series={viewsSeries}
+              markerTitle={`${formatCount(viewsSeries.at(-1) ?? 0)} views`}
+              markerSubtitle={latestMonthLabel}
+              positive={(viewsChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Videos"
+              accent="var(--brand-red)"
+              value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
+              deltaLabel={
+                videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"
+              }
+              deltaSuffix="published this month"
+              changePercent={videosChangePct}
+              periodLabel={trendPeriodLabel}
+              series={videosSeries}
+              markerTitle={`${videosSeries.at(-1) ?? 0} published`}
+              markerSubtitle={latestVideoMonthLabel}
+              positive={(videosChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Subscribers"
+              accent="var(--brand-amber)"
+              value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
+              deltaLabel={
+                subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"
+              }
+              deltaSuffix="gained this month"
+              changePercent={subsChangePct}
+              periodLabel={trendPeriodLabel}
+              series={subsSeries}
+              markerTitle={`+${subsSeries.at(-1) ?? 0} subs`}
+              markerSubtitle={latestMonthLabel}
+              positive={(subsChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Watch Time"
+              accent="var(--primary)"
+              value={
+                dashboardData?.watchTimeStatus === "available"
+                  ? `${formatHours(totalWatchTime)} hrs`
+                  : "—"
+              }
+              deltaLabel={
+                watchSeries.length
+                  ? signed(watchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`)
+                  : "—"
+              }
+              deltaSuffix="this month"
+              changePercent={watchChangePct}
+              periodLabel={trendPeriodLabel}
+              series={watchSeries}
+              markerTitle={`${formatHours(watchSeries.at(-1) ?? 0)} hrs`}
+              markerSubtitle={latestMonthLabel}
+              positive={(watchChangePct ?? 0) >= 0}
+            />
+            <div aria-hidden="true" className={kpiCloneClassName}>
+              <KpiTrendCard
+                title="Estimated Revenue"
+                accent="var(--brand-green)"
+                value={
+                  dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"
+                }
+                deltaLabel={
+                  revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
+                }
+                deltaSuffix="this month"
+                changePercent={revenueChangePct}
+                periodLabel={trendPeriodLabel}
+                series={revenueSeries}
+                markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
+                markerSubtitle={latestMonthLabel}
+                positive={(revenueChangePct ?? 0) >= 0}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {youtubeStatus !== "loading" && (
-        <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" role="tablist" aria-label="KPI card pagination">
+        <div
+          className="mt-3 flex items-center justify-center gap-1.5 sm:hidden"
+          role="tablist"
+          aria-label="KPI card pagination"
+        >
           {Array.from({ length: 6 }).map((_, i) => (
             <button
               key={i}
@@ -864,7 +908,11 @@ function Dashboard() {
             </Link>
           </div>
           {/* Mobile: stacked cards */}
-          <div className="mt-4 space-y-2.5 sm:hidden" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}>
+          <div
+            className="mt-4 space-y-2.5 sm:hidden"
+            aria-busy={youtubeStatus === "loading"}
+            aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}
+          >
             {youtubeStatus === "loading" &&
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg">
@@ -876,50 +924,59 @@ function Dashboard() {
                   </div>
                 </div>
               ))}
-            {youtubeStatus !== "loading" && topRevenueVideos.slice(0, 5).map((row, index) => (
-              <a
-                key={row.videoId}
-                href={row.video.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg"
-              >
-                <div className="relative shrink-0">
-                  {row.video.thumbnail ? (
-                    <img
-                      src={row.video.thumbnail}
-                      alt=""
-                      className="h-14 w-24 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-24 items-center justify-center rounded-lg bg-accent">
-                      <Play className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-                  <span className="absolute -left-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
-                    {index + 1}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{row.video.title}</p>
-                  <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1" title="Views">
-                      <Eye className="h-3.5 w-3.5" />
-                      {formatCount(row.views)}
-                    </span>
-                    <span className="font-medium text-foreground">{formatMoney(row.revenue)}</span>
-                    {row.changePercent !== null ? (
-                      <span className={row.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
-                        {row.changePercent >= 0 ? "+" : ""}
-                        {row.changePercent.toFixed(1)}%
-                      </span>
+            {youtubeStatus !== "loading" &&
+              topRevenueVideos.slice(0, 5).map((row, index) => (
+                <a
+                  key={row.videoId}
+                  href={row.video.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg"
+                >
+                  <div className="relative shrink-0">
+                    {row.video.thumbnail ? (
+                      <img
+                        src={row.video.thumbnail}
+                        alt=""
+                        className="h-14 w-24 rounded-lg object-cover"
+                      />
                     ) : (
-                      <span>New</span>
+                      <div className="flex h-14 w-24 items-center justify-center rounded-lg bg-accent">
+                        <Play className="h-5 w-5 text-muted-foreground" />
+                      </div>
                     )}
+                    <span className="absolute -left-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+                      {index + 1}
+                    </span>
                   </div>
-                </div>
-              </a>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{row.video.title}</p>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1" title="Views">
+                        <Eye className="h-3.5 w-3.5" />
+                        {formatCount(row.views)}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {formatMoney(row.revenue)}
+                      </span>
+                      {row.changePercent !== null ? (
+                        <span
+                          className={
+                            row.changePercent >= 0
+                              ? "font-medium text-success"
+                              : "font-medium text-destructive"
+                          }
+                        >
+                          {row.changePercent >= 0 ? "+" : ""}
+                          {row.changePercent.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span>New</span>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              ))}
             {youtubeStatus !== "loading" && !topRevenueVideos.length && (
               <p className="py-6 text-sm text-muted-foreground">{topRevenueVideosEmptyMessage}</p>
             )}
@@ -936,7 +993,10 @@ function Dashboard() {
                   <th className="pb-3 text-right font-medium">Change</th>
                 </tr>
               </thead>
-              <tbody aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}>
+              <tbody
+                aria-busy={youtubeStatus === "loading"}
+                aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}
+              >
                 {youtubeStatus === "loading" &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-t border-border">
@@ -945,47 +1005,56 @@ function Dashboard() {
                       </td>
                     </tr>
                   ))}
-                {youtubeStatus !== "loading" && topRevenueVideos.slice(0, 5).map((row, index) => (
-                  <tr key={row.videoId} className="border-t border-border">
-                    <td className="py-3">
-                      <a
-                        href={row.video.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3"
-                      >
-                        <span className="text-muted-foreground">{index + 1}</span>
-                        {row.video.thumbnail && (
-                          <img
-                            src={row.video.thumbnail}
-                            alt=""
-                            className="h-10 w-16 shrink-0 rounded object-cover"
-                          />
+                {youtubeStatus !== "loading" &&
+                  topRevenueVideos.slice(0, 5).map((row, index) => (
+                    <tr key={row.videoId} className="border-t border-border">
+                      <td className="py-3">
+                        <a
+                          href={row.video.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3"
+                        >
+                          <span className="text-muted-foreground">{index + 1}</span>
+                          {row.video.thumbnail && (
+                            <img
+                              src={row.video.thumbnail}
+                              alt=""
+                              className="h-10 w-16 shrink-0 rounded object-cover"
+                            />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block max-w-[26rem] truncate font-medium">
+                              {row.video.title}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {formatDate(row.video.publishedAt)}
+                            </span>
+                          </span>
+                        </a>
+                      </td>
+                      <td className="py-3 text-muted-foreground">{formatCount(row.views)}</td>
+                      <td className="py-3 font-medium text-foreground">
+                        {formatMoney(row.revenue)}
+                      </td>
+                      <td className="py-3 text-right">
+                        {row.changePercent !== null ? (
+                          <span
+                            className={
+                              row.changePercent >= 0
+                                ? "font-medium text-success"
+                                : "font-medium text-destructive"
+                            }
+                          >
+                            {row.changePercent >= 0 ? "+" : ""}
+                            {row.changePercent.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">New</span>
                         )}
-                        <span className="min-w-0">
-                          <span className="block max-w-[26rem] truncate font-medium">
-                            {row.video.title}
-                          </span>
-                          <span className="block text-xs text-muted-foreground">
-                            {formatDate(row.video.publishedAt)}
-                          </span>
-                        </span>
-                      </a>
-                    </td>
-                    <td className="py-3 text-muted-foreground">{formatCount(row.views)}</td>
-                    <td className="py-3 font-medium text-foreground">{formatMoney(row.revenue)}</td>
-                    <td className="py-3 text-right">
-                      {row.changePercent !== null ? (
-                        <span className={row.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
-                          {row.changePercent >= 0 ? "+" : ""}
-                          {row.changePercent.toFixed(1)}%
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">New</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))}
                 {youtubeStatus !== "loading" && !topRevenueVideos.length && (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
@@ -1003,7 +1072,11 @@ function Dashboard() {
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Revenue Split</h3>
 
-          <div className="mt-4 space-y-3.5" aria-busy={youtubeStatus === "loading"} aria-label={youtubeStatus === "loading" ? "Loading revenue split" : undefined}>
+          <div
+            className="mt-4 space-y-3.5"
+            aria-busy={youtubeStatus === "loading"}
+            aria-label={youtubeStatus === "loading" ? "Loading revenue split" : undefined}
+          >
             {youtubeStatus === "loading" ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i}>
@@ -1019,18 +1092,27 @@ function Dashboard() {
                 <div key={row.key}>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} aria-hidden="true" />
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: row.color }}
+                        aria-hidden="true"
+                      />
                       <span className="truncate">{row.label}</span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">
                       {formatMoney(row.value)}{" "}
-                      <span className="text-xs">{latestRevenue > 0 ? Math.round((row.value / latestRevenue) * 100) : 0}%</span>
+                      <span className="text-xs">
+                        {latestRevenue > 0 ? Math.round((row.value / latestRevenue) * 100) : 0}%
+                      </span>
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
                     <div
                       className="h-full rounded-full"
-                      style={{ width: `${latestRevenue > 0 ? Math.max((row.value / latestRevenue) * 100, 4) : 0}%`, backgroundColor: row.color }}
+                      style={{
+                        width: `${latestRevenue > 0 ? Math.max((row.value / latestRevenue) * 100, 4) : 0}%`,
+                        backgroundColor: row.color,
+                      }}
                     />
                   </div>
                 </div>
@@ -1057,11 +1139,16 @@ function Dashboard() {
                   {dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
                 </p>
                 {dashboardData?.revenueStatus === "available" && revenueChangePct !== null ? (
-                  <p className={`mt-1 text-xs font-medium ${revenueChangePct >= 0 ? "text-success" : "text-destructive"}`}>
-                    {revenueChangePct >= 0 ? "▲" : "▼"} {Math.abs(revenueChangePct).toFixed(1)}% vs last month
+                  <p
+                    className={`mt-1 text-xs font-medium ${revenueChangePct >= 0 ? "text-success" : "text-destructive"}`}
+                  >
+                    {revenueChangePct >= 0 ? "▲" : "▼"} {Math.abs(revenueChangePct).toFixed(1)}% vs
+                    last month
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">Platform attribution is not included</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Platform attribution is not included
+                  </p>
                 )}
               </>
             )}
@@ -1089,7 +1176,12 @@ function Dashboard() {
           <VideoInsightsCard
             latestVideo={videos[0] ?? null}
             videos={videos}
-            videoInsights={dashboardData?.videoInsights ?? { subscribersGained: 0, devices: { desktop: 0, mobile: 0, tablet: 0 } }}
+            videoInsights={
+              dashboardData?.videoInsights ?? {
+                subscribersGained: 0,
+                devices: { desktop: 0, mobile: 0, tablet: 0 },
+              }
+            }
             status={dashboardData?.videoInsightsStatus ?? "unavailable"}
           />
         )}
@@ -1112,82 +1204,86 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-      <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
-        <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 sm:flex-row sm:items-center sm:gap-6">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            {settings.showAvatar && dashboardData?.channel.thumbnail && (
-              <div className="relative shrink-0">
-                <div className="rounded-full bg-white/10 p-1 ring-1 ring-white/20">
-                  <img
-                    src={dashboardData.channel.thumbnail}
-                    alt={dashboardData.channel.title}
-                    className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
-                  />
-                </div>
-                <span
-                  aria-hidden="true"
-                  className="absolute -bottom-0.5 -right-1 flex h-5 w-7 items-center justify-center rounded-[5px] bg-[#ff0000] ring-2 ring-[#081522] sm:h-6 sm:w-8"
-                >
-                  <svg viewBox="0 0 24 18" className="h-3 w-4 sm:h-3.5 sm:w-5" fill="none">
-                    <path
-                      d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
-                      fill="currentColor"
-                      className="text-white"
+        <div className="nav-glow-motion hero-banner-bg relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl border border-white/15 p-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:min-h-[128px] sm:p-6">
+          <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 sm:flex-row sm:items-center sm:gap-6">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              {settings.showAvatar && dashboardData?.channel.thumbnail && (
+                <div className="relative shrink-0">
+                  <div className="rounded-full bg-white/10 p-1 ring-1 ring-white/20">
+                    <img
+                      src={dashboardData.channel.thumbnail}
+                      alt={dashboardData.channel.title}
+                      className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
                     />
-                    <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="#ff0000" />
-                  </svg>
-                </span>
-              </div>
-            )}
-            <div className="min-w-0">
-              {settings.showName && (
-                <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">
-                  {dashboardData?.channel.title ?? "YouTube channel"}
-                </p>
+                  </div>
+                  <span
+                    aria-hidden="true"
+                    className="absolute -bottom-0.5 -right-1 flex h-5 w-7 items-center justify-center rounded-[5px] bg-[#ff0000] ring-2 ring-[#081522] sm:h-6 sm:w-8"
+                  >
+                    <svg viewBox="0 0 24 18" className="h-3 w-4 sm:h-3.5 sm:w-5" fill="none">
+                      <path
+                        d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
+                        fill="currentColor"
+                        className="text-white"
+                      />
+                      <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="#ff0000" />
+                    </svg>
+                  </span>
+                </div>
               )}
-              <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-white/65 sm:text-sm">
-                {dashboardData?.channel.handle && (
-                  <span className="truncate">{dashboardData.channel.handle}</span>
+              <div className="min-w-0">
+                {settings.showName && (
+                  <p className="truncate text-base font-semibold leading-tight text-white sm:text-lg">
+                    {dashboardData?.channel.title ?? "YouTube channel"}
+                  </p>
                 )}
-                {settings.showSubscribers && dashboardData && (
-                  <>
-                    {dashboardData.channel.handle && (
-                      <span aria-hidden="true" className="text-white/35">
-                        •
+                <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-white/65 sm:text-sm">
+                  {dashboardData?.channel.handle && (
+                    <span className="truncate">{dashboardData.channel.handle}</span>
+                  )}
+                  {settings.showSubscribers && dashboardData && (
+                    <>
+                      {dashboardData.channel.handle && (
+                        <span aria-hidden="true" className="text-white/35">
+                          •
+                        </span>
+                      )}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="font-medium text-white">
+                          {formatCount(dashboardData.channel.subscriberCount)}
+                        </span>
+                        <span>subscribers</span>
                       </span>
-                    )}
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      <span className="font-medium text-white">
-                        {formatCount(dashboardData.channel.subscriberCount)}
-                      </span>
-                      <span>subscribers</span>
-                    </span>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+            {settings.showVisitButton && (
+              <a
+                href={dashboardData?.channel.url ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-disabled={!dashboardData?.channel.url}
+                aria-label="Visit Channel"
+                className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
+              >
+                <span>Visit channel</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              </a>
+            )}
           </div>
-          {settings.showVisitButton && (
-            <a
-              href={dashboardData?.channel.url ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!dashboardData?.channel.url}
-              aria-label="Visit Channel"
-              className={`flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-primary/30 sm:w-auto sm:px-4 ${!dashboardData?.channel.url ? "pointer-events-none opacity-50" : ""}`}
-            >
-              <span>Visit channel</span>
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            </a>
-          )}
         </div>
-      </div>
       )}
 
       {/* Recent videos */}
       {youtubeStatus === "loading" && settings.showRecentPosts && (
-        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl" aria-busy="true" aria-label="Loading recent videos">
+        <div
+          className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl"
+          aria-busy="true"
+          aria-label="Loading recent videos"
+        >
           <Skeleton className="h-5 w-32" />
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -1476,7 +1572,10 @@ function AudienceBreakdownCard({
 
 function AudienceBreakdownCardSkeleton() {
   return (
-    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl" aria-hidden="true">
+    <div
+      className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl"
+      aria-hidden="true"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <Skeleton className="h-3.5 w-20" />
@@ -1535,14 +1634,30 @@ function VideoInsightsCard({
   const avgViews = average(videos.map((v) => v.views));
   const avgEngagement = average(videos.map((v) => (v.likes ?? 0) + (v.comments ?? 0)));
   const viewsDelta = avgViews > 0 ? ((thisViews - avgViews) / avgViews) * 100 : null;
-  const engagementDelta = avgEngagement > 0 ? ((thisEngagement - avgEngagement) / avgEngagement) * 100 : null;
+  const engagementDelta =
+    avgEngagement > 0 ? ((thisEngagement - avgEngagement) / avgEngagement) * 100 : null;
 
   const { desktop, mobile, tablet } = videoInsights.devices;
   const deviceTotal = desktop + mobile + tablet;
   const devices = [
-    { key: "desktop", label: "Desktop", pct: deviceTotal ? (desktop / deviceTotal) * 100 : 0, color: "#f59e0b" },
-    { key: "tablet", label: "Tablet", pct: deviceTotal ? (tablet / deviceTotal) * 100 : 0, color: "#3b82f6" },
-    { key: "mobile", label: "Mobile", pct: deviceTotal ? (mobile / deviceTotal) * 100 : 0, color: "#8b5cf6" },
+    {
+      key: "desktop",
+      label: "Desktop",
+      pct: deviceTotal ? (desktop / deviceTotal) * 100 : 0,
+      color: "#f59e0b",
+    },
+    {
+      key: "tablet",
+      label: "Tablet",
+      pct: deviceTotal ? (tablet / deviceTotal) * 100 : 0,
+      color: "#3b82f6",
+    },
+    {
+      key: "mobile",
+      label: "Mobile",
+      pct: deviceTotal ? (mobile / deviceTotal) * 100 : 0,
+      color: "#8b5cf6",
+    },
   ];
 
   return (
@@ -1550,7 +1665,11 @@ function VideoInsightsCard({
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex items-start gap-3">
         {latestVideo?.thumbnail ? (
-          <img src={latestVideo.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+          <img
+            src={latestVideo.thumbnail}
+            alt=""
+            className="h-14 w-14 shrink-0 rounded-lg object-cover"
+          />
         ) : (
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent">
             <Play className="h-5 w-5 text-muted-foreground" />
@@ -1562,7 +1681,9 @@ function VideoInsightsCard({
             {latestVideo?.title ?? "No recent video"}
           </p>
           {latestVideo?.publishedAt && (
-            <p className="text-xs text-muted-foreground">Published {formatDate(latestVideo.publishedAt)}</p>
+            <p className="text-xs text-muted-foreground">
+              Published {formatDate(latestVideo.publishedAt)}
+            </p>
           )}
         </div>
       </div>
@@ -1582,7 +1703,11 @@ function VideoInsightsCard({
               <div className="text-right text-xs">
                 <p className="text-muted-foreground">Avg {formatCount(Math.round(avgViews))}</p>
                 {viewsDelta !== null && (
-                  <p className={viewsDelta >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                  <p
+                    className={
+                      viewsDelta >= 0 ? "font-medium text-success" : "font-medium text-destructive"
+                    }
+                  >
                     {viewsDelta >= 0 ? "+" : ""}
                     {viewsDelta.toFixed(1)}% vs avg
                   </p>
@@ -1592,12 +1717,22 @@ function VideoInsightsCard({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Engagement</p>
-                <p className="mt-0.5 text-xl font-bold tracking-tight">{formatCount(thisEngagement)}</p>
+                <p className="mt-0.5 text-xl font-bold tracking-tight">
+                  {formatCount(thisEngagement)}
+                </p>
               </div>
               <div className="text-right text-xs">
-                <p className="text-muted-foreground">Avg {formatCount(Math.round(avgEngagement))}</p>
+                <p className="text-muted-foreground">
+                  Avg {formatCount(Math.round(avgEngagement))}
+                </p>
                 {engagementDelta !== null && (
-                  <p className={engagementDelta >= 0 ? "font-medium text-success" : "font-medium text-destructive"}>
+                  <p
+                    className={
+                      engagementDelta >= 0
+                        ? "font-medium text-success"
+                        : "font-medium text-destructive"
+                    }
+                  >
                     {engagementDelta >= 0 ? "+" : ""}
                     {engagementDelta.toFixed(1)}% vs avg
                   </p>
@@ -1623,7 +1758,10 @@ function VideoInsightsCard({
                   <p className="text-xs text-muted-foreground">{device.label}</p>
                   <p className="mt-0.5 text-lg font-bold">{Math.round(device.pct)}%</p>
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-accent">
-                    <div className="h-full rounded-full" style={{ width: `${device.pct}%`, backgroundColor: device.color }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${device.pct}%`, backgroundColor: device.color }}
+                    />
                   </div>
                 </div>
               ))}
@@ -1672,8 +1810,16 @@ function VideoInsightsCardSkeleton() {
 
 const HEATMAP_LEVELS = [
   { key: "low", label: "Low", color: "color-mix(in srgb, var(--brand-purple) 18%, var(--accent))" },
-  { key: "medium", label: "Medium", color: "color-mix(in srgb, var(--brand-purple) 42%, var(--accent))" },
-  { key: "high", label: "High", color: "color-mix(in srgb, var(--brand-purple) 68%, var(--accent))" },
+  {
+    key: "medium",
+    label: "Medium",
+    color: "color-mix(in srgb, var(--brand-purple) 42%, var(--accent))",
+  },
+  {
+    key: "high",
+    label: "High",
+    color: "color-mix(in srgb, var(--brand-purple) 68%, var(--accent))",
+  },
   { key: "best", label: "Best", color: "var(--brand-purple)" },
 ];
 
@@ -1688,7 +1834,9 @@ function levelIndexForValue(value: number, max: number): number {
 
 function formatShortDate(dateStr: string | undefined): string {
   if (!dateStr) return "";
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(dateStr));
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(
+    new Date(dateStr),
+  );
 }
 
 const ENGAGEMENT_HEATMAP_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
@@ -1741,7 +1889,11 @@ function EngagementHeatmap({
       <div className="mt-3 flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {HEATMAP_LEVELS.map((level) => (
           <span key={level.key} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: level.color }} aria-hidden="true" />
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: level.color }}
+              aria-hidden="true"
+            />
             {level.label}
           </span>
         ))}
@@ -1763,7 +1915,9 @@ function EngagementHeatmap({
                       key={day.date}
                       title={`${formatShortDate(day.date)}: ${formatCount(day.views)} views`}
                       className="h-6 w-6 shrink-0 rounded-md sm:h-7 sm:w-7"
-                      style={{ background: HEATMAP_LEVELS[levelIndexForValue(day.views, max)].color }}
+                      style={{
+                        background: HEATMAP_LEVELS[levelIndexForValue(day.views, max)].color,
+                      }}
                     />
                   ))}
                 </div>
@@ -1771,7 +1925,9 @@ function EngagementHeatmap({
             ))}
           </div>
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No data for this period yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No data for this period yet.
+          </p>
         )}
       </div>
     </div>
@@ -1780,7 +1936,10 @@ function EngagementHeatmap({
 
 function EngagementHeatmapSkeleton() {
   return (
-    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl" aria-hidden="true">
+    <div
+      className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl"
+      aria-hidden="true"
+    >
       <div className="flex shrink-0 items-center justify-between">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-4 w-14" />
@@ -1802,55 +1961,30 @@ function EngagementHeatmapSkeleton() {
   );
 }
 
-const onboardingSteps = [
-  {
-    id: "banner",
-    label: "Set up your dashboard banner",
-    desc: "Connect YouTube to sync your channel name, avatar, and subscriber count.",
-    to: "/settings",
-  },
-  {
-    id: "video",
-    label: "Add your first video",
-    desc: "Paste a YouTube URL to auto-generate an AI description.",
-    to: "/add-video",
-  },
-  {
-    id: "comments",
-    label: "Create a comment automation rule",
-    desc: "Auto-reply to comments asking for links or info.",
-    to: "/comments",
-  },
-  {
-    id: "link",
-    label: "Create a tracked link",
-    desc: "Track clicks and revenue from your video descriptions.",
-    to: "/link-tracking",
-  },
-  {
-    id: "channel",
-    label: "Connect your YouTube channel",
-    desc: "Sync real analytics and revenue data.",
-    to: "/settings",
-  },
-] as const;
-
 function GettingStarted() {
   const [onboarding, setOnboarding] = useOnboarding();
+  const [status, setStatus] = useState<OnboardingStatus | null>(null);
 
-  if (onboarding.dismissed) return null;
+  useEffect(() => {
+    if (onboarding.dismissed) return;
+    const controller = new AbortController();
+    fetch("/api/onboarding/status", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as { data?: OnboardingStatus };
+        if (body.data) setStatus(body.data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+    // Re-checked once per mount — a completed step redirects the user onward (see
+    // goToNextOnboardingStep) rather than relying on this component to notice mid-session.
+  }, [onboarding.dismissed]);
 
-  const doneCount = onboarding.completedSteps.length;
-  const allDone = doneCount === onboardingSteps.length;
+  if (onboarding.dismissed || !status) return null;
 
-  const toggleStep = (id: string) => {
-    setOnboarding((prev) => ({
-      ...prev,
-      completedSteps: prev.completedSteps.includes(id)
-        ? prev.completedSteps.filter((s) => s !== id)
-        : [...prev.completedSteps, id],
-    }));
-  };
+  const doneCount = ONBOARDING_STEPS.filter((step) => status[step.id]).length;
+  const allDone = doneCount === ONBOARDING_STEPS.length;
+  const nextStepId = ONBOARDING_STEPS.find((step) => !status[step.id])?.id;
   const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
 
   return (
@@ -1862,7 +1996,7 @@ function GettingStarted() {
           <div>
             <h3 className="font-semibold">{allDone ? "You're all set! 🎉" : "Getting started"}</h3>
             <p className="text-xs text-muted-foreground">
-              {doneCount} of {onboardingSteps.length} steps complete
+              {doneCount} of {ONBOARDING_STEPS.length} steps complete
             </p>
           </div>
         </div>
@@ -1878,38 +2012,39 @@ function GettingStarted() {
       <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-accent">
         <div
           className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${(doneCount / onboardingSteps.length) * 100}%` }}
+          style={{ width: `${(doneCount / ONBOARDING_STEPS.length) * 100}%` }}
         />
       </div>
 
       <div className="mt-4 space-y-1">
-        {onboardingSteps.map((step) => {
-          const done = onboarding.completedSteps.includes(step.id);
+        {ONBOARDING_STEPS.map((step) => {
+          const done = status[step.id];
+          const isNext = step.id === nextStepId;
           return (
-            <div
+            <Link
               key={step.id}
-              className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent/40"
+              to={step.to}
+              className={`flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-accent/40 ${isNext ? "bg-primary/5 ring-1 ring-primary/20" : ""}`}
             >
-              <button
-                onClick={() => toggleStep(step.id)}
-                aria-label={done ? "Mark as not done" : "Mark as done"}
-                className="shrink-0"
-              >
-                {done ? (
-                  <CheckCircle2 className="h-5 w-5 text-success" />
-                ) : (
-                  <Circle className="h-5 w-5 text-muted-foreground" />
-                )}
-              </button>
-              <Link to={step.to} className="min-w-0 flex-1">
+              {done ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+              ) : (
+                <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
+              )}
+              <div className="min-w-0 flex-1">
                 <p
                   className={`text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}
                 >
                   {step.label}
                 </p>
                 <p className="text-xs text-muted-foreground">{step.desc}</p>
-              </Link>
-            </div>
+              </div>
+              {isNext && (
+                <span className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
+                  Continue
+                </span>
+              )}
+            </Link>
           );
         })}
       </div>

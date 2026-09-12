@@ -954,7 +954,7 @@ export function DashboardLayout({
             <Popover>
               <PopoverTrigger asChild>
                 <button
-                  className="relative flex h-9 w-9 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
                   aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ""}`}
                 >
                   <Bell className="h-[18px] w-[18px]" />
@@ -1011,7 +1011,7 @@ export function DashboardLayout({
             {/* Profile menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-[var(--button-radius)] px-1 py-1 hover:bg-accent">
+                <button className="flex items-center gap-2 rounded-full px-1 py-1 hover:bg-accent">
                   <img
                     src={profile.avatar}
                     alt={profile.name}

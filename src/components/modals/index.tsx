@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { goToNextOnboardingStep } from "@/lib/onboarding";
 import {
   Dialog,
   DialogContent,
@@ -395,6 +397,7 @@ export function LinkDialog({
   videos: { id: string; title: string }[];
   onSave: (input: TrackLinkInput, id?: string) => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const [destinationId, setDestinationId] = useState("");
   const [videoId, setVideoId] = useState("");
   const [slug, setSlug] = useState("");
@@ -427,6 +430,7 @@ export function LinkDialog({
       );
       onOpenChange(false);
       toast.success(initial ? "Link updated" : "Link created");
+      if (!initial) void goToNextOnboardingStep(navigate, "link");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message
@@ -574,6 +578,7 @@ export function RuleDialog({
   videos: { id: string; title: string }[];
   onSave: (input: CommentRuleInput, id?: string) => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [triggerType, setTriggerType] = useState<CommentRule["trigger_type"]>("keyword");
   const [keywordsText, setKeywordsText] = useState("");
@@ -623,6 +628,7 @@ export function RuleDialog({
       );
       onOpenChange(false);
       toast.success(initial ? "Rule updated" : "Rule created");
+      if (!initial) void goToNextOnboardingStep(navigate, "comments");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message

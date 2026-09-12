@@ -87,12 +87,12 @@ function Notifications() {
         )}
       </div>
 
-      <div className="mt-5 inline-flex rounded-lg bg-accent p-1 text-sm">
+      <div className="mt-5 inline-flex rounded-full bg-accent p-1 text-sm">
         {(["active", "archived"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-md px-3 py-1.5 font-medium capitalize ${t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            className={`rounded-full px-3 py-1.5 font-medium capitalize ${t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
           >
             {t}
           </button>

@@ -116,11 +116,12 @@ const seedProfile = (): Profile => ({
 export const useProfile = () => useLocalStore<Profile>("yroos.profile", seedProfile());
 
 // ============ ONBOARDING ============
+// Step completion itself is derived from real account state (see /api/onboarding/status and
+// lib/onboarding.ts) — this only remembers whether the user dismissed the checklist.
 export interface OnboardingState {
   dismissed: boolean;
-  completedSteps: string[];
 }
-const seedOnboarding = (): OnboardingState => ({ dismissed: false, completedSteps: [] });
+const seedOnboarding = (): OnboardingState => ({ dismissed: false });
 export const useOnboarding = () =>
   useLocalStore<OnboardingState>("yroos.onboarding", seedOnboarding());
 

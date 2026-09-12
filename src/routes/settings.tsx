@@ -43,6 +43,7 @@ import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { goToNextOnboardingStep } from "@/lib/onboarding";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
@@ -1124,6 +1125,7 @@ const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; tex
 };
 
 function YouTubeIntegrationPanel() {
+  const navigate = useNavigate();
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
   const [activeChannelId, setActiveChannelId] = useLocalStore<string | null>(
     ACTIVE_YOUTUBE_CHANNEL_KEY,
@@ -1182,8 +1184,10 @@ function YouTubeIntegrationPanel() {
       const url = new URL(window.location.href);
       url.searchParams.delete("youtube");
       window.history.replaceState({}, "", url.toString());
+      if (status === "connected") void goToNextOnboardingStep(navigate, "channel");
     }
     void loadChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

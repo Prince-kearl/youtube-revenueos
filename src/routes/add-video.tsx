@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
+import { goToNextOnboardingStep } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/add-video")({
   component: AddVideo,
@@ -106,7 +107,10 @@ type DestinationResponse = { data?: Destination[]; error?: string };
 
 type MyVideosResponse =
   | { status: "not_connected"; data: null }
-  | { status: "connected"; data: { videos: YoutubeVideo[]; videosStatus: "available" | "disabled" } }
+  | {
+      status: "connected";
+      data: { videos: YoutubeVideo[]; videosStatus: "available" | "disabled" };
+    }
   | { error: string };
 
 type OptimizeTab = "description" | "titles" | "tags" | "chapters" | "cta";
@@ -185,6 +189,7 @@ function errorMessage(error: string): string {
 }
 
 function AddVideo() {
+  const navigate = useNavigate();
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [pickerTab, setPickerTab] = useState<"mine" | "url">("mine");
   const [myVideos, setMyVideos] = useState<YoutubeVideo[]>([]);
@@ -261,7 +266,6 @@ function AddVideo() {
     setMyVideosStatus("idle");
     setMyVideosSyncDisabled(false);
     setVideoSearch("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChannelId]);
 
   useEffect(() => {
@@ -288,7 +292,12 @@ function AddVideo() {
       // channel, just that THIS specific remembered id no longer resolves — retry once without it
       // so the endpoint falls back to the most recently connected channel, the same recovery the
       // switcher itself would have done.
-      if (activeChannelId && response.status === 404 && "error" in body && body.error === "CHANNEL_NOT_FOUND") {
+      if (
+        activeChannelId &&
+        response.status === 404 &&
+        "error" in body &&
+        body.error === "CHANNEL_NOT_FOUND"
+      ) {
         ({ response, body } = await fetchVideos(null));
       }
       if ("status" in body && body.status === "not_connected") {
@@ -488,6 +497,7 @@ function AddVideo() {
       }
       setSavedVideoId(body.data.savedVideo.id);
       toast.success("Video saved to Tubify");
+      void goToNextOnboardingStep(navigate, "video");
     } catch (reason: unknown) {
       const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
       setError(errorMessage(code));
@@ -556,9 +566,13 @@ function AddVideo() {
       // Only append destinations whose URL isn't already in the text — checking just the first
       // selected destination let a partial overlap (e.g. destination A already inserted, B not)
       // silently skip inserting B too.
-      const missing = selectedDestinations.filter((destination) => !current.includes(destination.url));
+      const missing = selectedDestinations.filter(
+        (destination) => !current.includes(destination.url),
+      );
       if (!missing.length) return current;
-      const lines = missing.map((destination) => `\n${destination.name}: ${destination.url}`).join("");
+      const lines = missing
+        .map((destination) => `\n${destination.name}: ${destination.url}`)
+        .join("");
       return `${current}${lines}`.trim();
     });
     setDescriptionTouched(true);
@@ -569,7 +583,9 @@ function AddVideo() {
     // navigator.clipboard is undefined outside secure/permitted contexts — writeText() would
     // otherwise be skipped via optional chaining while the UI still claimed success.
     if (!navigator.clipboard) {
-      toast.error("Copy isn't available in this browser context. Select and copy the text manually.");
+      toast.error(
+        "Copy isn't available in this browser context. Select and copy the text manually.",
+      );
       return;
     }
     try {
@@ -638,7 +654,13 @@ function AddVideo() {
 
         {/* Mobile: segmented progress bar + current step, no horizontal scrolling required */}
         <div className="sm:hidden">
-          <div className="flex gap-1.5" role="progressbar" aria-valuenow={activeStepIndex + 1} aria-valuemin={1} aria-valuemax={stepMeta.length}>
+          <div
+            className="flex gap-1.5"
+            role="progressbar"
+            aria-valuenow={activeStepIndex + 1}
+            aria-valuemin={1}
+            aria-valuemax={stepMeta.length}
+          >
             {stepMeta.map((step, index) => (
               <div
                 key={step.label}
@@ -658,8 +680,12 @@ function AddVideo() {
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{stepMeta[activeStepIndex].label}</p>
-              <p className="truncate text-xs text-muted-foreground">{stepMeta[activeStepIndex].desc}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {stepMeta[activeStepIndex].label}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {stepMeta[activeStepIndex].desc}
+              </p>
             </div>
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
               {activeStepIndex + 1}/{stepMeta.length}
@@ -694,17 +720,30 @@ function AddVideo() {
                     {done && !active ? <Check className="h-3.5 w-3.5" /> : index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className={cn("truncate text-sm font-semibold", active ? "text-primary" : "text-foreground")}>
+                    <p
+                      className={cn(
+                        "truncate text-sm font-semibold",
+                        active ? "text-primary" : "text-foreground",
+                      )}
+                    >
                       {step.label}
                     </p>
-                    <p className={cn("truncate text-xs", active ? "text-primary/80" : "text-muted-foreground")}>
+                    <p
+                      className={cn(
+                        "truncate text-xs",
+                        active ? "text-primary/80" : "text-muted-foreground",
+                      )}
+                    >
                       {step.desc}
                     </p>
                   </div>
                 </div>
                 {!isLast && (
                   <div
-                    className={cn("h-0.5 w-4 shrink-0 rounded-full transition-colors", done ? "bg-primary" : "bg-border")}
+                    className={cn(
+                      "h-0.5 w-4 shrink-0 rounded-full transition-colors",
+                      done ? "bg-primary" : "bg-border",
+                    )}
                     aria-hidden="true"
                   />
                 )}
@@ -756,13 +795,17 @@ function AddVideo() {
                 onClick={() => setPickerTab("mine")}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
-                  pickerTab === "mine" ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
+                  pickerTab === "mine"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/40",
                 )}
               >
                 <Youtube className="h-5 w-5 shrink-0 text-brand-red" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">My YouTube videos</p>
-                  <p className="truncate text-xs text-muted-foreground">Analyze one of your uploaded videos</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Analyze one of your uploaded videos
+                  </p>
                 </div>
               </button>
               <button
@@ -770,13 +813,17 @@ function AddVideo() {
                 onClick={() => setPickerTab("url")}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
-                  pickerTab === "url" ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
+                  pickerTab === "url"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/40",
                 )}
               >
                 <Link2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">Paste YouTube URL</p>
-                  <p className="truncate text-xs text-muted-foreground">Analyze any public YouTube video</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Analyze any public YouTube video
+                  </p>
                 </div>
               </button>
             </div>
@@ -797,7 +844,10 @@ function AddVideo() {
                   {myVideosStatus === "loading" && (
                     <div className="space-y-1.5" aria-busy="true" aria-label="Loading your videos">
                       {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="flex items-center gap-3 rounded-lg border border-border p-2">
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 rounded-lg border border-border p-2"
+                        >
                           <Skeleton className="h-12 w-20 shrink-0 rounded" />
                           <div className="min-w-0 flex-1 space-y-1.5">
                             <Skeleton className="h-3.5 w-3/4" />
@@ -850,11 +900,13 @@ function AddVideo() {
                       No videos found on your connected channel yet.
                     </p>
                   )}
-                  {myVideosStatus === "loaded" && myVideos.length > 0 && !filteredMyVideos.length && (
-                    <p className="py-6 text-center text-sm text-muted-foreground">
-                      No videos match “{videoSearch}”.
-                    </p>
-                  )}
+                  {myVideosStatus === "loaded" &&
+                    myVideos.length > 0 &&
+                    !filteredMyVideos.length && (
+                      <p className="py-6 text-center text-sm text-muted-foreground">
+                        No videos match “{videoSearch}”.
+                      </p>
+                    )}
                   {myVideosStatus === "loaded" && filteredMyVideos.length > 0 && (
                     <div className="max-h-[22rem] space-y-1.5 overflow-y-auto pr-1">
                       {filteredMyVideos.map((item) => (
@@ -884,8 +936,9 @@ function AddVideo() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">{item.title}</span>
                             <span className="block text-xs text-muted-foreground">
-                              {item.duration ?? "Duration unavailable"} · {formatDate(item.publishedAt)} ·{" "}
-                              {formatCompactNumber(item.views)} views
+                              {item.duration ?? "Duration unavailable"} ·{" "}
+                              {formatDate(item.publishedAt)} · {formatCompactNumber(item.views)}{" "}
+                              views
                             </span>
                           </span>
                           {loading && video?.id === item.id && (
@@ -917,7 +970,11 @@ function AddVideo() {
                   disabled={loading}
                   className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
                   {loading ? "Loading…" : "Load video"}
                 </button>
               </form>
@@ -926,7 +983,11 @@ function AddVideo() {
             {video && (
               <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-accent/20 p-3 sm:flex-row sm:items-center">
                 {video.thumbnail ? (
-                  <img src={video.thumbnail} alt="" className="h-14 w-24 shrink-0 rounded object-cover" />
+                  <img
+                    src={video.thumbnail}
+                    alt=""
+                    className="h-14 w-24 shrink-0 rounded object-cover"
+                  />
                 ) : (
                   <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded bg-accent">
                     <Play className="h-5 w-5" />
@@ -936,7 +997,9 @@ function AddVideo() {
                   <p className="truncate text-sm font-semibold">{video.title}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {formatDate(video.publishedAt)} · {formatCompactNumber(video.views)} views ·{" "}
-                    {video.likes === null ? "likes unavailable" : `${formatCompactNumber(video.likes)} likes`}
+                    {video.likes === null
+                      ? "likes unavailable"
+                      : `${formatCompactNumber(video.likes)} likes`}
                   </p>
                 </div>
                 <button
@@ -961,7 +1024,11 @@ function AddVideo() {
                 disabled={!loaded || analyzing}
                 className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                {analyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
                 {analyzing ? "Analyzing…" : "Analyze video"}
               </button>
             </div>
@@ -1025,7 +1092,10 @@ function AddVideo() {
                       <ul className="mt-1.5 space-y-1 text-sm">
                         {analysis.topics.map((topic) => (
                           <li key={topic} className="flex items-center gap-1.5">
-                            <span className="h-1 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                            <span
+                              className="h-1 w-1 shrink-0 rounded-full bg-primary"
+                              aria-hidden="true"
+                            />
                             {topic}
                           </li>
                         ))}
@@ -1042,7 +1112,10 @@ function AddVideo() {
                     >
                       {analysisExpanded ? "Hide full analysis" : "View full analysis"}
                       <ChevronDown
-                        className={cn("h-4 w-4 transition-transform", analysisExpanded && "rotate-180")}
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          analysisExpanded && "rotate-180",
+                        )}
                       />
                     </button>
                     {analysisExpanded && (
@@ -1090,8 +1163,8 @@ function AddVideo() {
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h2 className="text-base font-semibold">Optimize your content</h2>
             <p className="text-xs text-muted-foreground">
-              Let AI help write a better description, title, tags, and closing message — pick a
-              tab below.
+              Let AI help write a better description, title, tags, and closing message — pick a tab
+              below.
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5 rounded-xl bg-accent/40 p-1.5 text-sm">
               {optimizeTabs.map((tab) => (
@@ -1133,7 +1206,11 @@ function AddVideo() {
                       disabled={!description}
                       className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
                     >
-                      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                       {copied ? "Copied" : "Copy"}
                     </button>
                   </div>
@@ -1166,7 +1243,10 @@ function AddVideo() {
                 {titleIdeas.length ? (
                   <ul className="space-y-1.5">
                     {titleIdeas.map((idea) => (
-                      <li key={idea} className="rounded-lg border border-border bg-background p-2.5 text-sm">
+                      <li
+                        key={idea}
+                        className="rounded-lg border border-border bg-background p-2.5 text-sm"
+                      >
                         {idea}
                       </li>
                     ))}
@@ -1181,7 +1261,10 @@ function AddVideo() {
                 {tags.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium">
+                      <span
+                        key={tag}
+                        className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -1193,9 +1276,9 @@ function AddVideo() {
             )}
             {optimizeTab === "chapters" && (
               <p className="mt-4 text-sm text-muted-foreground">
-                Chapters mark where each part of your video starts (like "Intro" at 0:00,
-                "Tutorial" at 1:30). Tubify can’t generate these yet — it would need a transcript
-                that includes exact timestamps, which isn’t supported yet. Coming soon.
+                Chapters mark where each part of your video starts (like "Intro" at 0:00, "Tutorial"
+                at 1:30). Tubify can’t generate these yet — it would need a transcript that includes
+                exact timestamps, which isn’t supported yet. Coming soon.
               </p>
             )}
             {optimizeTab === "cta" && (
@@ -1203,7 +1286,10 @@ function AddVideo() {
                 {ctaIdeas.length ? (
                   <ul className="space-y-1.5">
                     {ctaIdeas.map((idea) => (
-                      <li key={idea} className="rounded-lg border border-border bg-background p-2.5 text-sm">
+                      <li
+                        key={idea}
+                        className="rounded-lg border border-border bg-background p-2.5 text-sm"
+                      >
                         {idea}
                       </li>
                     ))}
@@ -1229,7 +1315,11 @@ function AddVideo() {
               <>
                 <div className="mt-3 flex gap-3">
                   {video.thumbnail ? (
-                    <img src={video.thumbnail} alt="" className="h-16 w-28 shrink-0 rounded-lg object-cover" />
+                    <img
+                      src={video.thumbnail}
+                      alt=""
+                      className="h-16 w-28 shrink-0 rounded-lg object-cover"
+                    />
                   ) : (
                     <div className="flex h-16 w-28 shrink-0 items-center justify-center rounded-lg bg-accent">
                       <Play className="h-5 w-5" />
@@ -1260,7 +1350,9 @@ function AddVideo() {
                   <div>
                     <p className="text-muted-foreground">Comments</p>
                     <p className="mt-1 font-semibold">
-                      {video.comments === null ? "Unavailable" : formatCompactNumber(video.comments)}
+                      {video.comments === null
+                        ? "Unavailable"
+                        : formatCompactNumber(video.comments)}
                     </p>
                   </div>
                 </div>
@@ -1367,13 +1459,17 @@ function AddVideo() {
                     disabled={!loaded}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-full border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                      selected ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/40",
+                      selected
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:border-primary/40",
                     )}
                   >
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
-                        selected ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border",
                       )}
                     >
                       {selected && <Check className="h-3.5 w-3.5" />}
@@ -1442,7 +1538,8 @@ function AddVideo() {
               disabled={!loaded || saving}
               className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Save className="h-4 w-4" /> {saving ? "Saving…" : savedVideoId ? "Update" : "Save to Tubify"}
+              <Save className="h-4 w-4" />{" "}
+              {saving ? "Saving…" : savedVideoId ? "Update" : "Save to Tubify"}
             </button>
           )}
           <button
