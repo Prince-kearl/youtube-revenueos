@@ -783,7 +783,11 @@ export function DashboardLayout({
                         className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
                       >
                         <Icon className="relative h-[18px] w-[18px] shrink-0" />
-                        {!collapsed && <span className="relative flex-1">{item.label}</span>}
+                        {!collapsed && (
+                          <span className="relative flex-1 truncate whitespace-nowrap">
+                            {item.label}
+                          </span>
+                        )}
                         {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
                       </Link>
                     );
