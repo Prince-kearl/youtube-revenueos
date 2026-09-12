@@ -19,10 +19,11 @@ import { NavGlowDriver } from "@/components/NavGlowDriver";
 // Sets the dark class before first paint, so there's no flash of the wrong theme while React
 // hydrates. Reads the same localStorage key useThemeMode()/useLocalStore write (JSON-encoded),
 // mirroring the "system" resolution logic in src/lib/theme.ts. Also sets the ios26 class from the
-// Customization → General "iOS 26 Design" toggle (stored on yroos.siteContent) for the same
-// reason — ThemeInjector's effect runs after first paint, which would otherwise flash flat-then-glass.
-// Defaults to true (glass on) when the key is missing, matching seedSiteContent's default.
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var raw=localStorage.getItem("yroos.theme");var mode=raw?JSON.parse(raw):"system";var isDark=mode==="dark"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(isDark)document.documentElement.classList.add("dark");}catch(e){}try{var rawContent=localStorage.getItem("yroos.siteContent");var content=rawContent?JSON.parse(rawContent):null;var ios26=content&&typeof content.ios26Design==="boolean"?content.ios26Design:true;if(ios26)document.documentElement.classList.add("ios26");}catch(e){}})();`;
+// personal "iOS 26 Design" preference (Settings → Preferences, see useIos26Design in
+// src/lib/theme.ts) for the same reason — ThemeInjector's effect runs after first paint, which
+// would otherwise flash flat-then-glass. Defaults to true (glass on) when the key is missing,
+// matching useIos26Design's default.
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var raw=localStorage.getItem("yroos.theme");var mode=raw?JSON.parse(raw):"system";var isDark=mode==="dark"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(isDark)document.documentElement.classList.add("dark");}catch(e){}try{var rawIos26=localStorage.getItem("yroos.ios26Design");var ios26=rawIos26===null?true:JSON.parse(rawIos26);if(ios26)document.documentElement.classList.add("ios26");}catch(e){}})();`;
 
 function NotFoundComponent() {
   return (
@@ -88,16 +89,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, interactive-widget=resizes-content" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, interactive-widget=resizes-content",
+      },
       { title: "Tubify — Turn Your Channel into a Sales Engine" },
-      { name: "description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
+      {
+        name: "description",
+        content:
+          "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement.",
+      },
       { name: "author", content: "Tubify" },
       { property: "og:title", content: "Tubify — Turn Your Channel into a Sales Engine" },
-      { property: "og:description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
+      {
+        property: "og:description",
+        content:
+          "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Tubify — Turn Your Channel into a Sales Engine" },
-      { name: "twitter:description", content: "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement." },
+      {
+        name: "twitter:description",
+        content:
+          "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement.",
+      },
       { property: "og:image", content: "/logo.png" },
       { name: "twitter:image", content: "/logo.png" },
     ],

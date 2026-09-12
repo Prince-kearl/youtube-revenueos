@@ -1164,11 +1164,6 @@ export interface SiteContent {
   cardRadius: number;
   buttonRadius: number;
   inputRadius: number;
-  /** Superadmin-controlled platform-wide theme switch — see Customization → General → Visual Style.
-   *  Toggles the Liquid Glass / iOS 26-inspired surface treatment (dashboard + persistent app chrome)
-   *  on or off for every user; disabling it reverts those surfaces to the standard flat theme without
-   *  touching layout structure, data, or permissions. */
-  ios26Design: boolean;
   heroBadge: string;
   heroHeadline: string;
   heroSubheadline: string;
@@ -1209,7 +1204,6 @@ const seedSiteContent = (): SiteContent => ({
   cardRadius: 4,
   buttonRadius: 0,
   inputRadius: 0,
-  ios26Design: true,
   heroBadge: "Now with AI-generated descriptions",
   heroHeadline: "Stop guessing which videos make you money.",
   heroSubheadline:

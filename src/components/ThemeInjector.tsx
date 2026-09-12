@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
+import { useIos26Design } from "@/lib/theme";
 
 // Applies the Superadmin's Visual Style choices (Customization → General) app-wide by
 // overriding the CSS custom properties defined in styles.css, rather than only affecting the
@@ -7,6 +8,7 @@ import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
 export function ThemeInjector() {
   const [content] = useSiteContent();
   const [, setLocal] = useSiteContentLocal();
+  const [ios26Design] = useIos26Design();
 
   // Pulls the latest Customization settings from the global settings API (Cloudflare KV, see
   // src/routes/api.settings.ts) once per app load, so a change a Superadmin made from a different
@@ -31,13 +33,14 @@ export function ThemeInjector() {
     root.setProperty("--primary", content.primaryColor);
     root.setProperty("--primary-foreground", content.buttonTextColor);
     root.setProperty("--brand-blue", content.accentColor);
-    // iOS 26 Design overrides the Superadmin's card/button/input roundness sliders with the
-    // fixed iOS scale (large card radius, pill buttons/inputs) instead of layering on top of
-    // them — every rounded-[var(--card-radius)]/[var(--button-radius)]/[var(--input-radius)]
-    // in the app (the app-wide convention established for these three tokens) picks this up
-    // automatically with no per-component change. Turning the toggle off restores whatever the
-    // admin had configured, unchanged.
-    if (content.ios26Design) {
+    // iOS 26 Design (Settings → Preferences, a personal per-device choice — see useIos26Design)
+    // overrides the admin's card/button/input roundness sliders with the fixed iOS scale (large
+    // card radius, pill buttons/inputs) instead of layering on top of them — every
+    // rounded-[var(--card-radius)]/[var(--button-radius)]/[var(--input-radius)] in the app (the
+    // app-wide convention established for these three tokens) picks this up automatically with no
+    // per-component change. Turning the toggle off restores whatever the admin had configured,
+    // unchanged.
+    if (ios26Design) {
       root.setProperty("--card-radius", "24px");
       root.setProperty("--button-radius", "999px");
       root.setProperty("--input-radius", "16px");
@@ -46,14 +49,22 @@ export function ThemeInjector() {
       root.setProperty("--button-radius", `${content.buttonRadius}px`);
       root.setProperty("--input-radius", `${content.inputRadius}px`);
     }
-  }, [content.primaryColor, content.buttonTextColor, content.accentColor, content.cardRadius, content.buttonRadius, content.inputRadius, content.ios26Design]);
+  }, [
+    content.primaryColor,
+    content.buttonTextColor,
+    content.accentColor,
+    content.cardRadius,
+    content.buttonRadius,
+    content.inputRadius,
+    ios26Design,
+  ]);
 
   // iOS 26 Design toggle — flips a single class on <html> (same mechanism as the .dark theme
   // class) that every Liquid Glass utility in styles.css keys off of. Disabling it swaps those
   // surfaces back to their standard flat rendering purely via CSS; no layout, data, or permission
   // logic reads this flag.
   useEffect(() => {
-    document.documentElement.classList.toggle("ios26", content.ios26Design);
-  }, [content.ios26Design]);
+    document.documentElement.classList.toggle("ios26", ios26Design);
+  }, [ios26Design]);
   return null;
 }

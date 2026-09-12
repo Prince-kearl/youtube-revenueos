@@ -36,7 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { useThemeMode, type ThemeMode } from "@/lib/theme";
+import { useThemeMode, useIos26Design, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleRowSkeleton } from "@/components/skeletons";
@@ -184,6 +184,7 @@ function roleLabel(role: string): string {
 function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuthSession();
+  const [ios26Design, setIos26Design] = useIos26Design();
   const [profile, setProfile] = useLocalStore("yroos.profile", {
     name: "",
     email: "",
@@ -537,6 +538,23 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                   </p>
                 </div>
                 <AppearanceModeControl />
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold">iOS 26 Design</h4>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Liquid Glass-inspired surfaces, rounded components, and modern visual effects —
+                    just for your own view.
+                  </p>
+                </div>
+                <Switch
+                  checked={ios26Design}
+                  onCheckedChange={setIos26Design}
+                  aria-label="Toggle iOS 26 Design"
+                  className="shrink-0"
+                />
               </div>
             </div>
             <div className="rounded-xl border border-border bg-background p-5">

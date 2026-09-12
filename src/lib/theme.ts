@@ -5,6 +5,13 @@ export type ThemeMode = "light" | "dark" | "system";
 
 export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme", "system");
 
+// Personal, per-device preference (Settings → Preferences) — was previously a single
+// Superadmin-controlled switch for every user (Customization → General); moved here so each
+// person can opt into the Liquid Glass / iOS 26-inspired look for their own view instead. Defaults
+// to on, matching the old site-wide default. See ThemeInjector for what it actually changes
+// (an .ios26 class plus card/button/input radius CSS vars).
+export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design", true);
+
 function prefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
