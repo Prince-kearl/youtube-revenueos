@@ -15,12 +15,23 @@ export function SkeletonLine({ className }: { className?: string }) {
 }
 
 export function SkeletonCircle({ className }: { className?: string }) {
-  return <Skeleton className={cn("h-10 w-10 shrink-0 rounded-full", className)} aria-hidden="true" />;
+  return (
+    <Skeleton className={cn("h-10 w-10 shrink-0 rounded-full", className)} aria-hidden="true" />
+  );
 }
 
-export function SkeletonCard({ className, children }: { className?: string; children?: ReactNode }) {
+export function SkeletonCard({
+  className,
+  children,
+}: {
+  className?: string;
+  children?: ReactNode;
+}) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-5", className)} aria-hidden="true">
+    <div
+      className={cn("rounded-xl border border-border bg-card p-5", className)}
+      aria-hidden="true"
+    >
       {children}
     </div>
   );
@@ -46,7 +57,10 @@ export function StatCardSkeleton() {
 export function KpiTrendCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("flex flex-row items-stretch gap-3 rounded-xl border border-border bg-card p-4 sm:gap-3 sm:rounded-2xl sm:p-4", className)}
+      className={cn(
+        "kpi-trend-card flex flex-row items-stretch gap-3 rounded-xl border border-border bg-card p-4 backdrop-blur-lg sm:gap-3 sm:rounded-2xl sm:p-4",
+        className,
+      )}
       aria-hidden="true"
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 sm:justify-between sm:gap-0">
@@ -72,7 +86,10 @@ export function ListRowSkeleton({ className }: { className?: string }) {
 
 export function TableRowSkeleton({ columns = 4 }: { columns?: number }) {
   return (
-    <div className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-0" aria-hidden="true">
+    <div
+      className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-0"
+      aria-hidden="true"
+    >
       {Array.from({ length: columns }).map((_, i) => (
         <Skeleton key={i} className={cn("h-4", i === 0 ? "w-1/3" : "flex-1")} />
       ))}
@@ -101,7 +118,10 @@ export function AvatarRowSkeleton() {
 // saved state before the server actually responds.
 export function ToggleRowSkeleton() {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border p-4" aria-hidden="true">
+    <div
+      className="flex items-center justify-between rounded-xl border border-border p-4"
+      aria-hidden="true"
+    >
       <div className="space-y-2">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-3 w-56" />
@@ -126,7 +146,12 @@ export function FieldSkeleton({ labelWidth = "w-24" }: { labelWidth?: string }) 
 // never linger here waiting on anything beyond the initial session check.
 export function BrandedLoader({ label = "Loading Tubify…" }: { label?: string }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background" role="status" aria-live="polite" aria-label={label}>
+    <div
+      className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background"
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+    >
       <div className="animate-pulse">
         <Logo collapsed />
       </div>
