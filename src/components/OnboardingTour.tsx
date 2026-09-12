@@ -6,29 +6,6 @@ import { ONBOARDING_STEPS, type OnboardingStatus } from "@/lib/onboarding";
 
 const SPOTLIGHT_PADDING = 8;
 const TOOLTIP_WIDTH = 320;
-const MANUAL_INDEX_KEY = "yroos.onboarding.manualIndex";
-
-// Explicit Back/Next navigation overrides the default "first incomplete step" pick, so the user
-// can browse the whole tour — including steps already done — not just the next thing to do.
-// Backed by sessionStorage (not component state) because DashboardLayout, and this component with
-// it, remounts on every route change, which would otherwise forget the override the instant
-// Back/Next navigated anywhere.
-function getManualIndex(): number | null {
-  try {
-    const raw = window.sessionStorage.getItem(MANUAL_INDEX_KEY);
-    return raw === null ? null : Number(raw);
-  } catch {
-    return null;
-  }
-}
-function setManualIndex(index: number): number {
-  try {
-    window.sessionStorage.setItem(MANUAL_INDEX_KEY, String(index));
-  } catch {
-    // ignore — worst case Back/Next forgets its place across a navigation
-  }
-  return index;
-}
 
 // Replaces the old fixed dashboard banner with a contextual spotlight tour: a small floating nudge
 // points the user to whichever page has the next real, incomplete step, and once they're actually
@@ -39,7 +16,6 @@ export function OnboardingTour() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
-  const [manualIndex, setManualIndexState] = useState<number | null>(() => getManualIndex());
   const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -57,10 +33,20 @@ export function OnboardingTour() {
     // redirect) is picked up without needing a full page reload.
   }, [onboarding.dismissed, pathname]);
 
+  // reviewIndex is explicit Back/Next (or "reopen the guide") navigation, overriding the default
+  // "first incomplete step" pick — this is what lets the user browse the whole tour, including
+  // steps already done, rather than only ever seeing the next thing to do. It lives in the same
+  // reactive, localStorage-backed onboarding store as `dismissed` (not component/session state),
+  // so it survives DashboardLayout remounting on every route change AND reacts immediately when
+  // something outside this component (the Tubi assistant, Settings) reopens the guide without a
+  // navigation happening first.
   const allDone = status ? ONBOARDING_STEPS.every((step) => status[step.id]) : false;
   const autoIndex = status ? ONBOARDING_STEPS.findIndex((step) => !status[step.id]) : -1;
-  const activeIndex = manualIndex ?? autoIndex;
-  const currentStep = allDone || activeIndex < 0 ? undefined : ONBOARDING_STEPS[activeIndex];
+  const activeIndex = onboarding.reviewIndex ?? autoIndex;
+  const currentStep =
+    (allDone && onboarding.reviewIndex === null) || activeIndex < 0
+      ? undefined
+      : ONBOARDING_STEPS[activeIndex];
   const onTargetPage = currentStep?.to === pathname;
 
   useLayoutEffect(() => {
@@ -86,11 +72,13 @@ export function OnboardingTour() {
 
   if (onboarding.dismissed || !currentStep) return null;
 
-  const dismiss = () => setOnboarding((prev) => ({ ...prev, dismissed: true }));
+  // Resets reviewIndex too, so reopening the guide later (dismissed -> false) naturally restarts
+  // at the first incomplete step instead of wherever Back/Next last left off.
+  const dismiss = () => setOnboarding({ dismissed: true, reviewIndex: null });
 
   const goToIndex = (index: number) => {
     const target = ONBOARDING_STEPS[index];
-    setManualIndexState(setManualIndex(index));
+    setOnboarding((prev) => ({ ...prev, reviewIndex: index }));
     if (target.to !== pathname) navigate({ to: target.to, search: target.search });
   };
   const canGoBack = activeIndex > 0;

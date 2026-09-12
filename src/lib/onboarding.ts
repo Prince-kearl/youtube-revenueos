@@ -1,3 +1,5 @@
+import { writeStore } from "./local-store";
+
 // Getting-started checklist shown on the dashboard. Completion is derived from real account state
 // (see /api/onboarding/status) rather than a manually-ticked checkbox, so it always reflects what
 // the account has actually done.
@@ -63,4 +65,15 @@ export async function goToNextOnboardingStep(
   } catch {
     // Best-effort — never block the page's own success flow over this.
   }
+}
+
+// Manually reopens the guide from wherever the user asked for it (the Tubi assistant, Settings) —
+// un-dismisses it and always restarts review from the first step, regardless of what's already
+// done, since the point of asking for it again is to see the whole thing.
+export function openOnboardingGuide(
+  navigate: (opts: { to: string; search?: Record<string, string> }) => void,
+): void {
+  writeStore("yroos.onboarding", { dismissed: false, reviewIndex: 0 });
+  const first = ONBOARDING_STEPS[0];
+  navigate({ to: first.to, search: first.search });
 }

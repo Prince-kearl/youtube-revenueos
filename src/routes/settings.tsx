@@ -43,7 +43,7 @@ import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
-import { goToNextOnboardingStep } from "@/lib/onboarding";
+import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
@@ -79,6 +79,12 @@ const menu = [
 function Settings() {
   const { tab } = Route.useSearch();
   const [active, setActive] = useState(tab && menu.some((m) => m.label === tab) ? tab : "Profile");
+  // The initializer above only runs on mount, so navigating to /settings with a different ?tab=
+  // while already on this page (e.g. replaying the getting-started guide from within Settings
+  // itself) wouldn't otherwise switch the visible panel — only the URL.
+  useEffect(() => {
+    if (tab && menu.some((m) => m.label === tab)) setActive(tab);
+  }, [tab]);
 
   return (
     <DashboardLayout title="Settings">
@@ -176,6 +182,7 @@ function roleLabel(role: string): string {
 }
 
 function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
+  const navigate = useNavigate();
   const { user } = useAuthSession();
   const [profile, setProfile] = useLocalStore("yroos.profile", {
     name: "",
@@ -471,6 +478,22 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                   className="rounded-full bg-success/10 px-2 py-1 text-[10px] font-bold text-success hover:bg-success/20"
                 >
                   Review settings
+                </button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold">Getting started guide</h4>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Walk through connecting YouTube, adding a video, and setting up automations.
+                  </p>
+                </div>
+                <button
+                  onClick={() => openOnboardingGuide(navigate)}
+                  className="text-[10px] font-semibold text-primary"
+                >
+                  Replay <ArrowRight className="ml-1 inline h-3 w-3" />
                 </button>
               </div>
             </div>

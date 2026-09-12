@@ -77,6 +77,7 @@ import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { openOnboardingGuide } from "@/lib/onboarding";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
@@ -1233,6 +1234,7 @@ export function DashboardLayout({
 }
 
 function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const navigate = useNavigate();
   const [msgs, setMsgs] = useState<{ id: string; role: "user" | "bot"; text: string }[]>([
     {
       id: uid(),
@@ -1308,10 +1310,19 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             <Send className="h-4 w-4" />
           </Button>
         </form>
+        <button
+          onClick={() => {
+            onOpenChange(false);
+            openOnboardingGuide(navigate);
+          }}
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Replay the getting started guide
+        </button>
         <Link
           to="/support"
           onClick={() => onOpenChange(false)}
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="mt-2 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <LifeBuoy className="h-3.5 w-3.5" /> Need a human? Report a problem →
         </Link>
