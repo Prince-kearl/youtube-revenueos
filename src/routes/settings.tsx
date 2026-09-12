@@ -1116,6 +1116,10 @@ const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; tex
   },
   reauthorize_required: { type: "error", text: "Please reconnect and approve access again." },
   storage_failed: { type: "error", text: "We couldn't save your YouTube connection. Try again." },
+  no_workspace: {
+    type: "error",
+    text: "We couldn't find your workspace — please sign out and back in, then try again.",
+  },
   error: { type: "error", text: "Something went wrong connecting YouTube." },
 };
 

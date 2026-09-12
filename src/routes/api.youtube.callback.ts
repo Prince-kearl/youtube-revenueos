@@ -100,7 +100,22 @@ export const Route = createFileRoute("/api/youtube/callback")({
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
           return response;
         } catch (error) {
-          if (error instanceof Response) return error;
+          // getWorkspaceContext throws a bare 403 Response for NO_WORKSPACE — surface that as a
+          // friendly redirect like every other failure mode here, instead of dumping raw JSON in
+          // the browser (this is a top-level OAuth redirect, not a fetch the app can read).
+          if (error instanceof Response) {
+            if (error.status === 403) {
+              try {
+                const body = (await error.clone().json()) as { error?: string };
+                if (body.error === "NO_WORKSPACE") {
+                  return redirectToApp("/settings?youtube=no_workspace");
+                }
+              } catch {
+                // fall through to returning the raw response below
+              }
+            }
+            return error;
+          }
           console.error("YouTube OAuth callback failed", error);
           return redirectToApp("/settings?youtube=error");
         }

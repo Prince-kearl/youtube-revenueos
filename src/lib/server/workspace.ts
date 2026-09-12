@@ -29,13 +29,21 @@ function forbidden(error: string, status = 403): Response {
 // support belonging to more than one workspace, so there's no ambiguity to resolve here.
 export async function getWorkspaceContext(request: Request): Promise<WorkspaceContext> {
   const { client, user, setCookieHeaders } = await requireSessionUser(request);
-  const { data: membership } = await client
+  const { data: membership, error } = await client
     .from("workspace_members")
     .select("workspace_id, role")
     .eq("user_id", user.id)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
+  if (error) {
+    console.error("Workspace membership lookup failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
   if (!membership) throw forbidden("NO_WORKSPACE");
   return {
     client,
