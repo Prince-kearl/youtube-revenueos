@@ -2,21 +2,49 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion, useMotionValue, animate } from "motion/react";
 import {
-  ArrowRight, Play, Youtube, Twitter, Instagram, Music2, MessageSquare, Link2, DollarSign, Sparkles, TrendingUp, Send, LifeBuoy,
-  ChevronDown, BarChart3, Users2, LayoutDashboard, Radio, Megaphone, Bot, Settings, Search, User, MousePointer2, Bell, Menu, X,
+  ArrowRight,
+  Play,
+  Youtube,
+  Twitter,
+  Instagram,
+  Music2,
+  MessageSquare,
+  Link2,
+  DollarSign,
+  Sparkles,
+  TrendingUp,
+  Send,
+  LifeBuoy,
+  ChevronDown,
+  BarChart3,
+  Users2,
+  LayoutDashboard,
+  Radio,
+  Megaphone,
+  Bot,
+  Settings,
+  Search,
+  User,
+  MousePointer2,
+  Bell,
+  Menu,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
 } from "@/components/ui/accordion";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer,
-} from "recharts";
-import { useSupportTickets, useSiteContent } from "@/lib/stores";
-import { uid } from "@/lib/local-store";
+import { AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { useSiteContent } from "@/lib/stores";
 import { CookieConsent } from "@/components/CookieConsent";
 
 export const Route = createFileRoute("/landing")({
@@ -27,7 +55,9 @@ function Landing() {
   const [content] = useSiteContent();
   useEffect(() => {
     document.title = `${content.siteName} — ${content.tagline}`;
-    document.querySelector('meta[name="description"]')?.setAttribute("content", content.seoDescription);
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", content.seoDescription);
   }, [content.siteName, content.tagline, content.seoDescription]);
 
   return (
@@ -45,17 +75,25 @@ function Landing() {
           that's the only place the ordering is visible — behind Hero, in front of nothing else. */}
       <div
         className="relative overflow-hidden"
-        style={{ background: "radial-gradient(circle at 22% 20%, #0a1420 0%, #0a1420 45%, #060b12 100%)" }}
+        style={{
+          background: "radial-gradient(circle at 22% 20%, #0a1420 0%, #0a1420 45%, #060b12 100%)",
+        }}
       >
         <div
           aria-hidden="true"
           className="hero-glow-aurora pointer-events-none -z-10"
-          style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--primary) 55%, transparent) 0%, transparent 70%)" }}
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--primary) 55%, transparent) 0%, transparent 70%)",
+          }}
         />
         <div
           aria-hidden="true"
           className="hero-glow-aurora hero-glow-aurora--secondary pointer-events-none -z-10"
-          style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--primary) 45%, transparent) 0%, transparent 70%)" }}
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--primary) 45%, transparent) 0%, transparent 70%)",
+          }}
         />
         <div className="pointer-events-none absolute -top-24 right-[-4rem] -z-10 h-80 w-80 rounded-full bg-brand-amber/10 blur-3xl" />
         <div className="pointer-events-none absolute -top-16 left-[-6rem] -z-10 h-72 w-72 rounded-full bg-primary/25 blur-3xl" />
@@ -80,8 +118,6 @@ const NAV_DESTINATIONS: { label: string; href?: string; to?: string }[] = [
   { label: "Home", href: "#" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Product Showcase", href: "#product" },
-  { label: "Changelog", to: "/changelog" },
-  { label: "Roadmap", to: "/roadmap" },
   { label: "Support", to: "/support" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
@@ -136,18 +172,28 @@ function NavBar() {
       >
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <img src={content.logoLightUrl} alt={content.siteName} className="h-8 w-8 object-contain" />
+            <img
+              src={content.logoLightUrl}
+              alt={content.siteName}
+              className="h-8 w-8 object-contain"
+            />
             <span className="text-lg font-bold tracking-tight text-white">{content.siteName}</span>
           </div>
           <nav className="hidden items-center gap-7 text-sm font-medium text-white/70 md:flex">
-            <a href="#" className="border-b-2 border-primary pb-1 text-white">Home</a>
+            <a href="#" className="border-b-2 border-primary pb-1 text-white">
+              Home
+            </a>
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-1 outline-none hover:text-white">
                 Features <ChevronDown className="h-3.5 w-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild><a href="#how-it-works">How It Works</a></DropdownMenuItem>
-                <DropdownMenuItem asChild><a href="#product">Product Showcase</a></DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="#how-it-works">How It Works</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="#product">Product Showcase</a>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -155,21 +201,34 @@ function NavBar() {
                 Resources <ChevronDown className="h-3.5 w-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild><Link to="/changelog">Changelog</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link to="/roadmap">Roadmap</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link to="/support">Support</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/support">Support</Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <a href="#faq" className="hover:text-white">FAQ</a>
-            <a href="#contact" className="hover:text-white">Contact</a>
-            <Link to="/changelog" className="hover:text-white">Changelog</Link>
+            <a href="#faq" className="hover:text-white">
+              FAQ
+            </a>
+            <a href="#contact" className="hover:text-white">
+              Contact
+            </a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link to="/" className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white sm:flex">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30"><User className="h-3 w-3" /></span>
+            <Link
+              to="/"
+              className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white sm:flex"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30">
+                <User className="h-3 w-3" />
+              </span>
               Log In
             </Link>
-            <Link to="/dashboard" className="hidden rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 md:inline-flex">Get Started</Link>
+            <Link
+              to="/dashboard"
+              className="hidden rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 md:inline-flex"
+            >
+              Get Started
+            </Link>
 
             <button
               onClick={() => setMobileMenuOpen((o) => !o)}
@@ -185,7 +244,12 @@ function NavBar() {
           <nav className="flex flex-col gap-5 px-6 pb-6 pt-1 text-base font-medium text-white/90 md:hidden">
             {NAV_DESTINATIONS.filter((d) => d.label !== "Log In").map((dest) =>
               dest.to ? (
-                <Link key={dest.label} to={dest.to} onClick={() => setMobileMenuOpen(false)} className="hover:text-white">
+                <Link
+                  key={dest.label}
+                  to={dest.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="hover:text-white"
+                >
                   {dest.label}
                 </Link>
               ) : (
@@ -204,10 +268,16 @@ function NavBar() {
                 >
                   {dest.label}
                 </a>
-              )
+              ),
             )}
-            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1.5 hover:text-white">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30"><User className="h-3 w-3" /></span>
+            <Link
+              to="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-1.5 hover:text-white"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30">
+                <User className="h-3 w-3" />
+              </span>
               Log In
             </Link>
           </nav>
@@ -302,8 +372,11 @@ const MOCKUP_STATS = [
 ];
 
 const MOCKUP_REVENUE_TREND = [
-  { day: "Jun 12", value: 800 }, { day: "Jun 19", value: 1050 }, { day: "Jun 26", value: 780 },
-  { day: "Jul 03", value: 1200 }, { day: "Jul 10", value: 950 },
+  { day: "Jun 12", value: 800 },
+  { day: "Jun 19", value: 1050 },
+  { day: "Jun 26", value: 780 },
+  { day: "Jul 03", value: 1200 },
+  { day: "Jul 10", value: 950 },
 ];
 
 const MOCKUP_TRAFFIC = [
@@ -331,7 +404,10 @@ function DashboardMockup() {
         </div>
         <div className="mt-4 space-y-0.5">
           {MOCKUP_NAV.map((n) => (
-            <div key={n.label} className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium ${n.active ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+            <div
+              key={n.label}
+              className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium ${n.active ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
               <n.icon className="h-3 w-3 shrink-0" /> <span className="truncate">{n.label}</span>
             </div>
           ))}
@@ -341,12 +417,17 @@ function DashboardMockup() {
       <div className="min-w-0 flex-1 p-4">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold">Dashboard Overview</p>
-          <span className="rounded-md border border-border px-2 py-0.5 text-[9px] text-muted-foreground">Jun 12 – Jul 12</span>
+          <span className="rounded-md border border-border px-2 py-0.5 text-[9px] text-muted-foreground">
+            Jun 12 – Jul 12
+          </span>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           {MOCKUP_STATS.map((s) => (
-            <div key={s.label} className="rounded-[var(--card-radius)] border border-border bg-card p-2.5">
+            <div
+              key={s.label}
+              className="rounded-[var(--card-radius)] border border-border bg-card p-2.5"
+            >
               <p className="text-[9px] text-muted-foreground">{s.label}</p>
               <p className="mt-0.5 text-sm font-bold">{s.value}</p>
               <p className="mt-0.5 text-[9px] font-medium text-success">↗ {s.change}</p>
@@ -366,7 +447,13 @@ function DashboardMockup() {
                       <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill={`url(#${gradientId}-revenue)`} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="var(--color-primary)"
+                    strokeWidth={2}
+                    fill={`url(#${gradientId}-revenue)`}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -376,8 +463,17 @@ function DashboardMockup() {
             <div className="mt-1 h-16">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={MOCKUP_TRAFFIC} dataKey="pct" nameKey="label" innerRadius="55%" outerRadius="100%" strokeWidth={1}>
-                    {MOCKUP_TRAFFIC.map((t) => <Cell key={t.label} fill={t.color} />)}
+                  <Pie
+                    data={MOCKUP_TRAFFIC}
+                    dataKey="pct"
+                    nameKey="label"
+                    innerRadius="55%"
+                    outerRadius="100%"
+                    strokeWidth={1}
+                  >
+                    {MOCKUP_TRAFFIC.map((t) => (
+                      <Cell key={t.label} fill={t.color} />
+                    ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
@@ -420,14 +516,24 @@ function FloatingStatCard() {
                 <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area type="monotone" dataKey="v" stroke="var(--color-primary)" strokeWidth={2} fill={`url(#${gradientId})`} />
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke="var(--color-primary)"
+              strokeWidth={2}
+              fill={`url(#${gradientId})`}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <button className="mt-1.5 w-full rounded-[var(--button-radius)] bg-primary px-2 py-1.5 text-[10px] font-semibold text-primary-foreground">View Full Analytics</button>
+      <button className="mt-1.5 w-full rounded-[var(--button-radius)] bg-primary px-2 py-1.5 text-[10px] font-semibold text-primary-foreground">
+        View Full Analytics
+      </button>
       <div className="mt-2 border-t border-border pt-1.5">
         <p className="text-[9px] text-muted-foreground">Realtime</p>
-        <p className="text-xs font-bold">48,230 <span className="text-[9px] font-normal text-muted-foreground">Views · 48h</span></p>
+        <p className="text-xs font-bold">
+          48,230 <span className="text-[9px] font-normal text-muted-foreground">Views · 48h</span>
+        </p>
       </div>
     </div>
   );
@@ -443,7 +549,10 @@ function FloatingStatCard() {
 
 type DemoSection = "Overview" | "Analytics" | "Revenue" | "Audience" | "Content";
 
-const DEMO_SECTION_CONTENT: Record<DemoSection, { heading: string; stats: typeof MOCKUP_STATS; trend: typeof MOCKUP_REVENUE_TREND }> = {
+const DEMO_SECTION_CONTENT: Record<
+  DemoSection,
+  { heading: string; stats: typeof MOCKUP_STATS; trend: typeof MOCKUP_REVENUE_TREND }
+> = {
   Overview: { heading: "Dashboard Overview", stats: MOCKUP_STATS, trend: MOCKUP_REVENUE_TREND },
   Analytics: {
     heading: "Analytics Overview",
@@ -453,7 +562,13 @@ const DEMO_SECTION_CONTENT: Record<DemoSection, { heading: string; stats: typeof
       { label: "CTR", value: "5.8%", change: "1.2%" },
       { label: "Impressions", value: "9.2M", change: "14.7%" },
     ],
-    trend: [{ day: "Jun 12", value: 600 }, { day: "Jun 19", value: 900 }, { day: "Jun 26", value: 1100 }, { day: "Jul 03", value: 850 }, { day: "Jul 10", value: 1300 }],
+    trend: [
+      { day: "Jun 12", value: 600 },
+      { day: "Jun 19", value: 900 },
+      { day: "Jun 26", value: 1100 },
+      { day: "Jul 03", value: 850 },
+      { day: "Jul 10", value: 1300 },
+    ],
   },
   Revenue: {
     heading: "Revenue Overview",
@@ -463,7 +578,13 @@ const DEMO_SECTION_CONTENT: Record<DemoSection, { heading: string; stats: typeof
       { label: "Affiliate", value: "$920.15", change: "4.6%" },
       { label: "RPM", value: "$5.10", change: "6.8%" },
     ],
-    trend: [{ day: "Jun 12", value: 1000 }, { day: "Jun 19", value: 1250 }, { day: "Jun 26", value: 1180 }, { day: "Jul 03", value: 1450 }, { day: "Jul 10", value: 1600 }],
+    trend: [
+      { day: "Jun 12", value: 1000 },
+      { day: "Jun 19", value: 1250 },
+      { day: "Jun 26", value: 1180 },
+      { day: "Jul 03", value: 1450 },
+      { day: "Jul 10", value: 1600 },
+    ],
   },
   Audience: {
     heading: "Audience Overview",
@@ -473,7 +594,13 @@ const DEMO_SECTION_CONTENT: Record<DemoSection, { heading: string; stats: typeof
       { label: "New Viewers", value: "36%", change: "2.1%" },
       { label: "Top Region", value: "US · 38%", change: "1.1%" },
     ],
-    trend: [{ day: "Jun 12", value: 700 }, { day: "Jun 19", value: 820 }, { day: "Jun 26", value: 940 }, { day: "Jul 03", value: 880 }, { day: "Jul 10", value: 1020 }],
+    trend: [
+      { day: "Jun 12", value: 700 },
+      { day: "Jun 19", value: 820 },
+      { day: "Jun 26", value: 940 },
+      { day: "Jul 03", value: 880 },
+      { day: "Jul 10", value: 1020 },
+    ],
   },
   Content: {
     heading: "Content Overview",
@@ -483,14 +610,23 @@ const DEMO_SECTION_CONTENT: Record<DemoSection, { heading: string; stats: typeof
       { label: "Likes", value: "91.4K", change: "9.7%" },
       { label: "Comments", value: "3.2K", change: "5.3%" },
     ],
-    trend: [{ day: "Jun 12", value: 900 }, { day: "Jun 19", value: 1000 }, { day: "Jun 26", value: 850 }, { day: "Jul 03", value: 1150 }, { day: "Jul 10", value: 1050 }],
+    trend: [
+      { day: "Jun 12", value: 900 },
+      { day: "Jun 19", value: 1000 },
+      { day: "Jun 26", value: 850 },
+      { day: "Jul 03", value: 1150 },
+      { day: "Jul 10", value: 1050 },
+    ],
   },
 };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const jitterWait = () => wait(500 + Math.random() * 1000);
 
-const PHONE_TABS = MOCKUP_NAV.filter((n) => n.label in DEMO_SECTION_CONTENT) as { label: DemoSection; icon: typeof Youtube }[];
+const PHONE_TABS = MOCKUP_NAV.filter((n) => n.label in DEMO_SECTION_CONTENT) as {
+  label: DemoSection;
+  icon: typeof Youtube;
+}[];
 
 // Measures an element's rendered width reactively (ResizeObserver), so the SVG device frames'
 // screen-cutout regions below can be positioned in real pixels rather than CSS percentages. A
@@ -553,7 +689,9 @@ function HeroDeviceShowcase() {
   const [cardElevated, setCardElevated] = useState(false);
   const [focus, setFocus] = useState<"laptop" | "phone">("laptop");
   const [pressedTab, setPressedTab] = useState<DemoSection | null>(null);
-  const [laptopRipple, setLaptopRipple] = useState<{ x: number; y: number; id: number } | null>(null);
+  const [laptopRipple, setLaptopRipple] = useState<{ x: number; y: number; id: number } | null>(
+    null,
+  );
   const [phoneRipple, setPhoneRipple] = useState<{ x: number; y: number; id: number } | null>(null);
 
   useEffect(() => {
@@ -585,8 +723,16 @@ function HeroDeviceShowcase() {
       const midY = (startY + endY) / 2 + (Math.random() - 0.5) * 50;
       const duration = 0.75 + Math.random() * 0.4;
       await Promise.all([
-        animate(cursorX, [startX, midX, endX], { duration, times: [0, 0.5, 1], ease: ["easeOut", "easeInOut"] }),
-        animate(cursorY, [startY, midY, endY], { duration, times: [0, 0.5, 1], ease: ["easeOut", "easeInOut"] }),
+        animate(cursorX, [startX, midX, endX], {
+          duration,
+          times: [0, 0.5, 1],
+          ease: ["easeOut", "easeInOut"],
+        }),
+        animate(cursorY, [startY, midY, endY], {
+          duration,
+          times: [0, 0.5, 1],
+          ease: ["easeOut", "easeInOut"],
+        }),
       ]);
     };
 
@@ -692,12 +838,21 @@ function HeroDeviceShowcase() {
           down on mobile (max-w-[300px] on the outer wrapper above) so the whole composition reads
           as compact rather than dominating the first screen; scales back up to its full size from
           sm: up. */}
-      <div ref={laptopWrapRef} className="relative mx-auto w-full sm:max-w-[560px]" style={{ perspective: "1800px" }}>
+      <div
+        ref={laptopWrapRef}
+        className="relative mx-auto w-full sm:max-w-[560px]"
+        style={{ perspective: "1800px" }}
+      >
         <div style={{ transform: "rotateX(6deg) rotateY(-8deg)", transformStyle: "preserve-3d" }}>
-          <div className={`transition-transform duration-500 ease-out ${focus === "phone" ? "scale-[0.98]" : "scale-100"}`}>
+          <div
+            className={`transition-transform duration-500 ease-out ${focus === "phone" ? "scale-[0.98]" : "scale-100"}`}
+          >
             <div
               className="relative"
-              style={{ filter: "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))" }}
+              style={{
+                filter:
+                  "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))",
+              }}
             >
               <div
                 ref={laptopScreenRef}
@@ -724,7 +879,13 @@ function HeroDeviceShowcase() {
                         return (
                           <div
                             key={n.label}
-                            ref={isDemoTarget ? (el) => { navRefs.current[section] = el; } : undefined}
+                            ref={
+                              isDemoTarget
+                                ? (el) => {
+                                    navRefs.current[section] = el;
+                                  }
+                                : undefined
+                            }
                             className={`flex items-center gap-1.5 rounded-md border-l-2 px-1 py-1 text-[7px] font-medium transition-colors duration-200 ${
                               isActive
                                 ? "border-primary bg-primary/10 text-primary"
@@ -733,7 +894,8 @@ function HeroDeviceShowcase() {
                                   : "border-transparent text-muted-foreground"
                             }`}
                           >
-                            <n.icon className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{n.label}</span>
+                            <n.icon className="h-2.5 w-2.5 shrink-0" />{" "}
+                            <span className="truncate">{n.label}</span>
                           </div>
                         );
                       })}
@@ -742,54 +904,118 @@ function HeroDeviceShowcase() {
 
                   <div className="min-w-0 flex-1 bg-muted p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <motion.p key={`heading-${activeSection}`} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="min-w-0 truncate text-[11px] font-bold tracking-tight text-foreground">
+                      <motion.p
+                        key={`heading-${activeSection}`}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="min-w-0 truncate text-[11px] font-bold tracking-tight text-foreground"
+                      >
                         {current.heading}
                       </motion.p>
                       <div className="flex shrink-0 items-center gap-1">
-                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex"><Search className="h-2 w-2" /></span>
-                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex"><Bell className="h-2 w-2" /></span>
-                        <span className="whitespace-nowrap rounded-md border border-border/70 bg-white px-1.5 py-0.5 text-[6.5px] font-medium text-muted-foreground">Jun 12 – Jul 12</span>
+                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex">
+                          <Search className="h-2 w-2" />
+                        </span>
+                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex">
+                          <Bell className="h-2 w-2" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-md border border-border/70 bg-white px-1.5 py-0.5 text-[6.5px] font-medium text-muted-foreground">
+                          Jun 12 – Jul 12
+                        </span>
                       </div>
                     </div>
 
-                    <motion.div key={`stats-${activeSection}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="mt-2 grid grid-cols-2 gap-2">
+                    <motion.div
+                      key={`stats-${activeSection}`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="mt-2 grid grid-cols-2 gap-2"
+                    >
                       {current.stats.map((s, i) => (
                         <div
                           key={s.label}
                           ref={i === 0 ? statCardRef : undefined}
                           className={`overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm transition-all duration-300 ${i === 0 && cardElevated ? "-translate-y-0.5 border-primary/30 shadow-md" : ""}`}
                         >
-                          <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">{s.label}</p>
-                          <p className="mt-1 truncate text-[12px] font-bold leading-none text-foreground">{s.value}</p>
-                          <span className="mt-1 inline-flex items-center rounded-full bg-success/10 px-1 py-[1px] text-[5.5px] font-semibold text-success">↗ {s.change}</span>
+                          <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                            {s.label}
+                          </p>
+                          <p className="mt-1 truncate text-[12px] font-bold leading-none text-foreground">
+                            {s.value}
+                          </p>
+                          <span className="mt-1 inline-flex items-center rounded-full bg-success/10 px-1 py-[1px] text-[5.5px] font-semibold text-success">
+                            ↗ {s.change}
+                          </span>
                         </div>
                       ))}
                     </motion.div>
 
                     <div className="mt-2 grid grid-cols-3 gap-2">
                       <div className="col-span-2 overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">Revenue Over Time</p>
+                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                          Revenue Over Time
+                        </p>
                         <div className="mt-1 h-9">
-                          <ResponsiveContainer key={`trend-${activeSection}`} width="100%" height="100%">
+                          <ResponsiveContainer
+                            key={`trend-${activeSection}`}
+                            width="100%"
+                            height="100%"
+                          >
                             <AreaChart data={current.trend}>
                               <defs>
-                                <linearGradient id={`${gradientId}-revenue`} x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.35} />
-                                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                                <linearGradient
+                                  id={`${gradientId}-revenue`}
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor="var(--color-primary)"
+                                    stopOpacity={0.35}
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="var(--color-primary)"
+                                    stopOpacity={0}
+                                  />
                                 </linearGradient>
                               </defs>
-                              <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill={`url(#${gradientId}-revenue)`} isAnimationActive animationDuration={450} animationEasing="ease-out" />
+                              <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke="var(--color-primary)"
+                                strokeWidth={2}
+                                fill={`url(#${gradientId}-revenue)`}
+                                isAnimationActive
+                                animationDuration={450}
+                                animationEasing="ease-out"
+                              />
                             </AreaChart>
                           </ResponsiveContainer>
                         </div>
                       </div>
                       <div className="overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">Traffic Sources</p>
+                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                          Traffic Sources
+                        </p>
                         <div className="mt-1 h-9">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                              <Pie data={MOCKUP_TRAFFIC} dataKey="pct" nameKey="label" innerRadius="55%" outerRadius="100%" strokeWidth={1}>
-                                {MOCKUP_TRAFFIC.map((t) => <Cell key={t.label} fill={t.color} />)}
+                              <Pie
+                                data={MOCKUP_TRAFFIC}
+                                dataKey="pct"
+                                nameKey="label"
+                                innerRadius="55%"
+                                outerRadius="100%"
+                                strokeWidth={1}
+                              >
+                                {MOCKUP_TRAFFIC.map((t) => (
+                                  <Cell key={t.label} fill={t.color} />
+                                ))}
                               </Pie>
                             </PieChart>
                           </ResponsiveContainer>
@@ -798,11 +1024,18 @@ function HeroDeviceShowcase() {
                     </div>
 
                     <div className="mt-2 overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                      <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">Top Performing Videos</p>
+                      <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                        Top Performing Videos
+                      </p>
                       <div className="mt-1 divide-y divide-border/60">
                         {MOCKUP_VIDEOS.slice(0, 2).map((v) => (
-                          <div key={v.title} className="flex items-center justify-between gap-2 py-1 text-[7px] first:pt-0 last:pb-0">
-                            <span className="min-w-0 flex-1 truncate font-medium text-foreground">{v.title}</span>
+                          <div
+                            key={v.title}
+                            className="flex items-center justify-between gap-2 py-1 text-[7px] first:pt-0 last:pb-0"
+                          >
+                            <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                              {v.title}
+                            </span>
                             <span className="shrink-0 text-muted-foreground">{v.views}</span>
                             <span className="shrink-0 font-semibold text-success">{v.revenue}</span>
                           </div>
@@ -813,7 +1046,11 @@ function HeroDeviceShowcase() {
                 </div>
 
                 {/* Scripted laptop cursor + click ripple — invisible under prefers-reduced-motion since cursorOpacity never leaves 0 */}
-                <motion.div aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-50" style={{ x: cursorX, y: cursorY, scale: cursorScale, opacity: cursorOpacity }}>
+                <motion.div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-0 z-50"
+                  style={{ x: cursorX, y: cursorY, scale: cursorScale, opacity: cursorOpacity }}
+                >
                   <MousePointer2 className="h-4 w-4 fill-white text-foreground drop-shadow-md" />
                 </motion.div>
                 {laptopRipple && (
@@ -841,10 +1078,15 @@ function HeroDeviceShowcase() {
 
       {/* Phone — upright beside the laptop, same SVG-frame-above-live-dashboard pattern */}
       <div ref={phoneWrapRef} className="absolute -bottom-2 right-0 z-20 w-[86px] sm:w-32">
-        <div className={`transition-transform duration-500 ease-out ${focus === "laptop" ? "scale-[0.98]" : "scale-100 drop-shadow-[0_0_28px_color-mix(in_srgb,var(--primary)_45%,transparent)]"}`}>
+        <div
+          className={`transition-transform duration-500 ease-out ${focus === "laptop" ? "scale-[0.98]" : "scale-100 drop-shadow-[0_0_28px_color-mix(in_srgb,var(--primary)_45%,transparent)]"}`}
+        >
           <div
             className="relative"
-            style={{ filter: "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))" }}
+            style={{
+              filter:
+                "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))",
+            }}
           >
             <div
               ref={phoneScreenRef}
@@ -863,32 +1105,82 @@ function HeroDeviceShowcase() {
                       <Youtube className="h-2.5 w-2.5 text-brand-red" />
                       <span className="text-[7px] font-bold tracking-tight">Tubify</span>
                     </div>
-                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent"><User className="h-2 w-2" /></span>
+                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent">
+                      <User className="h-2 w-2" />
+                    </span>
                   </div>
                   <div className="px-2.5 pb-2">
-                    <motion.p key={`m-heading-${activeSection}`} initial={{ opacity: 0, y: -3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="text-[8px] font-bold tracking-tight text-foreground">
+                    <motion.p
+                      key={`m-heading-${activeSection}`}
+                      initial={{ opacity: 0, y: -3 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="text-[8px] font-bold tracking-tight text-foreground"
+                    >
                       {current.heading}
                     </motion.p>
-                    <motion.div key={`m-stats-${activeSection}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="mt-1.5 grid grid-cols-2 gap-1">
+                    <motion.div
+                      key={`m-stats-${activeSection}`}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="mt-1.5 grid grid-cols-2 gap-1"
+                    >
                       {current.stats.slice(0, 4).map((s) => (
-                        <div key={s.label} className="overflow-hidden rounded-lg border border-border/70 bg-white p-1.5 shadow-sm">
-                          <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">{s.label}</p>
-                          <p className="mt-0.5 truncate text-[9px] font-bold leading-none text-foreground">{s.value}</p>
+                        <div
+                          key={s.label}
+                          className="overflow-hidden rounded-lg border border-border/70 bg-white p-1.5 shadow-sm"
+                        >
+                          <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                            {s.label}
+                          </p>
+                          <p className="mt-0.5 truncate text-[9px] font-bold leading-none text-foreground">
+                            {s.value}
+                          </p>
                         </div>
                       ))}
                     </motion.div>
                     <div className="mt-1 overflow-hidden rounded-lg border border-border/70 bg-white p-1.5 shadow-sm">
-                      <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">Revenue Over Time</p>
+                      <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                        Revenue Over Time
+                      </p>
                       <div className="mt-0.5 h-8">
-                        <ResponsiveContainer key={`m-trend-${activeSection}`} width="100%" height="100%">
+                        <ResponsiveContainer
+                          key={`m-trend-${activeSection}`}
+                          width="100%"
+                          height="100%"
+                        >
                           <AreaChart data={current.trend}>
                             <defs>
-                              <linearGradient id={`${mGradientId}-revenue`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.35} />
-                                <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                              <linearGradient
+                                id={`${mGradientId}-revenue`}
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="0%"
+                                  stopColor="var(--color-primary)"
+                                  stopOpacity={0.35}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor="var(--color-primary)"
+                                  stopOpacity={0}
+                                />
                               </linearGradient>
                             </defs>
-                            <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={1.5} fill={`url(#${mGradientId}-revenue)`} isAnimationActive animationDuration={450} animationEasing="ease-out" />
+                            <Area
+                              type="monotone"
+                              dataKey="value"
+                              stroke="var(--color-primary)"
+                              strokeWidth={1.5}
+                              fill={`url(#${mGradientId}-revenue)`}
+                              isAnimationActive
+                              animationDuration={450}
+                              animationEasing="ease-out"
+                            />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
@@ -904,35 +1196,39 @@ function HeroDeviceShowcase() {
                   return (
                     <div
                       key={t.label}
-                      ref={(el) => { tabRefs.current[t.label] = el; }}
+                      ref={(el) => {
+                        tabRefs.current[t.label] = el;
+                      }}
                       className={`flex flex-col items-center justify-center gap-0.5 rounded-full p-1 transition-all duration-150 ${isActive ? "text-primary" : "text-muted-foreground"} ${isPressed ? "scale-90" : "scale-100"}`}
                     >
                       <t.icon className="h-2.5 w-2.5" />
-                      <span className={`h-[2px] w-[2px] rounded-full transition-colors duration-150 ${isActive ? "bg-primary" : "bg-transparent"}`} />
+                      <span
+                        className={`h-[2px] w-[2px] rounded-full transition-colors duration-150 ${isActive ? "bg-primary" : "bg-transparent"}`}
+                      />
                     </div>
                   );
                 })}
               </div>
 
-                {phoneRipple && (
-                  <motion.span
-                    key={phoneRipple.id}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-0 top-0 z-40 h-5 w-5 rounded-full bg-primary/40"
-                    style={{ x: phoneRipple.x - 10, y: phoneRipple.y - 10 }}
-                    initial={{ scale: 0.2, opacity: 0.6 }}
-                    animate={{ scale: 2, opacity: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  />
-                )}
-              </div>
-              <img
-                src="/devices/iphone-16-pro.svg"
-                alt=""
-                draggable={false}
-                className="pointer-events-none relative z-20 block w-full select-none"
-              />
+              {phoneRipple && (
+                <motion.span
+                  key={phoneRipple.id}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-0 z-40 h-5 w-5 rounded-full bg-primary/40"
+                  style={{ x: phoneRipple.x - 10, y: phoneRipple.y - 10 }}
+                  initial={{ scale: 0.2, opacity: 0.6 }}
+                  animate={{ scale: 2, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              )}
             </div>
+            <img
+              src="/devices/iphone-16-pro.svg"
+              alt=""
+              draggable={false}
+              className="pointer-events-none relative z-20 block w-full select-none"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -952,7 +1248,10 @@ function ProblemSection() {
         {content.problemItems.map((it, i) => {
           const Icon = PROBLEM_ICONS[i] ?? TrendingUp;
           return (
-            <div key={i} className="rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-6">
+            <div
+              key={i}
+              className="rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-6"
+            >
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Icon className="h-5 w-5" />
               </span>
@@ -970,11 +1269,13 @@ function ProductShowcase() {
   const [content] = useSiteContent();
   return (
     <section id="product" className="mx-auto max-w-5xl px-6 py-16 text-center">
-      <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">{content.showcaseBadge}</span>
-      <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{content.showcaseHeading}</h2>
-      <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-        {content.showcaseSubtext}
-      </p>
+      <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        {content.showcaseBadge}
+      </span>
+      <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+        {content.showcaseHeading}
+      </h2>
+      <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{content.showcaseSubtext}</p>
       <div className="mt-10 rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-3">
         <DashboardMockup />
       </div>
@@ -988,16 +1289,25 @@ function HowItWorks() {
   const [content] = useSiteContent();
   return (
     <section id="how-it-works" className="mx-auto max-w-5xl px-6 py-16">
-      <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">{content.howItWorksHeading}</h2>
+      <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+        {content.howItWorksHeading}
+      </h2>
       <p className="mt-3 text-center text-muted-foreground">{content.howItWorksSubtitle}</p>
       <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2">
         {content.howItWorksSteps.map((s, i) => {
           const Icon = HOW_IT_WORKS_ICONS[i] ?? Sparkles;
           return (
-            <div key={i} className="rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-6">
+            <div
+              key={i}
+              className="rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-6"
+            >
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+                  {i + 1}
+                </span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
               </div>
               <p className="mt-4 font-semibold">{s.title}</p>
               <p className="mt-1.5 text-sm text-muted-foreground">{s.desc}</p>
@@ -1020,12 +1330,13 @@ function BuiltForCreators() {
     <section className="bg-[#060b12] py-20 text-background">
       <div className="mx-auto max-w-4xl px-6 text-center">
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{content.creatorsHeading}</h2>
-        <p className="mx-auto mt-3 max-w-xl text-background/60">
-          {content.creatorsSubtitle}
-        </p>
+        <p className="mx-auto mt-3 max-w-xl text-background/60">{content.creatorsSubtitle}</p>
         <div className="mx-auto mt-10 grid max-w-2xl grid-cols-1 gap-4 text-left sm:grid-cols-3">
           {rows.map((r) => (
-            <div key={r.name} className="rounded-[var(--card-radius)] border-2 border-white/10 bg-white/5 p-5">
+            <div
+              key={r.name}
+              className="rounded-[var(--card-radius)] border-2 border-white/10 bg-white/5 p-5"
+            >
               <p className="font-medium">{r.name}</p>
               <p className="text-xs text-background/50">{r.role}</p>
               <div className="mt-4 flex items-end justify-between">
@@ -1050,13 +1361,25 @@ function FaqSection() {
   const [content] = useSiteContent();
   return (
     <section id="faq" className="mx-auto max-w-3xl px-6 py-16">
-      <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">FAQ</span>
-      <h2 className="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl">{content.faqHeading}</h2>
-      <Accordion type="single" collapsible className="mt-8 rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white px-2">
+      <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        FAQ
+      </span>
+      <h2 className="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl">
+        {content.faqHeading}
+      </h2>
+      <Accordion
+        type="single"
+        collapsible
+        className="mt-8 rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white px-2"
+      >
         {content.faqs.map((f, i) => (
           <AccordionItem key={i} value={`item-${i}`} className="last:border-0">
-            <AccordionTrigger className="px-4 text-left text-sm font-medium hover:no-underline">{f.q}</AccordionTrigger>
-            <AccordionContent className="px-4 text-sm text-muted-foreground">{f.a}</AccordionContent>
+            <AccordionTrigger className="px-4 text-left text-sm font-medium hover:no-underline">
+              {f.q}
+            </AccordionTrigger>
+            <AccordionContent className="px-4 text-sm text-muted-foreground">
+              {f.a}
+            </AccordionContent>
           </AccordionItem>
         ))}
       </Accordion>
@@ -1066,34 +1389,34 @@ function FaqSection() {
 
 function ContactSection() {
   const [content] = useSiteContent();
-  const [, setTickets] = useSupportTickets();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !message.trim()) return toast.error("Please fill in every field");
-    const today = new Date().toISOString().slice(0, 10);
-    setTickets((prev) => [
-      {
-        id: uid(),
-        subject: message.length > 60 ? `${message.slice(0, 57)}…` : message,
-        message,
-        org: "Not signed in",
-        requester: name,
-        email,
-        priority: "Medium",
-        status: "Open",
-        source: "Landing Page",
-        created: today,
-        lastReply: today,
-      },
-      ...prev,
-    ]);
-    setSent(true);
-    toast.success("Thanks — we got it!", { description: `Someone from the ${content.siteName} team will follow up by email.` });
+    if (!name.trim() || !email.trim() || !message.trim())
+      return toast.error("Please fill in every field");
+    setSending(true);
+    try {
+      const res = await fetch("/api/support/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message }),
+      });
+      if (!res.ok) {
+        toast.error("Couldn't send your message — please try again");
+        return;
+      }
+      setSent(true);
+      toast.success("Thanks — we got it!", {
+        description: `Someone from the ${content.siteName} team will follow up by email.`,
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -1101,7 +1424,9 @@ function ContactSection() {
       <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         <LifeBuoy className="h-3.5 w-3.5" /> Contact
       </span>
-      <h2 className="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl">{content.contactHeading}</h2>
+      <h2 className="mt-4 text-center text-3xl font-bold tracking-tight sm:text-4xl">
+        {content.contactHeading}
+      </h2>
       <p className="mx-auto mt-3 max-w-md text-center text-muted-foreground">
         {content.contactSubheading}
       </p>
@@ -1111,7 +1436,15 @@ function ContactSection() {
           <div className="py-6 text-center">
             <p className="font-semibold">Message sent.</p>
             <p className="mt-1 text-sm text-muted-foreground">We'll get back to you at {email}.</p>
-            <button onClick={() => { setSent(false); setName(""); setEmail(""); setMessage(""); }} className="mt-4 text-sm font-medium text-primary hover:underline">
+            <button
+              onClick={() => {
+                setSent(false);
+                setName("");
+                setEmail("");
+                setMessage("");
+              }}
+              className="mt-4 text-sm font-medium text-primary hover:underline"
+            >
               Send another message
             </button>
           </div>
@@ -1119,20 +1452,47 @@ function ContactSection() {
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} required className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Name
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary"
+                />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary" />
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary"
+                />
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">What's going on?</label>
-              <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={4} className="w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 py-2.5 text-sm outline-none focus:border-primary" />
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                What's going on?
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                required
+                rows={4}
+                className="w-full rounded-[var(--input-radius)] border border-border bg-accent/10 px-3 py-2.5 text-sm outline-none focus:border-primary"
+              />
             </div>
-            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-              <Send className="h-4 w-4" /> Send Message
+            <button
+              type="submit"
+              disabled={sending}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-[var(--button-radius)] bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              <Send className="h-4 w-4" /> {sending ? "Sending…" : "Send Message"}
             </button>
           </form>
         )}
@@ -1149,19 +1509,38 @@ function ContactSection() {
 // actually tracks per video — revenue, link clicks, comments — so the grid IS the product claim,
 // not just decoration next to it.
 const MARQUEE_TITLES = [
-  "How I Made $12,400 From One Video", "The Brand Deal Breakdown Nobody Talks About",
-  "My AdSense Revenue Every Month This Year", "I Tried Every Monetization Method",
-  "Turning Comments Into Customers", "Behind The Scenes: A $40K Launch",
-  "What I Wish I Knew About Sponsorships", "Reacting To My First Year Of Analytics",
-  "The Setup That 10x'd My Revenue", "Q&A: Your Creator Business Questions",
-  "Why I Stopped Chasing Views", "My Link-In-Bio Actually Converts Now",
+  "How I Made $12,400 From One Video",
+  "The Brand Deal Breakdown Nobody Talks About",
+  "My AdSense Revenue Every Month This Year",
+  "I Tried Every Monetization Method",
+  "Turning Comments Into Customers",
+  "Behind The Scenes: A $40K Launch",
+  "What I Wish I Knew About Sponsorships",
+  "Reacting To My First Year Of Analytics",
+  "The Setup That 10x'd My Revenue",
+  "Q&A: Your Creator Business Questions",
+  "Why I Stopped Chasing Views",
+  "My Link-In-Bio Actually Converts Now",
 ];
 const MARQUEE_VIDEOS = MARQUEE_TITLES.map((title, i) => ({
   title,
   image: `https://picsum.photos/seed/tubify-${i + 1}/700/394`,
   duration: ["4:12", "12:47", "0:58", "8:03", "21:15", "3:29", "15:40", "6:51"][i % 8],
   index: [1, 47, 156, 289, 438, 512, 601, 734, 812, 901, 968, 1042][i],
-  revenue: ["$4,120", "$2,860", "$1,940", "$1,510", "$980", "$640", "$1,280", "$710", "$2,240", "$390", "$3,050", "$860"][i],
+  revenue: [
+    "$4,120",
+    "$2,860",
+    "$1,940",
+    "$1,510",
+    "$980",
+    "$640",
+    "$1,280",
+    "$710",
+    "$2,240",
+    "$390",
+    "$3,050",
+    "$860",
+  ][i],
   clicks: [842, 615, 493, 371, 248, 156, 402, 189, 728, 97, 934, 265][i],
   comments: [128, 94, 76, 58, 41, 27, 63, 33, 112, 19, 145, 47][i],
 }));
@@ -1169,23 +1548,36 @@ const MARQUEE_VIDEOS = MARQUEE_TITLES.map((title, i) => ({
 function ContentMarqueeSection() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-16 text-center">
-      <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">Your library</span>
-      <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Every video. Tracked automatically.</h2>
+      <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        Your library
+      </span>
+      <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+        Every video. Tracked automatically.
+      </h2>
       <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-        From your very first upload to your thousandth, Tubify keeps every video's revenue, links, and comments organized in one place.
+        From your very first upload to your thousandth, Tubify keeps every video's revenue, links,
+        and comments organized in one place.
       </p>
       <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 text-left sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
         {MARQUEE_VIDEOS.map((v) => (
           <div key={v.title} className="group">
             <div className="relative aspect-video overflow-hidden rounded-xl bg-accent">
-              <img src={v.image} alt={v.title} className="size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              <img
+                src={v.image}
+                alt={v.title}
+                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
               <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors group-hover:bg-black/25">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-red shadow-lg transition-transform group-hover:scale-110">
                   <Play className="ml-0.5 h-4 w-4 text-white" fill="white" />
                 </span>
               </span>
-              <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-medium text-white">#{v.index.toLocaleString()}</span>
-              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{v.duration}</span>
+              <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-medium text-white">
+                #{v.index.toLocaleString()}
+              </span>
+              <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {v.duration}
+              </span>
             </div>
             <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-snug">{v.title}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1211,10 +1603,21 @@ function FinalCta() {
   return (
     <section className="mx-auto max-w-4xl px-6 pb-16">
       <div className="rounded-[var(--card-radius)] bg-primary p-10 text-center text-primary-foreground sm:p-14">
-        <img src="/tubi.png" alt="" className="pointer-events-none mx-auto h-16 w-16 object-contain opacity-95" />
-        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{content.finalCtaHeading}</h2>
-        <p className="mx-auto mt-3 max-w-md text-primary-foreground/80">{content.finalCtaSubtitle}</p>
-        <Link to="/dashboard" className="mt-7 inline-flex h-12 items-center gap-2 rounded-[var(--button-radius)] bg-white px-6 text-sm font-semibold text-primary hover:bg-white/90">
+        <img
+          src="/tubi.png"
+          alt=""
+          className="pointer-events-none mx-auto h-16 w-16 object-contain opacity-95"
+        />
+        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          {content.finalCtaHeading}
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-primary-foreground/80">
+          {content.finalCtaSubtitle}
+        </p>
+        <Link
+          to="/dashboard"
+          className="mt-7 inline-flex h-12 items-center gap-2 rounded-[var(--button-radius)] bg-white px-6 text-sm font-semibold text-primary hover:bg-white/90"
+        >
           {content.heroPrimaryCta} <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
@@ -1222,7 +1625,10 @@ function FinalCta() {
   );
 }
 
-const SOCIAL_ICONS: { key: "youtube" | "twitter" | "instagram" | "tiktok"; icon: typeof Youtube }[] = [
+const SOCIAL_ICONS: {
+  key: "youtube" | "twitter" | "instagram" | "tiktok";
+  icon: typeof Youtube;
+}[] = [
   { key: "youtube", icon: Youtube },
   { key: "twitter", icon: Twitter },
   { key: "instagram", icon: Instagram },
@@ -1232,8 +1638,20 @@ const SOCIAL_ICONS: { key: "youtube" | "twitter" | "instagram" | "tiktok"; icon:
 function FooterSection() {
   const [content] = useSiteContent();
   const columns = [
-    { title: "Features", links: ["AI Descriptions", "Comment Automation", "Link Tracking", "Analytics", "Team Collaboration"] },
-    { title: "Data Hub", links: ["Revenue Attribution", "Brand Deals", "Affiliate", "YouTube Sync"] },
+    {
+      title: "Features",
+      links: [
+        "AI Descriptions",
+        "Comment Automation",
+        "Link Tracking",
+        "Analytics",
+        "Team Collaboration",
+      ],
+    },
+    {
+      title: "Data Hub",
+      links: ["Revenue Attribution", "Brand Deals", "Affiliate", "YouTube Sync"],
+    },
     { title: "Resources", links: ["Changelog", "Roadmap", "Docs", "Blog"] },
   ];
   const activeSocials = SOCIAL_ICONS.filter((s) => content.socialLinks[s.key]);
@@ -1243,16 +1661,24 @@ function FooterSection() {
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 pb-16 pt-16 sm:grid-cols-5">
         <div className="col-span-2">
           <div className="flex items-center gap-2">
-            <img src={content.logoDarkUrl} alt={content.siteName} className="h-8 w-8 object-contain" />
+            <img
+              src={content.logoDarkUrl}
+              alt={content.siteName}
+              className="h-8 w-8 object-contain"
+            />
             <span className="text-lg font-bold">{content.siteName}</span>
           </div>
-          <p className="mt-3 max-w-xs text-sm text-background/60">
-            {content.tagline}
-          </p>
+          <p className="mt-3 max-w-xs text-sm text-background/60">{content.tagline}</p>
           {activeSocials.length > 0 && (
             <div className="mt-4 flex items-center gap-3 text-background/60">
               {activeSocials.map((s) => (
-                <a key={s.key} href={content.socialLinks[s.key]} target="_blank" rel="noreferrer" className="hover:text-background">
+                <a
+                  key={s.key}
+                  href={content.socialLinks[s.key]}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-background"
+                >
                   <s.icon className="h-4 w-4" />
                 </a>
               ))}
@@ -1265,7 +1691,14 @@ function FooterSection() {
             <p className="text-sm font-semibold">{col.title}</p>
             <ul className="mt-3 space-y-2">
               {col.links.map((l) => (
-                <li key={l}><a href="#" className="flex items-center gap-1 text-sm text-background/60 hover:text-background">{l}</a></li>
+                <li key={l}>
+                  <a
+                    href="#"
+                    className="flex items-center gap-1 text-sm text-background/60 hover:text-background"
+                  >
+                    {l}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
@@ -1273,13 +1706,20 @@ function FooterSection() {
         <div>
           <p className="text-sm font-semibold">Contact</p>
           <p className="mt-3 text-sm text-background/60">{content.contactEmail}</p>
-          <a href="#contact" className="mt-2 inline-block text-sm text-background/60 hover:text-background">Report a problem →</a>
+          <a
+            href="#contact"
+            className="mt-2 inline-block text-sm text-background/60 hover:text-background"
+          >
+            Report a problem →
+          </a>
         </div>
       </div>
       <div className="flex flex-col items-center justify-center gap-2 border-t border-white/10 px-6 py-5 text-center text-xs text-background/40 sm:flex-row sm:gap-4">
         <span>{content.copyrightText}</span>
         <span className="hidden sm:inline">·</span>
-        <Link to="/privacy" className="hover:text-background/70">Privacy Policy</Link>
+        <Link to="/privacy" className="hover:text-background/70">
+          Privacy Policy
+        </Link>
       </div>
     </footer>
   );

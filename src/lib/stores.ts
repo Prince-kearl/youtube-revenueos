@@ -200,60 +200,10 @@ export const useOnboarding = () =>
   useLocalStore<OnboardingState>("yroos.onboarding", seedOnboarding());
 
 // ============ TEAM ============
+// TeamRole is still used by the PlatformRole nav-preview demo below (canAccessRoute/ROLE_ROUTES) —
+// the real team roster now lives server-side (workspace_members, see src/routes/team.tsx and
+// src/lib/server/workspace.ts), which is why TeamMember/seedTeam/useTeam were removed from here.
 export type TeamRole = "Owner" | "Manager" | "Setter" | "Editor";
-export interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  role: TeamRole;
-  commission: number;
-  leadShare: number;
-  status: "Active" | "Invited";
-}
-const seedTeam = (): TeamMember[] => [
-  {
-    id: uid(),
-    name: "Alex Chen",
-    email: "alex@creator.io",
-    avatar: "https://i.pravatar.cc/64?img=13",
-    role: "Owner",
-    commission: 0,
-    leadShare: 40,
-    status: "Active",
-  },
-  {
-    id: uid(),
-    name: "Jamie Rivera",
-    email: "jamie@creator.io",
-    avatar: "https://i.pravatar.cc/64?img=32",
-    role: "Setter",
-    commission: 10,
-    leadShare: 35,
-    status: "Active",
-  },
-  {
-    id: uid(),
-    name: "Morgan Lee",
-    email: "morgan@creator.io",
-    avatar: "https://i.pravatar.cc/64?img=45",
-    role: "Editor",
-    commission: 0,
-    leadShare: 0,
-    status: "Active",
-  },
-  {
-    id: uid(),
-    name: "Sam Patel",
-    email: "sam@newhire.io",
-    avatar: "https://i.pravatar.cc/64?img=5",
-    role: "Setter",
-    commission: 10,
-    leadShare: 25,
-    status: "Invited",
-  },
-];
-export const useTeam = () => useLocalStore<TeamMember[]>("yroos.team", seedTeam());
 
 // ============ UI PREFERENCES ============
 // Persisted so the collapsed state survives navigating between pages — DashboardLayout
@@ -277,14 +227,7 @@ export const useViewerRole = () =>
   useLocalStore<PlatformRole>("yroos.viewerRole", "Owner" as PlatformRole);
 
 // Routes every role can always reach — personal/account-level pages, not workspace data.
-const OPEN_ROUTES = [
-  "/dashboard",
-  "/roadmap",
-  "/changelog",
-  "/settings",
-  "/notifications",
-  "/support",
-];
+const OPEN_ROUTES = ["/dashboard", "/settings", "/notifications", "/support"];
 
 // Everything else is an allowlist per role. Owner and Superadmin get full workspace access;
 // Superadmin additionally gets /admin, gated separately below.
@@ -1167,145 +1110,6 @@ const seedAnnouncements = (): Announcement[] => [
 ];
 export const useAnnouncements = () =>
   useLocalStore<Announcement[]>("yroos.announcements", seedAnnouncements());
-
-// ============ SUPPORT ============
-export type TicketStatus = "Open" | "Pending" | "Resolved";
-export type TicketPriority = "Low" | "Medium" | "High" | "Urgent";
-export type TicketSource = "App" | "Landing Page";
-export interface SupportTicket {
-  id: string;
-  subject: string;
-  message: string;
-  org: string;
-  requester: string;
-  email: string;
-  priority: TicketPriority;
-  status: TicketStatus;
-  source: TicketSource;
-  created: string;
-  lastReply: string;
-}
-const seedTickets = (): SupportTicket[] => [
-  {
-    id: uid(),
-    subject: "Stripe webhook not attributing a sale",
-    message:
-      "Two brand deal payments went through on Stripe but never showed up in the Revenue Transactions table. I checked the webhook logs and they're firing, but nothing's landing in the app.",
-    org: "RideRatchet Media",
-    requester: "Priya Nair",
-    email: "priya@rideratchet.io",
-    priority: "Urgent",
-    status: "Open",
-    source: "App",
-    created: "2026-07-21",
-    lastReply: "2026-07-21",
-  },
-  {
-    id: uid(),
-    subject: "Can't invite a 6th teammate on Pro",
-    message:
-      "Trying to invite a new setter but the Team page says we're at our seat limit. We're on Pro — thought that included 5 seats, can we get one more or do we need to upgrade?",
-    org: "Glow Up Beauty Co",
-    requester: "Maya Osei",
-    email: "maya@glowup.co",
-    priority: "Medium",
-    status: "Open",
-    source: "App",
-    created: "2026-07-20",
-    lastReply: "2026-07-20",
-  },
-  {
-    id: uid(),
-    subject: "Comment automation replied twice",
-    message:
-      "One of our auto-reply rules fired twice on the same comment within a minute. Looks like a duplicate-trigger bug rather than something on my end.",
-    org: "Northlight Gaming",
-    requester: "Devon Marsh",
-    email: "devon@northlight.gg",
-    priority: "High",
-    status: "Pending",
-    source: "App",
-    created: "2026-07-18",
-    lastReply: "2026-07-19",
-  },
-  {
-    id: uid(),
-    subject: "Request: export brand deals to CSV",
-    message:
-      "Would love a CSV export button on the Brand Deals board, same as the one on the Analytics transactions table. Right now I'm copying rows by hand for our monthly report.",
-    org: "Wanderlens Travel",
-    requester: "Sofia Ramos",
-    email: "sofia@wanderlens.com",
-    priority: "Low",
-    status: "Pending",
-    source: "App",
-    created: "2026-07-15",
-    lastReply: "2026-07-17",
-  },
-  {
-    id: uid(),
-    subject: "Billing charged after cancellation",
-    message:
-      "I cancelled my subscription on the 30th but got charged again on the 4th. Can someone check my account and refund the extra charge?",
-    org: "Bytesize Learning",
-    requester: "Hiro Tanaka",
-    email: "hiro@bytesize.dev",
-    priority: "Urgent",
-    status: "Resolved",
-    source: "Landing Page",
-    created: "2026-07-05",
-    lastReply: "2026-07-06",
-  },
-  {
-    id: uid(),
-    subject: "How do I verify my creator badge?",
-    message:
-      "Saw other channels have a verified creator badge next to their name. How do I apply for that on my account?",
-    org: "Kitchen with Kofi",
-    requester: "Kofi Boateng",
-    email: "kofi@kwk.tv",
-    priority: "Low",
-    status: "Resolved",
-    source: "App",
-    created: "2026-07-11",
-    lastReply: "2026-07-12",
-  },
-];
-export const useSupportTickets = () =>
-  useLocalStore<SupportTicket[]>("yroos.tickets", seedTickets());
-
-export interface KbArticle {
-  id: string;
-  title: string;
-  category: string;
-  views: number;
-  updated: string;
-}
-const seedKbArticles = (): KbArticle[] => [
-  {
-    id: uid(),
-    title: "How do tracked links work?",
-    category: "Link Tracking",
-    views: 1240,
-    updated: "2026-06-01",
-  },
-  {
-    id: uid(),
-    title: "Setting up comment automation",
-    category: "Comments",
-    views: 980,
-    updated: "2026-05-20",
-  },
-  {
-    id: uid(),
-    title: "Understanding revenue attribution delay",
-    category: "Analytics",
-    views: 2110,
-    updated: "2026-04-18",
-  },
-  { id: uid(), title: "Inviting your team", category: "Team", views: 640, updated: "2026-06-10" },
-];
-export const useKbArticles = () => useLocalStore<KbArticle[]>("yroos.kbArticles", seedKbArticles());
 
 // ============ SYSTEM ============
 export interface Integration {

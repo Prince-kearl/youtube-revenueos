@@ -314,33 +314,6 @@ export const dealStages = [
   },
 ];
 
-export const reports = [
-  {
-    title: "Q4 2024 Revenue Report",
-    range: "Oct – Dec 2024",
-    color: "purple",
-    badges: ["$44,300 total revenue", "+18.4% YoY growth", "7 brand deals closed"],
-  },
-  {
-    title: "November Performance Summary",
-    range: "Nov 1 – 30, 2024",
-    color: "green",
-    badges: ["$38,200 revenue", "Top video: 641K views", "3 new brand deals"],
-  },
-  {
-    title: "October Revenue Report",
-    range: "Oct 1 – 31, 2024",
-    color: "purple",
-    badges: ["$36,000 revenue", "Best CPM month: $8.40", "2 deals closed"],
-  },
-  {
-    title: "Q3 2024 Quarterly Summary",
-    range: "Jul – Sep 2024",
-    color: "amber",
-    badges: ["$98,500 revenue", "12.4M total views", "6 brand deals"],
-  },
-];
-
 const TXN_SOURCES = ["AdSense", "Brand Deal", "Memberships", "Affiliates"] as const;
 const TXN_METHODS = ["Bank Transfer", "Direct Deposit", "Wire Transfer", "PayPal"] as const;
 const TXN_STATUSES = ["Received", "Processed", "Pending", "Failed"] as const;

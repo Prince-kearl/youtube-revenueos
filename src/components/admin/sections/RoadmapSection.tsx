@@ -1,22 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
 import {
-  CheckCircle2, Circle, Rocket, ShieldCheck, Sparkles, MessageSquare,
-  BarChart3, Handshake, Globe, Lock, ScrollText,
+  CheckCircle2,
+  Circle,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  MessageSquare,
+  BarChart3,
+  Handshake,
+  Globe,
+  Lock,
+  ScrollText,
 } from "lucide-react";
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-
-export const Route = createFileRoute("/roadmap")({
-  head: () => ({
-    meta: [
-      { title: "Roadmap — Tubify" },
-      { name: "description", content: "The Tubify v3.0 engineering roadmap: phases, milestones, and compliance posture." },
-      { property: "og:title", content: "Roadmap — Tubify" },
-      { property: "og:description", content: "Phased delivery plan, from video ingestion through Phase 5 GA4/Meta integration." },
-    ],
-  }),
-  component: Roadmap,
-});
 
 type Phase = {
   id: string;
@@ -103,21 +98,47 @@ const milestones = [
   { id: "M6", label: "Release candidate — Phase 4 GA" },
 ];
 
-const statusStyles: Record<Phase["status"], { badge: string; ring: string; label: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  shipped: { badge: "bg-success/15 text-success", ring: "ring-success/30", label: "Shipped", Icon: CheckCircle2 },
-  active: { badge: "bg-primary/15 text-primary", ring: "ring-primary/40", label: "In progress", Icon: Circle },
-  next: { badge: "bg-brand-amber/15 text-brand-amber", ring: "ring-brand-amber/30", label: "Up next", Icon: Circle },
-  later: { badge: "bg-accent text-muted-foreground", ring: "ring-border", label: "Planned", Icon: Circle },
+const statusStyles: Record<
+  Phase["status"],
+  { badge: string; ring: string; label: string; Icon: React.ComponentType<{ className?: string }> }
+> = {
+  shipped: {
+    badge: "bg-success/15 text-success",
+    ring: "ring-success/30",
+    label: "Shipped",
+    Icon: CheckCircle2,
+  },
+  active: {
+    badge: "bg-primary/15 text-primary",
+    ring: "ring-primary/40",
+    label: "In progress",
+    Icon: Circle,
+  },
+  next: {
+    badge: "bg-brand-amber/15 text-brand-amber",
+    ring: "ring-brand-amber/30",
+    label: "Up next",
+    Icon: Circle,
+  },
+  later: {
+    badge: "bg-accent text-muted-foreground",
+    ring: "ring-border",
+    label: "Planned",
+    Icon: Circle,
+  },
 };
 
-function Roadmap() {
+// Tubify's own internal engineering roadmap — not a creator-facing feature, so it lives here in
+// the Superadmin console instead of the app's own nav (see DashboardLayout.tsx history).
+export function RoadmapSection() {
   return (
-    <DashboardLayout title="Roadmap">
+    <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Roadmap</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Roadmap</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tubify v3.0 phased delivery plan · EU-hosted (Hetzner ISO 27001) · GDPR / NIS2 / Dutch Cybersecurity Act aligned
+            Tubify v3.0 phased delivery plan · EU-hosted (Hetzner ISO 27001) · GDPR / NIS2 / Dutch
+            Cybersecurity Act aligned
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -139,18 +160,24 @@ function Roadmap() {
                     <Icon className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{p.id} · {p.window}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {p.id} · {p.window}
+                    </p>
                     <h3 className="text-base font-semibold leading-tight">{p.name}</h3>
                   </div>
                 </div>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.badge}`}>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.badge}`}
+                >
                   <style.Icon className="h-3 w-3" /> {style.label}
                 </span>
               </div>
               <ul className="mt-4 space-y-2">
                 {p.bullets.map((b) => (
                   <li key={b} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${p.status === "shipped" ? "text-success" : "text-muted-foreground/50"}`} />
+                    <CheckCircle2
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${p.status === "shipped" ? "text-success" : "text-muted-foreground/50"}`}
+                    />
                     <span>{b}</span>
                   </li>
                 ))}
@@ -167,18 +194,29 @@ function Roadmap() {
         </h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {milestones.map((m) => (
-            <div key={m.id} className="flex items-start gap-3 rounded-lg border border-border bg-accent/20 p-3">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary">{m.id}</span>
+            <div
+              key={m.id}
+              className="flex items-start gap-3 rounded-lg border border-border bg-accent/20 p-3"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                {m.id}
+              </span>
               <p className="text-sm">{m.label}</p>
             </div>
           ))}
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
 
-function Chip({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
+function Chip({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
       <Icon className="h-3.5 w-3.5 text-primary" /> {label}

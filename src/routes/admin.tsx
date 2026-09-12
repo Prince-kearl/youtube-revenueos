@@ -9,6 +9,8 @@ import { RolesSection } from "@/components/admin/sections/RolesSection";
 import { OrganizationsSection } from "@/components/admin/sections/OrganizationsSection";
 import { AiManagementSection } from "@/components/admin/sections/AiManagementSection";
 import { BillingSection } from "@/components/admin/sections/BillingSection";
+import { FeatureManagementSection } from "@/components/admin/sections/FeatureManagementSection";
+import { VersionControlSection } from "@/components/admin/sections/VersionControlSection";
 import { AnalyticsSection } from "@/components/admin/sections/AnalyticsSection";
 import { CommunicationsSection } from "@/components/admin/sections/CommunicationsSection";
 import { ContentSection } from "@/components/admin/sections/content/ContentSection";
@@ -17,6 +19,8 @@ import { SecuritySection } from "@/components/admin/sections/SecuritySection";
 import { AuditLogSection } from "@/components/admin/sections/AuditLogSection";
 import { SupportSection } from "@/components/admin/sections/SupportSection";
 import { InfrastructureSection } from "@/components/admin/sections/InfrastructureSection";
+import { RoadmapSection } from "@/components/admin/sections/RoadmapSection";
+import { ChangelogSection } from "@/components/admin/sections/ChangelogSection";
 
 export const Route = createFileRoute("/admin")({
   component: AdminConsole,
@@ -29,6 +33,8 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
   organizations: OrganizationsSection,
   ai: AiManagementSection,
   billing: BillingSection,
+  features: FeatureManagementSection,
+  releases: VersionControlSection,
   analytics: AnalyticsSection,
   communications: CommunicationsSection,
   content: ContentSection,
@@ -37,6 +43,8 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
   audit: AuditLogSection,
   support: SupportSection,
   infrastructure: InfrastructureSection,
+  roadmap: RoadmapSection,
+  changelog: ChangelogSection,
 };
 
 function AdminConsole() {
