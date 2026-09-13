@@ -42,6 +42,7 @@ export const Route = createFileRoute("/api/billing/subscription")({
               id: plan.slug,
               name: plan.name,
               description: plan.description,
+              features: plan.features,
               monthlyPriceCents: monthly?.amountCents ?? null,
               annualPriceCents: annual?.amountCents ?? null,
               available: Boolean(monthly?.stripePriceId && annual?.stripePriceId),

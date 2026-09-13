@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Youtube } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Loader2, Mail, RefreshCw, Youtube } from "lucide-react";
 import { toast } from "sonner";
+import { useSiteContent } from "@/lib/stores";
 
 export const Route = createFileRoute("/billing")({
   component: BillingCheckout,
@@ -13,6 +14,7 @@ type Plan = {
   id: PlanId;
   name: string;
   description: string | null;
+  features: string[];
   monthlyPriceCents: number | null;
   annualPriceCents: number | null;
   available: boolean;
@@ -46,13 +48,22 @@ function errorMessage(error: string): string {
   return messages[error] ?? "Something went wrong. Try again.";
 }
 
+// Cycled per plan card position so a multi-tier catalog reads as visually distinct without any
+// per-plan color config existing in the data model.
+const AVATAR_PALETTE = [
+  "bg-brand-blue/15 text-brand-blue",
+  "bg-brand-purple/15 text-brand-purple",
+  "bg-brand-green/15 text-brand-green",
+  "bg-brand-amber/15 text-brand-amber",
+];
+
 function BillingCheckout() {
   const navigate = useNavigate();
-  const [planId, setPlanId] = useState<PlanId | null>(null);
+  const [content] = useSiteContent();
   const [billingInterval, setBillingInterval] = useState<Interval>("month");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [data, setData] = useState<SubscriptionData | null>(null);
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkingOutId, setCheckingOutId] = useState<PlanId | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
 
   useEffect(() => {
@@ -61,31 +72,15 @@ function BillingCheckout() {
         const body = (await response.json()) as SubscriptionResponse;
         if (!response.ok || !body.data) throw new Error();
         setData(body.data);
-        // Prefer a plan named "Pro" if the catalog still has one (matches the previous default),
-        // otherwise just default to whatever sorts first — the catalog is Superadmin-managed now,
-        // so a hardcoded slug can't be assumed to exist.
-        setPlanId(
-          (current) =>
-            current ??
-            body.data!.plans.find((p) => p.name.toLowerCase() === "pro")?.id ??
-            body.data!.plans[0]?.id ??
-            null,
-        );
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
   }, []);
 
   const plans = data?.plans ?? [];
-  const plan = plans.find((p) => p.id === planId) ?? plans[0];
-  const monthlyCents = plan?.monthlyPriceCents ?? 0;
-  const annualCents = plan?.annualPriceCents ?? 0;
-  const annualMonthlyCents = annualCents / 12;
-  const totalCents = billingInterval === "year" ? annualCents : monthlyCents;
-  const annualSavingsPct =
-    monthlyCents > 0 && annualCents > 0
-      ? Math.round((1 - annualCents / (monthlyCents * 12)) * 100)
-      : 0;
+  // Odd-length catalogs land the badge dead center (matches the 3-plan reference); even-length
+  // ones land it just left of center, which is the closest a single index can get.
+  const featuredIndex = plans.length >= 3 ? Math.floor((plans.length - 1) / 2) : -1;
 
   const activeSubscription =
     data?.subscription &&
@@ -93,9 +88,8 @@ function BillingCheckout() {
       ? data.subscription
       : null;
 
-  const startCheckout = async () => {
-    if (!plan) return;
-    setCheckingOut(true);
+  const startCheckout = async (plan: Plan) => {
+    setCheckingOutId(plan.id);
     try {
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
@@ -107,7 +101,7 @@ function BillingCheckout() {
       window.location.href = body.data.url;
     } catch (error) {
       toast.error(errorMessage(error instanceof Error ? error.message : "STRIPE_CHECKOUT_FAILED"));
-      setCheckingOut(false);
+      setCheckingOutId(null);
     }
   };
 
@@ -148,7 +142,7 @@ function BillingCheckout() {
 
   return (
     <div className="min-h-screen bg-background p-6 sm:p-10">
-      <div className="mx-auto max-w-2xl">
+      <div className={`mx-auto ${activeSubscription ? "max-w-2xl" : "max-w-6xl"}`}>
         <button
           onClick={() => navigate({ to: "/settings" })}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -197,72 +191,126 @@ function BillingCheckout() {
             </button>
           </div>
         ) : (
-          <div className="mt-8 rounded-xl card-gradient-outline p-6">
-            <div className="flex flex-wrap gap-1.5">
-              {plans.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setPlanId(p.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    p.id === planId
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-accent text-muted-foreground hover:bg-accent/70"
-                  }`}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-            {plan?.description && (
-              <p className="mt-2 text-xs text-muted-foreground">{plan.description}</p>
-            )}
-
-            <div className="mt-4 inline-flex rounded-full bg-accent p-1 text-xs">
-              {(["month", "year"] as const).map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setBillingInterval(i)}
-                  className={`rounded-full px-3 py-1 font-medium ${i === billingInterval ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-                >
-                  {i === "month"
-                    ? "Monthly"
-                    : annualSavingsPct > 0
-                      ? `Annual · save ${annualSavingsPct}%`
-                      : "Annual"}
-                </button>
-              ))}
+          <div className="mt-8">
+            <div className="flex justify-center">
+              <div className="inline-flex rounded-full bg-accent p-1 text-xs">
+                {(["month", "year"] as const).map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setBillingInterval(i)}
+                    className={`rounded-full px-4 py-1.5 font-medium transition-colors ${i === billingInterval ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {i === "month" ? "Monthly" : "Annual"}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-6 flex items-end gap-1.5">
-              <span className="text-4xl font-bold tracking-tight">
-                US${money(totalCents / 100)}
-              </span>
-              <span className="pb-1 text-sm text-muted-foreground">per {billingInterval}</span>
-            </div>
-            {billingInterval === "year" && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                US${money(annualMonthlyCents / 100)} / month billed annually
-              </p>
-            )}
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
+              {plans.map((p, index) => {
+                const featured = index === featuredIndex;
+                const hasPrice = p.monthlyPriceCents != null && p.annualPriceCents != null;
+                const monthlyCents = p.monthlyPriceCents ?? 0;
+                const annualCents = p.annualPriceCents ?? 0;
+                const totalCents = billingInterval === "year" ? annualCents : monthlyCents;
+                const savingsPct =
+                  monthlyCents > 0 && annualCents > 0
+                    ? Math.round((1 - annualCents / (monthlyCents * 12)) * 100)
+                    : 0;
+                const isCheckingOut = checkingOutId === p.id;
 
-            <button
-              onClick={() => void startCheckout()}
-              disabled={checkingOut || !plan?.available}
-              className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {checkingOut ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ExternalLink className="h-4 w-4" />
-              )}
-              {checkingOut ? "Redirecting to Stripe…" : "Continue to Stripe Checkout"}
-            </button>
-            {plan && !plan.available && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                This plan's Stripe price isn't configured yet.
-              </p>
-            )}
-            <p className="mt-3 text-center text-xs text-muted-foreground">
+                return (
+                  <div
+                    key={p.id}
+                    className={`relative flex flex-col rounded-3xl p-6 ${
+                      featured
+                        ? "border border-primary/40 bg-gradient-to-b from-primary/10 to-transparent shadow-lg lg:-mt-3 lg:pt-9 lg:pb-9"
+                        : "card-gradient-outline"
+                    }`}
+                  >
+                    {featured && (
+                      <span className="absolute right-6 top-6 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
+                        Most popular
+                      </span>
+                    )}
+
+                    <span
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${AVATAR_PALETTE[index % AVATAR_PALETTE.length]}`}
+                    >
+                      {p.name.charAt(0).toUpperCase()}
+                    </span>
+
+                    <h3 className="mt-4 text-lg font-semibold tracking-tight">{p.name}</h3>
+                    {p.description && (
+                      <p className="mt-1.5 text-sm text-muted-foreground">{p.description}</p>
+                    )}
+
+                    <div className="mt-5 flex items-end gap-1.5">
+                      {hasPrice ? (
+                        <>
+                          <span className="text-3xl font-bold tracking-tight">
+                            US${money(totalCents / 100)}
+                          </span>
+                          <span className="pb-1 text-sm text-muted-foreground">
+                            /{billingInterval}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-3xl font-bold tracking-tight">Contact us</span>
+                      )}
+                    </div>
+                    {hasPrice && billingInterval === "year" && savingsPct > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Save {savingsPct}% vs monthly
+                      </p>
+                    )}
+
+                    {hasPrice ? (
+                      <button
+                        onClick={() => void startCheckout(p)}
+                        disabled={isCheckingOut || !p.available}
+                        className={`mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${
+                          featured
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "border border-border bg-card text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {isCheckingOut ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4" />
+                        )}
+                        {isCheckingOut ? "Redirecting…" : "Choose this plan"}
+                      </button>
+                    ) : (
+                      <a
+                        href={`mailto:${content.contactEmail}`}
+                        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-accent"
+                      >
+                        <Mail className="h-4 w-4" /> Contact us
+                      </a>
+                    )}
+                    {hasPrice && !p.available && (
+                      <p className="mt-2 text-center text-xs text-muted-foreground">
+                        This plan's Stripe price isn't configured yet.
+                      </p>
+                    )}
+
+                    {p.features.length > 0 && (
+                      <ul className="mt-6 space-y-2.5 border-t border-border pt-5">
+                        {p.features.map((feature) => (
+                          <li key={feature} className="flex items-start gap-2 text-sm">
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <span className="text-muted-foreground">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-6 text-center text-xs text-muted-foreground">
               You'll enter payment details securely on Stripe's own checkout page.
             </p>
           </div>
