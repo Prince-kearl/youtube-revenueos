@@ -9,6 +9,7 @@ import {
   Mail,
   RefreshCw,
   Rocket,
+  Sparkle,
   Star,
   Zap,
 } from "lucide-react";
@@ -261,15 +262,19 @@ function BillingCheckout() {
                     />
                     <div
                       aria-hidden="true"
-                      className={`pointer-events-none absolute right-0 top-0 h-40 w-40 opacity-[0.18] transition-opacity duration-300 group-hover:opacity-30 ${accent.text}`}
+                      className={`pointer-events-none absolute inset-x-0 top-0 h-48 overflow-hidden opacity-[0.35] transition-opacity duration-300 group-hover:opacity-50 ${accent.text}`}
                       style={{
-                        backgroundImage: "radial-gradient(currentColor 1.5px, transparent 1.5px)",
-                        backgroundSize: "16px 16px",
                         WebkitMaskImage:
-                          "radial-gradient(circle at top right, black, transparent 70%)",
-                        maskImage: "radial-gradient(circle at top right, black, transparent 70%)",
+                          "radial-gradient(circle at top right, black, transparent 65%)",
+                        maskImage: "radial-gradient(circle at top right, black, transparent 65%)",
                       }}
-                    />
+                    >
+                      <div className="absolute -right-8 -top-10 h-28 w-28 rotate-[24deg] rounded-2xl border-2 border-current" />
+                      <div className="absolute right-16 top-12 h-14 w-14 -rotate-12 rounded-xl border-2 border-current" />
+                      <div className="absolute right-2 top-24 h-9 w-9 rotate-45 rounded-lg border-2 border-current" />
+                      <Sparkle className="absolute right-24 top-6 h-4 w-4 fill-current" />
+                      <Sparkle className="absolute right-6 top-20 h-2.5 w-2.5 fill-current" />
+                    </div>
 
                     {featured && (
                       <span className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-primary to-brand-purple px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
