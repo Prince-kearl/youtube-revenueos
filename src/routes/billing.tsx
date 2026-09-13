@@ -1,6 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ExternalLink, Loader2, Mail, RefreshCw, Youtube } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Crown,
+  ExternalLink,
+  Loader2,
+  Mail,
+  RefreshCw,
+  Rocket,
+  Star,
+  Youtube,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useSiteContent } from "@/lib/stores";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -58,6 +70,17 @@ const CARD_ACCENTS = [
   { avatar: "bg-gradient-to-br from-brand-green to-emerald-600", blob: "bg-brand-green" },
   { avatar: "bg-gradient-to-br from-brand-amber to-orange-600", blob: "bg-brand-amber" },
 ];
+
+// Recognized tier names get a purposeful emblem (rocket for getting started, up through a crown
+// for the top tier); anything else falls back to cycling the same set by position.
+const NAMED_PLAN_ICONS: Record<string, typeof Rocket> = { starter: Rocket, pro: Zap, scale: Crown };
+const FALLBACK_PLAN_ICONS = [Rocket, Zap, Crown, Star];
+function planIcon(name: string, index: number) {
+  return (
+    NAMED_PLAN_ICONS[name.trim().toLowerCase()] ??
+    FALLBACK_PLAN_ICONS[index % FALLBACK_PLAN_ICONS.length]
+  );
+}
 
 function BillingCheckout() {
   const navigate = useNavigate();
@@ -226,15 +249,12 @@ function BillingCheckout() {
                 const isCheckingOut = checkingOutId === p.id;
 
                 const accent = CARD_ACCENTS[index % CARD_ACCENTS.length];
+                const Emblem = planIcon(p.name, index);
 
                 return (
                   <div
                     key={p.id}
-                    className={`group relative flex flex-col overflow-hidden rounded-3xl p-6 transition-transform duration-300 hover:-translate-y-1 ${
-                      featured
-                        ? "border border-primary/40 bg-gradient-to-b from-primary/15 via-primary/5 to-transparent shadow-xl shadow-primary/10 lg:-mt-3 lg:pb-9 lg:pt-9"
-                        : "card-gradient-outline shadow-lg shadow-black/[0.03]"
-                    }`}
+                    className="group relative flex flex-col overflow-hidden rounded-3xl p-6 shadow-lg shadow-black/[0.03] transition-transform duration-300 hover:-translate-y-1 card-gradient-outline"
                   >
                     <GlowingEffect
                       spread={40}
@@ -245,7 +265,7 @@ function BillingCheckout() {
                     />
                     <div
                       aria-hidden="true"
-                      className={`pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-[0.15] blur-3xl transition-opacity duration-300 group-hover:opacity-[0.25] ${accent.blob}`}
+                      className={`pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full opacity-40 blur-3xl transition-opacity duration-300 group-hover:opacity-60 ${accent.blob}`}
                     />
 
                     {featured && (
@@ -255,9 +275,9 @@ function BillingCheckout() {
                     )}
 
                     <span
-                      className={`relative flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-lg shadow-black/10 ${accent.avatar}`}
+                      className={`relative flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-lg shadow-black/10 ${accent.avatar}`}
                     >
-                      {p.name.charAt(0).toUpperCase()}
+                      <Emblem className="h-5 w-5" />
                     </span>
 
                     <h3 className="relative mt-4 text-lg font-semibold tracking-tight">{p.name}</h3>
@@ -270,9 +290,7 @@ function BillingCheckout() {
                     <div className="relative mt-5 flex items-end gap-1.5">
                       {hasPrice ? (
                         <>
-                          <span
-                            className={`text-3xl font-bold tracking-tight ${featured ? "bg-gradient-to-r from-primary to-brand-purple bg-clip-text text-transparent" : ""}`}
-                          >
+                          <span className="text-3xl font-bold tracking-tight">
                             US${money(totalCents / 100)}
                           </span>
                           <span className="pb-1 text-sm text-muted-foreground">
@@ -293,11 +311,7 @@ function BillingCheckout() {
                       <button
                         onClick={() => void startCheckout(p)}
                         disabled={isCheckingOut || !p.available}
-                        className={`relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 ${
-                          featured
-                            ? "bg-gradient-to-r from-primary to-brand-purple text-white hover:opacity-90"
-                            : "border border-border bg-card text-foreground hover:bg-accent"
-                        }`}
+                        className="relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground transition-opacity hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isCheckingOut ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
