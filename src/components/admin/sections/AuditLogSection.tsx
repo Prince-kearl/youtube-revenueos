@@ -14,7 +14,7 @@ type AuditEntry = {
 
 // The complete, real action vocabulary written by logAdminAudit() across every admin route today
 // (see api.admin.features.ts, api.admin.features.bulk.ts, api.admin.releases*.ts,
-// api.admin.users.ts, api.admin.support.tickets.ts) — billing/plan changes are logged separately
+// api.admin.users*.ts, api.admin.support.tickets.ts) — billing/plan changes are logged separately
 // to plan_audit_log and shown in the Billing tab instead, since they carry different fields.
 const ACTION_LABEL: Record<string, string> = {
   role_assigned: "Changed user role",
@@ -27,9 +27,18 @@ const ACTION_LABEL: Record<string, string> = {
   release_edited: "Edited release",
   release_deprecated: "Deprecated release",
   support_ticket_status_changed: "Changed ticket status",
+  user_invited: "Invited user",
+  user_deleted: "Deleted user",
+  user_banned: "Banned user",
+  user_unbanned: "Unbanned user",
+  user_email_verified: "Verified user email",
+  user_creator_verified: "Verified creator badge",
+  user_creator_unverified: "Removed creator badge",
+  user_password_reset_sent: "Sent password reset",
+  user_impersonation_link_generated: "Generated impersonation link",
 };
 const MODULE_FROM_ACTION = (action: string): string => {
-  if (action.startsWith("role_")) return "Roles";
+  if (action.startsWith("role_") || action.startsWith("user_")) return "Users";
   if (action.startsWith("feature_")) return "Features";
   if (action.startsWith("release_")) return "Releases";
   if (action.startsWith("support_")) return "Support";
@@ -44,6 +53,10 @@ function summarizeChange(entry: AuditEntry): string | null {
   const newStatus = entry.new_value?.status;
   if (typeof oldStatus === "string" && typeof newStatus === "string")
     return `${oldStatus} → ${newStatus}`;
+  const banDuration = entry.new_value?.banDuration;
+  if (typeof banDuration === "string")
+    return banDuration === "none" ? "Unbanned" : `for ${banDuration}`;
+  if (typeof newRole === "string" && entry.action === "user_invited") return `as ${newRole}`;
   return null;
 }
 

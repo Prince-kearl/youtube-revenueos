@@ -19,7 +19,18 @@ export function createServiceSupabaseClient(): SupabaseClient {
   );
 }
 
-export async function requireUser(request: Request): Promise<{ client: SupabaseClient; user: User }> {
+// Unauthenticated, no-cookie client for calls that are safe to make without a session (e.g.
+// resetPasswordForEmail, which Supabase itself rate-limits) — never use this for anything that
+// should be scoped to the caller's own identity or protected by RLS as an authenticated user.
+export function createAnonSupabaseClient(): SupabaseClient {
+  return createClient(requireServerEnv("SUPABASE_URL"), requireServerEnv("SUPABASE_ANON_KEY"), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+export async function requireUser(
+  request: Request,
+): Promise<{ client: SupabaseClient; user: User }> {
   const authorization = request.headers.get("Authorization");
   if (!authorization?.startsWith("Bearer ")) {
     throw new Response(JSON.stringify({ error: "AUTH_REQUIRED" }), {

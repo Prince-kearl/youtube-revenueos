@@ -101,6 +101,8 @@ import { Route as ApiAdminPlansPricesRouteImport } from './routes/api.admin.plan
 import { Route as ApiAdminPlansSeedLegacyRouteImport } from './routes/api.admin.plans.seed-legacy'
 import { Route as ApiAdminReleasesPublishRouteImport } from './routes/api.admin.releases.publish'
 import { Route as ApiAdminSupportTicketsRouteImport } from './routes/api.admin.support.tickets'
+import { Route as ApiAdminUsersImpersonateRouteImport } from './routes/api.admin.users.impersonate'
+import { Route as ApiAdminUsersResetPasswordRouteImport } from './routes/api.admin.users.reset-password'
 import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
 import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
 import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
@@ -566,6 +568,18 @@ const ApiAdminSupportTicketsRoute = ApiAdminSupportTicketsRouteImport.update({
   path: '/api/admin/support/tickets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminUsersImpersonateRoute =
+  ApiAdminUsersImpersonateRouteImport.update({
+    id: '/impersonate',
+    path: '/impersonate',
+    getParentRoute: () => ApiAdminUsersRoute,
+  } as any)
+const ApiAdminUsersResetPasswordRoute =
+  ApiAdminUsersResetPasswordRouteImport.update({
+    id: '/reset-password',
+    path: '/reset-password',
+    getParentRoute: () => ApiAdminUsersRoute,
+  } as any)
 const ApiIntegrationsGoogleAnalyticsCallbackRoute =
   ApiIntegrationsGoogleAnalyticsCallbackRouteImport.update({
     id: '/google-analytics/callback',
@@ -635,7 +649,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
-  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
@@ -678,6 +692,8 @@ export interface FileRoutesByFullPath {
   '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
+  '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
+  '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -732,7 +748,7 @@ export interface FileRoutesByTo {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
-  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
@@ -775,6 +791,8 @@ export interface FileRoutesByTo {
   '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
+  '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
+  '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -830,7 +848,7 @@ export interface FileRoutesById {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
-  '/api/admin/users': typeof ApiAdminUsersRoute
+  '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
@@ -873,6 +891,8 @@ export interface FileRoutesById {
   '/api/admin/plans/seed-legacy': typeof ApiAdminPlansSeedLegacyRoute
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
+  '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
+  '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
@@ -972,6 +992,8 @@ export interface FileRouteTypes {
     | '/api/admin/plans/seed-legacy'
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
+    | '/api/admin/users/impersonate'
+    | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -1069,6 +1091,8 @@ export interface FileRouteTypes {
     | '/api/admin/plans/seed-legacy'
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
+    | '/api/admin/users/impersonate'
+    | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -1166,6 +1190,8 @@ export interface FileRouteTypes {
     | '/api/admin/plans/seed-legacy'
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
+    | '/api/admin/users/impersonate'
+    | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
@@ -1220,7 +1246,7 @@ export interface RootRouteChildren {
   ApiAdminFeaturesRoute: typeof ApiAdminFeaturesRouteWithChildren
   ApiAdminPlansRoute: typeof ApiAdminPlansRouteWithChildren
   ApiAdminReleasesRoute: typeof ApiAdminReleasesRouteWithChildren
-  ApiAdminUsersRoute: typeof ApiAdminUsersRoute
+  ApiAdminUsersRoute: typeof ApiAdminUsersRouteWithChildren
   ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
   ApiAffiliateSummaryRoute: typeof ApiAffiliateSummaryRoute
   ApiBillingCheckoutRoute: typeof ApiBillingCheckoutRoute
@@ -1901,6 +1927,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminSupportTicketsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/users/impersonate': {
+      id: '/api/admin/users/impersonate'
+      path: '/impersonate'
+      fullPath: '/api/admin/users/impersonate'
+      preLoaderRoute: typeof ApiAdminUsersImpersonateRouteImport
+      parentRoute: typeof ApiAdminUsersRoute
+    }
+    '/api/admin/users/reset-password': {
+      id: '/api/admin/users/reset-password'
+      path: '/reset-password'
+      fullPath: '/api/admin/users/reset-password'
+      preLoaderRoute: typeof ApiAdminUsersResetPasswordRouteImport
+      parentRoute: typeof ApiAdminUsersRoute
+    }
     '/api/integrations/google-analytics/callback': {
       id: '/api/integrations/google-analytics/callback'
       path: '/google-analytics/callback'
@@ -2031,6 +2071,20 @@ const ApiAdminReleasesRouteChildren: ApiAdminReleasesRouteChildren = {
 const ApiAdminReleasesRouteWithChildren =
   ApiAdminReleasesRoute._addFileChildren(ApiAdminReleasesRouteChildren)
 
+interface ApiAdminUsersRouteChildren {
+  ApiAdminUsersImpersonateRoute: typeof ApiAdminUsersImpersonateRoute
+  ApiAdminUsersResetPasswordRoute: typeof ApiAdminUsersResetPasswordRoute
+}
+
+const ApiAdminUsersRouteChildren: ApiAdminUsersRouteChildren = {
+  ApiAdminUsersImpersonateRoute: ApiAdminUsersImpersonateRoute,
+  ApiAdminUsersResetPasswordRoute: ApiAdminUsersResetPasswordRoute,
+}
+
+const ApiAdminUsersRouteWithChildren = ApiAdminUsersRoute._addFileChildren(
+  ApiAdminUsersRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddVideoRoute: AddVideoRoute,
@@ -2080,7 +2134,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminFeaturesRoute: ApiAdminFeaturesRouteWithChildren,
   ApiAdminPlansRoute: ApiAdminPlansRouteWithChildren,
   ApiAdminReleasesRoute: ApiAdminReleasesRouteWithChildren,
-  ApiAdminUsersRoute: ApiAdminUsersRoute,
+  ApiAdminUsersRoute: ApiAdminUsersRouteWithChildren,
   ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
   ApiAffiliateSummaryRoute: ApiAffiliateSummaryRoute,
   ApiBillingCheckoutRoute: ApiBillingCheckoutRoute,
