@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission, canManageRole, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { listAllAuthUsers } from "@/lib/server/auth-users";
 
 const patchSchema = z.object({
   role: z.enum(["user", "editor", "setter", "manager", "owner", "superadmin"]).optional(),
@@ -39,31 +40,6 @@ async function parseJson(request: Request) {
   }
 }
 
-// auth.users only exposes banned_until/email_confirmed_at/last_sign_in_at/user_metadata through
-// the Admin API, never through PostgREST — so the real Users table has to merge that with
-// profiles (name/role/avatar) rather than reading either alone.
-async function fetchAuthUsersById(service: ReturnType<typeof createServiceSupabaseClient>) {
-  const byId = new Map<
-    string,
-    {
-      banned_until?: string | null;
-      email_confirmed_at?: string | null;
-      last_sign_in_at?: string | null;
-      user_metadata?: Record<string, unknown>;
-    }
-  >();
-  let page = 1;
-  for (;;) {
-    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) break;
-    for (const u of data.users) byId.set(u.id, u);
-    if (data.users.length < 200) break;
-    page += 1;
-    if (page > 10) break; // hard stop — this UI has no pagination yet, 2000 users is plenty for now
-  }
-  return byId;
-}
-
 function deriveStatus(
   authUser: { banned_until?: string | null; email_confirmed_at?: string | null } | undefined,
 ) {
@@ -89,7 +65,7 @@ export const Route = createFileRoute("/api/admin/users")({
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
           const service = createServiceSupabaseClient();
-          const authUsers = await fetchAuthUsersById(service);
+          const authUsers = await listAllAuthUsers(service);
 
           const rows = (data ?? []).map((row) => {
             const authUser = authUsers.get(row.id);

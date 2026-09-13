@@ -55,6 +55,7 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
 import { Route as ApiAdminAuditRouteImport } from './routes/api.admin.audit'
+import { Route as ApiAdminDashboardRouteImport } from './routes/api.admin.dashboard'
 import { Route as ApiAdminFeaturesRouteImport } from './routes/api.admin.features'
 import { Route as ApiAdminPlansRouteImport } from './routes/api.admin.plans'
 import { Route as ApiAdminReleasesRouteImport } from './routes/api.admin.releases'
@@ -335,6 +336,11 @@ const VideosVideoIdRoute = VideosVideoIdRouteImport.update({
 const ApiAdminAuditRoute = ApiAdminAuditRouteImport.update({
   id: '/api/admin/audit',
   path: '/api/admin/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminDashboardRoute = ApiAdminDashboardRouteImport.update({
+  id: '/api/admin/dashboard',
+  path: '/api/admin/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminFeaturesRoute = ApiAdminFeaturesRouteImport.update({
@@ -646,6 +652,7 @@ export interface FileRoutesByFullPath {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -745,6 +752,7 @@ export interface FileRoutesByTo {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -845,6 +853,7 @@ export interface FileRoutesById {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -946,6 +955,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
+    | '/api/admin/dashboard'
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
@@ -1045,6 +1055,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
+    | '/api/admin/dashboard'
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
@@ -1144,6 +1155,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
+    | '/api/admin/dashboard'
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
@@ -1243,6 +1255,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   RSlugRoute: typeof RSlugRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
+  ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
   ApiAdminFeaturesRoute: typeof ApiAdminFeaturesRouteWithChildren
   ApiAdminPlansRoute: typeof ApiAdminPlansRouteWithChildren
   ApiAdminReleasesRoute: typeof ApiAdminReleasesRouteWithChildren
@@ -1603,6 +1616,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/audit'
       fullPath: '/api/admin/audit'
       preLoaderRoute: typeof ApiAdminAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/dashboard': {
+      id: '/api/admin/dashboard'
+      path: '/api/admin/dashboard'
+      fullPath: '/api/admin/dashboard'
+      preLoaderRoute: typeof ApiAdminDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/features': {
@@ -2131,6 +2151,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   RSlugRoute: RSlugRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
+  ApiAdminDashboardRoute: ApiAdminDashboardRoute,
   ApiAdminFeaturesRoute: ApiAdminFeaturesRouteWithChildren,
   ApiAdminPlansRoute: ApiAdminPlansRouteWithChildren,
   ApiAdminReleasesRoute: ApiAdminReleasesRouteWithChildren,
