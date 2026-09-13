@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, MoreHorizontal, Check, PlayCircle, PauseCircle, Pencil } from "lucide-react";
+import { Search, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/ui-bits";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -18,93 +18,114 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  useTenants,
-  TENANT_PLAN_PRICE,
-  TENANT_PLAN_LIMITS,
-  type Tenant,
-  type TenantPlan,
-  type TenantStatus,
-} from "@/lib/stores";
-import { useAuditLogger } from "../useAuditLogger";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
-const statusColor: Record<TenantStatus, string> = {
+type PlanStatus = "Active" | "Trial" | "Past Due" | "Canceled" | "Incomplete" | "Free";
+type Workspace = {
+  id: string;
+  name: string;
+  createdAt: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  ownerAvatar: string | null;
+  memberCount: number;
+  planName: string | null;
+  planStatus: PlanStatus;
+  mrrCents: number;
+};
+
+const statusColor: Record<PlanStatus, string> = {
   Active: "bg-success/15 text-success",
   Trial: "bg-brand-blue/15 text-brand-blue",
   "Past Due": "bg-warning/15 text-warning",
-  Suspended: "bg-destructive/15 text-destructive",
+  Canceled: "bg-destructive/15 text-destructive",
+  Incomplete: "bg-warning/15 text-warning",
+  Free: "bg-accent text-muted-foreground",
 };
-const planColor: Record<TenantPlan, string> = { Starter: "neutral", Pro: "blue", Scale: "purple" };
+const money = (cents: number) =>
+  `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 export function OrganizationsSection() {
-  const [tenants, setTenants] = useTenants();
-  const log = useAuditLogger();
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<Tenant | null>(null);
+  const [editing, setEditing] = useState<Workspace | null>(null);
 
-  const filtered = tenants.filter(
-    (t) =>
-      t.name.toLowerCase().includes(query.toLowerCase()) ||
-      t.owner.toLowerCase().includes(query.toLowerCase()),
+  const load = () => {
+    setStatus((prev) => (prev === "ready" ? "ready" : "loading"));
+    fetch("/api/admin/workspaces", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: Workspace[] };
+        if (!response.ok || !body.data) throw new Error();
+        setWorkspaces(body.data);
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
+  };
+  useEffect(load, [retryNonce]);
+
+  const filtered = workspaces.filter(
+    (w) =>
+      w.name.toLowerCase().includes(query.toLowerCase()) ||
+      (w.ownerName ?? "").toLowerCase().includes(query.toLowerCase()) ||
+      (w.ownerEmail ?? "").toLowerCase().includes(query.toLowerCase()),
   );
-  const totalSeats = tenants.reduce((a, t) => a + t.seatsUsed, 0);
-  const totalStorage = tenants.reduce((a, t) => a + t.storageUsedGb, 0);
+  const totalMembers = workspaces.reduce((a, w) => a + w.memberCount, 0);
+  const paying = workspaces.filter((w) =>
+    ["Active", "Trial", "Past Due"].includes(w.planStatus),
+  ).length;
+  const totalMrr = workspaces.reduce((a, w) => a + w.mrrCents, 0);
 
-  const toggleSuspend = (t: Tenant) => {
-    const next: TenantStatus = t.status === "Suspended" ? "Active" : "Suspended";
-    setTenants((prev) => prev.map((x) => (x.id === t.id ? { ...x, status: next } : x)));
-    log(
-      next === "Suspended" ? "Suspended organization" : "Reactivated organization",
-      "Organizations",
-      t.name,
+  const rename = async (w: Workspace, name: string) => {
+    try {
+      const response = await fetch(`/api/admin/workspaces?id=${w.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "RENAME_FAILED");
+      toast.success(`Renamed to "${name}"`);
+      setEditing(null);
+      load();
+    } catch {
+      toast.error("Couldn't rename that workspace. Please try again.");
+    }
+  };
+
+  if (status === "loading") {
+    return <p className="mt-4 text-sm text-muted-foreground">Loading workspaces…</p>;
+  }
+  if (status === "error") {
+    return (
+      <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
+        <p className="text-sm text-muted-foreground">Couldn't load workspaces.</p>
+        <button
+          onClick={() => setRetryNonce((n) => n + 1)}
+          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </button>
+      </div>
     );
-    toast.success(next === "Suspended" ? `Suspended ${t.name}` : `Reactivated ${t.name}`);
-  };
-  const changePlan = (t: Tenant, plan: TenantPlan) => {
-    const limits = TENANT_PLAN_LIMITS[plan];
-    setTenants((prev) =>
-      prev.map((x) =>
-        x.id === t.id
-          ? {
-              ...x,
-              plan,
-              mrr: TENANT_PLAN_PRICE[plan],
-              seatsLimit: limits.seats,
-              storageQuotaGb: limits.storageGb,
-            }
-          : x,
-      ),
-    );
-    log(`Changed plan to ${plan}`, "Organizations", t.name);
-    toast.success(`${t.name} moved to the ${plan} plan`);
-  };
-  const saveEdit = (t: Tenant) => {
-    setTenants((prev) => prev.map((x) => (x.id === t.id ? t : x)));
-    log("Updated organization details", "Organizations", t.name);
-    toast.success(`${t.name} updated`);
-    setEditing(null);
-  };
+  }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight">Organizations</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Workspaces</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Every workspace on the platform — seats, storage quotas, subscriptions, and branding.
+        Every real workspace on the platform — Tubify's actual tenant boundary, with its owner,
+        team, and subscription.
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Organizations" value={String(tenants.length)} />
-        <FlatKpiCard title="Seats in Use" value={String(totalSeats)} />
-        <FlatKpiCard title="Storage in Use" value={`${totalStorage} GB`} />
-        <FlatKpiCard
-          title="On Trial"
-          value={String(tenants.filter((t) => t.status === "Trial").length)}
-        />
+        <FlatKpiCard title="Workspaces" value={String(workspaces.length)} />
+        <FlatKpiCard title="Total Members" value={String(totalMembers)} />
+        <FlatKpiCard title="Paying" value={String(paying)} />
+        <FlatKpiCard title="MRR" value={money(totalMrr)} />
       </div>
 
       <div className="relative mt-5 max-w-xs">
@@ -112,25 +133,33 @@ export function OrganizationsSection() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search organizations…"
+          placeholder="Search workspaces…"
           className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary"
         />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {filtered.map((t) => (
-          <div key={t.id} className="relative rounded-xl card-gradient-outline p-5">
+        {filtered.map((w) => (
+          <div key={w.id} className="relative rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-3">
-                <img
-                  src={t.avatar}
-                  alt={t.name}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                />
+                {w.ownerAvatar ? (
+                  <img
+                    src={w.ownerAvatar}
+                    alt={w.ownerName ?? ""}
+                    className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold">
+                    {(w.name || "?").charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{t.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{t.domain ?? t.owner}</p>
+                  <p className="truncate font-semibold">{w.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {w.ownerName ?? w.ownerEmail ?? "Unknown owner"}
+                  </p>
                 </div>
               </div>
               <DropdownMenu>
@@ -140,173 +169,91 @@ export function OrganizationsSection() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setEditing(t)}>
-                    <Pencil className="mr-2 h-4 w-4" /> Edit details
+                  <DropdownMenuItem onSelect={() => setEditing(w)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Rename workspace
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => toggleSuspend(t)}
-                    className={
-                      t.status === "Suspended"
-                        ? undefined
-                        : "text-destructive focus:text-destructive"
-                    }
-                  >
-                    {t.status === "Suspended" ? (
-                      <PlayCircle className="mr-2 h-4 w-4" />
-                    ) : (
-                      <PauseCircle className="mr-2 h-4 w-4" />
-                    )}
-                    {t.status === "Suspended" ? "Reactivate" : "Suspend"}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Change plan</DropdownMenuLabel>
-                  {(Object.keys(TENANT_PLAN_PRICE) as TenantPlan[]).map((p) => (
-                    <DropdownMenuItem key={p} onSelect={() => changePlan(t, p)}>
-                      <span className="mr-2 flex h-4 w-4 items-center justify-center">
-                        {t.plan === p && <Check className="h-3.5 w-3.5 text-primary" />}
-                      </span>
-                      {p} — ${TENANT_PLAN_PRICE[p]}/mo
-                    </DropdownMenuItem>
-                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
-              <Tag label={t.plan} color={planColor[t.plan]} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {w.planName && <Tag label={w.planName} color="blue" />}
               <span
-                className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[t.status]}`}
+                className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[w.planStatus]}`}
               >
-                {t.status}
+                {w.planStatus}
               </span>
-              <span className="text-xs text-muted-foreground">joined {t.joined}</span>
+              <span className="text-xs text-muted-foreground">
+                joined {new Date(w.createdAt).toLocaleDateString()}
+              </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <QuotaBar label="Seats" used={t.seatsUsed} total={t.seatsLimit} />
-              <QuotaBar label="Storage" used={t.storageUsedGb} total={t.storageQuotaGb} unit="GB" />
+            <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+              <span>
+                <strong className="text-foreground">{w.memberCount}</strong>{" "}
+                {w.memberCount === 1 ? "member" : "members"}
+              </span>
+              {w.mrrCents > 0 && (
+                <span>
+                  <strong className="text-foreground">{money(w.mrrCents)}</strong>/mo
+                </span>
+              )}
             </div>
           </div>
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-            No organizations match your search.
+            No workspaces match your search.
           </p>
         )}
       </div>
 
-      <EditOrgDialog
+      <RenameDialog
         open={!!editing}
-        org={editing}
+        workspace={editing}
         onOpenChange={(v) => !v && setEditing(null)}
-        onSave={saveEdit}
+        onSave={rename}
       />
     </div>
   );
 }
 
-function QuotaBar({
-  label,
-  used,
-  total,
-  unit = "",
-}: {
-  label: string;
-  used: number;
-  total: number;
-  unit?: string;
-}) {
-  const pct = Math.min(100, Math.round((used / total) * 100));
-  return (
-    <div>
-      <div className="flex justify-between text-[11px] text-muted-foreground">
-        <span>{label}</span>
-        <span>
-          {used}
-          {unit} / {total}
-          {unit}
-        </span>
-      </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-accent">
-        <div
-          className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : "bg-primary"}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function EditOrgDialog({
+function RenameDialog({
   open,
-  org,
+  workspace,
   onOpenChange,
   onSave,
 }: {
   open: boolean;
-  org: Tenant | null;
+  workspace: Workspace | null;
   onOpenChange: (v: boolean) => void;
-  onSave: (t: Tenant) => void;
+  onSave: (w: Workspace, name: string) => void;
 }) {
-  const [form, setForm] = useState<Tenant | null>(null);
+  const [name, setName] = useState("");
   useEffect(() => {
-    if (open) setForm(org);
-  }, [open, org]);
-  if (!form) return null;
+    if (open && workspace) setName(workspace.name);
+  }, [open, workspace]);
+  if (!workspace) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Organization</DialogTitle>
+          <DialogTitle>Rename Workspace</DialogTitle>
           <DialogDescription>
-            Branding, domain, and quota overrides for {org?.name}.
+            This changes the real workspace name for its owner too.
           </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onSave(form);
+            if (name.trim()) onSave(workspace, name.trim());
           }}
           className="space-y-3"
         >
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Organization name</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Custom domain</Label>
-            <Input
-              value={form.domain ?? ""}
-              onChange={(e) => setForm({ ...form, domain: e.target.value })}
-              placeholder="e.g. creator.io"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Seat limit</Label>
-              <Input
-                type="number"
-                min={form.seatsUsed}
-                value={form.seatsLimit}
-                onChange={(e) => setForm({ ...form, seatsLimit: Number(e.target.value) })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Storage quota (GB)
-              </Label>
-              <Input
-                type="number"
-                min={form.storageUsedGb}
-                value={form.storageQuotaGb}
-                onChange={(e) => setForm({ ...form, storageQuotaGb: Number(e.target.value) })}
-              />
-            </div>
+            <Label className="text-xs font-medium text-muted-foreground">Workspace name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

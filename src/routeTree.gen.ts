@@ -61,6 +61,7 @@ import { Route as ApiAdminPlansRouteImport } from './routes/api.admin.plans'
 import { Route as ApiAdminReleasesRouteImport } from './routes/api.admin.releases'
 import { Route as ApiAdminUsersRouteImport } from './routes/api.admin.users'
 import { Route as ApiAdminWhoamiRouteImport } from './routes/api.admin.whoami'
+import { Route as ApiAdminWorkspacesRouteImport } from './routes/api.admin.workspaces'
 import { Route as ApiAffiliateSummaryRouteImport } from './routes/api.affiliate.summary'
 import { Route as ApiBillingCheckoutRouteImport } from './routes/api.billing.checkout'
 import { Route as ApiBillingPortalRouteImport } from './routes/api.billing.portal'
@@ -368,6 +369,11 @@ const ApiAdminWhoamiRoute = ApiAdminWhoamiRouteImport.update({
   path: '/api/admin/whoami',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminWorkspacesRoute = ApiAdminWorkspacesRouteImport.update({
+  id: '/api/admin/workspaces',
+  path: '/api/admin/workspaces',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAffiliateSummaryRoute = ApiAffiliateSummaryRouteImport.update({
   id: '/api/affiliate/summary',
   path: '/api/affiliate/summary',
@@ -658,6 +664,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
@@ -758,6 +765,7 @@ export interface FileRoutesByTo {
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
@@ -859,6 +867,7 @@ export interface FileRoutesById {
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
+  '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
@@ -961,6 +970,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases'
     | '/api/admin/users'
     | '/api/admin/whoami'
+    | '/api/admin/workspaces'
     | '/api/affiliate/summary'
     | '/api/billing/checkout'
     | '/api/billing/portal'
@@ -1061,6 +1071,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases'
     | '/api/admin/users'
     | '/api/admin/whoami'
+    | '/api/admin/workspaces'
     | '/api/affiliate/summary'
     | '/api/billing/checkout'
     | '/api/billing/portal'
@@ -1161,6 +1172,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases'
     | '/api/admin/users'
     | '/api/admin/whoami'
+    | '/api/admin/workspaces'
     | '/api/affiliate/summary'
     | '/api/billing/checkout'
     | '/api/billing/portal'
@@ -1261,6 +1273,7 @@ export interface RootRouteChildren {
   ApiAdminReleasesRoute: typeof ApiAdminReleasesRouteWithChildren
   ApiAdminUsersRoute: typeof ApiAdminUsersRouteWithChildren
   ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
+  ApiAdminWorkspacesRoute: typeof ApiAdminWorkspacesRoute
   ApiAffiliateSummaryRoute: typeof ApiAffiliateSummaryRoute
   ApiBillingCheckoutRoute: typeof ApiBillingCheckoutRoute
   ApiBillingPortalRoute: typeof ApiBillingPortalRoute
@@ -1658,6 +1671,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/whoami'
       fullPath: '/api/admin/whoami'
       preLoaderRoute: typeof ApiAdminWhoamiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/workspaces': {
+      id: '/api/admin/workspaces'
+      path: '/api/admin/workspaces'
+      fullPath: '/api/admin/workspaces'
+      preLoaderRoute: typeof ApiAdminWorkspacesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/affiliate/summary': {
@@ -2157,6 +2177,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminReleasesRoute: ApiAdminReleasesRouteWithChildren,
   ApiAdminUsersRoute: ApiAdminUsersRouteWithChildren,
   ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
+  ApiAdminWorkspacesRoute: ApiAdminWorkspacesRoute,
   ApiAffiliateSummaryRoute: ApiAffiliateSummaryRoute,
   ApiBillingCheckoutRoute: ApiBillingCheckoutRoute,
   ApiBillingPortalRoute: ApiBillingPortalRoute,

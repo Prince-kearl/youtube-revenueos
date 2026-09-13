@@ -54,7 +54,7 @@ export const ADMIN_NAV: {
     items: [
       { key: "users", label: "Users", icon: Users },
       { key: "roles", label: "Roles & Permissions", icon: ShieldCheck },
-      { key: "organizations", label: "Organizations", icon: Building2 },
+      { key: "organizations", label: "Workspaces", icon: Building2 },
     ],
   },
   {
