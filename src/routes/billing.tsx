@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Rocket,
   Star,
-  Youtube,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -175,14 +174,7 @@ function BillingCheckout() {
           <ArrowLeft className="h-4 w-4" /> Back to Settings
         </button>
 
-        <div className="mt-6 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Youtube className="h-4 w-4" />
-          </span>
-          <span className="text-sm font-medium">Tubify Billing</span>
-        </div>
-
-        <h1 className="mt-8 text-center text-3xl font-extrabold uppercase tracking-normal text-foreground sm:text-4xl">
+        <h1 className="mt-6 text-center text-3xl font-extrabold uppercase tracking-normal text-foreground sm:text-4xl">
           Plans and Pricing
         </h1>
 
@@ -266,6 +258,17 @@ function BillingCheckout() {
                     <div
                       aria-hidden="true"
                       className={`pointer-events-none absolute -right-14 -top-20 h-56 w-56 rounded-full opacity-40 blur-3xl transition-opacity duration-300 group-hover:opacity-60 ${accent.blob}`}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute right-0 top-0 h-40 w-40 opacity-[0.18] transition-opacity duration-300 group-hover:opacity-30 ${accent.text}`}
+                      style={{
+                        backgroundImage: "radial-gradient(currentColor 1.5px, transparent 1.5px)",
+                        backgroundSize: "16px 16px",
+                        WebkitMaskImage:
+                          "radial-gradient(circle at top right, black, transparent 70%)",
+                        maskImage: "radial-gradient(circle at top right, black, transparent 70%)",
+                      }}
                     />
 
                     {featured && (
