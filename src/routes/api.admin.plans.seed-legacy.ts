@@ -30,6 +30,11 @@ const LEGACY_PLANS = [
     sortOrder: 0,
     monthEnv: "STRIPE_PRICE_STARTER_MONTH",
     yearEnv: "STRIPE_PRICE_STARTER_YEAR",
+    features: [
+      "Video & project management",
+      "Multi-platform destinations",
+      "Link tracking & QR codes",
+    ],
   },
   {
     slug: "pro",
@@ -38,6 +43,11 @@ const LEGACY_PLANS = [
     sortOrder: 1,
     monthEnv: "STRIPE_PRICE_PRO_MONTH",
     yearEnv: "STRIPE_PRICE_PRO_YEAR",
+    features: [
+      "AI-generated video descriptions",
+      "Comment automation & lead capture",
+      "Audience analytics",
+    ],
   },
   {
     slug: "scale",
@@ -46,6 +56,7 @@ const LEGACY_PLANS = [
     sortOrder: 2,
     monthEnv: "STRIPE_PRICE_SCALE_MONTH",
     yearEnv: "STRIPE_PRICE_SCALE_YEAR",
+    features: ["Affiliate & referral tracking", "Brand deals pipeline", "Team seats & roles"],
   },
 ] as const;
 
@@ -104,6 +115,7 @@ export const Route = createFileRoute("/api/admin/plans/seed-legacy")({
                   slug: legacy.slug,
                   description: legacy.description,
                   currency: monthPrice.currency,
+                  features: legacy.features,
                   is_active: true,
                   is_public: true,
                   sort_order: legacy.sortOrder,

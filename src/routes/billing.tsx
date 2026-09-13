@@ -297,14 +297,26 @@ function BillingCheckout() {
                     )}
 
                     {p.features.length > 0 && (
-                      <ul className="mt-6 space-y-2.5 border-t border-border pt-5">
-                        {p.features.map((feature) => (
-                          <li key={feature} className="flex items-start gap-2 text-sm">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                            <span className="text-muted-foreground">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="mt-6 border-t border-border pt-5">
+                        {index > 0 && (
+                          <p className="text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Everything in{" "}
+                            {plans
+                              .slice(0, index)
+                              .map((pl) => pl.name)
+                              .join(" & ")}
+                            , plus
+                          </p>
+                        )}
+                        <ul className={`space-y-2.5 ${index > 0 ? "mt-3" : ""}`}>
+                          {p.features.map((feature) => (
+                            <li key={feature} className="flex items-start gap-2 text-sm">
+                              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <span className="text-muted-foreground">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 );

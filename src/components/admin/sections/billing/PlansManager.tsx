@@ -608,6 +608,7 @@ function CreatePlanDialog({
   const [description, setDescription] = useState("");
   const [monthly, setMonthly] = useState("");
   const [annual, setAnnual] = useState("");
+  const [features, setFeatures] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -617,6 +618,7 @@ function CreatePlanDialog({
       setDescription("");
       setMonthly("");
       setAnnual("");
+      setFeatures("");
     }
   }, [open]);
 
@@ -642,6 +644,10 @@ function CreatePlanDialog({
           description: description.trim() || null,
           monthlyPriceCents: monthlyCents,
           annualPriceCents: annualCents,
+          features: features
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean),
         }),
       });
       const body = await response.json();
@@ -721,6 +727,18 @@ function CreatePlanDialog({
               />
             </Field>
           </div>
+          <Field label="Features (one per line)">
+            <Textarea
+              value={features}
+              onChange={(e) => setFeatures(e.target.value)}
+              rows={4}
+              placeholder={"AI-generated video descriptions\nComment automation & lead capture"}
+            />
+            <span className="block text-xs font-normal text-muted-foreground">
+              Shown on the billing page as this plan's own benefits, on top of everything the plan
+              below it already includes.
+            </span>
+          </Field>
           <DialogFooter>
             <Button
               type="button"
@@ -752,6 +770,7 @@ function EditPlanDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
+  const [features, setFeatures] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -759,6 +778,7 @@ function EditPlanDialog({
       setName(plan.name);
       setDescription(plan.description ?? "");
       setSortOrder(plan.sort_order);
+      setFeatures(plan.features.join("\n"));
     }
   }, [plan]);
 
@@ -775,6 +795,10 @@ function EditPlanDialog({
           name: name.trim(),
           description: description.trim() || null,
           sortOrder,
+          features: features
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean),
         }),
       });
       if (!response.ok) throw new Error();
@@ -814,6 +838,18 @@ function EditPlanDialog({
               value={sortOrder}
               onChange={(e) => setSortOrder(Number(e.target.value))}
             />
+          </Field>
+          <Field label="Features (one per line)">
+            <Textarea
+              value={features}
+              onChange={(e) => setFeatures(e.target.value)}
+              rows={4}
+              placeholder={"AI-generated video descriptions\nComment automation & lead capture"}
+            />
+            <span className="block text-xs font-normal text-muted-foreground">
+              Shown on the billing page as this plan's own benefits, on top of everything the plan
+              below it already includes.
+            </span>
           </Field>
           <DialogFooter>
             <Button
