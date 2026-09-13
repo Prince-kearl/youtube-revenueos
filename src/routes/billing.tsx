@@ -62,13 +62,13 @@ function errorMessage(error: string): string {
 }
 
 // Cycled per plan card position so a multi-tier catalog reads as visually distinct without any
-// per-plan color config existing in the data model. Each entry pairs a gradient avatar chip with
-// a matching soft background "blob" color for that card's corner glow.
+// per-plan color config existing in the data model. Each entry pairs an icon color with a
+// matching soft background "blob" color for that card's corner glow.
 const CARD_ACCENTS = [
-  { avatar: "bg-gradient-to-br from-brand-blue to-blue-600", blob: "bg-brand-blue" },
-  { avatar: "bg-gradient-to-br from-brand-purple to-purple-600", blob: "bg-brand-purple" },
-  { avatar: "bg-gradient-to-br from-brand-green to-emerald-600", blob: "bg-brand-green" },
-  { avatar: "bg-gradient-to-br from-brand-amber to-orange-600", blob: "bg-brand-amber" },
+  { text: "text-brand-blue", blob: "bg-brand-blue" },
+  { text: "text-brand-purple", blob: "bg-brand-purple" },
+  { text: "text-brand-green", blob: "bg-brand-green" },
+  { text: "text-brand-amber", blob: "bg-brand-amber" },
 ];
 
 // Recognized tier names get a purposeful emblem (rocket for getting started, up through a crown
@@ -182,7 +182,7 @@ function BillingCheckout() {
           <span className="text-sm font-medium">Tubify Billing</span>
         </div>
 
-        <h1 className="mt-8 bg-gradient-to-r from-primary via-brand-purple to-primary bg-clip-text text-center text-3xl font-extrabold uppercase tracking-widest text-transparent sm:text-4xl">
+        <h1 className="mt-8 text-center text-3xl font-extrabold uppercase tracking-normal text-foreground sm:text-4xl">
           Plans and Pricing
         </h1>
 
@@ -275,9 +275,9 @@ function BillingCheckout() {
                     )}
 
                     <span
-                      className={`relative flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-lg shadow-black/10 ${accent.avatar}`}
+                      className={`relative flex h-11 w-11 items-center justify-center rounded-full ${accent.text}`}
                     >
-                      <Emblem className="h-5 w-5" />
+                      <Emblem className="h-6 w-6" />
                     </span>
 
                     <h3 className="relative mt-4 text-lg font-semibold tracking-tight">{p.name}</h3>
