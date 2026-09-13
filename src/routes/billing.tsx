@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Check, ExternalLink, Loader2, Mail, RefreshCw, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { useSiteContent } from "@/lib/stores";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 export const Route = createFileRoute("/billing")({
   component: BillingCheckout,
@@ -49,12 +50,13 @@ function errorMessage(error: string): string {
 }
 
 // Cycled per plan card position so a multi-tier catalog reads as visually distinct without any
-// per-plan color config existing in the data model.
-const AVATAR_PALETTE = [
-  "bg-brand-blue/15 text-brand-blue",
-  "bg-brand-purple/15 text-brand-purple",
-  "bg-brand-green/15 text-brand-green",
-  "bg-brand-amber/15 text-brand-amber",
+// per-plan color config existing in the data model. Each entry pairs a gradient avatar chip with
+// a matching soft background "blob" color for that card's corner glow.
+const CARD_ACCENTS = [
+  { avatar: "bg-gradient-to-br from-brand-blue to-blue-600", blob: "bg-brand-blue" },
+  { avatar: "bg-gradient-to-br from-brand-purple to-purple-600", blob: "bg-brand-purple" },
+  { avatar: "bg-gradient-to-br from-brand-green to-emerald-600", blob: "bg-brand-green" },
+  { avatar: "bg-gradient-to-br from-brand-amber to-orange-600", blob: "bg-brand-amber" },
 ];
 
 function BillingCheckout() {
@@ -157,6 +159,10 @@ function BillingCheckout() {
           <span className="text-sm font-medium">Tubify Billing</span>
         </div>
 
+        <h1 className="mt-8 bg-gradient-to-r from-primary via-brand-purple to-primary bg-clip-text text-center text-3xl font-extrabold uppercase tracking-widest text-transparent sm:text-4xl">
+          Plans and Pricing
+        </h1>
+
         {!data.stripeConfigured && (
           <div className="mt-6 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
             Billing isn't configured yet — Stripe API keys haven't been added. Plans are shown for
@@ -219,36 +225,54 @@ function BillingCheckout() {
                     : 0;
                 const isCheckingOut = checkingOutId === p.id;
 
+                const accent = CARD_ACCENTS[index % CARD_ACCENTS.length];
+
                 return (
                   <div
                     key={p.id}
-                    className={`relative flex flex-col rounded-3xl p-6 ${
+                    className={`group relative flex flex-col overflow-hidden rounded-3xl p-6 transition-transform duration-300 hover:-translate-y-1 ${
                       featured
-                        ? "border border-primary/40 bg-gradient-to-b from-primary/10 to-transparent shadow-lg lg:-mt-3 lg:pt-9 lg:pb-9"
-                        : "card-gradient-outline"
+                        ? "border border-primary/40 bg-gradient-to-b from-primary/15 via-primary/5 to-transparent shadow-xl shadow-primary/10 lg:-mt-3 lg:pb-9 lg:pt-9"
+                        : "card-gradient-outline shadow-lg shadow-black/[0.03]"
                     }`}
                   >
+                    <GlowingEffect
+                      spread={40}
+                      glow
+                      disabled={false}
+                      proximity={64}
+                      inactiveZone={0.01}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-[0.15] blur-3xl transition-opacity duration-300 group-hover:opacity-[0.25] ${accent.blob}`}
+                    />
+
                     {featured && (
-                      <span className="absolute right-6 top-6 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
+                      <span className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-primary to-brand-purple px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
                         Most popular
                       </span>
                     )}
 
                     <span
-                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${AVATAR_PALETTE[index % AVATAR_PALETTE.length]}`}
+                      className={`relative flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-lg shadow-black/10 ${accent.avatar}`}
                     >
                       {p.name.charAt(0).toUpperCase()}
                     </span>
 
-                    <h3 className="mt-4 text-lg font-semibold tracking-tight">{p.name}</h3>
+                    <h3 className="relative mt-4 text-lg font-semibold tracking-tight">{p.name}</h3>
                     {p.description && (
-                      <p className="mt-1.5 text-sm text-muted-foreground">{p.description}</p>
+                      <p className="relative mt-1.5 text-sm text-muted-foreground">
+                        {p.description}
+                      </p>
                     )}
 
-                    <div className="mt-5 flex items-end gap-1.5">
+                    <div className="relative mt-5 flex items-end gap-1.5">
                       {hasPrice ? (
                         <>
-                          <span className="text-3xl font-bold tracking-tight">
+                          <span
+                            className={`text-3xl font-bold tracking-tight ${featured ? "bg-gradient-to-r from-primary to-brand-purple bg-clip-text text-transparent" : ""}`}
+                          >
                             US${money(totalCents / 100)}
                           </span>
                           <span className="pb-1 text-sm text-muted-foreground">
@@ -260,7 +284,7 @@ function BillingCheckout() {
                       )}
                     </div>
                     {hasPrice && billingInterval === "year" && savingsPct > 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="relative mt-1 text-xs text-muted-foreground">
                         Save {savingsPct}% vs monthly
                       </p>
                     )}
@@ -269,9 +293,9 @@ function BillingCheckout() {
                       <button
                         onClick={() => void startCheckout(p)}
                         disabled={isCheckingOut || !p.available}
-                        className={`mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 ${
                           featured
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            ? "bg-gradient-to-r from-primary to-brand-purple text-white hover:opacity-90"
                             : "border border-border bg-card text-foreground hover:bg-accent"
                         }`}
                       >
@@ -285,19 +309,19 @@ function BillingCheckout() {
                     ) : (
                       <a
                         href={`mailto:${content.contactEmail}`}
-                        className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-accent"
+                        className="relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-accent"
                       >
                         <Mail className="h-4 w-4" /> Contact us
                       </a>
                     )}
                     {hasPrice && !p.available && (
-                      <p className="mt-2 text-center text-xs text-muted-foreground">
+                      <p className="relative mt-2 text-center text-xs text-muted-foreground">
                         This plan's Stripe price isn't configured yet.
                       </p>
                     )}
 
                     {p.features.length > 0 && (
-                      <div className="mt-6 border-t border-border pt-5">
+                      <div className="relative mt-6 border-t border-border pt-5">
                         {index > 0 && (
                           <p className="text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Everything in{" "}
