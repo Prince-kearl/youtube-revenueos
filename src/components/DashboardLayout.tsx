@@ -1164,13 +1164,16 @@ export function DashboardLayout({
                     aria-label={item.label}
                     title={item.label}
                     className={cn(
-                      "group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
+                      "group relative flex h-10 shrink-0 items-center justify-center rounded-full transition-all",
                       active
-                        ? "glass-tab-active"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        ? "glass-tab-active gap-1.5 px-3"
+                        : "w-10 text-muted-foreground hover:bg-accent hover:text-foreground",
                     )}
                   >
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
+                    {active && (
+                      <span className="whitespace-nowrap text-sm font-semibold">{item.label}</span>
+                    )}
                   </Link>
                 );
               })}
