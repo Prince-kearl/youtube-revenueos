@@ -11,14 +11,12 @@ export function ThemeInjector() {
   const [ios26Design] = useIos26Design();
   const [ios26Wallpaper] = useIos26Wallpaper();
 
-  // Pulls the latest Customization settings from the global settings API (Cloudflare KV, see
-  // src/routes/api.settings.ts) once per app load, so a change a Superadmin made from a different
-  // browser/device shows up here too — not just the browser that made it. Uses the raw local
-  // setter (not useSiteContent's wrapped one) so this doesn't immediately PUT the same value
-  // straight back to the server it was just read from. Silently keeps whatever's already in
-  // localStorage (or the seed defaults) if the request fails or the KV binding isn't configured
-  // in this environment (e.g. plain `vite dev` without `wrangler dev`) — this was already the
-  // only source of truth before this endpoint existed, so there's nothing to break.
+  // Pulls the latest Customization settings from the global settings API (a real Supabase table,
+  // see src/routes/api.settings.ts) once per app load, so a change a Superadmin made from a
+  // different browser/device shows up here too — not just the browser that made it. Uses the raw
+  // local setter (not useSiteContent's wrapped one) so this doesn't immediately PUT the same
+  // value straight back to the server it was just read from. Silently keeps whatever's already in
+  // localStorage (or the seed defaults) if the request fails — never blocks rendering on it.
   useEffect(() => {
     fetch("/api/settings")
       .then((res) => (res.ok ? res.json() : null))
