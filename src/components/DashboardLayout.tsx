@@ -29,12 +29,9 @@ import {
   Send,
   Menu,
   Shield,
-  Crown,
-  Target,
   Pencil,
   Lock,
   ShieldAlert,
-  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -66,7 +63,6 @@ import {
   useSiteContent,
   canAccessRoute,
   FEATURE_META,
-  PLATFORM_ROLES,
   type PlatformRole,
   type FeatureKey,
 } from "@/lib/stores";
@@ -163,19 +159,6 @@ const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "General", items: ["/reports", "/support", "/settings"] },
   { label: "Platform", items: ["/admin"] },
 ];
-
-const ROLE_META: Record<PlatformRole, { icon: typeof Shield; color: string }> = {
-  Superadmin: { icon: Shield, color: "text-brand-purple bg-brand-purple/10" },
-  Owner: { icon: Crown, color: "text-primary bg-primary/10" },
-  Manager: { icon: Users, color: "text-brand-green bg-brand-green/10" },
-  Setter: { icon: Target, color: "text-brand-amber bg-brand-amber/10" },
-  Editor: { icon: Pencil, color: "text-muted-foreground bg-accent" },
-};
-
-// "Preview as role" now simulates real WORKSPACE roles (see api.features.access.ts) — Superadmin
-// isn't a workspace role at all, so it's excluded here even though PLATFORM_ROLES (the older demo
-// nav-gating list) still includes it for its own unrelated purpose.
-const WORKSPACE_PREVIEW_ROLES = PLATFORM_ROLES.filter((role) => role !== "Superadmin");
 
 const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
   (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(
@@ -673,16 +656,6 @@ export function DashboardLayout({
     (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin") ||
     !realFeatureEnabledFor(pathname);
 
-  const switchRole = (role: PlatformRole) => {
-    setViewerRole(role);
-    if (!canAccessRoute(role, pathname)) {
-      navigate({ to: "/dashboard" });
-    }
-    toast.success(`Viewing as ${role}`, {
-      description: "Real nav & feature access for that role — your own account never changes.",
-    });
-  };
-
   // Cmd/Ctrl+K search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -942,48 +915,6 @@ export function DashboardLayout({
                 </div>
               )}
             </div>
-
-            {/* Workspace owner/manager-only role preview — a real simulation backed by
-                role_feature_access (see the previewRole param above), never an actual role
-                change. Hidden entirely for setter/editor. */}
-            {canPreviewRoles && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    title="Preview how another role's navigation and feature access looks"
-                    className={`flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${ROLE_META[viewerRole].color}`}
-                  >
-                    {(() => {
-                      const RoleIcon = ROLE_META[viewerRole].icon;
-                      return <RoleIcon className="h-3.5 w-3.5" />;
-                    })()}
-                    <span className="hidden sm:inline">Viewing as {viewerRole}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel>Preview as role</DropdownMenuLabel>
-                  <p className="px-2 pb-2 text-xs text-muted-foreground">
-                    Shows real nav &amp; feature access for another role. Your own account and
-                    permissions never change.
-                  </p>
-                  <DropdownMenuSeparator />
-                  {WORKSPACE_PREVIEW_ROLES.map((role) => {
-                    const RoleIcon = ROLE_META[role].icon;
-                    return (
-                      <DropdownMenuItem
-                        key={role}
-                        onSelect={() => switchRole(role)}
-                        className={role === viewerRole ? "bg-accent" : undefined}
-                      >
-                        <RoleIcon className="mr-2 h-4 w-4" />
-                        <span className="flex-1">{role}</span>
-                        {role === viewerRole && <ShieldCheck className="h-4 w-4 text-primary" />}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
 
             {/* Notifications */}
             <Popover>
