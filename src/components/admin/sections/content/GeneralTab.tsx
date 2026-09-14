@@ -167,6 +167,13 @@ export function GeneralTab() {
           onChange={(v) => setContent({ ...content, inputRadius: v })}
           hint="Controls the roundness of text fields, textareas, and dropdowns throughout the app."
         />
+
+        <RadiusField
+          label="KPI Card Roundness"
+          value={content.kpiCardRadius}
+          onChange={(v) => setContent({ ...content, kpiCardRadius: v })}
+          hint="Controls the roundness of the KPI trend cards on the Dashboard and other analytics pages — separate from Card Roundness above."
+        />
       </SectionCard>
     </div>
   );

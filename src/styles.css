@@ -54,6 +54,7 @@
   --card-radius: 4px;
   --button-radius: 0px;
   --input-radius: 0px;
+  --kpi-card-radius: 16px;
   --background: #f3faff;
   --foreground: #18181b;
   --card: #ffffff;
@@ -278,7 +279,14 @@
    via the `accent` prop) stays untouched since it targets background-image specifically, while
    these rules only touch border/background-color/shadow, the same split .card-frost relies on.
    Only background-color (not the `background` shorthand) is set here so the inline gradient is
-   never reset. */
+   never reset. Radius is its own token (--kpi-card-radius, Customization → KPI Card Roundness)
+   rather than reusing --card-radius — KpiTrendCard's hardcoded rounded-xl/sm:rounded-2xl Tailwind
+   classes lose to this rule the same way card-gradient-outline's paired rounded-xl class does
+   (this project's Tailwind v4 utilities sit in @layer utilities, which loses to unlayered custom
+   CSS regardless of source order), so no JSX change is needed for the admin control to take effect. */
+.kpi-trend-card {
+  border-radius: var(--kpi-card-radius);
+}
 .ios26 .kpi-trend-card {
   border-color: color-mix(in srgb, white 40%, transparent);
   background-color: color-mix(in srgb, var(--card) 55%, transparent);

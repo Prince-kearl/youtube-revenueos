@@ -45,10 +45,12 @@ export function ThemeInjector() {
       root.setProperty("--card-radius", "24px");
       root.setProperty("--button-radius", "999px");
       root.setProperty("--input-radius", "16px");
+      root.setProperty("--kpi-card-radius", "24px");
     } else {
       root.setProperty("--card-radius", `${content.cardRadius}px`);
       root.setProperty("--button-radius", `${content.buttonRadius}px`);
       root.setProperty("--input-radius", `${content.inputRadius}px`);
+      root.setProperty("--kpi-card-radius", `${content.kpiCardRadius}px`);
     }
   }, [
     content.primaryColor,
@@ -57,6 +59,7 @@ export function ThemeInjector() {
     content.cardRadius,
     content.buttonRadius,
     content.inputRadius,
+    content.kpiCardRadius,
     ios26Design,
   ]);
 

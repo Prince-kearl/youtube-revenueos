@@ -1014,6 +1014,7 @@ export interface SiteContent {
   cardRadius: number;
   buttonRadius: number;
   inputRadius: number;
+  kpiCardRadius: number;
   heroBadge: string;
   heroHeadline: string;
   heroSubheadline: string;
@@ -1054,6 +1055,7 @@ const seedSiteContent = (): SiteContent => ({
   cardRadius: 4,
   buttonRadius: 0,
   inputRadius: 0,
+  kpiCardRadius: 16,
   heroBadge: "Now with AI-generated descriptions",
   heroHeadline: "Stop guessing which videos make you money.",
   heroSubheadline:
