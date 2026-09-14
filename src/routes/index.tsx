@@ -124,7 +124,7 @@ function Login() {
           type="button"
           onClick={handleGoogle}
           disabled={googleSubmitting || submitting}
-          className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-[var(--button-radius)] border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+          className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-full border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
         >
           {googleSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />}
           Continue with Google
@@ -140,7 +140,7 @@ function Login() {
           <form onSubmit={handleMfaVerify} className="mt-6 space-y-5">
             {error && <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
             <input autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))} className="h-12 w-full rounded-xl border border-border bg-accent/30 px-4 text-center text-lg tracking-[0.5em] outline-none focus:border-primary" placeholder="000000" />
-            <button type="submit" disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}</button>
+            <button type="submit" disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}</button>
             <p className="text-center text-sm text-muted-foreground">Recovery-code sign-in is not available until a server-side recovery session flow is added.</p>
           </form>
         ) : <form onSubmit={handleSubmit} className="space-y-5">
@@ -193,7 +193,7 @@ function Login() {
           <button
             type="submit"
             disabled={submitting || googleSubmitting}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign In <ArrowRight className="h-4 w-4" /></>}
           </button>

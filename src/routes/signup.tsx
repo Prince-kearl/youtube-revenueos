@@ -127,7 +127,7 @@ function Signup() {
               type="button"
               onClick={handleGoogle}
               disabled={googleSubmitting || submitting}
-              className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-[var(--button-radius)] border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+              className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-full border border-border bg-accent/40 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
             >
               {googleSubmitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -222,7 +222,7 @@ function Signup() {
               <button
                 type="submit"
                 disabled={submitting || googleSubmitting}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
