@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Sparkles,
   FileText,
@@ -10,12 +10,25 @@ import {
   ChevronDown,
   Search,
   Play,
+  Plus,
+  Trash2,
+  Bookmark,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
@@ -71,6 +84,16 @@ type MyVideosResponse =
 
 type DestinationResponse = { data?: Destination[]; error?: string };
 
+type DescriptionTemplate = {
+  id: string;
+  name: string;
+  voice: string;
+  destination_id: string | null;
+  custom_instructions: string | null;
+};
+type TemplatesResponse = { data?: DescriptionTemplate[]; error?: string };
+type TemplateResponse = { data?: DescriptionTemplate; error?: string };
+
 type OptimizeResponse =
   | { data: { description: string; titleIdeas: string[]; tags: string[]; ctaIdeas: string[] } }
   | { error: string };
@@ -101,6 +124,7 @@ function errorMessage(error: string): string {
     AI_PROVIDER_NOT_CONFIGURED:
       "AI writing isn’t available yet. Add a provider API key in Settings.",
     AI_PROVIDER_FAILED: "We couldn’t complete that AI request right now. Please try again.",
+    VALIDATION_ERROR: "Give the template a name before saving.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
@@ -136,6 +160,14 @@ function AILab() {
     "loading",
   );
   const [selectedDestinationId, setSelectedDestinationId] = useState<string>("");
+
+  const [templates, setTemplates] = useState<DescriptionTemplate[]>([]);
+  const [templatesStatus, setTemplatesStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -181,6 +213,22 @@ function AILab() {
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
         setDestinationsStatus("error");
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/description-templates", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as TemplatesResponse;
+        if (!response.ok || !body.data) throw new Error();
+        setTemplates(body.data);
+        setTemplatesStatus("loaded");
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setTemplatesStatus("error");
       });
     return () => controller.abort();
   }, []);
@@ -257,6 +305,63 @@ function AILab() {
       toast.error(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const applyTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+    setVoice(template.voice);
+    setSelectedDestinationId(template.destination_id ?? "");
+    setCustomInstructions(template.custom_instructions ?? "");
+  };
+
+  const handleSaveTemplate = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingTemplate(true);
+    try {
+      const response = await fetch("/api/description-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newTemplateName,
+          voice,
+          destinationId: selectedDestinationId || null,
+          customInstructions: customInstructions || null,
+        }),
+      });
+      const body = (await response.json()) as TemplateResponse;
+      if (!response.ok || !body.data) {
+        throw new Error("error" in body ? body.error : "SERVER_ERROR");
+      }
+      setTemplates((prev) => [...prev, body.data!].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedTemplateId(body.data.id);
+      setNewTemplateName("");
+      setTemplateDialogOpen(false);
+      toast.success(`Saved "${body.data.name}" template`);
+    } catch (reason: unknown) {
+      toast.error(errorMessage(reason instanceof Error ? reason.message : "SERVER_ERROR"));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!selectedTemplateId) return;
+    setDeletingTemplate(true);
+    try {
+      const response = await fetch(`/api/description-templates?id=${selectedTemplateId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error();
+      setTemplates((prev) => prev.filter((t) => t.id !== selectedTemplateId));
+      setSelectedTemplateId("");
+      toast.success("Template deleted");
+    } catch {
+      toast.error("Couldn’t delete that template. Please try again.");
+    } finally {
+      setDeletingTemplate(false);
     }
   };
 
@@ -478,6 +583,55 @@ function AILab() {
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h3 className="font-semibold">Generation Settings</h3>
 
+            <p className="mt-4 text-sm text-muted-foreground">Description Template</p>
+            {templatesStatus === "loading" && <Skeleton className="mt-2 h-11 w-full rounded-lg" />}
+            {templatesStatus === "error" && (
+              <p className="mt-2 text-sm text-muted-foreground">We couldn’t load your templates.</p>
+            )}
+            {templatesStatus === "loaded" && (
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  aria-label="Description template"
+                  value={selectedTemplateId}
+                  onChange={(event) => applyTemplate(event.target.value)}
+                  className="w-full min-w-0 rounded-lg border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">{templates.length === 0 ? "No saved templates" : "None"}</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedTemplateId && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteTemplate()}
+                    disabled={deletingTemplate}
+                    aria-label="Delete template"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive hover:text-destructive disabled:opacity-50"
+                  >
+                    {deletingTemplate ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setTemplateDialogOpen(true)}
+                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-4 w-4" /> New
+                </button>
+              </div>
+            )}
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Save your Brand Voice, destination, and custom instructions below as a named preset to
+              reuse across videos.
+            </p>
+
             <p className="mt-4 text-sm text-muted-foreground">Brand Voice</p>
             <div className="mt-2 grid grid-cols-2 gap-2.5">
               {voices.map((v) => (
@@ -614,6 +768,43 @@ function AILab() {
           </div>
         </div>
       </div>
+
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-4 w-4 text-primary" /> Save as template
+            </DialogTitle>
+            <DialogDescription>
+              Saves the current Brand Voice, featured destination, and custom instructions under a
+              name you can pick again later.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(event) => void handleSaveTemplate(event)} className="space-y-3">
+            <Input
+              autoFocus
+              value={newTemplateName}
+              onChange={(event) => setNewTemplateName(event.target.value)}
+              placeholder="e.g. Course launch, Weekly vlog"
+              maxLength={80}
+              required
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-full"
+                onClick={() => setTemplateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="rounded-full" disabled={savingTemplate}>
+                {savingTemplate ? "Saving…" : "Save Template"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

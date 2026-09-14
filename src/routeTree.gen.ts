@@ -40,6 +40,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as ApiCampaignsRouteImport } from './routes/api.campaigns'
 import { Route as ApiCommentRulesRouteImport } from './routes/api.comment-rules'
 import { Route as ApiDealsRouteImport } from './routes/api.deals'
+import { Route as ApiDescriptionTemplatesRouteImport } from './routes/api.description-templates'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiFreebiesRouteImport } from './routes/api.freebies'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
@@ -263,6 +264,11 @@ const ApiCommentRulesRoute = ApiCommentRulesRouteImport.update({
 const ApiDealsRoute = ApiDealsRouteImport.update({
   id: '/api/deals',
   path: '/api/deals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDescriptionTemplatesRoute = ApiDescriptionTemplatesRouteImport.update({
+  id: '/api/description-templates',
+  path: '/api/description-templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDestinationsRoute = ApiDestinationsRouteImport.update({
@@ -649,6 +655,7 @@ export interface FileRoutesByFullPath {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
+  '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
@@ -751,6 +758,7 @@ export interface FileRoutesByTo {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
+  '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
@@ -854,6 +862,7 @@ export interface FileRoutesById {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
+  '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRoute
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
@@ -958,6 +967,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-rules'
     | '/api/deals'
+    | '/api/description-templates'
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
@@ -1060,6 +1070,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-rules'
     | '/api/deals'
+    | '/api/description-templates'
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
@@ -1162,6 +1173,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-rules'
     | '/api/deals'
+    | '/api/description-templates'
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
@@ -1265,6 +1277,7 @@ export interface RootRouteChildren {
   ApiCampaignsRoute: typeof ApiCampaignsRoute
   ApiCommentRulesRoute: typeof ApiCommentRulesRouteWithChildren
   ApiDealsRoute: typeof ApiDealsRoute
+  ApiDescriptionTemplatesRoute: typeof ApiDescriptionTemplatesRoute
   ApiDestinationsRoute: typeof ApiDestinationsRoute
   ApiFreebiesRoute: typeof ApiFreebiesRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
@@ -1537,6 +1550,13 @@ declare module '@tanstack/react-router' {
       path: '/api/deals'
       fullPath: '/api/deals'
       preLoaderRoute: typeof ApiDealsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/description-templates': {
+      id: '/api/description-templates'
+      path: '/api/description-templates'
+      fullPath: '/api/description-templates'
+      preLoaderRoute: typeof ApiDescriptionTemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/destinations': {
@@ -2177,6 +2197,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCampaignsRoute: ApiCampaignsRoute,
   ApiCommentRulesRoute: ApiCommentRulesRouteWithChildren,
   ApiDealsRoute: ApiDealsRoute,
+  ApiDescriptionTemplatesRoute: ApiDescriptionTemplatesRoute,
   ApiDestinationsRoute: ApiDestinationsRoute,
   ApiFreebiesRoute: ApiFreebiesRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
