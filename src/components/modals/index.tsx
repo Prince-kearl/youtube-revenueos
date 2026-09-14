@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -837,14 +838,13 @@ export function ConfirmDialog({
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={
-              destructive
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : ""
-            }
+            className={cn(
+              "rounded-full",
+              destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            )}
           >
             {confirmLabel}
           </AlertDialogAction>
