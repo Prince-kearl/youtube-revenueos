@@ -646,7 +646,7 @@ function Comments() {
                         ? `Comment contains: ${r.keywords.join(", ")}`
                         : meta.label}
                     </p>
-                    <div className="rounded-lg border border-border bg-background p-3 text-muted-foreground">
+                    <div className="rounded-xl border border-border bg-background p-3 text-muted-foreground">
                       <span className="text-[11px] uppercase tracking-wide text-brand-purple">
                         Auto-reply
                       </span>
@@ -666,7 +666,7 @@ function Comments() {
               <p className="text-sm text-muted-foreground">No auto-replies sent yet.</p>
             )}
             {recentReplies.slice(0, 6).map((c) => (
-              <div key={c.id} className="rounded-lg border border-border bg-background p-3">
+              <div key={c.id} className="rounded-xl border border-border bg-background p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{c.author_name ?? "Unknown"}</span>
                   <span className="text-[11px] text-muted-foreground">{timeAgo(c.created_at)}</span>
