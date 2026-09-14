@@ -594,7 +594,7 @@ function AILab() {
                   aria-label="Description template"
                   value={selectedTemplateId}
                   onChange={(event) => applyTemplate(event.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                  className="w-full min-w-0 rounded-full border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
                 >
                   <option value="">{templates.length === 0 ? "No saved templates" : "None"}</option>
                   {templates.map((t) => (
@@ -609,7 +609,7 @@ function AILab() {
                     onClick={() => void handleDeleteTemplate()}
                     disabled={deletingTemplate}
                     aria-label="Delete template"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive hover:text-destructive disabled:opacity-50"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive hover:text-destructive disabled:opacity-50"
                   >
                     {deletingTemplate ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -621,7 +621,7 @@ function AILab() {
                 <button
                   type="button"
                   onClick={() => setTemplateDialogOpen(true)}
-                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
                 >
                   <Plus className="h-4 w-4" /> New
                 </button>
