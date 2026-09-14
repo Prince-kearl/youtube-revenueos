@@ -145,6 +145,13 @@ const primaryMobileNav = nav.filter((item) =>
   (["/dashboard", "/videos", "/comments", "/analytics"] as string[]).includes(item.to),
 );
 
+// The active pill widens to show its label (see the mobile nav render below) — "Comment
+// Automation" at full length dwarfs the other icon-only tabs, so it gets a shorter stand-in here.
+// aria-label/title still use the full nav label; this only affects the visible pill text.
+const MOBILE_NAV_SHORT_LABEL: Partial<Record<string, string>> = {
+  "/comments": "Comments",
+};
+
 const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
   { label: "Overview", items: ["/dashboard"] },
   { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
@@ -1172,7 +1179,9 @@ export function DashboardLayout({
                   >
                     <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
                     {active && (
-                      <span className="whitespace-nowrap text-sm font-semibold">{item.label}</span>
+                      <span className="whitespace-nowrap text-sm font-semibold">
+                        {MOBILE_NAV_SHORT_LABEL[item.to] ?? item.label}
+                      </span>
                     )}
                   </Link>
                 );
