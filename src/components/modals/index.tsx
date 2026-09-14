@@ -348,10 +348,15 @@ export function DestinationDialog({
             </Field>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" className="rounded-full" disabled={saving}>
               {saving ? "Saving…" : initial ? "Save" : "Add"}
             </Button>
           </DialogFooter>
