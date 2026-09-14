@@ -36,7 +36,10 @@ import { DEAL_STAGES, DealStage, Deal, Campaign } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 
 // Destinations are backed by the real /api/destinations table (see api.destinations.ts), not a
-// local mock store — this type mirrors that DB row shape, including the icon/color columns.
+// local mock store — this type mirrors that DB row shape, including the icon/color/category
+// columns. category splits the Destinations page into two sections: "conversion" (course/
+// newsletter/coaching/affiliate/lead-magnet links — the only kind that existed before) and
+// "social" (the creator's own social profiles).
 export type Destination = {
   id: string;
   name: string;
@@ -46,9 +49,20 @@ export type Destination = {
   status: "active" | "archived";
   icon: string;
   color: string;
+  category: "conversion" | "social";
 };
 export type DestinationInput = Omit<Destination, "id">;
-export const DEST_ICONS = ["cart", "trend", "cursor", "link", "external"] as const;
+export const DEST_CATEGORIES = ["conversion", "social"] as const;
+export const CONVERSION_ICONS = ["cart", "trend", "cursor", "link", "external"] as const;
+export const SOCIAL_ICONS = [
+  "instagram",
+  "tiktok",
+  "x",
+  "facebook",
+  "youtube",
+  "linkedin",
+] as const;
+export const DEST_ICONS = [...CONVERSION_ICONS, ...SOCIAL_ICONS] as const;
 export const DEST_COLORS = ["purple", "green", "blue", "amber", "red"] as const;
 
 // ---------- Deal ----------
@@ -200,28 +214,33 @@ export function DealDialog({
 }
 
 // ---------- Destination ----------
-const emptyDestinationForm = (): DestinationInput => ({
+const emptyDestinationForm = (
+  category: Destination["category"] = "conversion",
+): DestinationInput => ({
   name: "",
   type: "",
   url: "",
   description: "",
   status: "active",
-  icon: "link",
+  icon: category === "social" ? SOCIAL_ICONS[0] : CONVERSION_ICONS[0],
   color: "purple",
+  category,
 });
 
 export function DestinationDialog({
   open,
   onOpenChange,
   initial,
+  defaultCategory,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   initial?: Destination | null;
+  defaultCategory?: Destination["category"];
   onSave: (input: DestinationInput, id?: string) => Promise<void>;
 }) {
-  const [form, setForm] = useState<DestinationInput>(emptyDestinationForm());
+  const [form, setForm] = useState<DestinationInput>(emptyDestinationForm(defaultCategory));
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (open) {
@@ -235,11 +254,12 @@ export function DestinationDialog({
               status: initial.status,
               icon: initial.icon,
               color: initial.color,
+              category: initial.category,
             }
-          : emptyDestinationForm(),
+          : emptyDestinationForm(defaultCategory),
       );
     }
-  }, [open, initial]);
+  }, [open, initial, defaultCategory]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,9 +287,38 @@ export function DestinationDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{initial ? "Edit Destination" : "Add Destination"}</DialogTitle>
-          <DialogDescription>Track a conversion link across your channel.</DialogDescription>
+          <DialogDescription>
+            {form.category === "social"
+              ? "Track clicks to one of your social profiles."
+              : "Track a conversion link across your channel."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
+          <Field label="Category">
+            <div className="grid grid-cols-2 gap-2">
+              {DEST_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      category: cat,
+                      icon: cat === "social" ? SOCIAL_ICONS[0] : CONVERSION_ICONS[0],
+                    }))
+                  }
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors",
+                    form.category === cat
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </Field>
           <Field label="Name">
             <Input
               value={form.name}
@@ -291,7 +340,11 @@ export function DestinationDialog({
             <Input
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
-              placeholder="Course, Newsletter, Affiliate…"
+              placeholder={
+                form.category === "social"
+                  ? "Instagram, TikTok, X…"
+                  : "Course, Newsletter, Affiliate…"
+              }
               maxLength={40}
               required
             />
@@ -334,12 +387,16 @@ export function DestinationDialog({
               </Select>
             </Field>
             <Field label="Icon">
-              <Select value={form.icon} onValueChange={(v) => setForm({ ...form, icon: v })}>
+              <Select
+                key={form.category}
+                value={form.icon}
+                onValueChange={(v) => setForm({ ...form, icon: v })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEST_ICONS.map((c) => (
+                  {(form.category === "social" ? SOCIAL_ICONS : CONVERSION_ICONS).map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>

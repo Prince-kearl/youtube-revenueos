@@ -9,8 +9,23 @@ const destinationSchema = z.object({
   url: z.string().url().max(2048),
   description: z.string().trim().max(2000).nullable().optional(),
   status: z.enum(["active", "archived"]).optional(),
-  icon: z.enum(["cart", "trend", "cursor", "link", "external"]).optional(),
+  icon: z
+    .enum([
+      "cart",
+      "trend",
+      "cursor",
+      "link",
+      "external",
+      "instagram",
+      "tiktok",
+      "x",
+      "facebook",
+      "youtube",
+      "linkedin",
+    ])
+    .optional(),
   color: z.enum(["purple", "green", "blue", "amber", "red"]).optional(),
+  category: z.enum(["conversion", "social"]).optional(),
 });
 
 const idSchema = z.string().uuid();

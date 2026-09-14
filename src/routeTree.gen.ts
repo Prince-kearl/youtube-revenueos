@@ -69,6 +69,7 @@ import { Route as ApiBillingCheckoutRouteImport } from './routes/api.billing.che
 import { Route as ApiBillingPortalRouteImport } from './routes/api.billing.portal'
 import { Route as ApiBillingSubscriptionRouteImport } from './routes/api.billing.subscription'
 import { Route as ApiCommentRulesRepliesRouteImport } from './routes/api.comment-rules.replies'
+import { Route as ApiDestinationsTopVideosRouteImport } from './routes/api.destinations.top-videos'
 import { Route as ApiEmailAudienceRouteImport } from './routes/api.email.audience'
 import { Route as ApiFeaturesAccessRouteImport } from './routes/api.features.access'
 import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
@@ -411,6 +412,12 @@ const ApiCommentRulesRepliesRoute = ApiCommentRulesRepliesRouteImport.update({
   path: '/replies',
   getParentRoute: () => ApiCommentRulesRoute,
 } as any)
+const ApiDestinationsTopVideosRoute =
+  ApiDestinationsTopVideosRouteImport.update({
+    id: '/top-videos',
+    path: '/top-videos',
+    getParentRoute: () => ApiDestinationsRoute,
+  } as any)
 const ApiEmailAudienceRoute = ApiEmailAudienceRouteImport.update({
   id: '/api/email/audience',
   path: '/api/email/audience',
@@ -656,7 +663,7 @@ export interface FileRoutesByFullPath {
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
-  '/api/destinations': typeof ApiDestinationsRoute
+  '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
@@ -684,6 +691,7 @@ export interface FileRoutesByFullPath {
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
@@ -759,7 +767,7 @@ export interface FileRoutesByTo {
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
-  '/api/destinations': typeof ApiDestinationsRoute
+  '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
@@ -787,6 +795,7 @@ export interface FileRoutesByTo {
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
@@ -863,7 +872,7 @@ export interface FileRoutesById {
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
-  '/api/destinations': typeof ApiDestinationsRoute
+  '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRoute
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
@@ -891,6 +900,7 @@ export interface FileRoutesById {
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
@@ -996,6 +1006,7 @@ export interface FileRouteTypes {
     | '/api/billing/portal'
     | '/api/billing/subscription'
     | '/api/comment-rules/replies'
+    | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
     | '/api/leads/messages'
@@ -1099,6 +1110,7 @@ export interface FileRouteTypes {
     | '/api/billing/portal'
     | '/api/billing/subscription'
     | '/api/comment-rules/replies'
+    | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
     | '/api/leads/messages'
@@ -1202,6 +1214,7 @@ export interface FileRouteTypes {
     | '/api/billing/portal'
     | '/api/billing/subscription'
     | '/api/comment-rules/replies'
+    | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
     | '/api/leads/messages'
@@ -1278,7 +1291,7 @@ export interface RootRouteChildren {
   ApiCommentRulesRoute: typeof ApiCommentRulesRouteWithChildren
   ApiDealsRoute: typeof ApiDealsRoute
   ApiDescriptionTemplatesRoute: typeof ApiDescriptionTemplatesRoute
-  ApiDestinationsRoute: typeof ApiDestinationsRoute
+  ApiDestinationsRoute: typeof ApiDestinationsRouteWithChildren
   ApiFreebiesRoute: typeof ApiFreebiesRoute
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
@@ -1755,6 +1768,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCommentRulesRepliesRouteImport
       parentRoute: typeof ApiCommentRulesRoute
     }
+    '/api/destinations/top-videos': {
+      id: '/api/destinations/top-videos'
+      path: '/top-videos'
+      fullPath: '/api/destinations/top-videos'
+      preLoaderRoute: typeof ApiDestinationsTopVideosRouteImport
+      parentRoute: typeof ApiDestinationsRoute
+    }
     '/api/email/audience': {
       id: '/api/email/audience'
       path: '/api/email/audience'
@@ -2068,6 +2088,18 @@ const ApiCommentRulesRouteWithChildren = ApiCommentRulesRoute._addFileChildren(
   ApiCommentRulesRouteChildren,
 )
 
+interface ApiDestinationsRouteChildren {
+  ApiDestinationsTopVideosRoute: typeof ApiDestinationsTopVideosRoute
+}
+
+const ApiDestinationsRouteChildren: ApiDestinationsRouteChildren = {
+  ApiDestinationsTopVideosRoute: ApiDestinationsTopVideosRoute,
+}
+
+const ApiDestinationsRouteWithChildren = ApiDestinationsRoute._addFileChildren(
+  ApiDestinationsRouteChildren,
+)
+
 interface ApiIntegrationsRouteChildren {
   ApiIntegrationsGoogleAnalyticsCallbackRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
   ApiIntegrationsKitCallbackRoute: typeof ApiIntegrationsKitCallbackRoute
@@ -2198,7 +2230,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCommentRulesRoute: ApiCommentRulesRouteWithChildren,
   ApiDealsRoute: ApiDealsRoute,
   ApiDescriptionTemplatesRoute: ApiDescriptionTemplatesRoute,
-  ApiDestinationsRoute: ApiDestinationsRoute,
+  ApiDestinationsRoute: ApiDestinationsRouteWithChildren,
   ApiFreebiesRoute: ApiFreebiesRoute,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,
