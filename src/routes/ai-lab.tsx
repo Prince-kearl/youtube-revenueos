@@ -594,7 +594,7 @@ function AILab() {
                   aria-label="Description template"
                   value={selectedTemplateId}
                   onChange={(event) => applyTemplate(event.target.value)}
-                  className="w-full min-w-0 rounded-full border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                  className="w-full min-w-0 rounded-full border border-border bg-accent/20 py-2.5 pl-4 pr-9 text-sm outline-none focus:border-primary"
                 >
                   <option value="">{templates.length === 0 ? "No saved templates" : "None"}</option>
                   {templates.map((t) => (
