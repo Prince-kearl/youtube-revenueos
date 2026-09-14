@@ -1055,7 +1055,7 @@ export function DashboardLayout({
                   <span className="hidden text-sm font-medium sm:block">{profile.name}</span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56 rounded-2xl">
                 <DropdownMenuLabel>
                   <p className="font-semibold">{profile.name}</p>
                   <p className="text-xs font-normal text-muted-foreground">{profile.email}</p>
