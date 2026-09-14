@@ -63,6 +63,7 @@ import { Route as ApiAdminUsersRouteImport } from './routes/api.admin.users'
 import { Route as ApiAdminWhoamiRouteImport } from './routes/api.admin.whoami'
 import { Route as ApiAdminWorkspacesRouteImport } from './routes/api.admin.workspaces'
 import { Route as ApiAffiliateSummaryRouteImport } from './routes/api.affiliate.summary'
+import { Route as ApiAiAnalyzeVideoRouteImport } from './routes/api.ai.analyze-video'
 import { Route as ApiBillingCheckoutRouteImport } from './routes/api.billing.checkout'
 import { Route as ApiBillingPortalRouteImport } from './routes/api.billing.portal'
 import { Route as ApiBillingSubscriptionRouteImport } from './routes/api.billing.subscription'
@@ -379,6 +380,11 @@ const ApiAffiliateSummaryRoute = ApiAffiliateSummaryRouteImport.update({
   path: '/api/affiliate/summary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiAnalyzeVideoRoute = ApiAiAnalyzeVideoRouteImport.update({
+  id: '/api/ai/analyze-video',
+  path: '/api/ai/analyze-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBillingCheckoutRoute = ApiBillingCheckoutRouteImport.update({
   id: '/api/billing/checkout',
   path: '/api/billing/checkout',
@@ -666,6 +672,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
@@ -767,6 +774,7 @@ export interface FileRoutesByTo {
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
@@ -869,6 +877,7 @@ export interface FileRoutesById {
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
+  '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
@@ -972,6 +981,7 @@ export interface FileRouteTypes {
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
     | '/api/affiliate/summary'
+    | '/api/ai/analyze-video'
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
@@ -1073,6 +1083,7 @@ export interface FileRouteTypes {
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
     | '/api/affiliate/summary'
+    | '/api/ai/analyze-video'
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
@@ -1174,6 +1185,7 @@ export interface FileRouteTypes {
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
     | '/api/affiliate/summary'
+    | '/api/ai/analyze-video'
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
@@ -1275,6 +1287,7 @@ export interface RootRouteChildren {
   ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
   ApiAdminWorkspacesRoute: typeof ApiAdminWorkspacesRoute
   ApiAffiliateSummaryRoute: typeof ApiAffiliateSummaryRoute
+  ApiAiAnalyzeVideoRoute: typeof ApiAiAnalyzeVideoRoute
   ApiBillingCheckoutRoute: typeof ApiBillingCheckoutRoute
   ApiBillingPortalRoute: typeof ApiBillingPortalRoute
   ApiBillingSubscriptionRoute: typeof ApiBillingSubscriptionRoute
@@ -1685,6 +1698,13 @@ declare module '@tanstack/react-router' {
       path: '/api/affiliate/summary'
       fullPath: '/api/affiliate/summary'
       preLoaderRoute: typeof ApiAffiliateSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/analyze-video': {
+      id: '/api/ai/analyze-video'
+      path: '/api/ai/analyze-video'
+      fullPath: '/api/ai/analyze-video'
+      preLoaderRoute: typeof ApiAiAnalyzeVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/billing/checkout': {
@@ -2179,6 +2199,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
   ApiAdminWorkspacesRoute: ApiAdminWorkspacesRoute,
   ApiAffiliateSummaryRoute: ApiAffiliateSummaryRoute,
+  ApiAiAnalyzeVideoRoute: ApiAiAnalyzeVideoRoute,
   ApiBillingCheckoutRoute: ApiBillingCheckoutRoute,
   ApiBillingPortalRoute: ApiBillingPortalRoute,
   ApiBillingSubscriptionRoute: ApiBillingSubscriptionRoute,

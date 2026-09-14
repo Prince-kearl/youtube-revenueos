@@ -4,20 +4,14 @@ import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
 import { fetchYoutubeVideoById } from "@/lib/server/google-oauth";
+import { AnalyzeVideoResultSchema } from "@/lib/server/ai-generation";
 
 const idSchema = z.string().uuid();
 const youtubeVideoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
-const contentAnalysisSchema = z.object({
-  mainTopic: z.string(),
-  contentType: z.string(),
-  audienceIntent: z.string(),
-  complexity: z.string(),
-  engagementPotential: z.string(),
-  summary: z.string(),
-  topics: z.array(z.string()),
-  strengths: z.array(z.string()),
-  opportunities: z.array(z.string()),
-});
+// Same schema POST /api/ai/analyze-video validates its own AI output against — a saved analysis
+// is just that same result persisted alongside the video, so there is only one source of truth
+// for its shape.
+const contentAnalysisSchema = AnalyzeVideoResultSchema;
 const saveVideoSchema = z.object({
   channelId: idSchema.optional(),
   youtubeVideoId: youtubeVideoIdSchema,

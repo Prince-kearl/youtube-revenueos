@@ -17,7 +17,9 @@ import {
   Save,
   Search,
   Sparkles,
+  Target,
   Trash2,
+  TriangleAlert,
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,16 +60,26 @@ type YoutubeVideo = {
   comments: number | null;
 };
 
+// Matches AnalyzeVideoResult in src/lib/server/ai-generation.ts — the AI-powered content
+// intelligence report from POST /api/ai/analyze-video (OpenRouter), kept in sync manually since
+// that module is server-only and can't be imported into this client route.
 type ContentAnalysis = {
-  mainTopic: string;
-  contentType: string;
-  audienceIntent: string;
-  complexity: string;
-  engagementPotential: string;
   summary: string;
-  topics: string[];
+  overallScore: number;
+  scores: {
+    hook: number;
+    title: number;
+    seo: number;
+    content: number;
+    engagement: number;
+  };
   strengths: string[];
-  opportunities: string[];
+  weaknesses: string[];
+  titleSuggestions: string[];
+  descriptionSuggestion: string;
+  keywordSuggestions: string[];
+  recommendations: string[];
+  contentIdeas: string[];
 };
 
 type SavedVideo = {
@@ -184,6 +196,9 @@ function errorMessage(error: string): string {
       "AI writing isn’t available yet. You can still write and save the description yourself.",
     AI_PROVIDER_FAILED:
       "We couldn’t complete that AI request right now. Your current text is safe—please try again.",
+    AI_PROVIDER_RATE_LIMITED:
+      "AI analysis is getting a lot of requests right now. Please try again in a moment.",
+    RATE_LIMIT_EXCEEDED: "You’ve reached your AI analysis limit for now. Please try again shortly.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
@@ -384,7 +399,13 @@ function AddVideo() {
       // A previously-saved description represents real prior optimization; the raw YouTube
       // original (the other fallback above) does not.
       setDescriptionTouched(Boolean(body.data.savedVideo?.description));
-      setAnalysis(body.data.savedVideo?.content_analysis ?? null);
+      // A saved analysis from before the AnalyzeVideoResult schema change (overallScore/scores/
+      // etc.) would otherwise crash the results view below on the missing fields — treat it as
+      // "not yet analyzed" rather than rendering it, prompting a fresh (fast, cached) re-analysis.
+      const savedAnalysis = body.data.savedVideo?.content_analysis ?? null;
+      setAnalysis(
+        savedAnalysis && typeof savedAnalysis.overallScore === "number" ? savedAnalysis : null,
+      );
       setStatus("loaded");
     } catch (reason: unknown) {
       const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
@@ -408,12 +429,13 @@ function AddVideo() {
     setError(null);
     setErrorAction("analyze");
     try {
-      const response = await fetch("/api/videos/analyze-content", {
+      const response = await fetch("/api/ai/analyze-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: video.title,
-          description: description || video.description,
+          videoId: video.id,
+          channelId: selectedChannelId ?? undefined,
+          description: description || null,
           transcript: transcript || null,
         }),
       });
@@ -1062,100 +1084,155 @@ function AddVideo() {
             )}
             {analyzing && !analysis && (
               <div className="mt-3 space-y-3" aria-busy="true" aria-label="Analyzing content">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {Array.from({ length: 5 }).map((_, i) => (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
                     <Skeleton key={i} className="h-12 w-full rounded-lg" />
                   ))}
                 </div>
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-5/6" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                </div>
               </div>
             )}
             {analysis && (
               <>
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  <AnalysisChip label="Main topic" value={analysis.mainTopic} />
-                  <AnalysisChip label="Video type" value={analysis.contentType} />
-                  <AnalysisChip label="Viewer goal" value={analysis.audienceIntent} />
-                  <AnalysisChip label="Skill level" value={analysis.complexity} />
-                  <AnalysisChip label="Engagement" value={analysis.engagementPotential} />
+                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  <ScoreChip label="Overall" value={analysis.overallScore} highlight />
+                  <ScoreChip label="Hook" value={analysis.scores.hook} />
+                  <ScoreChip label="Title" value={analysis.scores.title} />
+                  <ScoreChip label="SEO" value={analysis.scores.seo} />
+                  <ScoreChip label="Content" value={analysis.scores.content} />
+                  <ScoreChip label="Engagement" value={analysis.scores.engagement} />
                 </div>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Summary
-                    </p>
-                    <p className="mt-1 text-sm">{analysis.summary}</p>
-                  </div>
-                  {analysis.topics.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Key topics
-                      </p>
-                      <ul className="mt-1.5 space-y-1 text-sm">
-                        {analysis.topics.map((topic) => (
-                          <li key={topic} className="flex items-center gap-1.5">
-                            <span
-                              className="h-1 w-1 shrink-0 rounded-full bg-primary"
-                              aria-hidden="true"
-                            />
-                            {topic}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Summary
+                  </p>
+                  <p className="mt-1 text-sm">{analysis.summary}</p>
                 </div>
-                {(analysis.strengths.length > 0 || analysis.opportunities.length > 0) && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setAnalysisExpanded((value) => !value)}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full border border-border py-2 text-sm font-medium hover:bg-accent"
-                    >
-                      {analysisExpanded ? "Hide full analysis" : "View full analysis"}
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-transform",
-                          analysisExpanded && "rotate-180",
-                        )}
-                      />
-                    </button>
-                    {analysisExpanded && (
-                      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        {analysis.strengths.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-success">
-                              Strengths
-                            </p>
-                            <ul className="mt-1.5 space-y-1.5">
-                              {analysis.strengths.map((strength) => (
-                                <li key={strength} className="flex items-start gap-1.5 text-sm">
-                                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                                  {strength}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {analysis.opportunities.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
-                              Opportunities
-                            </p>
-                            <ul className="mt-1.5 space-y-1.5">
-                              {analysis.opportunities.map((opportunity) => (
-                                <li key={opportunity} className="flex items-start gap-1.5 text-sm">
-                                  <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
-                                  {opportunity}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                {(analysis.strengths.length > 0 || analysis.weaknesses.length > 0) && (
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {analysis.strengths.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-success">
+                          Strengths
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {analysis.strengths.map((strength) => (
+                            <li key={strength} className="flex items-start gap-1.5 text-sm">
+                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                              {strength}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
-                  </>
+                    {analysis.weaknesses.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
+                          Weaknesses
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {analysis.weaknesses.map((weakness) => (
+                            <li key={weakness} className="flex items-start gap-1.5 text-sm">
+                              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
+                              {weakness}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setAnalysisExpanded((value) => !value)}
+                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full border border-border py-2 text-sm font-medium hover:bg-accent"
+                >
+                  {analysisExpanded ? "Hide suggestions" : "View suggestions"}
+                  <ChevronDown
+                    className={cn("h-4 w-4 transition-transform", analysisExpanded && "rotate-180")}
+                  />
+                </button>
+                {analysisExpanded && (
+                  <div className="mt-3 space-y-4">
+                    {analysis.titleSuggestions.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Title suggestions
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {analysis.titleSuggestions.map((title) => (
+                            <li key={title} className="flex items-start gap-1.5 text-sm">
+                              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                              {title}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {analysis.descriptionSuggestion && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Description suggestion
+                        </p>
+                        <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-sm">
+                          {analysis.descriptionSuggestion}
+                        </p>
+                      </div>
+                    )}
+                    {analysis.keywordSuggestions.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Keywords
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {analysis.keywordSuggestions.map((keyword) => (
+                            <span
+                              key={keyword}
+                              className="rounded-full border border-border bg-background px-2.5 py-1 text-xs"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {analysis.recommendations.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Recommendations
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {analysis.recommendations.map((recommendation) => (
+                            <li key={recommendation} className="flex items-start gap-1.5 text-sm">
+                              <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                              {recommendation}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {analysis.contentIdeas.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Content ideas
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {analysis.contentIdeas.map((idea) => (
+                            <li key={idea} className="flex items-start gap-1.5 text-sm">
+                              <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
+                              {idea}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -1565,13 +1642,29 @@ function AddVideo() {
   );
 }
 
-function AnalysisChip({ label, value }: { label: string; value: string }) {
+function ScoreChip({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-background p-2.5">
+    <div
+      className={cn(
+        "rounded-lg border p-2.5",
+        highlight ? "border-primary/40 bg-primary/5" : "border-border bg-background",
+      )}
+    >
       <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <p className="mt-0.5 truncate text-sm font-semibold">{value}</p>
+      <p className={cn("mt-0.5 truncate text-sm font-semibold", highlight && "text-primary")}>
+        {value.toFixed(1)}
+        <span className="text-xs font-normal text-muted-foreground">/10</span>
+      </p>
     </div>
   );
 }

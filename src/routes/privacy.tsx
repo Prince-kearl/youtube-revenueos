@@ -96,6 +96,7 @@ function Privacy() {
           <p>We do not sell your personal information. We share data only with:</p>
           <ul className="mt-2 list-disc space-y-1.5 pl-5">
             <li><strong>Service providers</strong> who process data on our behalf under contract — hosting (Hetzner, EU), payments (Stripe), and transactional email.</li>
+            <li><strong>AI processing</strong> — when you use an AI-powered feature (e.g. video content analysis), the specific content needed for that request — such as a video's title, description, transcript, and publicly visible performance figures — is sent to our AI provider (OpenRouter, a US-based service) to generate the response. We never send your YouTube account credentials, payment details, or more of your data than that feature needs.</li>
             <li><strong>Your team</strong> — editors and setters you invite see the workspace data you grant them access to, per their assigned role.</li>
             <li><strong>Legal authorities</strong> — only when required by law, or to protect the rights, safety, and property of {content.siteName} or our users.</li>
           </ul>
@@ -133,7 +134,8 @@ function Privacy() {
       body: (
         <p>
           Your data is hosted on EU servers (Hetzner, Nuremberg &amp; Helsinki — ISO 27001 certified) and is not transferred outside the EU
-          except where a subprocessor requires it (e.g. Stripe for payment processing) under Standard Contractual Clauses. We retain account
+          except where a subprocessor requires it (e.g. Stripe for payment processing, or OpenRouter for AI-powered features) under Standard
+          Contractual Clauses. We retain account
           data for as long as your account is active, and audit logs for 12 months. When you delete your account, associated personal data is
           erased within 30 days, except where we're legally required to retain records (e.g. tax documents).
         </p>
