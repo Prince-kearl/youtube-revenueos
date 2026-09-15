@@ -693,6 +693,24 @@
    uniform radius here would fight per-usage radius classes; translucency/border/shadow are enough
    to read as glass without that risk. Must be paired with a backdrop-blur-* Tailwind utility in
    JSX, same Lightning CSS caveat as elsewhere. */
+/* Off state: same gradient-tinted border every regular card already gets from
+   .card-gradient-outline (identical recipe/percentages) — without this, a dialog/dropdown/popover
+   was the one surface in the app that never picked up the Customization → Design Studio primary
+   color at all outside iOS 26 Design, reading as a plain flat gray box instead of "part of the
+   app". background overrides whatever bg-* Tailwind utility the component already had (unlayered
+   custom CSS wins over @layer utilities in this project's Tailwind v4 setup, same mechanism
+   .card-gradient-outline itself relies on) rather than needing every consumer's className changed. */
+:root:not(.ios26) .ios26-glass {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--popover), var(--popover)) padding-box,
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
+      var(--border) 50%,
+      color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
+    ) border-box;
+}
 .ios26 .ios26-glass {
   background: color-mix(in srgb, var(--popover) 72%, transparent);
   border-color: color-mix(in srgb, white 20%, transparent);
