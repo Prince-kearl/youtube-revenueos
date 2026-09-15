@@ -685,15 +685,14 @@
 /* Shared floating-surface glass treatment for every Radix-based overlay in the app — Dialog,
    Sheet, Popover, DropdownMenu (+ SubContent), SelectContent, and Command (the palette CommandDialog
    wraps in a DialogContent). One class reused across all of them is what makes "modals, dropdowns,
-   search components, notifications" a single centralized change instead of six bespoke ones. Off
-   state is intentionally empty — each component's existing Tailwind utilities (bg-popover/
-   bg-background, border, shadow) already render the current/default look untouched, so there's
-   nothing to fall back to. Deliberately leaves radius and edge-positioning alone: Sheet panels are
-   screen-edge-attached (a bottom sheet only rounds its top corners via its own className), so a
-   uniform radius here would fight per-usage radius classes; translucency/border/shadow are enough
-   to read as glass without that risk. Must be paired with a backdrop-blur-* Tailwind utility in
-   JSX, same Lightning CSS caveat as elsewhere. */
-/* Off state: same gradient-tinted border every regular card already gets from
+   search components, notifications" a single centralized change instead of six bespoke ones.
+   Deliberately leaves radius and edge-positioning alone: Sheet panels are screen-edge-attached (a
+   bottom sheet only rounds its top corners via its own className), so a uniform radius here would
+   fight per-usage radius classes; each consumer's own className is responsible for its corners
+   (Dialog/AlertDialog use a plain rounded-2xl, at every viewport width — not just sm: and up,
+   which used to leave both perfectly square on mobile). Must be paired with a backdrop-blur-*
+   Tailwind utility in JSX, same Lightning CSS caveat as elsewhere.
+   Off state: same gradient-tinted border every regular card already gets from
    .card-gradient-outline (identical recipe/percentages) — without this, a dialog/dropdown/popover
    was the one surface in the app that never picked up the Customization → Design Studio primary
    color at all outside iOS 26 Design, reading as a plain flat gray box instead of "part of the
@@ -701,6 +700,12 @@
    custom CSS wins over @layer utilities in this project's Tailwind v4 setup, same mechanism
    .card-gradient-outline itself relies on) rather than needing every consumer's className changed. */
 :root:not(.ios26) .ios26-glass {
+  /* The fill below is already fully opaque, so there's nothing translucent left for
+     backdrop-blur-* (applied via Tailwind utility in JSX, e.g. Dialog/AlertDialog's
+     backdrop-blur-xl) to blur — but browsers still visibly haze/gray an opaque surface that has
+     backdrop-filter active, so it has to be turned off here explicitly rather than relying on
+     "nothing to blur" to make it a no-op. */
+  backdrop-filter: none;
   border: 1px solid transparent;
   background:
     linear-gradient(var(--popover), var(--popover)) padding-box,
