@@ -1054,7 +1054,7 @@ const seedSiteContent = (): SiteContent => ({
   accentColor: "#3b82f6",
   cardRadius: 4,
   buttonRadius: 0,
-  inputRadius: 0,
+  inputRadius: 12,
   kpiCardRadius: 16,
   heroBadge: "Now with AI-generated descriptions",
   heroHeadline: "Stop guessing which videos make you money.",

@@ -308,7 +308,7 @@ export function DestinationDialog({
                     }))
                   }
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors",
+                    "rounded-full border px-3 py-2 text-sm font-medium capitalize transition-colors",
                     form.category === cat
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:text-foreground",
