@@ -283,14 +283,9 @@ function ProjectsPage() {
 
   return (
     <DashboardLayout title="Projects">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Describe a product idea and let AI draft a starter concept.</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-          <Sparkles className="h-4 w-4" /> AI-generated concepts
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Describe a product idea and let AI draft a starter concept.</p>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
