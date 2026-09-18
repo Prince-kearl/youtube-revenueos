@@ -31,6 +31,7 @@ import {
 } from "@/components/modals";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/destinations")({
@@ -156,10 +157,14 @@ function Destinations() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
-        <Summary value={String(destinations.length)} label="Total Destinations" />
-        <Summary value={String(activeCount)} label="Active" />
-        <Summary value={String(archivedCount)} label="Archived" />
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <FlatKpiCard
+          title="Total Destinations"
+          value={String(destinations.length)}
+          accent="var(--brand-blue)"
+        />
+        <FlatKpiCard title="Active" value={String(activeCount)} accent="var(--brand-green)" />
+        <FlatKpiCard title="Archived" value={String(archivedCount)} accent="var(--brand-purple)" />
       </div>
 
       {pageStatus === "loading" && (
@@ -502,16 +507,6 @@ function DestinationCard({
             ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function Summary({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="relative rounded-xl card-gradient-outline p-5">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <p className="text-2xl font-bold tracking-tight">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }
