@@ -1072,13 +1072,16 @@ export function DashboardLayout({
       </div>
 
       {/* Help FAB */}
-      <button
-        onClick={() => setHelpOpen(true)}
-        className="glass-fab fixed bottom-6 right-6 z-30 hidden h-12 w-12 items-center justify-center backdrop-blur-lg transition-transform hover:scale-105 md:flex print:hidden"
-        aria-label="Help"
-      >
-        <HelpCircle className="h-5 w-5" />
-      </button>
+      <div className="fixed bottom-6 right-6 z-30 hidden h-12 w-12 md:block print:hidden">
+        <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-75" />
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="glass-fab relative flex h-12 w-12 items-center justify-center backdrop-blur-lg transition-transform hover:scale-105"
+          aria-label="Help"
+        >
+          <HelpCircle className="h-5 w-5" />
+        </button>
+      </div>
 
       {/* Mobile pill nav */}
       {!hideAppNav && (
