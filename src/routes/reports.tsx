@@ -146,7 +146,7 @@ function Reports() {
                 />
                 <div className="flex items-start gap-4">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${r.color}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full ${r.color}`}
                   >
                     <r.icon className="h-5 w-5" />
                   </div>
@@ -188,7 +188,7 @@ function Reports() {
               </div>
               <div>
                 <label className="mb-2 block text-sm text-muted-foreground">Report Type</label>
-                <div className="flex h-11 rounded-xl border border-border bg-accent/20 p-1 text-sm">
+                <div className="flex h-11 rounded-full border border-border bg-accent/20 p-1 text-sm">
                   {REPORT_TYPES.map((r) => (
                     <button
                       key={r.type}
