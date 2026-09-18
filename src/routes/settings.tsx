@@ -1994,21 +1994,21 @@ function SecurityPanel() {
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
                 onClick={() => setRecoveryCodes(recoveryCodes)}
-                className="rounded-lg border border-border px-3 py-2 text-[11px] font-semibold hover:border-primary"
+                className="rounded-full border border-border px-3 py-2 text-[11px] font-semibold hover:border-primary"
               >
                 View recovery codes <ArrowRight className="ml-1 inline h-3 w-3" />
               </button>
               <button
                 onClick={() => void regenerateRecoveryCodes()}
                 disabled={mfaSubmitting}
-                className="rounded-lg border border-border px-3 py-2 text-[11px] font-semibold hover:border-primary disabled:opacity-60"
+                className="rounded-full border border-border px-3 py-2 text-[11px] font-semibold hover:border-primary disabled:opacity-60"
               >
                 Regenerate codes
               </button>
               <button
                 onClick={() => setDisableOpen((open) => !open)}
                 disabled={mfaSubmitting}
-                className="rounded-lg border border-destructive/30 px-3 py-2 text-[11px] font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
+                className="rounded-full border border-destructive/30 px-3 py-2 text-[11px] font-semibold text-destructive hover:bg-destructive/5 disabled:opacity-60"
               >
                 Disable 2FA
               </button>
