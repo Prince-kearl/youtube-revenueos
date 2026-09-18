@@ -17,12 +17,16 @@ const inviteSchema = z.object({
   role: workspaceRoleEnum,
   leadShare: z.number().int().min(0).max(100).default(0),
   commission: z.number().int().min(0).max(100).default(0),
+  jobTitle: z.string().trim().max(80).nullable().optional(),
+  costAmount: z.number().min(0).max(10_000_000).default(0),
 });
 
 const updateSchema = z.object({
   role: workspaceRoleEnum.optional(),
   leadShare: z.number().int().min(0).max(100).optional(),
   commission: z.number().int().min(0).max(100).optional(),
+  jobTitle: z.string().trim().max(80).nullable().optional(),
+  costAmount: z.number().min(0).max(10_000_000).optional(),
 });
 
 const idSchema = z.string().uuid();
@@ -47,7 +51,7 @@ async function parseJson(request: Request) {
 }
 
 const memberColumns =
-  "id, workspace_id, user_id, invited_email, role, status, lead_share, commission, invited_at, joined_at, created_at, updated_at";
+  "id, workspace_id, user_id, invited_email, role, status, lead_share, commission, job_title, cost_amount, invited_at, joined_at, created_at, updated_at";
 
 async function countActiveOwners(
   service: ReturnType<typeof createServiceSupabaseClient>,
@@ -139,6 +143,8 @@ export const Route = createFileRoute("/api/workspace/members")({
                   status: "active",
                   lead_share: input.leadShare,
                   commission: input.commission,
+                  job_title: input.jobTitle ?? null,
+                  cost_amount: input.costAmount,
                   invited_by: ctx.user.id,
                   joined_at: new Date().toISOString(),
                 },
@@ -166,6 +172,8 @@ export const Route = createFileRoute("/api/workspace/members")({
               status: "invited",
               lead_share: input.leadShare,
               commission: input.commission,
+              job_title: input.jobTitle ?? null,
+              cost_amount: input.costAmount,
               invited_by: ctx.user.id,
             })
             .select(memberColumns)
@@ -251,6 +259,8 @@ export const Route = createFileRoute("/api/workspace/members")({
           if (input.role !== undefined) update.role = input.role;
           if (input.leadShare !== undefined) update.lead_share = input.leadShare;
           if (input.commission !== undefined) update.commission = input.commission;
+          if (input.jobTitle !== undefined) update.job_title = input.jobTitle;
+          if (input.costAmount !== undefined) update.cost_amount = input.costAmount;
 
           const { data, error } = await service
             .from("workspace_members")

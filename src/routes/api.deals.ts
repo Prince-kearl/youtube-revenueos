@@ -15,6 +15,7 @@ const createSchema = z.object({
   nextAction: z.string().trim().max(200).nullable().optional(),
   expectedCloseDate: z.string().trim().nullable().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),
+  assignedMemberId: z.string().uuid().nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -26,6 +27,7 @@ const updateSchema = z.object({
   nextAction: z.string().trim().max(200).nullable().optional(),
   expectedCloseDate: z.string().trim().nullable().optional(),
   notes: z.string().trim().max(4000).nullable().optional(),
+  assignedMemberId: z.string().uuid().nullable().optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -48,7 +50,7 @@ async function parseJson(request: Request) {
 }
 
 const dealColumns =
-  "id, name, contact_name, value, currency, tag, stage, next_action, expected_close_date, closed_at, notes, created_at, updated_at";
+  "id, name, contact_name, value, currency, tag, stage, next_action, expected_close_date, closed_at, notes, assigned_member_id, created_at, updated_at";
 
 // completed_at mirrors closed_at automatically: entering the 'completed' stage stamps closed_at
 // for real (once, not overwritten on later edits), leaving it clears it — so "closed" always
@@ -57,6 +59,19 @@ function stageSideEffect(stage: string | undefined, existingClosedAt: string | n
   if (stage === undefined) return {};
   if (stage === "completed") return { closed_at: existingClosedAt ?? new Date().toISOString() };
   return { closed_at: null };
+}
+
+type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
+
+async function assertOwnedMember(client: SupabaseClientLike, workspaceId: string, id: string) {
+  const { data, error } = await client
+    .from("workspace_members")
+    .select("id")
+    .eq("id", id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) throw json({ error: "DATABASE_ERROR" }, { status: 500 });
+  if (!data) throw json({ error: "MEMBER_NOT_FOUND" }, { status: 404 });
 }
 
 export const Route = createFileRoute("/api/deals")({
@@ -84,6 +99,9 @@ export const Route = createFileRoute("/api/deals")({
             "brand_deals",
           );
           const input = createSchema.parse(await parseJson(request));
+          if (input.assignedMemberId) {
+            await assertOwnedMember(client, workspaceId, input.assignedMemberId);
+          }
           const { data, error } = await client
             .from("deals")
             .insert({
@@ -97,6 +115,7 @@ export const Route = createFileRoute("/api/deals")({
               next_action: input.nextAction ?? null,
               expected_close_date: input.expectedCloseDate ?? null,
               notes: input.notes ?? null,
+              assigned_member_id: input.assignedMemberId ?? null,
               ...stageSideEffect(input.stage, null),
             })
             .select(dealColumns)
@@ -112,9 +131,12 @@ export const Route = createFileRoute("/api/deals")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "brand_deals");
+          const { client, workspaceId } = await requireWorkspaceFeature(request, "brand_deals");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateSchema.parse(await parseJson(request));
+          if (input.assignedMemberId) {
+            await assertOwnedMember(client, workspaceId, input.assignedMemberId);
+          }
 
           const { data: existing } = await client
             .from("deals")
@@ -135,6 +157,8 @@ export const Route = createFileRoute("/api/deals")({
           if (input.expectedCloseDate !== undefined)
             update.expected_close_date = input.expectedCloseDate;
           if (input.notes !== undefined) update.notes = input.notes;
+          if (input.assignedMemberId !== undefined)
+            update.assigned_member_id = input.assignedMemberId;
 
           const { data, error } = await client
             .from("deals")

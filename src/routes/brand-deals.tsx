@@ -86,10 +86,19 @@ type Deal = {
   expected_close_date: string | null;
   closed_at: string | null;
   notes: string | null;
+  assigned_member_id: string | null;
   created_at: string;
   updated_at: string;
 };
 type DealsResponse = { data?: Deal[]; error?: string };
+type TeamMemberOption = { id: string; name: string };
+type TeamMembersResponse = {
+  data?: {
+    id: string;
+    invited_email: string;
+    member: { name: string | null } | null;
+  }[];
+};
 
 function monthKey(iso: string): string {
   return iso.slice(0, 7);
@@ -171,6 +180,7 @@ function BrandDeals() {
   const [editing, setEditing] = useState<Deal | null>(null);
   const [creating, setCreating] = useState<{ open: boolean; stage?: DealStage }>({ open: false });
   const [deleting, setDeleting] = useState<Deal | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
 
   const load = () => {
     setStatus((prev) => (prev === "ready" ? "ready" : "loading"));
@@ -183,6 +193,18 @@ function BrandDeals() {
       })
       .catch(() => setStatus("error"));
   };
+
+  useEffect(() => {
+    fetch("/api/workspace/members", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as TeamMembersResponse;
+        if (!response.ok || !body.data) return;
+        setTeamMembers(
+          body.data.map((m) => ({ id: m.id, name: m.member?.name || m.invited_email })),
+        );
+      })
+      .catch(() => {});
+  }, []);
   useEffect(load, [retryNonce]);
 
   const stats = useMemo(() => {
@@ -296,6 +318,7 @@ function BrandDeals() {
     stage: DealStage;
     nextAction: string;
     expectedCloseDate: string;
+    assignedMemberId: string;
   }) => {
     const response = await fetch("/api/deals", {
       method: "POST",
@@ -308,6 +331,7 @@ function BrandDeals() {
         stage: input.stage,
         nextAction: input.nextAction || null,
         expectedCloseDate: input.expectedCloseDate || null,
+        assignedMemberId: input.assignedMemberId || null,
       }),
     });
     const body = await response.json();
@@ -326,6 +350,7 @@ function BrandDeals() {
       stage: DealStage;
       nextAction: string;
       expectedCloseDate: string;
+      assignedMemberId: string;
     },
   ) => {
     const response = await fetch(`/api/deals?id=${id}`, {
@@ -339,6 +364,7 @@ function BrandDeals() {
         stage: input.stage,
         nextAction: input.nextAction || null,
         expectedCloseDate: input.expectedCloseDate || null,
+        assignedMemberId: input.assignedMemberId || null,
       }),
     });
     const body = await response.json();
@@ -630,12 +656,14 @@ function BrandDeals() {
       <DealFormDialog
         open={creating.open}
         defaultStage={creating.stage}
+        teamMembers={teamMembers}
         onOpenChange={(v) => setCreating({ open: v })}
         onSubmit={createDeal}
       />
       <DealFormDialog
         open={!!editing}
         deal={editing}
+        teamMembers={teamMembers}
         onOpenChange={(v) => !v && setEditing(null)}
         onSubmit={(input) => (editing ? updateDeal(editing.id, input) : Promise.resolve())}
       />
@@ -666,12 +694,14 @@ function DealFormDialog({
   open,
   deal,
   defaultStage,
+  teamMembers,
   onOpenChange,
   onSubmit,
 }: {
   open: boolean;
   deal?: Deal | null;
   defaultStage?: DealStage;
+  teamMembers: TeamMemberOption[];
   onOpenChange: (v: boolean) => void;
   onSubmit: (input: {
     name: string;
@@ -681,6 +711,7 @@ function DealFormDialog({
     stage: DealStage;
     nextAction: string;
     expectedCloseDate: string;
+    assignedMemberId: string;
   }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
@@ -690,6 +721,7 @@ function DealFormDialog({
   const [stage, setStage] = useState<DealStage>("prospect");
   const [nextAction, setNextAction] = useState("");
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
+  const [assignedMemberId, setAssignedMemberId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -701,6 +733,7 @@ function DealFormDialog({
     setStage(deal?.stage ?? defaultStage ?? "prospect");
     setNextAction(deal?.next_action ?? "");
     setExpectedCloseDate(deal?.expected_close_date ?? "");
+    setAssignedMemberId(deal?.assigned_member_id ?? "");
   }, [open, deal, defaultStage]);
 
   const submit = async (e: React.FormEvent) => {
@@ -719,6 +752,7 @@ function DealFormDialog({
         stage,
         nextAction: nextAction.trim(),
         expectedCloseDate,
+        assignedMemberId,
       });
       onOpenChange(false);
     } catch {
@@ -808,6 +842,25 @@ function DealFormDialog({
                 onChange={(e) => setExpectedCloseDate(e.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Assigned to (optional)</label>
+            <select
+              aria-label="Assigned to"
+              value={assignedMemberId}
+              onChange={(e) => setAssignedMemberId(e.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground">
+              Attributes this deal's value to a teammate on the Team page.
+            </p>
           </div>
           <DialogFooter>
             <Button
