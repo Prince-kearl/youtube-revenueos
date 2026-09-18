@@ -32,6 +32,7 @@ import {
   Pencil,
   Lock,
   ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -69,7 +70,6 @@ import {
 import { clearAllStores, uid, useLocalStore } from "@/lib/local-store";
 import { clearChannelSettings } from "@/lib/channel-settings";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
-import { llm } from "@/lib/llm";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { OnboardingTour } from "@/components/OnboardingTour";
@@ -1212,6 +1212,8 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     },
   ]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const suggestions = useMemo(
     () => [
       "How do I create a tracking link?",
@@ -1222,14 +1224,47 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     [],
   );
 
-  const send = (text: string) => {
-    if (!text.trim()) return;
-    const userMsg = { id: uid(), role: "user" as const, text };
-    setMsgs((m) => [...m, userMsg]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [msgs, sending]);
+
+  const send = async (text: string) => {
+    if (!text.trim() || sending) return;
+    const history = msgs.map((m) => ({
+      role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+      text: m.text,
+    }));
+    setMsgs((m) => [...m, { id: uid(), role: "user", text }]);
     setInput("");
-    llm.chatReply(text).then((reply) => {
-      setMsgs((m) => [...m, { id: uid(), role: "bot", text: reply }]);
-    });
+    setSending(true);
+    try {
+      const response = await fetch("/api/assistant/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const body = (await response.json()) as { data?: { reply: string }; error?: string };
+      if (!response.ok || !body.data) {
+        const errorText =
+          body.error === "AI_PROVIDER_NOT_CONFIGURED"
+            ? "Tubi isn't set up yet — an admin needs to add an AI provider key in Settings."
+            : "Sorry, I couldn't get an answer just now. Please try again.";
+        setMsgs((m) => [...m, { id: uid(), role: "bot", text: errorText }]);
+        return;
+      }
+      setMsgs((m) => [...m, { id: uid(), role: "bot", text: body.data!.reply }]);
+    } catch {
+      setMsgs((m) => [
+        ...m,
+        {
+          id: uid(),
+          role: "bot",
+          text: "Sorry, I couldn't get an answer just now. Please try again.",
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -1240,7 +1275,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
             <span className="text-primary">Tubi</span>
           </SheetTitle>
-          <SheetDescription>Frontend preview — answers are canned demo copy.</SheetDescription>
+          <SheetDescription>Your AI assistant for Tubify — ask anything.</SheetDescription>
         </SheetHeader>
         <div className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
           {msgs.map((m) => (
@@ -1251,13 +1286,22 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
               {m.text}
             </div>
           ))}
+          {sending && (
+            <div className="mr-8 flex items-center gap-1 rounded-2xl bg-accent/50 px-3.5 py-3">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
         <div className="mt-3 flex shrink-0 flex-wrap gap-1.5">
           {suggestions.map((s) => (
             <button
               key={s}
-              onClick={() => send(s)}
-              className="flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
+              onClick={() => void send(s)}
+              disabled={sending}
+              className="flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles className="h-3 w-3 shrink-0 text-primary" /> {s}
             </button>
@@ -1266,7 +1310,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            send(input);
+            void send(input);
           }}
           className="mt-3 flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-accent/10 p-1.5 pl-4"
         >
@@ -1274,10 +1318,16 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask anything…"
+            disabled={sending}
             className="h-9 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
           />
-          <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-full">
-            <Send className="h-4 w-4" />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={sending || !input.trim()}
+            className="h-9 w-9 shrink-0 rounded-full"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
         <button

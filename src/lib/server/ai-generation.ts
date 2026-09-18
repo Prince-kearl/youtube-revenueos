@@ -60,6 +60,14 @@ export type LeadSummaryResult = {
   desiredOutcomes: string[];
 };
 
+export type AssistantChatInput = {
+  message: string;
+  history: Array<{ role: "user" | "assistant"; text: string }>;
+  /** Real, live numbers about the creator's own workspace (deal counts, lead counts, link clicks,
+   * etc.), gathered by the caller — never fabricated here. */
+  accountContext: string;
+};
+
 export type FreebieInput = {
   product: string;
   audience: string;
@@ -166,6 +174,35 @@ function leadSummaryPromptFor(input: LeadSummaryInput): { system: string; user: 
     system:
       'You summarize a creator\'s conversation with a lead for their CRM. Base every statement strictly on the supplied message thread — never invent pain points, needs, or outcomes not evidenced by what was actually said. Respond with ONLY a JSON object, no markdown fences, no commentary, matching exactly this shape: {"painPoints": string[], "desiredOutcomes": string[]}. painPoints: 0-4 short phrases describing problems or frustrations the lead actually expressed — empty array if none are evidenced. desiredOutcomes: 0-4 short phrases describing what the lead actually said they want — empty array if none are evidenced. Never pad either list to reach a target length.',
     user: `Conversation with ${input.leadName}:\n\n${thread || "No messages yet."}`,
+  };
+}
+
+// Ground truth about what Tubify actually does, kept in sync by hand with the real features —
+// this is what stops Tubi from inventing capabilities, prices, or behavior the app doesn't have.
+const TUBIFY_FEATURES_REFERENCE = `
+- Dashboard: revenue, subscriber, and video KPIs plus trend charts, sourced from the creator's connected YouTube channel. YouTube Analytics figures typically lag 24-72h behind real-time; revenue lags roughly 48h.
+- AI Lab: generates an optimized YouTube description for one of the creator's videos from its title/transcript. Can auto-generate a real short tracking link for each selected destination (or freebie) and weave those links into the description, so clicks are tracked per video.
+- Link Tracking: create short links (yourapp.com/r/<slug>) that redirect to any destination and record real clicks and unique visitors. Workspaces can connect a custom domain (verified via a real DNS CNAME check) so links use that domain instead.
+- Destinations: the creator's conversion links (courses, newsletters, communities, etc.) and social profiles. Each destination has a "See top performers" view showing which videos drove the most clicks to it.
+- Lead Inbox: a real CRM for people who reached out via Instagram, Email, or a YouTube comment. Leads captured on different channels for the same person can be linked into one grouped thread. Supports notes, tags, status stages, and an AI-generated summary of pain points/desired outcomes from the real conversation.
+- Comment Automation: rules that watch a connected channel's YouTube comments for keywords, an @handle, or a question, and can auto-reply on YouTube for real; each fired rule logs that commenter as a lead. Each auto-reply costs YouTube API quota (about 50 units).
+- AI Freebie: generates a lead magnet (cheatsheet/guide/list/checklist) grounded in the creator's own Knowledge Base (pasted notes or uploaded files — text/Markdown/CSV/PDF get real text extraction). A creator can also just upload a finished file instead of generating one. Freebies get a brand kit (logo/colors/font) and, once "launched," a real public opt-in page (yourapp.com/f/<slug>) that captures an email (and optional Instagram handle) before unlocking the content/file — every opt-in creates a real lead in Lead Inbox.
+- Deals: a pipeline (Prospect -> Pitched -> Negotiating -> Contracted -> Completed) for tracking brand deal/sponsorship opportunities.
+- Email: campaigns are drafted and saved to the creator's own real "leads with an email on file" audience, but sending is not connected yet — a campaign stays a draft the creator would send manually elsewhere.
+- Team: invite teammates with a role (owner/manager/setter/editor) that controls what pages/data they can see.
+- Settings/Admin: workspace branding (for freebie pages), custom domain, and account preferences.
+`.trim();
+
+function assistantPromptFor(input: AssistantChatInput): { system: string; user: string } {
+  const history = input.history
+    .slice(-8)
+    .map((m) => `${m.role === "user" ? "Creator" : "Tubi"}: ${m.text}`)
+    .join("\n");
+  return {
+    system:
+      "You are Tubi, the in-app assistant built into Tubify (a YouTube Revenue OS for creators). Answer questions about how to use its real features, and about the creator's own real account numbers supplied below. Be concise — this is a chat widget, not an essay: normally 1-4 sentences, or a short list only for genuine multi-step instructions. Never invent numbers, features, prices, integrations, or capabilities beyond what's described in the app reference or account snapshot below; if something isn't covered there, say you're not sure and point to the most relevant page instead of guessing. Never claim to take an action for the creator (you can't click buttons, change settings, or send anything) — only explain where and how they'd do it themselves. Respond with ONLY your reply to the creator, no preamble, no markdown headers.\n\nHOW TUBIFY WORKS:\n" +
+      TUBIFY_FEATURES_REFERENCE,
+    user: `${input.accountContext}\n\n${history ? `Recent conversation:\n${history}\n\n` : ""}Creator's new message: ${input.message}`,
   };
 }
 
@@ -491,6 +528,17 @@ export async function generateLeadSummary(input: LeadSummaryInput): Promise<Lead
     throw providerFailure(provider);
   }
   return parsed as unknown as LeadSummaryResult;
+}
+
+// Plain text, not JSON — a chat reply is prose to read, not data to parse.
+export async function generateAssistantReply(input: AssistantChatInput): Promise<string> {
+  const provider = configuredProvider();
+  if (!provider) throw new Error("AI_PROVIDER_NOT_CONFIGURED");
+  const prompt = assistantPromptFor(input);
+  const { text: raw } = await callProvider(provider, prompt.system, prompt.user);
+  const text = stripJsonFence(raw).trim();
+  if (!text) throw providerFailure(provider);
+  return text;
 }
 
 // Plain Markdown output, not JSON — a lead magnet is prose/structured content to read, not data
