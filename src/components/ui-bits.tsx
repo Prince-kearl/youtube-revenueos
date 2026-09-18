@@ -83,7 +83,7 @@ const statusColors: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColors[status] ?? "bg-accent"}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors[status] ?? "bg-accent"}`}>
       {status}
     </span>
   );
