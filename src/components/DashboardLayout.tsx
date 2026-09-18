@@ -1234,7 +1234,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="inset-y-3 right-3 flex h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] flex-col gap-0 rounded-2xl border p-5 shadow-2xl sm:inset-y-4 sm:right-4 sm:h-[calc(100%-2rem)] sm:w-full sm:max-w-sm">
+      <SheetContent className="top-3 right-3 bottom-auto flex h-auto max-h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] flex-col gap-0 rounded-2xl border p-5 shadow-2xl sm:top-4 sm:right-4 sm:max-h-[calc(100%-2rem)] sm:w-full sm:max-w-sm">
         <SheetHeader className="shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
@@ -1242,7 +1242,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
           </SheetTitle>
           <SheetDescription>Frontend preview — answers are canned demo copy.</SheetDescription>
         </SheetHeader>
-        <div className="mt-4 flex-1 space-y-2.5 overflow-y-auto pr-1">
+        <div className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
           {msgs.map((m) => (
             <div
               key={m.id}
