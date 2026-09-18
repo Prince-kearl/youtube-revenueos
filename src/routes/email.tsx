@@ -206,8 +206,8 @@ function EmailSender() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bulk Email &amp; Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Compose email campaigns for your audience. There's no sending pipeline connected yet —
-            campaigns are saved here, ready for when there is.
+            Compose campaigns for your audience. Sending isn't connected yet — campaigns are saved
+            as drafts.
           </p>
         </div>
         <button
@@ -264,9 +264,7 @@ function EmailSender() {
         <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Audience Breakdown</h3>
-          <p className="text-xs text-muted-foreground">
-            Real leads with an email on file, by source.
-          </p>
+          <p className="text-xs text-muted-foreground">Leads with an email on file, by source.</p>
           {audienceStatus === "loading" && (
             <p className="mt-5 text-sm text-muted-foreground">Loading…</p>
           )}
@@ -523,9 +521,6 @@ function CampaignFormDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{campaign ? "Edit Campaign" : "New Campaign"}</DialogTitle>
-          <DialogDescription>
-            Saved to your campaign library — sending isn't connected yet.
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">

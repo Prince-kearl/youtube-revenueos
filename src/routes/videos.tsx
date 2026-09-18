@@ -241,12 +241,6 @@ function Videos() {
               <RefreshCw className="h-3 w-3 animate-spin" aria-label="Refreshing" />
             )}
           </p>
-          {state.data?.channel.title && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Showing videos from {state.data.channel.title}
-              {state.data.channel.handle ? ` · ${state.data.channel.handle}` : ""}
-            </p>
-          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full sm:w-56">

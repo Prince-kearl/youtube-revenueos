@@ -291,7 +291,6 @@ function ProjectsPage() {
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <form onSubmit={handleSubmit} className="rounded-xl card-gradient-outline p-5">
           <h2 className="text-lg font-semibold">Create a new project</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Describe the product idea and generate a starter concept.</p>
 
           <label className="mt-5 block text-sm font-medium">Project title</label>
           <input

@@ -241,9 +241,8 @@ function Affiliate() {
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Commissions accrue automatically from real Tubify subscription payments. Payouts
-                  are currently processed manually — automatic Stripe Connect payouts aren't set up
-                  yet.
+                  Commissions accrue automatically from subscription payments. Payouts are currently
+                  processed manually.
                 </p>
               </>
             )}

@@ -419,14 +419,12 @@ function VideoDetail() {
                 {data.channel.title ?? "Connected channel"}
                 {data.channel.handle ? ` · ${data.channel.handle}` : ""}
               </p>
-              <p className="mt-1 font-mono text-[11px] text-muted-foreground/80">
-                YouTube video ID: {data.video.id}
-              </p>
             </div>
             <a
               href={data.video.url}
               target="_blank"
               rel="noopener noreferrer"
+              title={`YouTube video ID: ${data.video.id}`}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
             >
               Open on YouTube <ExternalLink className="h-3.5 w-3.5" />
@@ -544,7 +542,7 @@ function VideoDetail() {
                   <BarChart3 className="h-5 w-5 text-brand-blue" /> Performance over time
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Daily activity reported by YouTube for the selected period.
+                  Via YouTube Analytics, for the selected period.
                 </p>
               </div>
               {!data.timeline.available && (
@@ -627,9 +625,6 @@ function VideoDetail() {
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div>
               <h2 className="text-lg font-semibold">Traffic sources</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Where viewers found this video during the selected period.
-              </p>
             </div>
             {data.trafficSources.available ? (
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -658,9 +653,6 @@ function VideoDetail() {
               <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
               <div>
                 <h2 className="text-lg font-semibold">Audience demographics</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Viewer age and gender distribution reported by YouTube.
-                </p>
               </div>
               {data.demographics.available ? (
                 <div className="mt-4 h-[300px]">
@@ -717,9 +709,6 @@ function VideoDetail() {
               <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
               <div>
                 <h2 className="text-lg font-semibold">Audience retention</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  How much of the video viewers watched at each point.
-                </p>
               </div>
               {data.retention.available ? (
                 <div className="mt-4 h-[300px]">
@@ -788,12 +777,6 @@ function VideoDetail() {
                 <UnavailablePanel text="Audience-retention data is not available for this video and period." />
               )}
             </div>
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Analytics are fetched from the selected authenticated YouTube channel for each date
-            range.
           </div>
         </>
       )}

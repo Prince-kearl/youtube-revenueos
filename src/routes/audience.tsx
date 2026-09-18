@@ -249,7 +249,7 @@ function Audience() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Audience Demographics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Real age, gender, and location breakdown of your viewers, from YouTube Analytics.
+            Age, gender, and location breakdown of your viewers.
           </p>
         </div>
         {status === "ready" && (
@@ -282,7 +282,7 @@ function Audience() {
       {status === "not_connected" && (
         <MessageState
           title="Connect your YouTube channel"
-          description="Audience demographics come from your channel's real YouTube Analytics data."
+          description="Audience demographics come from YouTube Analytics."
           action="Go to Settings"
         />
       )}
@@ -556,8 +556,7 @@ function Audience() {
               </div>
             )}
             <p className="mt-4 text-[11px] text-muted-foreground">
-              Demographic and geography data via the YouTube Analytics API (ageGroup, gender,
-              country dimensions).
+              Sourced from YouTube Analytics.
             </p>
           </div>
         </>

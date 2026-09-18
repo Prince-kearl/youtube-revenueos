@@ -659,7 +659,7 @@ function AddVideo() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Analyze a YouTube Video</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Get AI-powered insights, optimize your content, and grow your audience.
+            AI analysis, description optimization, and destination links for one video.
           </p>
         </div>
         <Link
@@ -1071,10 +1071,6 @@ function AddVideo() {
                 />
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              A quick AI summary of what your video is about, who it’s for, and how it could be
-              better.
-            </p>
             {!analysis && !analyzing && (
               <p className="mt-3 text-sm text-muted-foreground">
                 {loaded
@@ -1356,9 +1352,7 @@ function AddVideo() {
             )}
             {optimizeTab === "chapters" && (
               <p className="mt-4 text-sm text-muted-foreground">
-                Chapters mark where each part of your video starts (like "Intro" at 0:00, "Tutorial"
-                at 1:30). Tubify can’t generate these yet — it would need a transcript that includes
-                exact timestamps, which isn’t supported yet. Coming soon.
+                Chapter generation isn't available yet — coming soon.
               </p>
             )}
             {optimizeTab === "cta" && (
@@ -1438,7 +1432,7 @@ function AddVideo() {
                 </div>
                 <div className="mt-3 rounded-lg border border-border bg-accent/10 p-3 text-xs text-muted-foreground">
                   {isConnectedChannelVideo
-                    ? "This is your video, so you can save your work here and come back to it later."
+                    ? "You own this video — save your work here."
                     : "This video belongs to another channel. You can still analyze what's public, but you can't save changes to it."}
                 </div>
                 <a
@@ -1475,7 +1469,7 @@ function AddVideo() {
             ) : transcript ? (
               <>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Good — Tubify will use this to give more accurate analysis and suggestions.
+                  Tubify will use this for more accurate analysis and suggestions.
                 </p>
                 <div className="mt-3 rounded-lg border border-border bg-background p-3 text-xs">
                   <p className="text-muted-foreground">Word count</p>
@@ -1492,9 +1486,8 @@ function AddVideo() {
             ) : (
               <>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  A transcript is just the words spoken in your video. Adding one (optional) helps
-                  Tubify write better suggestions. Tubify never pulls captions from YouTube on its
-                  own — you choose what to add.
+                  Optional — adding a transcript helps Tubify write sharper suggestions. Tubify
+                  never pulls captions automatically.
                 </p>
                 <button
                   type="button"
@@ -1622,21 +1615,11 @@ function AddVideo() {
               {saving ? "Saving…" : savedVideoId ? "Update" : "Save to Tubify"}
             </button>
           )}
-          <button
-            type="button"
-            disabled
-            title="Tubify doesn't publish changes back to YouTube yet"
-            className="flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-medium text-muted-foreground opacity-60"
-          >
-            <Youtube className="h-4 w-4" /> Publish to YouTube
-            <span className="text-[10px] text-muted-foreground">(coming soon)</span>
-          </button>
         </div>
       </div>
 
       <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-        <Lock className="h-3 w-3" /> Only you can see this analysis. Your content and data are
-        private and secure.
+        <Lock className="h-3 w-3" /> This analysis is private to you.
       </p>
     </DashboardLayout>
   );

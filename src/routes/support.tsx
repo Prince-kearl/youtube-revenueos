@@ -98,9 +98,6 @@ function Support() {
         <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
           <LifeBuoy className="h-7 w-7 text-primary" /> Support
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Report a problem or send feedback — it goes straight to the Tubify team.
-        </p>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">

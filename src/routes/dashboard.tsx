@@ -526,9 +526,6 @@ function Dashboard() {
         <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">Connect your YouTube channel</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connect YouTube in Settings to load your channel metrics here.
-            </p>
           </div>
           <Link
             to="/settings"

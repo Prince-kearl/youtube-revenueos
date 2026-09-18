@@ -45,13 +45,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -598,9 +592,7 @@ export function DashboardLayout({
       )}
       {!hasSearchResults && (
         <p className="p-6 text-center text-sm text-muted-foreground">
-          {searchQuery.trim()
-            ? "No results."
-            : "Start typing to search pages, videos, leads, and deals…"}
+          {searchQuery.trim() ? "No results." : "Search pages, videos, leads, and deals"}
         </p>
       )}
       <div className="border-t border-border p-2">
@@ -1211,7 +1203,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
     {
       id: uid(),
       role: "bot",
-      text: "Hi! I'm Tubi, your assistant. Ask about revenue trends, deals, links, or how to use any feature.",
+      text: "Hi, I'm Tubi. Ask about revenue, deals, links, or any feature.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -1281,7 +1273,6 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
             <span className="text-primary">Tubi</span>
           </SheetTitle>
-          <SheetDescription>Your AI assistant for Tubify — ask anything.</SheetDescription>
         </SheetHeader>
         <div className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
           {msgs.map((m) => (

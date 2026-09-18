@@ -484,13 +484,7 @@ function AILab() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">AI Description Lab</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Generate a description for one of your videos, powered by AI
-          </p>
         </div>
-        <span className="flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
-          <Sparkles className="h-4 w-4" /> AI-generated descriptions
-        </span>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -731,8 +725,7 @@ function AILab() {
               </div>
             )}
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Save your Brand Voice, destination, and custom instructions below as a named preset to
-              reuse across videos.
+              Save these settings as a reusable preset.
             </p>
 
             <p className="mt-4 text-sm text-muted-foreground">Brand Voice</p>
@@ -824,11 +817,11 @@ function AILab() {
               </div>
             )}
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Each checked destination gets its own short link (visible on the{" "}
+              Each checked destination gets a short link, added to the description and tracked on{" "}
               <Link to="/link-tracking" className="text-primary hover:underline">
                 Link Tracking
-              </Link>{" "}
-              page) and is woven into the description.
+              </Link>
+              .
             </p>
 
             <p className="mt-4 text-sm text-muted-foreground">Freebie (optional)</p>

@@ -1,16 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import {
-  Mail,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  Zap,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
@@ -243,11 +233,6 @@ function Signup() {
           </>
         )}
       </div>
-
-      <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
-        <Zap className="h-4 w-4 text-brand-amber" fill="currentColor" />
-        Tubify — turn your YouTube channel into a sales engine
-      </p>
     </div>
   );
 }

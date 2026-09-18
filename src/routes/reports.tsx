@@ -74,9 +74,6 @@ function Reports() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Performance summaries and exportable reports
-          </p>
         </div>
       </div>
 
@@ -171,7 +168,7 @@ function Reports() {
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h2 className="text-lg font-semibold">Custom Report</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Export a CSV of real data for a specific date range. PDF/XLSX aren't available yet.
+              Export a CSV for a date range. PDF/XLSX coming later.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
               <div>

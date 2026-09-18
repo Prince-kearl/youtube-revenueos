@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Mail,
   TrendingUp,
+  Info,
 } from "lucide-react";
 import {
   LineChart,
@@ -378,8 +379,7 @@ function Team() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Team</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Invite teammates, assign roles, and split lead distribution &amp; commission across your
-            pipeline.
+            Manage roles, lead distribution, and commission splits.
           </p>
         </div>
         {manageable && (
@@ -424,6 +424,9 @@ function Team() {
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-semibold">
                     <TrendingUp className="h-4.5 w-4.5 text-brand-purple" /> Team Performance
+                    <span title="Only counts deals with an “Assigned to” teammate set on Brand Deals — assign deals there to see them reflected here.">
+                      <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    </span>
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Cumulative closed-deal value attributed per teammate, past{" "}
@@ -487,10 +490,6 @@ function Team() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Only counts deals with an "Assigned to" teammate set on Brand Deals — assign deals
-                there to see them reflected here.
-              </p>
             </div>
           )}
 
@@ -754,8 +753,7 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>Invite a teammate</DialogTitle>
           <DialogDescription>
-            They'll get a real invite email. If they already have a Tubify account, they're added
-            immediately.
+            They'll receive an invite email. Existing Tubify users are added immediately.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">

@@ -359,9 +359,6 @@ function Analytics() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">YouTube Analytics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Authenticated channel earnings and audience breakdowns
-          </p>
         </div>
         <div className="flex rounded-full bg-accent p-1 text-xs">
           {ranges.map((item) => (
@@ -384,8 +381,7 @@ function Analytics() {
         <span className="inline-flex h-2 w-2 rounded-full bg-brand-amber" />
         <span className="font-semibold text-brand-amber">YouTube Analytics</span>
         <span className="text-muted-foreground">
-          Data is sourced from the signed-in channel. Revenue may lag and may be unavailable for
-          channels without monetized revenue rows.
+          Revenue may lag and can be unavailable for non-monetized channels.
         </span>
       </div>
 
@@ -598,8 +594,7 @@ function Analytics() {
                     </ResponsiveContainer>
                   </div>
                   <p className="mt-4 text-[11px] text-muted-foreground">
-                    Each point is the channel-wide average of YouTube's daily reported CPM for that
-                    month — not a guaranteed rate, and it can vary a lot by video, audience, and ad
+                    Monthly average of YouTube's daily CPM — varies by video, audience, and ad
                     inventory.
                   </p>
                 </>
@@ -703,10 +698,9 @@ function Analytics() {
             )}
             {sourceTab === "revenue" && (
               <p className="mt-4 text-[11px] text-muted-foreground">
-                YouTube only reports Ad Revenue and YouTube Premium as distinct categories — "Other"
-                covers everything else it doesn't break out separately (Shorts fund, Super
-                Chat/Thanks, channel memberships). Brand deals and affiliate income aren't shown
-                here because YouTube has no visibility into off-platform revenue.
+                "Other" includes Shorts fund, Super Chat, and memberships — YouTube doesn't break
+                these out separately. Off-platform revenue (brand deals, affiliate) isn't tracked
+                here.
               </p>
             )}
           </div>
@@ -827,8 +821,7 @@ function Analytics() {
                   !result.data?.video.revenueAvailable &&
                   videoRows.length > 0 && (
                     <p className="mt-4 text-xs text-muted-foreground">
-                      YouTube returned video activity but no estimated revenue rows for this period.
-                      Earnings remain unavailable without inventing values.
+                      No estimated revenue was reported for this period.
                     </p>
                   )}
               </div>
@@ -929,12 +922,6 @@ function Analytics() {
           </div>
         </>
       )}
-
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <RefreshCw className="h-3.5 w-3.5" />
-        Changing 3M, 6M, or 12M requests the selected period from YouTube Analytics; it does not
-        slice static mock data.
-      </div>
     </DashboardLayout>
   );
 }

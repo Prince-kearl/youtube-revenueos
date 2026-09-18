@@ -187,9 +187,6 @@ function LinkTracking() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Link Tracking</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create short links and track real clicks
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -696,9 +693,8 @@ function DomainDialog({
                 </button>
 
                 <p className="text-xs text-muted-foreground">
-                  Once DNS verifies, also add {info.domain} in your hosting provider’s domain
-                  settings — that’s the step that actually routes traffic to Tubify, and it isn’t
-                  something we can do from here.
+                  After DNS verifies, also add {info.domain} in your hosting provider's settings —
+                  that's what actually routes traffic.
                 </p>
               </div>
             )}

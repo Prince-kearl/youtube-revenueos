@@ -181,8 +181,7 @@ function BillingCheckout() {
 
         {!data.stripeConfigured && (
           <div className="mt-6 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-            Billing isn't configured yet — Stripe API keys haven't been added. Plans are shown for
-            preview, but checkout won't work until that's set up.
+            Checkout isn't available right now.
           </div>
         )}
 
@@ -338,7 +337,7 @@ function BillingCheckout() {
                     )}
                     {hasPrice && !p.available && (
                       <p className="relative mt-2 text-center text-xs text-muted-foreground">
-                        This plan's Stripe price isn't configured yet.
+                        Not available for checkout yet.
                       </p>
                     )}
 

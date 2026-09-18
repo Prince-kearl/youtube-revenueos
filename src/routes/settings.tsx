@@ -1689,6 +1689,7 @@ function BillingPanel() {
 
 function SecurityPanel() {
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [updating, setUpdating] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(true);
   const [mfaSubmitting, setMfaSubmitting] = useState(false);
@@ -1750,6 +1751,10 @@ function SecurityPanel() {
       toast.error("Use at least 8 characters for your new password.");
       return;
     }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords don't match.");
+      return;
+    }
     setUpdating(true);
     const { error } = await updatePassword(newPassword);
     setUpdating(false);
@@ -1758,6 +1763,7 @@ function SecurityPanel() {
       return;
     }
     setNewPassword("");
+    setConfirmPassword("");
     toast.success("Password updated");
   };
 
@@ -1868,19 +1874,30 @@ function SecurityPanel() {
           <div>
             <h4 className="text-sm font-bold">Password</h4>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <input
               type="password"
               autoComplete="new-password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               placeholder="New password"
-              className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary md:w-1/2"
+              className="h-11 rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+            />
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Confirm new password"
+              className="h-11 rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
             />
           </div>
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <p className="mt-2 text-xs text-destructive">Passwords don't match.</p>
+          )}
           <button
             onClick={() => void handlePasswordUpdate()}
-            disabled={updating}
+            disabled={updating || !newPassword || newPassword !== confirmPassword}
             className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {updating ? "Updating…" : "Update password"}

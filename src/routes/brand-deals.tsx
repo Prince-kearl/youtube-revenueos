@@ -38,7 +38,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/modals";
@@ -389,9 +388,6 @@ function BrandDeals() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Brand Deal Board</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            CRM-style pipeline for sponsorship management
-          </p>
         </div>
         <button
           onClick={() => setCreating({ open: true })}
@@ -767,7 +763,6 @@ function DealFormDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{deal ? "Edit Deal" : "New Deal"}</DialogTitle>
-          <DialogDescription>Track a sponsorship through your pipeline.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">

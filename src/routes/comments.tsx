@@ -415,7 +415,7 @@ function Comments() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Comment Automation</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Auto-reply to real comments on your videos — keyword matches, @handles, or questions.
+            Auto-reply by keyword, @handle, or question.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -542,7 +542,7 @@ function Comments() {
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Each auto-reply costs 50 units (comments.insert) — max ~200/day. Resets at midnight UTC.
+            Each auto-reply costs 50 units — max ~200/day. Resets at midnight UTC.
           </p>
         </div>
       )}
@@ -838,10 +838,7 @@ function AllCommentsDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>All Comments</DialogTitle>
-          <DialogDescription>
-            Real comments from your recent videos. Reply individually, or select several for a bulk
-            automated response.
-          </DialogDescription>
+          <DialogDescription>Reply individually or in bulk.</DialogDescription>
         </DialogHeader>
 
         {status === "loading" && (

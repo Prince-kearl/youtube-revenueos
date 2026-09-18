@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { Mail, ArrowRight, Zap, Loader2, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { requestPasswordReset } from "@/lib/supabase/auth";
@@ -94,11 +94,6 @@ function ForgotPassword() {
           </>
         )}
       </div>
-
-      <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
-        <Zap className="h-4 w-4 text-brand-amber" fill="currentColor" />
-        Tubify — turn your YouTube channel into a sales engine
-      </p>
     </div>
   );
 }

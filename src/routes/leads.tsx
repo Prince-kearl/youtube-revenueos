@@ -601,7 +601,7 @@ function LeadInbox() {
             <Inbox className="h-6 w-6 text-primary" /> Lead Inbox
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Everyone who commented, dropped a handle, or reached out — in one place.
+            Comments, DMs, and emails — in one inbox.
           </p>
         </div>
         <button
@@ -1325,8 +1325,7 @@ function LinkLeadDialog({
         <DialogHeader>
           <DialogTitle>Link another channel</DialogTitle>
           <DialogDescription>
-            Connect another lead record to {targetLead.name} when it’s the same person reaching out
-            on a different channel.
+            Merge another lead record into {targetLead.name} when it's the same person.
           </DialogDescription>
         </DialogHeader>
         <input
@@ -1428,9 +1427,6 @@ function NewLeadDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New Lead</DialogTitle>
-          <DialogDescription>
-            Track someone who reached out on Instagram or Email.
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div>
