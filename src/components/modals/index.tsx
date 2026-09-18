@@ -432,6 +432,7 @@ export function DestinationDialog({
 export type TrackLink = {
   id: string;
   slug: string;
+  shortUrl: string;
   status: "active" | "archived";
   clicks: number;
   uniqueClicks: number;

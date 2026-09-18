@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Copy, Pencil, Trash2, RefreshCw, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  Search,
+  Plus,
+  Copy,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  ExternalLink,
+  Globe,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -9,6 +20,16 @@ import {
   type TrackLink,
   type TrackLinkInput,
 } from "@/components/modals";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { toast } from "sonner";
@@ -30,15 +51,11 @@ function errorMessage(error: string): string {
     DESTINATION_NOT_FOUND: "That destination couldn’t be found. Choose another one.",
     VIDEO_NOT_FOUND: "That video couldn’t be found. Choose another one.",
     SLUG_TAKEN: "That slug is already in use. Try a different one.",
+    LINK_ALREADY_EXISTS: "This video already has a link for that destination.",
     DATABASE_ERROR: "We couldn’t save that. Please try again.",
     NOT_FOUND: "That link no longer exists.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
-}
-
-function shortUrl(slug: string): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/r/${slug}`;
 }
 
 function LinkTracking() {
@@ -52,6 +69,24 @@ function LinkTracking() {
   const [deleting, setDeleting] = useState<TrackLink | null>(null);
   const [destinations, setDestinations] = useState<DestinationOption[]>([]);
   const [videos, setVideos] = useState<VideoOption[]>([]);
+  const [domainOpen, setDomainOpen] = useState(false);
+  const [domain, setDomain] = useState<string | null>(null);
+  const [domainVerifiedAt, setDomainVerifiedAt] = useState<string | null>(null);
+
+  const refreshDomain = () => {
+    fetch("/api/workspace/domain", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          data?: { domain: string | null; verifiedAt: string | null };
+        };
+        if (response.ok && body.data) {
+          setDomain(body.data.domain);
+          setDomainVerifiedAt(body.data.verifiedAt);
+        }
+      })
+      .catch(() => {});
+  };
+  useEffect(refreshDomain, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -124,9 +159,9 @@ function LinkTracking() {
     }
   };
 
-  const copy = async (slug: string) => {
+  const copy = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(shortUrl(slug));
+      await navigator.clipboard.writeText(url);
       toast.success("Copied to clipboard");
     } catch {
       toast.error("Copy failed");
@@ -155,13 +190,29 @@ function LinkTracking() {
             Create short links and track real clicks
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          data-onboarding-step="link"
-          className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" /> Create Link
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDomainOpen(true)}
+            className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3.5 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <Globe className="h-4 w-4" />
+            {domain ? (
+              <>
+                {domain}
+                {domainVerifiedAt && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+              </>
+            ) : (
+              "Custom Domain"
+            )}
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            data-onboarding-step="link"
+            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Create Link
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
@@ -238,7 +289,7 @@ function LinkTracking() {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-brand-purple">
-                      {shortUrl(l.slug).replace(/^https?:\/\//, "")}
+                      {l.shortUrl.replace(/^https?:\/\//, "")}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {l.destination?.url ?? "Destination removed"}
@@ -264,7 +315,7 @@ function LinkTracking() {
                   </span>
                   <div className="flex items-center gap-3 text-muted-foreground">
                     <button
-                      onClick={() => copy(l.slug)}
+                      onClick={() => copy(l.shortUrl)}
                       className="hover:text-foreground"
                       aria-label="Copy"
                     >
@@ -320,7 +371,7 @@ function LinkTracking() {
                           )}
                         />
                         <p className="font-medium text-brand-purple">
-                          {shortUrl(l.slug).replace(/^https?:\/\//, "")}
+                          {l.shortUrl.replace(/^https?:\/\//, "")}
                         </p>
                       </div>
                     </td>
@@ -359,7 +410,7 @@ function LinkTracking() {
                     <td className="px-3 py-4">
                       <div className="flex items-center justify-end gap-2 text-muted-foreground">
                         <button
-                          onClick={() => copy(l.slug)}
+                          onClick={() => copy(l.shortUrl)}
                           className="hover:text-foreground"
                           aria-label="Copy"
                         >
@@ -414,6 +465,13 @@ function LinkTracking() {
           setDeleting(null);
         }}
       />
+      <DomainDialog
+        open={domainOpen}
+        onOpenChange={(v) => {
+          setDomainOpen(v);
+          if (!v) refreshDomain();
+        }}
+      />
     </DashboardLayout>
   );
 }
@@ -425,5 +483,240 @@ function Summary({ value, label }: { value: string; label: string }) {
       <p className="text-2xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>
+  );
+}
+
+type DomainInfo = {
+  domain: string | null;
+  verifiedAt: string | null;
+  cnameTarget: string;
+  canManage: boolean;
+};
+
+function domainErrorMessage(error: string): string {
+  const messages: Record<string, string> = {
+    VALIDATION_ERROR: "Enter a real domain, like go.yourbrand.com.",
+    DOMAIN_TAKEN: "That domain is already connected to another workspace.",
+    FORBIDDEN: "Only the workspace owner or a manager can change this.",
+    NO_DOMAIN: "Add a domain first.",
+    DATABASE_ERROR: "We couldn’t save that. Please try again.",
+  };
+  return messages[error] ?? "Something went wrong. Try again.";
+}
+
+function DomainDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [info, setInfo] = useState<DomainInfo | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [domainInput, setDomainInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStatus("loading");
+    fetch("/api/workspace/domain", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: DomainInfo; error?: string };
+        if (!response.ok || !body.data) throw new Error();
+        setInfo(body.data);
+        setDomainInput(body.data.domain ?? "");
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
+  }, [open]);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!domainInput.trim()) return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/workspace/domain", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: domainInput.trim() }),
+      });
+      const body = (await response.json()) as { data?: DomainInfo; error?: string };
+      if (!response.ok || !body.data)
+        throw new Error(domainErrorMessage(body.error ?? "DATABASE_ERROR"));
+      setInfo(body.data);
+      toast.success("Domain saved — add the DNS record below, then verify.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We couldn’t save that domain.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/workspace/domain", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: null }),
+      });
+      const body = (await response.json()) as { data?: DomainInfo; error?: string };
+      if (!response.ok || !body.data) throw new Error();
+      setInfo(body.data);
+      setDomainInput("");
+      toast.success("Custom domain disconnected");
+    } catch {
+      toast.error("We couldn’t disconnect that domain.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const verify = async () => {
+    setVerifying(true);
+    try {
+      const response = await fetch("/api/workspace/domain?action=verify", { method: "POST" });
+      const body = (await response.json()) as {
+        data?: { verified: boolean; records: string[] };
+        error?: string;
+      };
+      if (!response.ok || !body.data)
+        throw new Error(domainErrorMessage(body.error ?? "DATABASE_ERROR"));
+      if (body.data.verified) {
+        setInfo((prev) => (prev ? { ...prev, verifiedAt: new Date().toISOString() } : prev));
+        toast.success("Domain verified! Your new links will use it.");
+      } else {
+        toast.error(
+          body.data.records.length > 0
+            ? "That CNAME doesn’t point here yet. Double-check the value and try again."
+            : "We couldn’t find a CNAME record for that domain yet — DNS changes can take a few minutes.",
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We couldn’t verify that domain.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" /> Custom Domain
+          </DialogTitle>
+          <DialogDescription>
+            Use your own domain for short links instead of this app’s default address.
+          </DialogDescription>
+        </DialogHeader>
+
+        {status === "loading" && (
+          <p className="py-4 text-center text-sm text-muted-foreground">Loading…</p>
+        )}
+        {status === "error" && (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            We couldn’t load your domain settings.
+          </p>
+        )}
+        {status === "ready" && info && !info.canManage && (
+          <p className="rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
+            Only the workspace owner or a manager can connect a custom domain.
+            {info.domain && ` Currently connected: ${info.domain}.`}
+          </p>
+        )}
+        {status === "ready" && info && info.canManage && (
+          <div className="space-y-4">
+            <form onSubmit={save} className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Domain</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                  placeholder="go.yourbrand.com"
+                  disabled={saving}
+                />
+                <Button
+                  type="submit"
+                  className="rounded-full"
+                  disabled={saving || !domainInput.trim()}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
+            </form>
+
+            {info.domain && (
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">
+                    {info.verifiedAt ? (
+                      <span className="flex items-center gap-1.5 text-success">
+                        <CheckCircle2 className="h-4 w-4" /> Verified
+                      </span>
+                    ) : (
+                      "Not verified yet"
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void disconnect()}
+                    disabled={saving}
+                    className="text-xs font-medium text-muted-foreground hover:text-destructive disabled:opacity-50"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+
+                <div className="rounded-md bg-accent/30 p-2.5 font-mono text-xs">
+                  <p className="text-muted-foreground">Add this DNS record:</p>
+                  <p className="mt-1">
+                    Type: <span className="font-semibold">CNAME</span>
+                  </p>
+                  <p>
+                    Name: <span className="font-semibold">{info.domain.split(".")[0]}</span>
+                  </p>
+                  <p>
+                    Value: <span className="font-semibold">{info.cnameTarget}</span>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void verify()}
+                  disabled={verifying}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-full border border-border py-2 text-sm font-medium hover:border-primary hover:text-primary disabled:opacity-50"
+                >
+                  {verifying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  {verifying ? "Checking DNS…" : "Verify"}
+                </button>
+
+                <p className="text-xs text-muted-foreground">
+                  Once DNS verifies, also add {info.domain} in your hosting provider’s domain
+                  settings — that’s the step that actually routes traffic to Tubify, and it isn’t
+                  something we can do from here.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="ghost"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

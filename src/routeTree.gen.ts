@@ -83,8 +83,10 @@ import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.secur
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe.webhook'
 import { Route as ApiSupportContactRouteImport } from './routes/api.support.contact'
 import { Route as ApiSupportTicketsRouteImport } from './routes/api.support.tickets'
+import { Route as ApiTrackingLinksEnsureRouteImport } from './routes/api.tracking-links.ensure'
 import { Route as ApiVideosAnalyzeContentRouteImport } from './routes/api.videos.analyze-content'
 import { Route as ApiVideosOptimizeRouteImport } from './routes/api.videos.optimize'
+import { Route as ApiWorkspaceDomainRouteImport } from './routes/api.workspace.domain'
 import { Route as ApiWorkspaceMembersRouteImport } from './routes/api.workspace.members'
 import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
@@ -485,6 +487,11 @@ const ApiSupportTicketsRoute = ApiSupportTicketsRouteImport.update({
   path: '/api/support/tickets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTrackingLinksEnsureRoute = ApiTrackingLinksEnsureRouteImport.update({
+  id: '/ensure',
+  path: '/ensure',
+  getParentRoute: () => ApiTrackingLinksRoute,
+} as any)
 const ApiVideosAnalyzeContentRoute = ApiVideosAnalyzeContentRouteImport.update({
   id: '/analyze-content',
   path: '/analyze-content',
@@ -494,6 +501,11 @@ const ApiVideosOptimizeRoute = ApiVideosOptimizeRouteImport.update({
   id: '/optimize',
   path: '/optimize',
   getParentRoute: () => ApiVideosRoute,
+} as any)
+const ApiWorkspaceDomainRoute = ApiWorkspaceDomainRouteImport.update({
+  id: '/api/workspace/domain',
+  path: '/api/workspace/domain',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWorkspaceMembersRoute = ApiWorkspaceMembersRouteImport.update({
   id: '/api/workspace/members',
@@ -677,7 +689,7 @@ export interface FileRoutesByFullPath {
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
-  '/api/tracking-links': typeof ApiTrackingLinksRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -711,8 +723,10 @@ export interface FileRoutesByFullPath {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
   '/api/support/tickets': typeof ApiSupportTicketsRoute
+  '/api/tracking-links/ensure': typeof ApiTrackingLinksEnsureRoute
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
+  '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -782,7 +796,7 @@ export interface FileRoutesByTo {
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
-  '/api/tracking-links': typeof ApiTrackingLinksRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -816,8 +830,10 @@ export interface FileRoutesByTo {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
   '/api/support/tickets': typeof ApiSupportTicketsRoute
+  '/api/tracking-links/ensure': typeof ApiTrackingLinksEnsureRoute
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
+  '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -888,7 +904,7 @@ export interface FileRoutesById {
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
-  '/api/tracking-links': typeof ApiTrackingLinksRoute
+  '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -922,8 +938,10 @@ export interface FileRoutesById {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
   '/api/support/tickets': typeof ApiSupportTicketsRoute
+  '/api/tracking-links/ensure': typeof ApiTrackingLinksEnsureRoute
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
+  '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -1029,8 +1047,10 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/api/support/contact'
     | '/api/support/tickets'
+    | '/api/tracking-links/ensure'
     | '/api/videos/analyze-content'
     | '/api/videos/optimize'
+    | '/api/workspace/domain'
     | '/api/workspace/members'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
@@ -1134,8 +1154,10 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/api/support/contact'
     | '/api/support/tickets'
+    | '/api/tracking-links/ensure'
     | '/api/videos/analyze-content'
     | '/api/videos/optimize'
+    | '/api/workspace/domain'
     | '/api/workspace/members'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
@@ -1239,8 +1261,10 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/api/support/contact'
     | '/api/support/tickets'
+    | '/api/tracking-links/ensure'
     | '/api/videos/analyze-content'
     | '/api/videos/optimize'
+    | '/api/workspace/domain'
     | '/api/workspace/members'
     | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
@@ -1311,7 +1335,7 @@ export interface RootRouteChildren {
   ApiProfileRoute: typeof ApiProfileRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
-  ApiTrackingLinksRoute: typeof ApiTrackingLinksRoute
+  ApiTrackingLinksRoute: typeof ApiTrackingLinksRouteWithChildren
   ApiVersionRoute: typeof ApiVersionRoute
   ApiVideosRoute: typeof ApiVideosRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -1339,6 +1363,7 @@ export interface RootRouteChildren {
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiSupportContactRoute: typeof ApiSupportContactRoute
   ApiSupportTicketsRoute: typeof ApiSupportTicketsRoute
+  ApiWorkspaceDomainRoute: typeof ApiWorkspaceDomainRoute
   ApiWorkspaceMembersRoute: typeof ApiWorkspaceMembersRoute
   ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
   ApiYoutubeAnalyzeVideoRoute: typeof ApiYoutubeAnalyzeVideoRoute
@@ -1878,6 +1903,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSupportTicketsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tracking-links/ensure': {
+      id: '/api/tracking-links/ensure'
+      path: '/ensure'
+      fullPath: '/api/tracking-links/ensure'
+      preLoaderRoute: typeof ApiTrackingLinksEnsureRouteImport
+      parentRoute: typeof ApiTrackingLinksRoute
+    }
     '/api/videos/analyze-content': {
       id: '/api/videos/analyze-content'
       path: '/analyze-content'
@@ -1891,6 +1923,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/videos/optimize'
       preLoaderRoute: typeof ApiVideosOptimizeRouteImport
       parentRoute: typeof ApiVideosRoute
+    }
+    '/api/workspace/domain': {
+      id: '/api/workspace/domain'
+      path: '/api/workspace/domain'
+      fullPath: '/api/workspace/domain'
+      preLoaderRoute: typeof ApiWorkspaceDomainRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/workspace/members': {
       id: '/api/workspace/members'
@@ -2152,6 +2191,17 @@ const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(
   ApiLeadsRouteChildren,
 )
 
+interface ApiTrackingLinksRouteChildren {
+  ApiTrackingLinksEnsureRoute: typeof ApiTrackingLinksEnsureRoute
+}
+
+const ApiTrackingLinksRouteChildren: ApiTrackingLinksRouteChildren = {
+  ApiTrackingLinksEnsureRoute: ApiTrackingLinksEnsureRoute,
+}
+
+const ApiTrackingLinksRouteWithChildren =
+  ApiTrackingLinksRoute._addFileChildren(ApiTrackingLinksRouteChildren)
+
 interface ApiVideosRouteChildren {
   ApiVideosAnalyzeContentRoute: typeof ApiVideosAnalyzeContentRoute
   ApiVideosOptimizeRoute: typeof ApiVideosOptimizeRoute
@@ -2259,7 +2309,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProfileRoute: ApiProfileRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiSettingsRoute: ApiSettingsRoute,
-  ApiTrackingLinksRoute: ApiTrackingLinksRoute,
+  ApiTrackingLinksRoute: ApiTrackingLinksRouteWithChildren,
   ApiVersionRoute: ApiVersionRoute,
   ApiVideosRoute: ApiVideosRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
@@ -2287,6 +2337,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiSupportContactRoute: ApiSupportContactRoute,
   ApiSupportTicketsRoute: ApiSupportTicketsRoute,
+  ApiWorkspaceDomainRoute: ApiWorkspaceDomainRoute,
   ApiWorkspaceMembersRoute: ApiWorkspaceMembersRoute,
   ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
   ApiYoutubeAnalyzeVideoRoute: ApiYoutubeAnalyzeVideoRoute,

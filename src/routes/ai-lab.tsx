@@ -159,7 +159,7 @@ function AILab() {
   const [destinationsStatus, setDestinationsStatus] = useState<"loading" | "loaded" | "error">(
     "loading",
   );
-  const [selectedDestinationId, setSelectedDestinationId] = useState<string>("");
+  const [selectedDestinationIds, setSelectedDestinationIds] = useState<Set<string>>(new Set());
 
   const [templates, setTemplates] = useState<DescriptionTemplate[]>([]);
   const [templatesStatus, setTemplatesStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -208,6 +208,7 @@ function AILab() {
         const body = (await response.json()) as DestinationResponse;
         if (!response.ok || !body.data) throw new Error();
         setDestinations(body.data);
+        setSelectedDestinationIds(new Set(body.data.map((d) => d.id)));
         setDestinationsStatus("loaded");
       })
       .catch((reason: unknown) => {
@@ -276,11 +277,59 @@ function AILab() {
     }
   };
 
+  // Every checked destination gets a real tracking_links row for this video (reused on
+  // regenerate, never duplicated — see api.tracking-links.ensure.ts), and the AI is fed those
+  // short links instead of the raw destination URLs, so the description it writes and the
+  // Link Tracking page always agree.
+  const ensureTrackingLinks = async (
+    youtubeVideoId: string,
+  ): Promise<{ name: string; url: string }[]> => {
+    const selectedDestinations = destinations.filter((d) => selectedDestinationIds.has(d.id));
+    if (selectedDestinations.length === 0 || !selectedChannelId) return [];
+
+    const saveResponse = await fetch("/api/videos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelId: selectedChannelId, youtubeVideoId }),
+    });
+    const saveBody = (await saveResponse.json()) as {
+      data?: { savedVideo: { id: string } };
+      error?: string;
+    };
+    if (!saveResponse.ok || !saveBody.data?.savedVideo) {
+      toast.error("We couldn’t save this video, so tracking links weren’t created for it.");
+      return [];
+    }
+
+    const ensureResponse = await fetch("/api/tracking-links/ensure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId: saveBody.data.savedVideo.id,
+        destinationIds: selectedDestinations.map((d) => d.id),
+      }),
+    });
+    const ensureBody = (await ensureResponse.json()) as {
+      data?: { destinationId: string; shortUrl: string }[];
+      error?: string;
+    };
+    if (!ensureResponse.ok || !ensureBody.data) {
+      toast.error(
+        "We couldn’t create tracking links for your destinations — continuing without them.",
+      );
+      return [];
+    }
+    return ensureBody.data.map((link) => ({
+      name: selectedDestinations.find((d) => d.id === link.destinationId)?.name ?? "Link",
+      url: link.shortUrl,
+    }));
+  };
+
   const handleGenerate = async () => {
     if (!video || !selectedChannelId) return;
     setIsGenerating(true);
     try {
-      const destination = destinations.find((d) => d.id === selectedDestinationId);
+      const linkedDestinations = await ensureTrackingLinks(video.id);
       const response = await fetch("/api/videos/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,7 +338,7 @@ function AILab() {
           title: video.title,
           currentDescription: description || video.description,
           transcript: transcript || null,
-          destinations: destination ? [{ name: destination.name, url: destination.url }] : [],
+          destinations: linkedDestinations,
           voice,
           customInstructions: customInstructions || null,
         }),
@@ -313,7 +362,9 @@ function AILab() {
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
     setVoice(template.voice);
-    setSelectedDestinationId(template.destination_id ?? "");
+    setSelectedDestinationIds(
+      template.destination_id ? new Set([template.destination_id]) : new Set(),
+    );
     setCustomInstructions(template.custom_instructions ?? "");
   };
 
@@ -327,7 +378,7 @@ function AILab() {
         body: JSON.stringify({
           name: newTemplateName,
           voice,
-          destinationId: selectedDestinationId || null,
+          destinationId: selectedDestinationIds.size === 1 ? [...selectedDestinationIds][0] : null,
           customInstructions: customInstructions || null,
         }),
       });
@@ -650,7 +701,24 @@ function AILab() {
               ))}
             </div>
 
-            <p className="mt-4 text-sm text-muted-foreground">Feature a destination (optional)</p>
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Auto-generate tracking links for</p>
+              {destinationsStatus === "loaded" && destinations.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedDestinationIds((prev) =>
+                      prev.size === destinations.length
+                        ? new Set()
+                        : new Set(destinations.map((d) => d.id)),
+                    )
+                  }
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {selectedDestinationIds.size === destinations.length ? "Clear all" : "Select all"}
+                </button>
+              )}
+            </div>
             {destinationsStatus === "loading" && (
               <Skeleton className="mt-2 h-11 w-full rounded-lg" />
             )}
@@ -665,24 +733,44 @@ function AILab() {
                 <Link to="/link-tracking" className="text-primary hover:underline">
                   Add one in Link Tracking
                 </Link>{" "}
-                to feature it here.
+                to generate a link for it here.
               </p>
             )}
             {destinationsStatus === "loaded" && destinations.length > 0 && (
-              <select
-                aria-label="Feature a destination"
-                value={selectedDestinationId}
-                onChange={(event) => setSelectedDestinationId(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
-              >
-                <option value="">None</option>
-                {destinations.map((destination) => (
-                  <option key={destination.id} value={destination.id}>
-                    {destination.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-2 space-y-1.5">
+                {destinations.map((destination) => {
+                  const checked = selectedDestinationIds.has(destination.id);
+                  return (
+                    <label
+                      key={destination.id}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm hover:border-primary"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setSelectedDestinationIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(destination.id)) next.delete(destination.id);
+                            else next.add(destination.id);
+                            return next;
+                          })
+                        }
+                        className="h-4 w-4 shrink-0 accent-primary"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{destination.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Each checked destination gets its own short link (visible on the{" "}
+              <Link to="/link-tracking" className="text-primary hover:underline">
+                Link Tracking
+              </Link>{" "}
+              page) and is woven into the description.
+            </p>
 
             <p className="mt-4 text-sm text-muted-foreground">Custom Instructions</p>
             <textarea

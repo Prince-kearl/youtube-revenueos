@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
+import { resolveLinkOrigin, buildShortUrl } from "@/lib/server/short-links";
 
 const createLinkSchema = z.object({
   destinationId: z.string().uuid(),
@@ -93,6 +94,10 @@ async function withStats(client: SupabaseClientLike, links: Record<string, unkno
   }));
 }
 
+function withShortUrls(links: Record<string, unknown>[], origin: string) {
+  return links.map((link) => ({ ...link, shortUrl: buildShortUrl(origin, link.slug as string) }));
+}
+
 export const Route = createFileRoute("/api/tracking-links")({
   server: {
     handlers: {
@@ -113,7 +118,11 @@ export const Route = createFileRoute("/api/tracking-links")({
               setCookieHeaders,
             );
           const withStatsData = await withStats(client, data ?? []);
-          return withCookies(json({ data: withStatsData }), setCookieHeaders);
+          const origin = await resolveLinkOrigin(client, workspaceId, new URL(request.url).origin);
+          return withCookies(
+            json({ data: withShortUrls(withStatsData, origin) }),
+            setCookieHeaders,
+          );
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
@@ -146,8 +155,16 @@ export const Route = createFileRoute("/api/tracking-links")({
               .select(linkColumns)
               .single();
             if (!error) {
+              const origin = await resolveLinkOrigin(
+                client,
+                workspaceId,
+                new URL(request.url).origin,
+              );
               return withCookies(
-                json({ data: { ...data, uniqueClicks: 0 } }, { status: 201 }),
+                json(
+                  { data: withShortUrls([{ ...data, uniqueClicks: 0 }], origin)[0] },
+                  { status: 201 },
+                ),
                 setCookieHeaders,
               );
             }
@@ -159,6 +176,14 @@ export const Route = createFileRoute("/api/tracking-links")({
             }
             if (isSlugCollision) {
               return withCookies(json({ error: "SLUG_TAKEN" }, { status: 409 }), setCookieHeaders);
+            }
+            const isDuplicateLink =
+              error.code === "23505" && error.message.includes("tracking_links_video_destination");
+            if (isDuplicateLink) {
+              return withCookies(
+                json({ error: "LINK_ALREADY_EXISTS" }, { status: 409 }),
+                setCookieHeaders,
+              );
             }
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
@@ -174,7 +199,7 @@ export const Route = createFileRoute("/api/tracking-links")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await requireWorkspaceFeature(
+          const { client, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
             request,
             "link_tracking",
           );
@@ -198,17 +223,31 @@ export const Route = createFileRoute("/api/tracking-links")({
             .single();
           if (error) {
             const notFound = error.code === "PGRST116";
-            const slugTaken = error.code === "23505";
+            const duplicateLink =
+              error.code === "23505" && error.message.includes("tracking_links_video_destination");
+            const slugTaken = error.code === "23505" && !duplicateLink;
             return withCookies(
               json(
-                { error: notFound ? "NOT_FOUND" : slugTaken ? "SLUG_TAKEN" : "DATABASE_ERROR" },
-                { status: notFound ? 404 : slugTaken ? 409 : 500 },
+                {
+                  error: notFound
+                    ? "NOT_FOUND"
+                    : duplicateLink
+                      ? "LINK_ALREADY_EXISTS"
+                      : slugTaken
+                        ? "SLUG_TAKEN"
+                        : "DATABASE_ERROR",
+                },
+                { status: notFound ? 404 : slugTaken || duplicateLink ? 409 : 500 },
               ),
               setCookieHeaders,
             );
           }
           const [withStatsData] = await withStats(client, [data]);
-          return withCookies(json({ data: withStatsData }), setCookieHeaders);
+          const origin = await resolveLinkOrigin(client, workspaceId, new URL(request.url).origin);
+          return withCookies(
+            json({ data: withShortUrls([withStatsData], origin)[0] }),
+            setCookieHeaders,
+          );
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
