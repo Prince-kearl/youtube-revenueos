@@ -717,7 +717,13 @@
     ) border-box;
 }
 .ios26 .ios26-glass {
-  background: color-mix(in srgb, var(--popover) 72%, transparent);
+  /* Was a translucent 72% mix, letting the dimmed backdrop overlay show/blur through and read as
+     grey instead of white — same "haze on a nominally-opaque surface" browser behavior noted on
+     the off-state above, so backdrop-filter has to be turned off here too now that the fill is
+     fully opaque, not left to blur nothing. The glassy feel now comes only from the bright inset
+     border/shadow, not from actual translucency. */
+  background: var(--popover);
+  backdrop-filter: none;
   border-color: color-mix(in srgb, white 20%, transparent);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
@@ -725,7 +731,8 @@
 }
 .ios26.dark .ios26-glass {
   border-color: color-mix(in srgb, white 10%, transparent);
-  background: color-mix(in srgb, var(--popover) 76%, transparent);
+  background: var(--popover);
+  backdrop-filter: none;
 }
 
 /* Toast notifications (sonner) — same shared glass treatment, targeted at sonner's own DOM
