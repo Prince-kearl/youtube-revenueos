@@ -90,17 +90,47 @@ export const Route = createFileRoute("/api/freebies")({
             request,
             "freebie",
           );
-          const { data, error } = await client
+          const status = new URL(request.url).searchParams.get("status");
+          let query = client
             .from("lead_magnets")
             .select("*, optins:lead_magnet_optins(count)")
             .eq("workspace_id", workspaceId)
             .order("created_at", { ascending: false });
+          if (status === "draft" || status === "published") query = query.eq("status", status);
+          const { data, error } = await query;
           if (error)
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
-          return withCookies(json({ data }), setCookieHeaders);
+
+          // Total clicks across every video a freebie's tracking link was attached to (see
+          // ai-lab.tsx) — summed here rather than stored, same "compute live" approach as the rest
+          // of this app's stats.
+          const destinationIds = (data ?? [])
+            .map((m) => m.destination_id as string | null)
+            .filter((id): id is string => !!id);
+          const clicksByDestination = new Map<string, number>();
+          if (destinationIds.length > 0) {
+            const { data: links } = await client
+              .from("tracking_links")
+              .select("destination_id, clicks")
+              .in("destination_id", destinationIds);
+            for (const link of links ?? []) {
+              const key = link.destination_id as string;
+              clicksByDestination.set(
+                key,
+                (clicksByDestination.get(key) ?? 0) + ((link.clicks as number) ?? 0),
+              );
+            }
+          }
+          const withClicks = (data ?? []).map((m) => ({
+            ...m,
+            clicks: m.destination_id
+              ? (clicksByDestination.get(m.destination_id as string) ?? 0)
+              : 0,
+          }));
+          return withCookies(json({ data: withClicks }), setCookieHeaders);
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
@@ -248,7 +278,7 @@ export const Route = createFileRoute("/api/freebies")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
+          const { client, user, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
             request,
             "freebie",
           );
@@ -257,7 +287,7 @@ export const Route = createFileRoute("/api/freebies")({
           const action = url.searchParams.get("action");
           const { data: existing, error: existingError } = await client
             .from("lead_magnets")
-            .select("id, title, slug, status, source, file_path")
+            .select("id, title, slug, status, source, file_path, destination_id")
             .eq("id", id)
             .eq("workspace_id", workspaceId)
             .maybeSingle();
@@ -290,7 +320,43 @@ export const Route = createFileRoute("/api/freebies")({
                 .eq("id", id)
                 .select()
                 .single();
-              if (!error) return withCookies(json({ data }), setCookieHeaders);
+              if (!error) {
+                // Real click tracking piggybacks on the existing destinations/tracking_links
+                // system: publishing gives (or reuses) a destination pointing at the public page,
+                // so AI Lab can attach a tracking link to it exactly like any other destination.
+                const publicPageUrl = `${url.origin}/f/${data.slug}`;
+                let destinationId = data.destination_id as string | null;
+                if (destinationId) {
+                  await client
+                    .from("destinations")
+                    .update({ name: data.title, url: publicPageUrl, status: "active" })
+                    .eq("id", destinationId);
+                } else {
+                  const { data: destination } = await client
+                    .from("destinations")
+                    .insert({
+                      user_id: user.id,
+                      workspace_id: workspaceId,
+                      lead_magnet_id: id,
+                      name: data.title,
+                      type: "freebie",
+                      url: publicPageUrl,
+                    })
+                    .select("id")
+                    .single();
+                  destinationId = destination?.id ?? null;
+                  if (destinationId) {
+                    await client
+                      .from("lead_magnets")
+                      .update({ destination_id: destinationId })
+                      .eq("id", id);
+                  }
+                }
+                return withCookies(
+                  json({ data: { ...data, destination_id: destinationId, clicks: 0 } }),
+                  setCookieHeaders,
+                );
+              }
               const isSlugCollision = error.code === "23505";
               if (isSlugCollision && !input.slug) {
                 candidate = `${slugify(existing.title)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -328,6 +394,15 @@ export const Route = createFileRoute("/api/freebies")({
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
+          if (action === "unpublish" && existing.destination_id) {
+            // The public page 404s once unpublished, so pull it out of active pickers too —
+            // history (clicks, existing tracking links) is untouched, and re-publishing
+            // reactivates the same destination.
+            await client
+              .from("destinations")
+              .update({ status: "archived" })
+              .eq("id", existing.destination_id);
+          }
           return withCookies(json({ data }), setCookieHeaders);
         } catch (error) {
           if (error instanceof Response) return error;
@@ -346,7 +421,7 @@ export const Route = createFileRoute("/api/freebies")({
           const id = idSchema.parse(url.searchParams.get("id"));
           const { data: existing } = await client
             .from("lead_magnets")
-            .select("file_path")
+            .select("file_path, destination_id")
             .eq("id", id)
             .eq("workspace_id", workspaceId)
             .maybeSingle();
@@ -365,6 +440,14 @@ export const Route = createFileRoute("/api/freebies")({
           if (existing?.file_path) await deleteWorkspaceFile(existing.file_path);
           for (const item of attachments ?? []) {
             if (item.file_path) await deleteWorkspaceFile(item.file_path);
+          }
+          // Detached by the FK (set null) already — archive it too so it drops out of active
+          // pickers, while any tracking links and click history it earned stay intact.
+          if (existing?.destination_id) {
+            await client
+              .from("destinations")
+              .update({ status: "archived" })
+              .eq("id", existing.destination_id);
           }
           return withCookies(json({ success: true }), setCookieHeaders);
         } catch (error) {

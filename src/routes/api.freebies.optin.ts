@@ -17,6 +17,7 @@ const optinSchema = z.object({
     .max(60),
   email: z.string().trim().email().max(200),
   name: z.string().trim().max(120).nullable().optional(),
+  instagram: z.string().trim().max(60).nullable().optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -64,11 +65,12 @@ export const Route = createFileRoute("/api/freebies/optin")({
 
           const email = input.email.toLowerCase();
           const displayName = input.name?.trim() || email.split("@")[0];
+          const instagram = input.instagram?.trim() || null;
           const noteText = `Opted in for "${magnet.title}"`;
 
           const { data: existingLead } = await service
             .from("leads")
-            .select("id")
+            .select("id, username")
             .eq("workspace_id", magnet.workspace_id)
             .eq("platform", "Email")
             .ilike("email", email)
@@ -77,25 +79,38 @@ export const Route = createFileRoute("/api/freebies/optin")({
           let leadId: string;
           if (existingLead) {
             leadId = existingLead.id;
-            await service
-              .from("leads")
-              .update({ unread: true, updated_at: new Date().toISOString() })
-              .eq("id", leadId);
+            const leadUpdate: Record<string, unknown> = {
+              unread: true,
+              updated_at: new Date().toISOString(),
+            };
+            // Only fill in a handle if the lead doesn't already have one — never overwrite
+            // something the creator may have cleaned up manually.
+            if (instagram && !existingLead.username) leadUpdate.username = instagram;
+            await service.from("leads").update(leadUpdate).eq("id", leadId);
           } else {
-            const { data: newLead, error: leadError } = await service
-              .from("leads")
-              .insert({
-                user_id: workspace.owner_id,
-                workspace_id: magnet.workspace_id,
-                name: displayName,
-                email,
-                platform: "Email",
-                status: "new",
-                source: noteText,
-                unread: true,
-              })
-              .select("id")
-              .single();
+            const insertLead = (withUsername: boolean) =>
+              service
+                .from("leads")
+                .insert({
+                  user_id: workspace.owner_id,
+                  workspace_id: magnet.workspace_id,
+                  name: displayName,
+                  email,
+                  username: withUsername ? instagram : null,
+                  platform: "Email",
+                  status: "new",
+                  source: noteText,
+                  unread: true,
+                })
+                .select("id")
+                .single();
+            let { data: newLead, error: leadError } = await insertLead(true);
+            // That Instagram handle collides with another Email lead's username (the partial
+            // unique index is per user+platform+username) — retry without it rather than fail
+            // the whole opt-in over a cosmetic field.
+            if (leadError?.code === "23505" && instagram) {
+              ({ data: newLead, error: leadError } = await insertLead(false));
+            }
             if (leadError || !newLead) return json({ error: "DATABASE_ERROR" }, { status: 500 });
             leadId = newLead.id;
           }
@@ -109,6 +124,7 @@ export const Route = createFileRoute("/api/freebies/optin")({
             workspace_id: magnet.workspace_id,
             email,
             name: input.name ?? null,
+            instagram_handle: instagram,
             lead_id: leadId,
           });
 

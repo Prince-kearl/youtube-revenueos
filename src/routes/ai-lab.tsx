@@ -84,6 +84,9 @@ type MyVideosResponse =
 
 type DestinationResponse = { data?: Destination[]; error?: string };
 
+type Freebie = { id: string; title: string; destination_id: string | null };
+type FreebiesResponse = { data?: Freebie[]; error?: string };
+
 type DescriptionTemplate = {
   id: string;
   name: string;
@@ -161,6 +164,11 @@ function AILab() {
   );
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<Set<string>>(new Set());
 
+  const [freebies, setFreebies] = useState<Freebie[]>([]);
+  const [freebiesStatus, setFreebiesStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const [selectedFreebieId, setSelectedFreebieId] = useState<string>("");
+  const [newFreebieOpen, setNewFreebieOpen] = useState(false);
+
   const [templates, setTemplates] = useState<DescriptionTemplate[]>([]);
   const [templatesStatus, setTemplatesStatus] = useState<"loading" | "loaded" | "error">("loading");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -215,6 +223,26 @@ function AILab() {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
         setDestinationsStatus("error");
       });
+    return () => controller.abort();
+  }, []);
+
+  const refreshFreebies = () => {
+    const controller = new AbortController();
+    fetch("/api/freebies?status=published", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as FreebiesResponse;
+        if (!response.ok || !body.data) throw new Error();
+        setFreebies(body.data.filter((f) => f.destination_id));
+        setFreebiesStatus("loaded");
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setFreebiesStatus("error");
+      });
+    return controller;
+  };
+  useEffect(() => {
+    const controller = refreshFreebies();
     return () => controller.abort();
   }, []);
 
@@ -277,6 +305,19 @@ function AILab() {
     }
   };
 
+  // Published freebies get their own real `destinations` row the moment they're launched (see
+  // api.freebies.ts) — so a freebie is never a second, parallel link-tracking system, just a
+  // destination the Freebie section picks instead of the generic checklist, keeping them out of
+  // each other's way.
+  const freebieDestinationIds = useMemo(
+    () => new Set(freebies.map((f) => f.destination_id).filter((id): id is string => !!id)),
+    [freebies],
+  );
+  const visibleDestinations = useMemo(
+    () => destinations.filter((d) => !freebieDestinationIds.has(d.id)),
+    [destinations, freebieDestinationIds],
+  );
+
   // Every checked destination gets a real tracking_links row for this video (reused on
   // regenerate, never duplicated — see api.tracking-links.ensure.ts), and the AI is fed those
   // short links instead of the raw destination URLs, so the description it writes and the
@@ -284,7 +325,13 @@ function AILab() {
   const ensureTrackingLinks = async (
     youtubeVideoId: string,
   ): Promise<{ name: string; url: string }[]> => {
-    const selectedDestinations = destinations.filter((d) => selectedDestinationIds.has(d.id));
+    const freebieDestinationId =
+      freebies.find((f) => f.id === selectedFreebieId)?.destination_id ?? null;
+    const idsToInclude = new Set(
+      [...selectedDestinationIds].filter((id) => !freebieDestinationIds.has(id)),
+    );
+    if (freebieDestinationId) idsToInclude.add(freebieDestinationId);
+    const selectedDestinations = destinations.filter((d) => idsToInclude.has(d.id));
     if (selectedDestinations.length === 0 || !selectedChannelId) return [];
 
     const saveResponse = await fetch("/api/videos", {
@@ -703,19 +750,26 @@ function AILab() {
 
             <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Auto-generate tracking links for</p>
-              {destinationsStatus === "loaded" && destinations.length > 0 && (
+              {destinationsStatus === "loaded" && visibleDestinations.length > 0 && (
                 <button
                   type="button"
                   onClick={() =>
-                    setSelectedDestinationIds((prev) =>
-                      prev.size === destinations.length
-                        ? new Set()
-                        : new Set(destinations.map((d) => d.id)),
-                    )
+                    setSelectedDestinationIds((prev) => {
+                      const visibleIds = visibleDestinations.map((d) => d.id);
+                      const allChecked = visibleIds.every((id) => prev.has(id));
+                      const next = new Set(prev);
+                      for (const id of visibleIds) {
+                        if (allChecked) next.delete(id);
+                        else next.add(id);
+                      }
+                      return next;
+                    })
                   }
                   className="text-xs font-medium text-primary hover:underline"
                 >
-                  {selectedDestinationIds.size === destinations.length ? "Clear all" : "Select all"}
+                  {visibleDestinations.every((d) => selectedDestinationIds.has(d.id))
+                    ? "Clear all"
+                    : "Select all"}
                 </button>
               )}
             </div>
@@ -727,7 +781,7 @@ function AILab() {
                 We couldn’t load your destinations.
               </p>
             )}
-            {destinationsStatus === "loaded" && destinations.length === 0 && (
+            {destinationsStatus === "loaded" && visibleDestinations.length === 0 && (
               <p className="mt-2 rounded-lg border border-border bg-accent/20 p-3 text-sm text-muted-foreground">
                 No destinations yet.{" "}
                 <Link to="/link-tracking" className="text-primary hover:underline">
@@ -736,9 +790,9 @@ function AILab() {
                 to generate a link for it here.
               </p>
             )}
-            {destinationsStatus === "loaded" && destinations.length > 0 && (
+            {destinationsStatus === "loaded" && visibleDestinations.length > 0 && (
               <div className="mt-2 space-y-1.5">
-                {destinations.map((destination) => {
+                {visibleDestinations.map((destination) => {
                   const checked = selectedDestinationIds.has(destination.id);
                   return (
                     <label
@@ -770,6 +824,40 @@ function AILab() {
                 Link Tracking
               </Link>{" "}
               page) and is woven into the description.
+            </p>
+
+            <p className="mt-4 text-sm text-muted-foreground">Freebie (optional)</p>
+            {freebiesStatus === "loading" && <Skeleton className="mt-2 h-11 w-full rounded-lg" />}
+            {freebiesStatus === "error" && (
+              <p className="mt-2 text-sm text-muted-foreground">We couldn’t load your freebies.</p>
+            )}
+            {freebiesStatus === "loaded" && (
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  aria-label="Attach a freebie"
+                  value={selectedFreebieId}
+                  onChange={(e) => setSelectedFreebieId(e.target.value)}
+                  className="h-11 w-full min-w-0 rounded-lg border border-border bg-accent/20 px-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">None</option>
+                  {freebies.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setNewFreebieOpen(true)}
+                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-4 w-4" /> New
+                </button>
+              </div>
+            )}
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Choose an existing freebie or create a new one — its link gets included and tracked
+              per video too.
             </p>
 
             <p className="mt-4 text-sm text-muted-foreground">Custom Instructions</p>
@@ -893,7 +981,136 @@ function AILab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <NewFreebieDialog
+        open={newFreebieOpen}
+        onOpenChange={setNewFreebieOpen}
+        onCreated={(freebie) => {
+          refreshFreebies();
+          setSelectedFreebieId(freebie.id);
+        }}
+      />
     </DashboardLayout>
+  );
+}
+
+function NewFreebieDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: (freebie: { id: string }) => void;
+}) {
+  const [product, setProduct] = useState("");
+  const [audience, setAudience] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setProduct("");
+      setAudience("");
+    }
+  }, [open]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!product.trim() || !audience.trim()) return;
+    setSaving(true);
+    try {
+      const formatLabel = "Cheatsheet";
+      const generateForm = new FormData();
+      generateForm.set("product", product.trim());
+      generateForm.set("audience", audience.trim());
+      generateForm.set("tone", "Direct, no-fluff, practical");
+      generateForm.set("format", "cheatsheet");
+      generateForm.set("formatLabel", formatLabel);
+      generateForm.set("knowledgeItemIds", "[]");
+      const generateResponse = await fetch("/api/freebies", {
+        method: "POST",
+        body: generateForm,
+      });
+      const generateBody = (await generateResponse.json()) as {
+        data?: { id: string };
+        error?: string;
+      };
+      if (!generateResponse.ok || !generateBody.data)
+        throw new Error(generateBody.error ?? "GENERATION_FAILED");
+
+      const publishResponse = await fetch(
+        `/api/freebies?id=${generateBody.data.id}&action=publish`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const publishBody = (await publishResponse.json()) as {
+        data?: { id: string };
+        error?: string;
+      };
+      if (!publishResponse.ok || !publishBody.data)
+        throw new Error(publishBody.error ?? "PUBLISH_FAILED");
+
+      onCreated(publishBody.data);
+      onOpenChange(false);
+      toast.success("Freebie created and launched — refine it further on the Freebie page.");
+    } catch {
+      toast.error("We couldn’t create that freebie. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>New freebie</DialogTitle>
+          <DialogDescription>
+            Generates and launches a quick cheatsheet you can refine later on the Freebie page.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(event) => void submit(event)} className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Product / service</label>
+            <Input
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              placeholder="e.g. Dropshipping course"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Target audience</label>
+            <Input
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
+              placeholder="e.g. Beginner e-commerce creators"
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="rounded-full"
+              disabled={saving || !product.trim() || !audience.trim()}
+            >
+              {saving ? "Creating…" : "Create & launch"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -41,6 +41,7 @@ function PublicFreebie() {
   const [meta, setMeta] = useState<PublicMeta | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [unlocked, setUnlocked] = useState<Unlocked | null>(null);
 
@@ -73,7 +74,12 @@ function PublicFreebie() {
       const response = await fetch("/api/freebies/optin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, email: email.trim(), name: name.trim() || null }),
+        body: JSON.stringify({
+          slug,
+          email: email.trim(),
+          name: name.trim() || null,
+          instagram: instagram.trim() || null,
+        }),
       });
       const body = (await response.json()) as { data?: Unlocked; error?: string };
       if (!response.ok || !body.data) throw new Error(body.error ?? "SERVER_ERROR");
@@ -174,6 +180,12 @@ function PublicFreebie() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@email.com"
+                    className="h-11 w-full rounded-full border border-neutral-200 px-4 text-sm outline-none focus:border-neutral-400"
+                  />
+                  <input
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="Instagram handle (optional)"
                     className="h-11 w-full rounded-full border border-neutral-200 px-4 text-sm outline-none focus:border-neutral-400"
                   />
                   <button

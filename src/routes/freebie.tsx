@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Sparkles,
@@ -17,6 +17,7 @@ import {
   Copy,
   ExternalLink,
   Eye,
+  MousePointerClick,
   Users,
   StickyNote,
   File as FileIcon,
@@ -64,6 +65,8 @@ type LeadMagnet = {
   teaser: string | null;
   file_name: string | null;
   views: number;
+  clicks?: number;
+  destination_id?: string | null;
   published_at: string | null;
   created_at: string;
   optins?: { count: number }[];
@@ -646,6 +649,9 @@ function Freebie() {
                           <>
                             <span className="flex items-center gap-1">
                               <Eye className="h-3 w-3" /> {m.views}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MousePointerClick className="h-3 w-3" /> {m.clicks ?? 0}
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="h-3 w-3" /> {m.optins?.[0]?.count ?? 0}
@@ -1379,9 +1385,21 @@ function LaunchDialog({
                   <Eye className="h-3.5 w-3.5" /> {magnet.views} views
                 </span>
                 <span className="flex items-center gap-1">
+                  <MousePointerClick className="h-3.5 w-3.5" /> {magnet.clicks ?? 0} clicks
+                </span>
+                <span className="flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" /> {magnet.optins?.[0]?.count ?? 0} opt-ins
                 </span>
               </div>
+            )}
+            {magnet.status === "published" && magnet.clicks !== undefined && magnet.clicks > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                See which video drove those clicks on the{" "}
+                <Link to="/destinations" className="text-primary hover:underline">
+                  Destinations
+                </Link>{" "}
+                page.
+              </p>
             )}
           </div>
         )}
