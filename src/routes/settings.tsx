@@ -1864,7 +1864,6 @@ function SecurityPanel() {
 
   return (
     <div className="relative space-y-4">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="relative rounded-xl card-gradient-outline p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

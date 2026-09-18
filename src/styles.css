@@ -191,14 +191,17 @@
    --border gray with just a whisper of primary/purple mixed in, so it reads as a soft glassy
    sheen catching light rather than a saturated rainbow ring — quiet enough to hold up when dozens
    of cards are on screen at once. Ties to --primary so it follows the Customization → Design
-   Studio color choice. */
+   Studio color choice. Uses the `to bottom right` keyword direction rather than a fixed-degree
+   angle so the gradient always runs corner-to-corner: a fixed angle (e.g. 135deg) is dominated by
+   whichever dimension is longer, so on a tall/narrow card the whole left edge sits in the near-0%
+   stop — since --primary is red by default, that read as a solid red vertical line down the card. */
 .card-gradient-outline {
   border-radius: var(--card-radius);
   border: 1px solid transparent;
   background:
     linear-gradient(var(--card), var(--card)) padding-box,
     linear-gradient(
-      135deg,
+      to bottom right,
       color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
       var(--border) 50%,
       color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
@@ -308,7 +311,7 @@
   border-radius: var(--card-radius);
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: linear-gradient(
-    135deg,
+    to bottom right,
     color-mix(in srgb, color-mix(in srgb, var(--primary) 30%, var(--card)) 55%, transparent) 0%,
     color-mix(in srgb, var(--card) 55%, transparent) 50%,
     color-mix(in srgb, color-mix(in srgb, var(--brand-purple) 25%, var(--card)) 55%, transparent) 100%
@@ -710,7 +713,7 @@
   background:
     linear-gradient(var(--popover), var(--popover)) padding-box,
     linear-gradient(
-      135deg,
+      to bottom right,
       color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
       var(--border) 50%,
       color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
