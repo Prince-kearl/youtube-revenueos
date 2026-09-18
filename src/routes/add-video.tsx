@@ -1308,7 +1308,7 @@ function AddVideo() {
                       ? "Edit the YouTube description here..."
                       : "Load a video to edit its description..."
                   }
-                  className="mt-3 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-3 w-full resize-none rounded-[10px] border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1.5">
@@ -1511,7 +1511,7 @@ function AddVideo() {
                 onChange={(event) => setTranscript(event.target.value)}
                 rows={10}
                 placeholder="Paste your transcript here..."
-                className="mt-3 w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-[12px] leading-relaxed outline-none focus:border-primary"
+                className="mt-3 w-full resize-none rounded-[10px] border border-border bg-background p-3 font-mono text-[12px] leading-relaxed outline-none focus:border-primary"
               />
             )}
           </div>

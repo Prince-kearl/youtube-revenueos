@@ -827,14 +827,14 @@ function KnowledgeTab({
               value={noteTitle}
               onChange={(e) => setNoteTitle(e.target.value)}
               placeholder="Title (e.g. Coaching call notes)"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             />
             <textarea
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
               rows={5}
               placeholder="Paste knowledge, a transcript, sheet content — anything the AI should draw on…"
-              className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+              className="w-full resize-none rounded-[10px] border border-border bg-background p-3 text-sm outline-none focus:border-primary"
             />
             <button
               type="submit"
@@ -861,7 +861,7 @@ function KnowledgeTab({
               value={uploadTitle}
               onChange={(e) => setUploadTitle(e.target.value)}
               placeholder="Title (optional — defaults to file name)"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             />
             <input
               ref={uploadInputRef}

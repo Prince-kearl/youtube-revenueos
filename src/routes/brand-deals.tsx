@@ -849,7 +849,7 @@ function DealFormDialog({
               aria-label="Assigned to"
               value={assignedMemberId}
               onChange={(e) => setAssignedMemberId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             >
               <option value="">Unassigned</option>
               {teamMembers.map((m) => (

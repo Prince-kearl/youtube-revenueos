@@ -580,7 +580,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 rows={4}
                 value={bio}
                 onChange={(event) => setBio(event.target.value)}
-                className="w-full resize-none rounded-lg border border-border bg-accent/20 p-3 text-xs outline-none focus:border-primary"
+                className="w-full resize-none rounded-[10px] border border-border bg-accent/20 p-3 text-xs outline-none focus:border-primary"
               />
               <button
                 onClick={async () => {
@@ -2288,7 +2288,7 @@ function SecurityPanel() {
                     if (event.key === "Backspace" && !verificationCode[index] && index > 0)
                       verificationInputRefs.current[index - 1]?.focus();
                   }}
-                  className="h-14 min-w-0 rounded-lg border border-white/15 bg-white/[0.04] text-center text-2xl text-white outline-none focus:border-primary"
+                  className="h-14 min-w-0 rounded-[10px] border border-white/15 bg-white/[0.04] text-center text-2xl text-white outline-none focus:border-primary"
                   aria-label={`Verification digit ${index + 1}`}
                 />
               ))}

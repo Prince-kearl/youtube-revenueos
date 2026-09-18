@@ -1333,7 +1333,7 @@ function LinkLeadDialog({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search leads…"
-          className="w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+          className="w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
         />
         <div className="max-h-72 space-y-1.5 overflow-y-auto">
           {candidates.length === 0 && (
@@ -1440,7 +1440,7 @@ function NewLeadDialog({
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={120}
-              className="mt-1 w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="mt-1 w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
           <div>
@@ -1463,7 +1463,7 @@ function NewLeadDialog({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1 w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
           ) : (
@@ -1473,7 +1473,7 @@ function NewLeadDialog({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="@handle"
-                className="mt-1 w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+                className="mt-1 w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
           )}
@@ -1483,7 +1483,7 @@ function NewLeadDialog({
               value={source}
               onChange={(e) => setSource(e.target.value)}
               placeholder="How this lead came in"
-              className="mt-1 w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="mt-1 w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
           <DialogFooter>

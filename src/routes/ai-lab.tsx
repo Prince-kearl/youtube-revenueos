@@ -584,7 +584,7 @@ function AILab() {
                       onChange={(event) => setVideoSearch(event.target.value)}
                       placeholder="Search your videos..."
                       aria-label="Search your videos"
-                      className="h-9 w-full rounded-lg border border-transparent bg-accent/30 pl-9 pr-3 text-sm outline-none focus:border-primary"
+                      className="h-9 w-full rounded-[10px] border border-transparent bg-accent/30 pl-9 pr-3 text-sm outline-none focus:border-primary"
                     />
                   </div>
                   {filteredMyVideos.length === 0 ? (
@@ -837,7 +837,7 @@ function AILab() {
                   aria-label="Attach a freebie"
                   value={selectedFreebieId}
                   onChange={(e) => setSelectedFreebieId(e.target.value)}
-                  className="h-11 w-full min-w-0 rounded-lg border border-border bg-accent/20 px-3 text-sm outline-none focus:border-primary"
+                  className="h-11 w-full min-w-0 rounded-[10px] border border-border bg-accent/20 px-3 text-sm outline-none focus:border-primary"
                 >
                   <option value="">None</option>
                   {freebies.map((f) => (
@@ -927,7 +927,7 @@ function AILab() {
                 ? "Click Generate Description, or write your own here..."
                 : "Select a video to get started..."
             }
-            className="mt-4 w-full resize-none rounded-lg border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 w-full resize-none rounded-[10px] border border-border bg-background p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
           />
 
           <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
