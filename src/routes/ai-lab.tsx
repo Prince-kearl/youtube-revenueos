@@ -688,19 +688,24 @@ function AILab() {
             )}
             {templatesStatus === "loaded" && (
               <div className="mt-2 flex items-center gap-2">
-                <select
-                  aria-label="Description template"
-                  value={selectedTemplateId}
-                  onChange={(event) => applyTemplate(event.target.value)}
-                  className="w-full min-w-0 rounded-full border border-border bg-accent/20 py-2.5 pl-4 pr-9 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">{templates.length === 0 ? "No saved templates" : "None"}</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
+                <div className="relative min-w-0 flex-1">
+                  <select
+                    aria-label="Description template"
+                    value={selectedTemplateId}
+                    onChange={(event) => applyTemplate(event.target.value)}
+                    className="w-full min-w-0 appearance-none rounded-full border border-border bg-accent/20 py-2.5 pl-4 pr-9 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="">
+                      {templates.length === 0 ? "No saved templates" : "None"}
                     </option>
-                  ))}
-                </select>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
                 {selectedTemplateId && (
                   <button
                     type="button"
