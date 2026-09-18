@@ -1234,7 +1234,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="top-3 right-3 bottom-auto flex h-auto max-h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] flex-col gap-0 rounded-2xl border p-5 shadow-2xl sm:top-4 sm:right-4 sm:max-h-[calc(100%-2rem)] sm:w-full sm:max-w-sm">
+      <SheetContent className="bottom-3 right-3 top-auto flex h-auto max-h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] flex-col gap-0 rounded-2xl border p-5 shadow-2xl sm:bottom-4 sm:right-4 sm:max-h-[calc(100%-2rem)] sm:w-full sm:max-w-sm">
         <SheetHeader className="shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
