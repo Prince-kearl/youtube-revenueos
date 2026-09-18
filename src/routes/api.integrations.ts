@@ -5,13 +5,14 @@ import { buildSetCookie, getCookie, buildExpiredCookie } from "@/lib/server/cook
 import {
   buildProviderAuthorizationUrl,
   exchangeProviderCode,
+  exchangeInstagramLongLivedToken,
   encryptProviderTokens,
   type ExternalProvider,
 } from "@/lib/server/provider-oauth";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 
-const providers = ["google_analytics", "stripe", "kit"] as const;
+const providers = ["google_analytics", "stripe", "kit", "instagram"] as const;
 function isProvider(value: string): value is ExternalProvider {
   return providers.includes(value as ExternalProvider);
 }
@@ -105,15 +106,27 @@ export async function completeProviderConnection(request: Request, provider: Ext
   const code = url.searchParams.get("code");
   if (!code) return redirect(`${returnTo}?integration=provider_error`, request);
   const tokens = await exchangeProviderCode(provider, code);
-  const encrypted = await encryptProviderTokens(tokens);
+  // Instagram's code exchange only returns a ~1h token — trade it for the 60-day one before
+  // storing anything, so "connected" doesn't silently expire an hour later.
+  const encrypted =
+    provider === "instagram"
+      ? await encryptProviderTokens(await exchangeInstagramLongLivedToken(tokens.access_token))
+      : await encryptProviderTokens(tokens);
   const service = createServiceSupabaseClient();
-  const providerAccountId = provider === "stripe" ? tokens.stripe_user_id : tokens.account_id;
+  const providerAccountId =
+    provider === "stripe"
+      ? tokens.stripe_user_id
+      : provider === "instagram"
+        ? (tokens.user_id?.toString() ?? null)
+        : tokens.account_id;
   const accountName =
     provider === "google_analytics"
       ? "Google Analytics account"
       : provider === "stripe"
         ? "Stripe account"
-        : "Kit account";
+        : provider === "instagram"
+          ? "Instagram account"
+          : "Kit account";
   const { error } = await service.from("connected_integrations").upsert(
     {
       user_id: user.id,

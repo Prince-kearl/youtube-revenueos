@@ -913,10 +913,8 @@ function ConnectedAccountsPanel() {
       .catch(() => setIntegrations([]))
       .finally(() => setIntegrationsLoading(false));
     const status = new URL(window.location.href).searchParams.get("integration");
-    if (status === "google_analytics" || status === "stripe" || status === "kit")
-      toast.success(
-        `${status === "google_analytics" ? "Google Analytics" : status === "stripe" ? "Stripe" : "Kit"} connected`,
-      );
+    if (status && status in PROVIDER_LABEL)
+      toast.success(`${PROVIDER_LABEL[status as ExternalProvider]} connected`);
     if (status === "storage_failed") toast.error("Connection succeeded but could not be saved");
     if (status === "invalid_state") toast.error("That connection request expired. Try again.");
     if (status) {
@@ -953,7 +951,7 @@ function ConnectedAccountsPanel() {
     } catch (error) {
       toast.error(
         error instanceof Error && error.message === "PROVIDER_NOT_CONFIGURED"
-          ? `${provider === "stripe" ? "Stripe" : "Kit"} integration is not configured`
+          ? `${PROVIDER_LABEL[provider]} integration is not configured`
           : "Could not start connection",
       );
       setConnecting(null);
@@ -965,7 +963,7 @@ function ConnectedAccountsPanel() {
       const response = await fetch(`/api/integrations?provider=${provider}`, { method: "DELETE" });
       if (!response.ok) throw new Error("disconnect_failed");
       setIntegrations((current) => current.filter((item) => item.provider !== provider));
-      toast.success(`${provider === "stripe" ? "Stripe" : "Kit"} disconnected`);
+      toast.success(`${PROVIDER_LABEL[provider]} disconnected`);
     } catch {
       toast.error("Could not disconnect integration");
     } finally {
@@ -974,6 +972,7 @@ function ConnectedAccountsPanel() {
   };
   const stripeConnected = integrations.some((item) => item.provider === "stripe");
   const kitConnected = integrations.some((item) => item.provider === "kit");
+  const instagramConnected = integrations.some((item) => item.provider === "instagram");
 
   const accounts = [
     {
@@ -999,6 +998,7 @@ function ConnectedAccountsPanel() {
         : "Connect",
       disabled: loading || disconnecting,
       rowLoading: loading,
+      destructiveWhenConnected: true,
     },
     {
       title: "Google Analytics",
@@ -1015,6 +1015,7 @@ function ConnectedAccountsPanel() {
       actionLabel: googleConnected ? "Open Analytics" : "Connect",
       disabled: integrationsLoading || connecting !== null,
       rowLoading: integrationsLoading,
+      destructiveWhenConnected: false,
     },
     {
       title: "Stripe",
@@ -1030,6 +1031,7 @@ function ConnectedAccountsPanel() {
         connecting === "stripe" ? "Working…" : stripeConnected ? "Disconnect" : "Connect Stripe",
       disabled: integrationsLoading || connecting !== null,
       rowLoading: integrationsLoading,
+      destructiveWhenConnected: true,
     },
     {
       title: "ConvertKit",
@@ -1045,6 +1047,27 @@ function ConnectedAccountsPanel() {
       actionLabel: connecting === "kit" ? "Working…" : kitConnected ? "Disconnect" : "Connect Kit",
       disabled: integrationsLoading || connecting !== null,
       rowLoading: integrationsLoading,
+      destructiveWhenConnected: true,
+    },
+    {
+      title: "Instagram",
+      domain: "instagram.com",
+      logo: "https://cdn.simpleicons.org/instagram",
+      iconClass: "text-brand-red",
+      description: "Bring Instagram DMs and comments into Lead Inbox.",
+      connected: instagramConnected,
+      action: instagramConnected
+        ? () => void disconnectExternal("instagram")
+        : () => void connectExternal("instagram"),
+      actionLabel:
+        connecting === "instagram"
+          ? "Working…"
+          : instagramConnected
+            ? "Disconnect"
+            : "Connect Instagram",
+      disabled: integrationsLoading || connecting !== null,
+      rowLoading: integrationsLoading,
+      destructiveWhenConnected: true,
     },
   ];
 
@@ -1119,10 +1142,7 @@ function ConnectedAccountsPanel() {
                   onClick={account.action}
                   disabled={account.disabled}
                   className={`w-full rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
-                    (account.title === "YouTube" ||
-                      account.title === "Stripe" ||
-                      account.title === "ConvertKit") &&
-                    account.connected
+                    account.connected && account.destructiveWhenConnected
                       ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
                       : "border border-border bg-accent/40 text-foreground hover:border-primary/50 hover:bg-primary/10"
                   } disabled:cursor-not-allowed disabled:opacity-60`}
@@ -1155,7 +1175,13 @@ interface ConnectedYoutubeChannel {
   last_sync_error: string | null;
 }
 
-type ExternalProvider = "google_analytics" | "stripe" | "kit";
+type ExternalProvider = "google_analytics" | "stripe" | "kit" | "instagram";
+const PROVIDER_LABEL: Record<ExternalProvider, string> = {
+  google_analytics: "Google Analytics",
+  stripe: "Stripe",
+  kit: "Kit",
+  instagram: "Instagram",
+};
 interface ExternalIntegration {
   id: string;
   provider: ExternalProvider;

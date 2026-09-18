@@ -119,6 +119,7 @@ import { Route as ApiAdminSupportTicketsRouteImport } from './routes/api.admin.s
 import { Route as ApiAdminUsersImpersonateRouteImport } from './routes/api.admin.users.impersonate'
 import { Route as ApiAdminUsersResetPasswordRouteImport } from './routes/api.admin.users.reset-password'
 import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
+import { Route as ApiIntegrationsInstagramCallbackRouteImport } from './routes/api.integrations.instagram.callback'
 import { Route as ApiIntegrationsKitCallbackRouteImport } from './routes/api.integrations.kit.callback'
 import { Route as ApiIntegrationsStripeCallbackRouteImport } from './routes/api.integrations.stripe.callback'
 
@@ -677,6 +678,12 @@ const ApiIntegrationsGoogleAnalyticsCallbackRoute =
     path: '/google-analytics/callback',
     getParentRoute: () => ApiIntegrationsRoute,
   } as any)
+const ApiIntegrationsInstagramCallbackRoute =
+  ApiIntegrationsInstagramCallbackRouteImport.update({
+    id: '/instagram/callback',
+    path: '/instagram/callback',
+    getParentRoute: () => ApiIntegrationsRoute,
+  } as any)
 const ApiIntegrationsKitCallbackRoute =
   ApiIntegrationsKitCallbackRouteImport.update({
     id: '/kit/callback',
@@ -801,6 +808,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/instagram/callback': typeof ApiIntegrationsInstagramCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
@@ -915,6 +923,7 @@ export interface FileRoutesByTo {
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/instagram/callback': typeof ApiIntegrationsInstagramCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
@@ -1030,6 +1039,7 @@ export interface FileRoutesById {
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  '/api/integrations/instagram/callback': typeof ApiIntegrationsInstagramCallbackRoute
   '/api/integrations/kit/callback': typeof ApiIntegrationsKitCallbackRoute
   '/api/integrations/stripe/callback': typeof ApiIntegrationsStripeCallbackRoute
 }
@@ -1146,6 +1156,7 @@ export interface FileRouteTypes {
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/instagram/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -1260,6 +1271,7 @@ export interface FileRouteTypes {
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/instagram/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
   id:
@@ -1374,6 +1386,7 @@ export interface FileRouteTypes {
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
+    | '/api/integrations/instagram/callback'
     | '/api/integrations/kit/callback'
     | '/api/integrations/stripe/callback'
   fileRoutesById: FileRoutesById
@@ -2243,6 +2256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRouteImport
       parentRoute: typeof ApiIntegrationsRoute
     }
+    '/api/integrations/instagram/callback': {
+      id: '/api/integrations/instagram/callback'
+      path: '/instagram/callback'
+      fullPath: '/api/integrations/instagram/callback'
+      preLoaderRoute: typeof ApiIntegrationsInstagramCallbackRouteImport
+      parentRoute: typeof ApiIntegrationsRoute
+    }
     '/api/integrations/kit/callback': {
       id: '/api/integrations/kit/callback'
       path: '/kit/callback'
@@ -2313,6 +2333,7 @@ const ApiFreebiesRouteWithChildren = ApiFreebiesRoute._addFileChildren(
 
 interface ApiIntegrationsRouteChildren {
   ApiIntegrationsGoogleAnalyticsCallbackRoute: typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
+  ApiIntegrationsInstagramCallbackRoute: typeof ApiIntegrationsInstagramCallbackRoute
   ApiIntegrationsKitCallbackRoute: typeof ApiIntegrationsKitCallbackRoute
   ApiIntegrationsStripeCallbackRoute: typeof ApiIntegrationsStripeCallbackRoute
 }
@@ -2320,6 +2341,7 @@ interface ApiIntegrationsRouteChildren {
 const ApiIntegrationsRouteChildren: ApiIntegrationsRouteChildren = {
   ApiIntegrationsGoogleAnalyticsCallbackRoute:
     ApiIntegrationsGoogleAnalyticsCallbackRoute,
+  ApiIntegrationsInstagramCallbackRoute: ApiIntegrationsInstagramCallbackRoute,
   ApiIntegrationsKitCallbackRoute: ApiIntegrationsKitCallbackRoute,
   ApiIntegrationsStripeCallbackRoute: ApiIntegrationsStripeCallbackRoute,
 }
