@@ -34,6 +34,7 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/link-tracking")({
@@ -215,10 +216,18 @@ function LinkTracking() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
-        <Summary value={String(links.length)} label="Total Links" />
-        <Summary value={totalClicks.toLocaleString()} label="Total Clicks" />
-        <Summary value={totalUnique.toLocaleString()} label="Unique Visitors" />
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <FlatKpiCard title="Total Links" value={String(links.length)} accent="var(--brand-blue)" />
+        <FlatKpiCard
+          title="Total Clicks"
+          value={totalClicks.toLocaleString()}
+          accent="var(--brand-green)"
+        />
+        <FlatKpiCard
+          title="Unique Visitors"
+          value={totalUnique.toLocaleString()}
+          accent="var(--brand-purple)"
+        />
       </div>
 
       <div className="relative mt-5">
@@ -473,16 +482,6 @@ function LinkTracking() {
         }}
       />
     </DashboardLayout>
-  );
-}
-
-function Summary({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="relative rounded-xl card-gradient-outline p-5">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <p className="text-2xl font-bold tracking-tight">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-    </div>
   );
 }
 
