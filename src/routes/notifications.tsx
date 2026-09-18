@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { ConfirmDialog } from "@/components/modals";
 
 export const Route = createFileRoute("/notifications")({
   component: Notifications,
@@ -13,6 +14,7 @@ function Notifications() {
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"active" | "archived">("active");
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -67,9 +69,6 @@ function Notifications() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Notifications & Alerts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Everything happening across your channel, deals, and automations.
-          </p>
         </div>
         {notifs.length > 0 && (
           <div className="flex items-center gap-3 text-sm">
@@ -78,7 +77,7 @@ function Notifications() {
             </button>
             <span className="text-muted-foreground">·</span>
             <button
-              onClick={clearNotifs}
+              onClick={() => setClearConfirmOpen(true)}
               className="font-medium text-muted-foreground hover:text-destructive"
             >
               Clear all
@@ -122,6 +121,17 @@ function Notifications() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="Clear all notifications?"
+        description="This permanently deletes every notification in your history, active and archived. This cannot be undone."
+        confirmLabel="Clear all"
+        onConfirm={() => {
+          clearNotifs();
+          setClearConfirmOpen(false);
+        }}
+      />
     </DashboardLayout>
   );
 }

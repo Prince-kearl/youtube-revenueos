@@ -38,6 +38,13 @@ import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useThemeMode, useIos26Design, useIos26Wallpaper, type ThemeMode } from "@/lib/theme";
 import { ConfirmDialog } from "@/components/modals";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
@@ -90,7 +97,6 @@ function Settings() {
     <DashboardLayout title="Settings">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your account and preferences</p>
       </div>
 
       {/* Mobile tab nav */}
@@ -339,8 +345,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
         </div>
 
         <p className="mt-4 max-w-xl text-xs leading-5 text-muted-foreground">
-          {bio ||
-            "Creator focused on building a smarter YouTube business with actionable insights and better workflows."}
+          {bio || "No bio yet."}
         </p>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
@@ -503,8 +508,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
         )}
         {profileTab === "Activity" && (
           <div className="card-frost backdrop-blur-lg p-5 text-xs text-muted-foreground">
-            Your profile activity will appear here as you connect services and update account
-            settings.
+            No activity yet.
           </div>
         )}
         {profileTab === "Connections" && (
@@ -1076,10 +1080,7 @@ function ConnectedAccountsPanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="relative">
         <div className="border-b border-border pb-5">
-          <h3 className="text-xl font-semibold tracking-tight">Sync profiles</h3>
-          <p className="mt-2 max-w-md text-sm text-muted-foreground">
-            Connect your other profiles to keep your creator presence in sync.
-          </p>
+          <h3 className="text-xl font-semibold tracking-tight">Connected Accounts</h3>
         </div>
 
         <div className="mt-6 space-y-2">
@@ -1340,9 +1341,6 @@ function YouTubeIntegrationPanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">YouTube Integration</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your channel sync settings and data imports.
-        </p>
       </div>
 
       {loading ? (
@@ -1566,9 +1564,6 @@ function NotificationsPanel() {
     <div className="relative rounded-xl card-gradient-outline p-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <h3 className="text-lg font-semibold">Notification Preferences</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Choose which notifications you want to receive.
-      </p>
 
       <div className="mt-6 space-y-4">
         {notificationOptions.map((item) => (
@@ -1670,9 +1665,7 @@ function BillingPanel() {
       ) : (
         <div>
           <p className="text-lg font-semibold">No active plan</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Subscribe to a plan to unlock the full Tubify workspace.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">Subscribe to get full access.</p>
         </div>
       )}
 
@@ -1868,33 +1861,21 @@ function SecurityPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-lg font-bold tracking-tight">Security</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Manage your account security and keep your data protected.
-            </p>
           </div>
         </div>
 
         <div className="mt-5 card-frost backdrop-blur-lg p-4 sm:p-5">
           <div>
             <h4 className="text-sm font-bold">Password</h4>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Update your password regularly to keep your account secure.
-            </p>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <input
-              type="password"
-              autoComplete="current-password"
-              placeholder="Current password"
-              className="h-11 rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
-            />
+          <div className="mt-4">
             <input
               type="password"
               autoComplete="new-password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               placeholder="New password"
-              className="h-11 rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary"
+              className="h-11 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 px-4 text-sm outline-none focus:border-primary md:w-1/2"
             />
           </div>
           <button
@@ -2086,9 +2067,6 @@ function SecurityPanel() {
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-bold">Recent security activity</h4>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Keep an eye on important changes to your account.
-            </p>
           </div>
           <button className="rounded-full border border-border px-3 py-2 text-[10px] font-semibold">
             View all activity
@@ -2133,7 +2111,7 @@ function SecurityPanel() {
 
       <div className="relative flex flex-col gap-3 rounded-xl card-gradient-outline p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
             <CircleHelp className="h-4 w-4" />
           </span>
           <div>
@@ -2177,11 +2155,11 @@ function SecurityPanel() {
               {
                 n: "3",
                 title: "You're signed in",
-                desc: "Access your account securely after verification.",
+                desc: "",
               },
             ].map((step) => (
               <div key={step.n} className="relative text-center">
-                <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-destructive/10 text-[11px] font-bold text-destructive">
+                <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
                   {step.n}
                 </span>
                 <p className="mt-3 text-xs font-bold">{step.title}</p>
@@ -2196,46 +2174,35 @@ function SecurityPanel() {
           </div>
           <div className="mt-5 flex items-start gap-3 rounded-lg bg-primary/5 p-3 text-[11px] leading-4 text-primary">
             <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
-            Two-factor authentication significantly increases the security of your account by
-            protecting it from unauthorized access, even if someone knows your password.
+            2FA protects your account even if your password is compromised.
           </div>
         </div>
       </details>
 
       {pendingEnrollment && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="setup-authenticator-title"
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingEnrollment(null);
+              setVerificationCode("");
+            }
+          }}
         >
-          <div className="w-full max-w-[480px] rounded-xl border border-white/10 bg-[#111111] p-6 text-white shadow-2xl sm:p-7">
-            <div className="flex items-center justify-between">
-              <h2 id="setup-authenticator-title" className="text-lg font-medium">
-                Setup authenticator app
-              </h2>
-              <button
-                onClick={() => {
-                  setPendingEnrollment(null);
-                  setVerificationCode("");
-                }}
-                aria-label="Close setup dialog"
-                title="Close"
-                className="text-white/80 hover:text-white"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+          <DialogContent className="max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Setup authenticator app</DialogTitle>
+            </DialogHeader>
 
-            <div className="mt-8 flex items-center gap-3">
-              <ScanLine className="h-6 w-6 text-white/80" />
+            <div className="flex items-center gap-3">
+              <ScanLine className="h-6 w-6 text-muted-foreground" />
               <h3 className="text-lg font-medium">Scan QR code</h3>
             </div>
-            <p className="mt-1 text-sm leading-6 text-white/45">
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Scan the QR code below or manually enter the secret key into your authenticator app.
             </p>
 
-            <div className="mt-5 flex gap-5 rounded-xl border border-white/15 bg-white/[0.03] p-4 sm:items-center">
+            <div className="mt-2 flex gap-5 rounded-xl border border-border bg-accent/20 p-4 sm:items-center">
               <div className="grid h-32 w-32 shrink-0 place-items-center rounded-lg bg-white p-2 sm:h-36 sm:w-36">
                 <img
                   src={pendingEnrollment.qrCode}
@@ -2244,29 +2211,26 @@ function SecurityPanel() {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <label className="block text-sm text-white/90">
+                <label className="block text-sm text-foreground">
                   Can’t scan? Enter code manually:
                 </label>
-                <code className="mt-2 block overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-white/15 bg-black/20 px-3 py-3 text-xs text-white/90">
+                <code className="mt-2 block overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-border bg-background px-3 py-3 text-xs text-foreground">
                   {pendingEnrollment.secret}
                 </code>
                 <button
                   onClick={() => void navigator.clipboard.writeText(pendingEnrollment.secret)}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm text-white/90 hover:bg-white/10"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm hover:bg-accent"
                 >
                   <Copy className="h-4 w-4" /> Copy code
                 </button>
               </div>
             </div>
 
-            <div className="mt-8 flex items-center gap-3">
-              <KeyRound className="h-5 w-5 text-white/75" />
+            <div className="mt-2 flex items-center gap-3">
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
               <h3 className="text-lg font-medium">Enter verification code</h3>
             </div>
-            <p className="mt-1 text-sm text-white/45">
-              Enter the 6-digit code on your authenticator app.
-            </p>
-            <div className="mt-5 grid grid-cols-6 gap-2.5">
+            <div className="mt-1 grid grid-cols-6 gap-2.5">
               {Array.from({ length: 6 }, (_, index) => (
                 <input
                   key={index}
@@ -2288,19 +2252,19 @@ function SecurityPanel() {
                     if (event.key === "Backspace" && !verificationCode[index] && index > 0)
                       verificationInputRefs.current[index - 1]?.focus();
                   }}
-                  className="h-14 min-w-0 rounded-[10px] border border-white/15 bg-white/[0.04] text-center text-2xl text-white outline-none focus:border-primary"
+                  className="h-14 min-w-0 rounded-[10px] border border-border bg-accent/20 text-center text-2xl outline-none focus:border-primary"
                   aria-label={`Verification digit ${index + 1}`}
                 />
               ))}
             </div>
 
-            <div className="mt-8 flex justify-between gap-3">
+            <DialogFooter className="mt-2 sm:justify-between">
               <button
                 onClick={() => {
                   setPendingEnrollment(null);
                   setVerificationCode("");
                 }}
-                className="rounded-lg bg-white/[0.07] px-4 py-3 text-sm font-semibold text-white/65 hover:bg-white/10"
+                className="rounded-lg border border-border px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -2311,9 +2275,9 @@ function SecurityPanel() {
               >
                 {mfaSubmitting ? "Verifying…" : "Verify"}
               </button>
-            </div>
-          </div>
-        </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -2381,9 +2345,6 @@ function DashboardBannerPanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Dashboard Banner</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Customize what information and actions appear in your dashboard banner.
-        </p>
       </div>
 
       <div className="space-y-4">
@@ -2505,9 +2466,6 @@ function CompliancePanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div>
         <h3 className="text-lg font-semibold">Privacy &amp; Data</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your data, privacy preferences, and locally stored information.
-        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <button

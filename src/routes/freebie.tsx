@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import { FREEBIE_FORMATS, freebieFormatLabel } from "@/lib/freebie-formats";
 
@@ -201,6 +202,7 @@ function Freebie() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ title: string; content: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeadMagnet | null>(null);
   const [launchTarget, setLaunchTarget] = useState<LeadMagnet | null>(null);
 
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
@@ -341,8 +343,7 @@ function Freebie() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">AI Freebie Generator</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate high-converting lead magnets grounded in your own material, brand them, and
-          launch a real opt-in page.
+          Generate lead magnets from your own material, brand them, and launch an opt-in page.
         </p>
       </div>
 
@@ -473,8 +474,8 @@ function Freebie() {
                 <Field label="Ground it in your knowledge (optional)">
                   {knowledge.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-                      Nothing in your Knowledge Base yet — add notes or files in the Knowledge Base
-                      tab to give the AI real sauce to work with.
+                      Add notes or files in the Knowledge Base tab to ground generation in your own
+                      material.
                     </p>
                   ) : (
                     <div className="space-y-1.5">
@@ -674,7 +675,7 @@ function Freebie() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        void handleDelete(m.id);
+                        setDeleteTarget(m);
                       }}
                       disabled={deletingId === m.id}
                       className="shrink-0 text-muted-foreground hover:text-destructive"
@@ -717,6 +718,16 @@ function Freebie() {
           setLaunchTarget(m);
         }}
       />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+        title={`Delete "${deleteTarget?.title}"?`}
+        description="This permanently deletes the freebie, its file, and its click/opt-in history. This cannot be undone."
+        onConfirm={() => {
+          if (deleteTarget) void handleDelete(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </DashboardLayout>
   );
 }
@@ -749,6 +760,7 @@ function KnowledgeTab({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<KnowledgeItem | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const addNote = async (e: FormEvent) => {
@@ -833,7 +845,7 @@ function KnowledgeTab({
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
               rows={5}
-              placeholder="Paste knowledge, a transcript, sheet content — anything the AI should draw on…"
+              placeholder="Paste notes, a transcript, or other reference content…"
               className="w-full resize-none rounded-[10px] border border-border bg-background p-3 text-sm outline-none focus:border-primary"
             />
             <button
@@ -935,7 +947,7 @@ function KnowledgeTab({
                   </p>
                 </div>
                 <button
-                  onClick={() => void remove(item.id)}
+                  onClick={() => setDeleteTarget(item)}
                   disabled={deletingId === item.id}
                   className="shrink-0 text-muted-foreground hover:text-destructive"
                   aria-label="Delete"
@@ -947,6 +959,16 @@ function KnowledgeTab({
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+        title={`Delete "${deleteTarget?.title}"?`}
+        description="This permanently deletes this item from your Knowledge Base. This cannot be undone."
+        onConfirm={() => {
+          if (deleteTarget) void remove(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }
@@ -1196,7 +1218,7 @@ function UploadFreebieDialog({
             <Paperclip className="h-4 w-4 text-primary" /> Upload your own freebie
           </DialogTitle>
           <DialogDescription>
-            Already have a finished PDF or file? Skip AI generation and launch it directly.
+            Upload a finished file to launch without AI generation.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -1320,7 +1342,7 @@ function LaunchDialog({
           <DialogDescription>
             {magnet.status === "published"
               ? "This freebie is live. Anyone with the link can opt in for it."
-              : "Launch this freebie as a real public opt-in page."}
+              : "Launch this freebie as a public opt-in page."}
           </DialogDescription>
         </DialogHeader>
 
