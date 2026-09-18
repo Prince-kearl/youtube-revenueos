@@ -613,16 +613,16 @@ function Team() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium">
+                      <span className="rounded-full bg-accent px-2 py-1 text-[11px] font-medium">
                         {m.job_title?.trim() || roleLabel[m.role]}
                       </span>
                       <span
-                        className={`rounded-md px-2 py-1 text-[11px] font-medium ${roleColor[m.role]}`}
+                        className={`rounded-full px-2 py-1 text-[11px] font-medium ${roleColor[m.role]}`}
                       >
                         {roleLabel[m.role]} access
                       </span>
                       <span
-                        className={`rounded-md px-2 py-1 text-[11px] font-medium ${m.status === "active" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
+                        className={`rounded-full px-2 py-1 text-[11px] font-medium ${m.status === "active" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
                       >
                         {m.status === "active" ? "Active" : "Invited"}
                       </span>
