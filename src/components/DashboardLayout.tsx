@@ -1234,32 +1234,32 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col sm:max-w-md">
-        <SheetHeader>
+      <SheetContent className="inset-y-3 right-3 flex h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] flex-col gap-0 rounded-2xl border p-5 shadow-2xl sm:inset-y-4 sm:right-4 sm:h-[calc(100%-2rem)] sm:w-full sm:max-w-sm">
+        <SheetHeader className="shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
             <span className="text-primary">Tubi</span>
           </SheetTitle>
           <SheetDescription>Frontend preview — answers are canned demo copy.</SheetDescription>
         </SheetHeader>
-        <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div className="mt-4 flex-1 space-y-2.5 overflow-y-auto pr-1">
           {msgs.map((m) => (
             <div
               key={m.id}
-              className={`rounded-xl px-3 py-2 text-sm ${m.role === "user" ? "ml-8 bg-primary text-primary-foreground" : "mr-8 bg-accent/50"}`}
+              className={`rounded-2xl px-3.5 py-2.5 text-sm ${m.role === "user" ? "ml-8 bg-primary text-primary-foreground" : "mr-8 bg-accent/50"}`}
             >
               {m.text}
             </div>
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex shrink-0 flex-wrap gap-1.5">
           {suggestions.map((s) => (
             <button
               key={s}
               onClick={() => send(s)}
-              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
+              className="flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
             >
-              {s}
+              <Sparkles className="h-3 w-3 shrink-0 text-primary" /> {s}
             </button>
           ))}
         </div>
@@ -1268,14 +1268,15 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             e.preventDefault();
             send(input);
           }}
-          className="mt-3 flex gap-2"
+          className="mt-3 flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-accent/10 p-1.5 pl-4"
         >
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask anything…"
+            className="h-9 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
           />
-          <Button type="submit" size="icon">
+          <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-full">
             <Send className="h-4 w-4" />
           </Button>
         </form>
@@ -1284,14 +1285,14 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
             onOpenChange(false);
             openOnboardingGuide(navigate);
           }}
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="mt-3 flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Sparkles className="h-3.5 w-3.5" /> Replay the getting started guide
         </button>
         <Link
           to="/support"
           onClick={() => onOpenChange(false)}
-          className="mt-2 flex items-center justify-center gap-1.5 rounded-[var(--button-radius)] border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="mt-2 flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <LifeBuoy className="h-3.5 w-3.5" /> Need a human? Report a problem →
         </Link>
