@@ -9,7 +9,17 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
+  TrendingUp,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tag } from "@/components/ui-bits";
@@ -145,6 +155,15 @@ function fmtK(n: number): string {
   return n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(0)}`;
 }
 
+const SPONSOR_COLORS = [
+  "var(--brand-blue)",
+  "var(--brand-purple)",
+  "var(--brand-green)",
+  "var(--brand-amber)",
+  "var(--brand-red)",
+];
+const MAX_SPONSOR_LINES = 5;
+
 function BrandDeals() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -221,6 +240,40 @@ function BrandDeals() {
       avgSeries,
       avgChangePct: pctChange(avgSeries),
     };
+  }, [deals]);
+
+  // Cumulative deal value per sponsor (deals grouped by name, case/whitespace-insensitive) over
+  // the same 6-month window as the KPI cards above — shows which relationships are actually
+  // growing, not just total pipeline. Capped to the top sponsors by value so the chart stays
+  // legible instead of a rainbow of thin lines.
+  const sponsorPerformance = useMemo(() => {
+    const months = lastMonthKeys(6);
+    const groups = new Map<string, { label: string; deals: Deal[] }>();
+    for (const d of deals) {
+      const key = d.name.trim().toLowerCase();
+      if (!key) continue;
+      const group = groups.get(key);
+      if (group) group.deals.push(d);
+      else groups.set(key, { label: d.name.trim(), deals: [d] });
+    }
+    const sponsors = [...groups.values()]
+      .map((g) => ({
+        label: g.label,
+        series: cumulativeValueSeries(
+          g.deals,
+          (d) => d.created_at,
+          (d) => d.value,
+          months,
+        ),
+      }))
+      .sort((a, b) => (b.series.at(-1) ?? 0) - (a.series.at(-1) ?? 0));
+    const shown = sponsors.slice(0, MAX_SPONSOR_LINES);
+    const chartData = months.map((m, i) => {
+      const row: Record<string, string | number> = { month: monthLabel(m) };
+      for (const s of shown) row[s.label] = s.series[i];
+      return row;
+    });
+    return { shown, chartData, totalSponsors: sponsors.length };
   }, [deals]);
 
   const stagesGrouped = DEAL_STAGES.map((stage) => {
@@ -377,6 +430,81 @@ function BrandDeals() {
         />
       </div>
 
+      {status === "ready" && deals.length > 0 && (
+        <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
+          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 text-lg font-semibold">
+                <TrendingUp className="h-4.5 w-4.5 text-brand-purple" /> Sponsor Performance
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Cumulative deal value per sponsor, {stats.periodLabel.toLowerCase()}
+                {sponsorPerformance.totalSponsors > MAX_SPONSOR_LINES
+                  ? ` — top ${MAX_SPONSOR_LINES} of ${sponsorPerformance.totalSponsors} sponsors`
+                  : ""}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+              {sponsorPerformance.shown.map((s, i) => (
+                <Legend
+                  key={s.label}
+                  color={SPONSOR_COLORS[i % SPONSOR_COLORS.length]}
+                  label={s.label}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={sponsorPerformance.chartData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v: number) => fmtK(v)}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                />
+                <Tooltip
+                  formatter={(value: number) => fmtK(value)}
+                  contentStyle={{
+                    background: "color-mix(in srgb, var(--color-popover) 85%, transparent)",
+                    border: "1px solid color-mix(in srgb, white 20%, var(--color-border))",
+                    borderRadius: 16,
+                    fontSize: 12,
+                    boxShadow: "0 16px 32px -20px rgba(0,0,0,0.4)",
+                    backdropFilter: "blur(12px)",
+                  }}
+                />
+                {sponsorPerformance.shown.map((s, i) => (
+                  <Line
+                    key={s.label}
+                    type="monotone"
+                    dataKey={s.label}
+                    stroke={SPONSOR_COLORS[i % SPONSOR_COLORS.length]}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {status === "loading" && (
         <p className="mt-6 text-sm text-muted-foreground">Loading your pipeline…</p>
       )}
@@ -522,6 +650,15 @@ function BrandDeals() {
         }}
       />
     </DashboardLayout>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-muted-foreground">
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+      <span className="truncate">{label}</span>
+    </span>
   );
 }
 
