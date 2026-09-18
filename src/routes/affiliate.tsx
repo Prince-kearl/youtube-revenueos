@@ -229,7 +229,7 @@ function Affiliate() {
             ) : (
               <>
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <div className="flex h-11 flex-1 items-center overflow-x-auto rounded-full border border-border bg-background px-4 font-mono text-sm text-muted-foreground">
+                  <div className="flex h-14 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-full border border-border bg-background px-4 font-mono text-sm text-muted-foreground">
                     {data!.referralLink}
                   </div>
                   <button
