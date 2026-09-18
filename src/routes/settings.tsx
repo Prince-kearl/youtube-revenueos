@@ -1941,9 +1941,9 @@ function SecurityPanel() {
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-border bg-success/5 p-4">
+            <div className="rounded-xl border border-border bg-success/5 p-4">
               <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/10 text-success">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-success/10 text-success">
                   <Smartphone className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
@@ -1967,9 +1967,9 @@ function SecurityPanel() {
                 </div>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-primary/5 p-4">
+            <div className="rounded-xl border border-border bg-primary/5 p-4">
               <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                   <KeyRound className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
