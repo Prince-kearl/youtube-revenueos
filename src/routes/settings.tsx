@@ -1075,27 +1075,16 @@ function ConnectedAccountsPanel() {
     <div className="relative overflow-hidden rounded-2xl card-gradient-outline p-5 sm:p-8">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="relative">
-        <div className="flex items-start justify-between gap-4 border-b border-border pb-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
-                <Link2 className="h-4 w-4" />
-              </span>
-              <h3 className="text-xl font-semibold tracking-tight">Sync profiles</h3>
-            </div>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              Connect your other profiles to keep your creator presence in sync.
-            </p>
-          </div>
-          {loading ? (
-            <Skeleton className="h-5 w-32 rounded-full" />
-          ) : (
-            <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
-              {channels.length
-                ? `${channels.length} YouTube channel${channels.length === 1 ? "" : "s"} connected`
-                : "Connect YouTube"}
+        <div className="border-b border-border pb-5">
+          <div className="flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
+              <Link2 className="h-4 w-4" />
             </span>
-          )}
+            <h3 className="text-xl font-semibold tracking-tight">Sync profiles</h3>
+          </div>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            Connect your other profiles to keep your creator presence in sync.
+          </p>
         </div>
 
         <div className="mt-6 space-y-2">
