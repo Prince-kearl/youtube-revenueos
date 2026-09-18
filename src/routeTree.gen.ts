@@ -72,6 +72,7 @@ import { Route as ApiCommentRulesRepliesRouteImport } from './routes/api.comment
 import { Route as ApiDestinationsTopVideosRouteImport } from './routes/api.destinations.top-videos'
 import { Route as ApiEmailAudienceRouteImport } from './routes/api.email.audience'
 import { Route as ApiFeaturesAccessRouteImport } from './routes/api.features.access'
+import { Route as ApiLeadsLinkRouteImport } from './routes/api.leads.link'
 import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
 import { Route as ApiLeadsSummaryRouteImport } from './routes/api.leads.summary'
 import { Route as ApiOnboardingStatusRouteImport } from './routes/api.onboarding.status'
@@ -428,6 +429,11 @@ const ApiFeaturesAccessRoute = ApiFeaturesAccessRouteImport.update({
   path: '/api/features/access',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLeadsLinkRoute = ApiLeadsLinkRouteImport.update({
+  id: '/link',
+  path: '/link',
+  getParentRoute: () => ApiLeadsRoute,
+} as any)
 const ApiLeadsMessagesRoute = ApiLeadsMessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -694,6 +700,7 @@ export interface FileRoutesByFullPath {
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
+  '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
@@ -798,6 +805,7 @@ export interface FileRoutesByTo {
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
+  '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
@@ -903,6 +911,7 @@ export interface FileRoutesById {
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
+  '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
@@ -1009,6 +1018,7 @@ export interface FileRouteTypes {
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
+    | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
@@ -1113,6 +1123,7 @@ export interface FileRouteTypes {
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
+    | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
@@ -1217,6 +1228,7 @@ export interface FileRouteTypes {
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
+    | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
@@ -1789,6 +1801,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFeaturesAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/leads/link': {
+      id: '/api/leads/link'
+      path: '/link'
+      fullPath: '/api/leads/link'
+      preLoaderRoute: typeof ApiLeadsLinkRouteImport
+      parentRoute: typeof ApiLeadsRoute
+    }
     '/api/leads/messages': {
       id: '/api/leads/messages'
       path: '/messages'
@@ -2118,11 +2137,13 @@ const ApiIntegrationsRouteWithChildren = ApiIntegrationsRoute._addFileChildren(
 )
 
 interface ApiLeadsRouteChildren {
+  ApiLeadsLinkRoute: typeof ApiLeadsLinkRoute
   ApiLeadsMessagesRoute: typeof ApiLeadsMessagesRoute
   ApiLeadsSummaryRoute: typeof ApiLeadsSummaryRoute
 }
 
 const ApiLeadsRouteChildren: ApiLeadsRouteChildren = {
+  ApiLeadsLinkRoute: ApiLeadsLinkRoute,
   ApiLeadsMessagesRoute: ApiLeadsMessagesRoute,
   ApiLeadsSummaryRoute: ApiLeadsSummaryRoute,
 }

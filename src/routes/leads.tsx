@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Loader2,
   RefreshCw,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -72,6 +74,7 @@ type Lead = {
   platform: LeadPlatform;
   status: LeadStatus;
   assigned_to: string | null;
+  primary_lead_id: string | null;
   tags: string[];
   unread: boolean;
   pinned: boolean;
@@ -278,6 +281,7 @@ function LeadInbox() {
   );
   const [sendingNote, setSendingNote] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -296,27 +300,55 @@ function LeadInbox() {
     return () => controller.abort();
   }, [retryToken]);
 
+  // Leads linked to the same person are grouped under the top-level (parent) lead.
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, Lead[]>();
+    for (const l of leads) {
+      if (!l.primary_lead_id) continue;
+      const arr = map.get(l.primary_lead_id) ?? [];
+      arr.push(l);
+      map.set(l.primary_lead_id, arr);
+    }
+    return map;
+  }, [leads]);
+  const topLevelLeads = useMemo(
+    () => leads.filter((l) => !l.primary_lead_id || !leads.some((p) => p.id === l.primary_lead_id)),
+    [leads],
+  );
+  const groupOf = (lead: Lead) => [lead, ...(childrenByParent.get(lead.id) ?? [])];
+
   const sorted = useMemo(
     () =>
-      [...leads].sort((a, b) => {
+      [...topLevelLeads].sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
         return +new Date(b.updated_at) - +new Date(a.updated_at);
       }),
-    [leads],
+    [topLevelLeads],
   );
-  const archivedCount = leads.filter((l) => l.archived).length;
+  const archivedCount = topLevelLeads.filter((l) => l.archived).length;
   const filtered = sorted.filter((l) => {
     if (showArchived) return l.archived;
     if (l.archived) return false;
     if (filter === "Unread" && !l.unread) return false;
     if (filter === "Favourites" && !l.favorite) return false;
     const q = query.toLowerCase();
-    return l.name.toLowerCase().includes(q) || (l.username ?? "").toLowerCase().includes(q);
+    if (!q) return true;
+    return groupOf(l).some(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.username ?? "").toLowerCase().includes(q) ||
+        (m.email ?? "").toLowerCase().includes(q),
+    );
   });
   const selected = leads.find((l) => l.id === selectedId) ?? null;
-  const unreadCount = leads.filter((l) => l.unread).length;
-  const newCount = leads.filter((l) => l.status === "new").length;
-  const bookedCount = leads.filter(
+  const selectedGroup = selected ? groupOf(selected) : [];
+  const linkedChildren = selected ? (childrenByParent.get(selected.id) ?? []) : [];
+  const groupKey = selectedId
+    ? [selectedId, ...linkedChildren.map((c) => c.id)].sort().join(",")
+    : "";
+  const unreadCount = topLevelLeads.filter((l) => l.unread).length;
+  const newCount = topLevelLeads.filter((l) => l.status === "new").length;
+  const bookedCount = topLevelLeads.filter(
     (l) => l.status === "call_booked" || l.status === "converted",
   ).length;
   const pinnedMessages = messages.filter((m) => m.pinned);
@@ -355,16 +387,26 @@ function LeadInbox() {
       setMessagesStatus("idle");
       return;
     }
+    const groupIds = groupKey.split(",").filter(Boolean);
     const controller = new AbortController();
     setMessagesStatus("loading");
-    fetch(`/api/leads/messages?leadId=${selectedId}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const body = (await response.json()) as MessagesResponse;
-        if (!response.ok || !body.data) throw new Error();
-        setMessages(body.data);
+    Promise.all(
+      groupIds.map((id) =>
+        fetch(`/api/leads/messages?leadId=${id}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        }).then(async (response) => {
+          const body = (await response.json()) as MessagesResponse;
+          if (!response.ok || !body.data) throw new Error();
+          return body.data;
+        }),
+      ),
+    )
+      .then((lists) => {
+        const merged = lists
+          .flat()
+          .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+        setMessages(merged);
         setMessagesStatus("ready");
       })
       .catch((error: unknown) => {
@@ -372,7 +414,7 @@ function LeadInbox() {
         setMessagesStatus("error");
       });
     return () => controller.abort();
-  }, [selectedId]);
+  }, [selectedId, groupKey]);
 
   const addNote = async () => {
     if (!selected || !draft.trim()) return;
@@ -473,6 +515,30 @@ function LeadInbox() {
     }
   };
 
+  const applyLinkResult = (updated: Lead[]) => {
+    setLeads((prev) => {
+      const map = new Map(prev.map((l) => [l.id, l]));
+      for (const u of updated) map.set(u.id, u);
+      return Array.from(map.values());
+    });
+  };
+
+  const unlinkLead = async (leadId: string) => {
+    try {
+      const response = await fetch("/api/leads/link", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, primaryLeadId: null }),
+      });
+      const body = (await response.json()) as { data?: Lead[]; error?: string };
+      if (!response.ok || !body.data) throw new Error();
+      applyLinkResult(body.data);
+      toast.success("Account unlinked");
+    } catch {
+      toast.error("We couldn’t unlink that account. Please try again.");
+    }
+  };
+
   const generateSummary = async () => {
     if (!selected) return;
     setSummarizing(true);
@@ -511,6 +577,15 @@ function LeadInbox() {
         label: "Open Instagram",
       };
     return null;
+  };
+  // Same as externalLink, but across every channel linked to this person.
+  const externalLinksForGroup = (lead: Lead): { href: string; label: string }[] => {
+    const links: { href: string; label: string }[] = [];
+    for (const member of groupOf(lead)) {
+      const link = externalLink(member);
+      if (link && !links.some((l) => l.label === link.label)) links.push(link);
+    }
+    return links;
   };
 
   return (
@@ -592,7 +667,7 @@ function LeadInbox() {
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1" title="Total leads">
-                    <Inbox className="h-3 w-3" /> {leads.length}
+                    <Inbox className="h-3 w-3" /> {topLevelLeads.length}
                   </span>
                   <span className="flex items-center gap-1" title="New — awaiting reply">
                     <Flag className="h-3 w-3 text-brand-amber" /> {newCount}
@@ -620,6 +695,8 @@ function LeadInbox() {
               {leadsStatus === "ready" &&
                 filtered.map((lead) => {
                   const ChannelIcon = channelIcon[lead.platform];
+                  const group = groupOf(lead);
+                  const groupPlatforms = Array.from(new Set(group.map((m) => m.platform)));
                   return (
                     <div
                       key={lead.id}
@@ -672,6 +749,22 @@ function LeadInbox() {
                           >
                             {STATUS_META[lead.status].label}
                           </span>
+                          {groupPlatforms.length > 1 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              {groupPlatforms.map((p) => {
+                                const Icon = channelIcon[p];
+                                return (
+                                  <span
+                                    key={p}
+                                    title={p}
+                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-accent text-muted-foreground"
+                                  >
+                                    <Icon className="h-2.5 w-2.5" />
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </button>
                       <LeadThreadActions
@@ -745,16 +838,19 @@ function LeadInbox() {
                       {selected.username ?? selected.platform}
                     </p>
                   </div>
-                  {externalLink(selected) && (
-                    <a
-                      href={externalLink(selected)!.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium hover:border-primary hover:text-primary"
-                    >
-                      {externalLink(selected)!.label} <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                  <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                    {externalLinksForGroup(selected).map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium hover:border-primary hover:text-primary"
+                      >
+                        {link.label} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </div>
                   <button
                     onClick={() => setMobileView("profile")}
                     className="rounded-full border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent lg:hidden"
@@ -815,6 +911,10 @@ function LeadInbox() {
                         );
                       }
                       const isYou = m.from_who === "you";
+                      const sourceLead =
+                        selectedGroup.length > 1
+                          ? selectedGroup.find((l) => l.id === m.lead_id)
+                          : undefined;
                       return (
                         <div
                           key={m.id}
@@ -848,6 +948,7 @@ function LeadInbox() {
                               )}
                             >
                               {m.kind === "comment" ? "YouTube comment reply" : "Note"}
+                              {sourceLead ? ` · ${sourceLead.platform}` : ""}
                             </p>
                             {m.text}
                           </div>
@@ -857,27 +958,24 @@ function LeadInbox() {
                 </div>
 
                 <div className="shrink-0 border-t border-border p-4">
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Logs a private note on this lead — it isn’t sent anywhere.
-                    {externalLink(selected) && " Use the link above to actually message them."}
-                  </p>
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       void addNote();
                     }}
-                    className="flex items-center gap-1.5"
+                    className="flex items-end gap-2 rounded-2xl border border-border bg-accent/10 p-1.5 pl-3.5 focus-within:border-primary"
                   >
                     <input
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      placeholder="Add a note…"
-                      className="h-10 min-w-0 flex-1 rounded-full border border-border bg-accent/10 px-3 text-sm outline-none focus:border-primary"
+                      placeholder="Add a private note…"
+                      className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     />
                     <button
                       type="submit"
                       disabled={sendingNote || !draft.trim()}
-                      className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+                      aria-label="Save note"
                     >
                       {sendingNote ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -886,6 +984,27 @@ function LeadInbox() {
                       )}
                     </button>
                   </form>
+                  <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
+                    Private note only — not sent to {selected.name}.
+                    {externalLinksForGroup(selected).length > 0 && (
+                      <>
+                        {" "}
+                        {externalLinksForGroup(selected).map((link, i) => (
+                          <span key={link.label}>
+                            {i > 0 && " · "}
+                            <a
+                              href={link.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {link.label} →
+                            </a>
+                          </span>
+                        ))}
+                      </>
+                    )}
+                  </p>
                 </div>
               </>
             )}
@@ -986,6 +1105,50 @@ function LeadInbox() {
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Linked accounts
+                    </label>
+                    <button
+                      onClick={() => setLinking(true)}
+                      className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                    >
+                      <Link2 className="h-3 w-3" /> Link another
+                    </button>
+                  </div>
+                  <div className="mt-1.5 space-y-1.5">
+                    {selectedGroup.map((member) => {
+                      const MemberIcon = channelIcon[member.platform];
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-2.5 rounded-lg border border-border p-2"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground">
+                            <MemberIcon className="h-3.5 w-3.5" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium">{member.platform}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {member.username ?? member.email ?? "No handle"}
+                            </p>
+                          </div>
+                          {member.id !== selected.id && (
+                            <button
+                              onClick={() => void unlinkLead(member.id)}
+                              title="Unlink this account"
+                              className="shrink-0 text-muted-foreground hover:text-destructive"
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1093,7 +1256,117 @@ function LeadInbox() {
           setMobileView("thread");
         }}
       />
+      <LinkLeadDialog
+        open={linking}
+        onOpenChange={setLinking}
+        targetLead={selected}
+        allLeads={leads}
+        excludeIds={new Set(selectedGroup.map((l) => l.id))}
+        onLinked={applyLinkResult}
+      />
     </DashboardLayout>
+  );
+}
+
+function LinkLeadDialog({
+  open,
+  onOpenChange,
+  targetLead,
+  allLeads,
+  excludeIds,
+  onLinked,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  targetLead: Lead | null;
+  allLeads: Lead[];
+  excludeIds: Set<string>;
+  onLinked: (leads: Lead[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  if (!targetLead) return null;
+
+  const q = query.toLowerCase();
+  const candidates = allLeads.filter(
+    (l) =>
+      !excludeIds.has(l.id) &&
+      (l.name.toLowerCase().includes(q) || (l.username ?? "").toLowerCase().includes(q)),
+  );
+
+  const link = async (leadId: string) => {
+    setLinkingId(leadId);
+    try {
+      const response = await fetch("/api/leads/link", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, primaryLeadId: targetLead.id }),
+      });
+      const body = (await response.json()) as { data?: Lead[]; error?: string };
+      if (!response.ok || !body.data) throw new Error();
+      onLinked(body.data);
+      toast.success("Accounts linked");
+      onOpenChange(false);
+    } catch {
+      toast.error("We couldn’t link that account. Please try again.");
+    } finally {
+      setLinkingId(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Link another channel</DialogTitle>
+          <DialogDescription>
+            Connect another lead record to {targetLead.name} when it’s the same person reaching out
+            on a different channel.
+          </DialogDescription>
+        </DialogHeader>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search leads…"
+          className="w-full rounded-lg border border-border bg-accent/20 px-3 py-2 text-sm outline-none focus:border-primary"
+        />
+        <div className="max-h-72 space-y-1.5 overflow-y-auto">
+          {candidates.length === 0 && (
+            <p className="p-4 text-center text-sm text-muted-foreground">No other leads to link.</p>
+          )}
+          {candidates.map((c) => {
+            const ChannelIcon = channelIcon[c.platform];
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => void link(c.id)}
+                disabled={linkingId !== null}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2 text-left hover:border-primary disabled:opacity-50"
+              >
+                <Avatar lead={c} size={28} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{c.name}</p>
+                  <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                    <ChannelIcon className="h-3 w-3" /> {c.username ?? c.email ?? c.platform}
+                  </p>
+                </div>
+                {linkingId === c.id ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                ) : (
+                  <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
