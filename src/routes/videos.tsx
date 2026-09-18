@@ -4,6 +4,7 @@ import { Eye, Filter, Play, Plus, RefreshCw, Search, ThumbsUp } from "lucide-rea
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { StatusBadge } from "@/components/ui-bits";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { ListRowSkeleton } from "@/components/skeletons";
@@ -23,6 +24,10 @@ type YoutubeVideo = {
   comments: number | null;
   privacyStatus: string | null;
   url: string;
+  estimatedRevenue: number | null;
+  cpm: number | null;
+  changePercent: number | null;
+  status: string | null;
 };
 
 type VideosData = {
@@ -38,6 +43,7 @@ type VideosData = {
   nextPageToken: string | null;
   videosStatus: "available" | "disabled" | "unavailable";
   totalVideoCount: number;
+  revenueAvailable: boolean;
 };
 
 type VideosResponse =
@@ -51,6 +57,15 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value,
   );
+}
+
+function formatMoney(value: number, fractionDigits = 0): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
 }
 
 function formatDate(value: string | null): string {
@@ -331,6 +346,15 @@ function Videos() {
             </div>
           )}
 
+          {state.status === "connected" &&
+            !state.data?.revenueAvailable &&
+            filteredVideos.length > 0 && (
+              <p className="mt-6 text-xs text-muted-foreground">
+                Revenue and CPM aren&apos;t available for this channel yet — reconnect YouTube in
+                Settings to grant the monetary analytics scope.
+              </p>
+            )}
+
           <div className="relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <table className="w-full text-sm">
@@ -338,9 +362,11 @@ function Videos() {
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-5 py-4 font-medium">Video</th>
                   <th className="px-3 py-4 font-medium">Views</th>
+                  <th className="px-3 py-4 font-medium">Revenue</th>
+                  <th className="px-3 py-4 font-medium">CPM</th>
                   <th className="px-3 py-4 font-medium">Likes</th>
-                  <th className="px-3 py-4 font-medium">Comments</th>
-                  <th className="px-3 py-4 font-medium">Published</th>
+                  <th className="px-3 py-4 font-medium">Status</th>
+                  <th className="px-3 py-4 font-medium">Change</th>
                 </tr>
               </thead>
               <tbody>
@@ -475,8 +501,7 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
           <span className="min-w-0">
             <span className="block max-w-[32rem] truncate font-medium">{video.title}</span>
             <span className="block text-xs text-muted-foreground">
-              {video.duration ? `${video.duration} · ` : ""}
-              {video.privacyStatus === "public" ? "Public" : "Status unavailable"}
+              {formatDate(video.publishedAt)}
             </span>
           </span>
         </a>
@@ -494,6 +519,16 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
           {formatCount(video.views)}
         </span>
       </td>
+      <td className="px-3 py-3.5 font-medium">
+        {video.estimatedRevenue === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          formatMoney(video.estimatedRevenue)
+        )}
+      </td>
+      <td className="px-3 py-3.5 text-muted-foreground">
+        {video.cpm === null ? "—" : formatMoney(video.cpm, 2)}
+      </td>
       <td className="px-3 py-3.5 text-muted-foreground">
         <span className="flex items-center gap-1.5">
           {video.likes === null ? (
@@ -506,10 +541,27 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
           )}
         </span>
       </td>
-      <td className="px-3 py-3.5 text-muted-foreground">
-        {video.comments === null ? "Unavailable" : formatCount(video.comments)}
+      <td className="px-3 py-3.5">
+        {video.status ? (
+          <StatusBadge status={video.status} />
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </td>
-      <td className="px-3 py-3.5 text-muted-foreground">{formatDate(video.publishedAt)}</td>
+      <td className="px-3 py-3.5">
+        {video.changePercent === null ? (
+          <span className="text-muted-foreground">New</span>
+        ) : (
+          <span
+            className={
+              video.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"
+            }
+          >
+            {video.changePercent >= 0 ? "+" : ""}
+            {video.changePercent.toFixed(1)}%
+          </span>
+        )}
+      </td>
     </tr>
   );
 }
