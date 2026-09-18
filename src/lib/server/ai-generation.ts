@@ -66,6 +66,9 @@ export type FreebieInput = {
   tone: string;
   /** Human-readable format label (e.g. "Cheatsheet", "Mini-Guide"). */
   formatLabel: string;
+  /** Real material the creator dropped in (Knowledge Base notes/files) — ground the output in
+   * this instead of inventing everything. */
+  knowledgeContext?: string | null;
 };
 
 type Provider = "openrouter" | "openai" | "anthropic";
@@ -167,10 +170,11 @@ function leadSummaryPromptFor(input: LeadSummaryInput): { system: string; user: 
 }
 
 function freebiePromptFor(input: FreebieInput): { system: string; user: string } {
+  const knowledge = input.knowledgeContext?.trim().slice(0, 40_000);
   return {
     system:
-      "You write real, specific, immediately useful lead-magnet content for creators — the kind someone would actually value getting in exchange for their email. Never pad with generic filler, fake statistics, invented testimonials, or vague platitudes; every point must be concrete and actionable for the specific product and audience given. Match the requested tone. Respond with ONLY the lead magnet content itself, formatted as clean Markdown with a single top-level heading, no commentary before or after, no code fences.",
-    user: `Product/service: ${input.product}\n\nTarget audience: ${input.audience}\n\nBrand tone: ${input.tone}\n\nFormat: ${input.formatLabel}\n\nWrite the ${input.formatLabel.toLowerCase()} now.`,
+      "You write real, specific, immediately useful lead-magnet content for creators — the kind someone would actually value getting in exchange for their email. Never pad with generic filler, fake statistics, invented testimonials, or vague platitudes; every point must be concrete and actionable for the specific product and audience given. Match the requested tone. When source material is supplied, treat it as ground truth: draw the actual points, examples, and phrasing style from it, write in that voice, and never contradict it or invent facts beyond what it and the given product/audience support — the source material is the whole reason this output should feel like it has 'real sauce' instead of generic AI filler. Respond with ONLY the lead magnet content itself, formatted as clean Markdown with a single top-level heading, no commentary before or after, no code fences.",
+    user: `Product/service: ${input.product}\n\nTarget audience: ${input.audience}\n\nBrand tone: ${input.tone}\n\nFormat: ${input.formatLabel}\n\nSOURCE MATERIAL (the creator's own knowledge, sheets, and transcripts — ground the content in this):\n${knowledge || "None supplied — write from the product/audience/tone alone."}\n\nWrite the ${input.formatLabel.toLowerCase()} now.`,
   };
 }
 
