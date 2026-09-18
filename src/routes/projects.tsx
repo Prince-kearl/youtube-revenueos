@@ -303,7 +303,7 @@ function ProjectsPage() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="e.g. Creator CRM"
-            className="mt-2 w-full rounded-xl border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+            className="mt-2 w-full rounded-[10px] border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
 
           <label className="mt-4 block text-sm font-medium">Prompt</label>
@@ -312,7 +312,7 @@ function ProjectsPage() {
             onChange={(event) => setPrompt(event.target.value)}
             rows={5}
             placeholder="Design a modern analytics workspace for creators to manage revenue and brand deals."
-            className="mt-2 w-full resize-none rounded-xl border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
+            className="mt-2 w-full resize-none rounded-[10px] border border-border bg-accent/20 px-3 py-2.5 text-sm outline-none focus:border-primary"
           />
 
           <button
