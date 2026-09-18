@@ -27,6 +27,19 @@ function withCookies(response: Response, setCookieHeaders: string[]) {
   return applySetCookies(response, setCookieHeaders);
 }
 
+function logDbError(
+  operation: string,
+  error: { code?: string; message: string; details?: string; hint?: string },
+) {
+  console.error("description_templates request failed", {
+    operation,
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
+}
+
 async function parseJson(request: Request) {
   try {
     return await request.json();
@@ -46,11 +59,13 @@ export const Route = createFileRoute("/api/description-templates")({
             .select("*")
             .eq("workspace_id", workspaceId)
             .order("name", { ascending: true });
-          if (error)
+          if (error) {
+            logDbError("select", error);
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
+          }
           return withCookies(json({ data }), setCookieHeaders);
         } catch (error) {
           if (error instanceof Response) return error;
@@ -74,11 +89,13 @@ export const Route = createFileRoute("/api/description-templates")({
             })
             .select()
             .single();
-          if (error)
+          if (error) {
+            logDbError("insert", error);
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
+          }
           return withCookies(json({ data }, { status: 201 }), setCookieHeaders);
         } catch (error) {
           if (error instanceof Response) return error;
@@ -89,15 +106,24 @@ export const Route = createFileRoute("/api/description-templates")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client, setCookieHeaders } = await getWorkspaceContext(request);
+          const { client, workspaceId, setCookieHeaders } = await getWorkspaceContext(request);
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
-          const { error } = await client.from("description_templates").delete().eq("id", id);
-          if (error)
+          const { error, count } = await client
+            .from("description_templates")
+            .delete({ count: "exact" })
+            .eq("id", id)
+            .eq("workspace_id", workspaceId);
+          if (error) {
+            logDbError("delete", error);
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
+          }
+          if (!count) {
+            return withCookies(json({ error: "NOT_FOUND" }, { status: 404 }), setCookieHeaders);
+          }
           return withCookies(json({ success: true }), setCookieHeaders);
         } catch (error) {
           if (error instanceof Response) return error;
