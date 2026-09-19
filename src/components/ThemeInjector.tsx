@@ -21,7 +21,10 @@ export function ThemeInjector() {
     fetch("/api/settings")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.success && data.content) setLocal(data.content);
+        // Merged onto the existing local value (already seeded with defaults for every
+        // SiteContent field) rather than replacing it outright, so a settings row saved before a
+        // newer field existed (e.g. siteIconUrl) doesn't blow that field away as `undefined`.
+        if (data?.success && data.content) setLocal((prev) => ({ ...prev, ...data.content }));
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,5 +79,19 @@ export function ThemeInjector() {
   useEffect(() => {
     document.documentElement.classList.toggle("ios26-wallpaper", ios26Wallpaper);
   }, [ios26Wallpaper]);
+
+  // Site Icon (Customization → General → Core Identity) drives the real browser tab favicon.
+  // __root.tsx sets a static <link rel="icon"> for the initial page load; this keeps it in sync
+  // once a Superadmin uploads a custom icon or the settings API resolves.
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = content.siteIconUrl;
+  }, [content.siteIconUrl]);
+
   return null;
 }

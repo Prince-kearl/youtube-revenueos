@@ -30,6 +30,7 @@ const GlowingEffect = memo(
     const containerRef = useRef<HTMLDivElement>(null);
     const lastPosition = useRef({ x: 0, y: 0 });
     const animationFrameRef = useRef<number>(0);
+    const activeTweenRef = useRef<ReturnType<typeof animate> | null>(null);
 
     const handleMove = useCallback(
       (e?: MouseEvent | { x: number; y: number }) => {
@@ -83,7 +84,14 @@ const GlowingEffect = memo(
           const angleDiff = ((targetAngle - currentAngle + 180) % 360) - 180;
           const newAngle = currentAngle + angleDiff;
 
-          animate(currentAngle, newAngle, {
+          // Stops the in-flight tween before starting the next one — without this, every
+          // pointermove/scroll frame during continuous movement (e.g. touch-scrolling) spawns
+          // another multi-second animation on top of the still-running ones instead of replacing
+          // them, since cancelling the scheduling rAF above only stops a not-yet-started tween,
+          // not one already animating. Left unstopped, these accumulate for as long as the page
+          // is used and were crashing the tab after a few minutes of scrolling.
+          activeTweenRef.current?.stop();
+          activeTweenRef.current = animate(currentAngle, newAngle, {
             duration: movementDuration,
             ease: [0.16, 1, 0.3, 1],
             onUpdate: (value) => {
@@ -110,6 +118,7 @@ const GlowingEffect = memo(
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
+        activeTweenRef.current?.stop();
         window.removeEventListener("scroll", handleScroll);
         document.body.removeEventListener("pointermove", handlePointerMove);
       };

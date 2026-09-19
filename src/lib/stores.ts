@@ -1008,6 +1008,7 @@ export interface SiteContent {
   seoDescription: string;
   logoLightUrl: string;
   logoDarkUrl: string;
+  siteIconUrl: string;
   primaryColor: string;
   buttonTextColor: string;
   accentColor: string;
@@ -1049,6 +1050,7 @@ const seedSiteContent = (): SiteContent => ({
     "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links, attributes Stripe sales, and automates comment engagement.",
   logoLightUrl: "/logo.png",
   logoDarkUrl: "/logo.png",
+  siteIconUrl: "/favicon.ico",
   primaryColor: "#0284c7",
   buttonTextColor: "#ffffff",
   accentColor: "#3b82f6",

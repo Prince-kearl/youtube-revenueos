@@ -50,6 +50,10 @@ export function GeneralTab() {
               onChange={(e) => setContent({ ...content, seoDescription: e.target.value })}
             />
           </Field>
+          <SiteIconUploadField
+            url={content.siteIconUrl}
+            onChange={(url) => setContent({ ...content, siteIconUrl: url })}
+          />
         </SectionCard>
 
         <SectionCard
@@ -62,11 +66,13 @@ export function GeneralTab() {
               label="Primary Logo (Light Mode)"
               url={content.logoLightUrl}
               onChange={(url) => setContent({ ...content, logoLightUrl: url })}
+              defaultUrl="/logo.png"
             />
             <LogoUploadField
               label="White Logo (Dark Mode & Footer)"
               url={content.logoDarkUrl}
               onChange={(url) => setContent({ ...content, logoDarkUrl: url })}
+              defaultUrl="/logo.png"
               dark
             />
           </div>
@@ -232,11 +238,13 @@ function LogoUploadField({
   url,
   onChange,
   dark,
+  defaultUrl,
 }: {
   label: string;
   url: string;
   onChange: (url: string) => void;
   dark?: boolean;
+  defaultUrl: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -269,14 +277,72 @@ function LogoUploadField({
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
-      {url !== "/logo.png" && (
+      {url !== defaultUrl && (
         <button
-          onClick={() => onChange("/logo.png")}
+          onClick={() => onChange(defaultUrl)}
           className="text-xs font-medium text-primary hover:underline"
         >
           Reset to default
         </button>
       )}
+    </Field>
+  );
+}
+
+function SiteIconUploadField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const defaultUrl = "/favicon.ico";
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_LOGO_BYTES) return toast.error("Icon must be under 2MB");
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <Field label="Site Icon (Favicon)">
+      <div className="flex items-center gap-3">
+        <div
+          onClick={() => inputRef.current?.click()}
+          className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-accent/20 transition-colors hover:border-primary"
+        >
+          {url?.startsWith("data:") ? (
+            <img src={url} alt="Site icon" className="h-9 w-9 object-contain" />
+          ) : (
+            <Upload className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex flex-col items-start gap-1">
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Click to upload
+          </button>
+          {url !== defaultUrl && (
+            <button
+              onClick={() => onChange(defaultUrl)}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Reset to default
+            </button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          className="hidden"
+        />
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Shown as the browser tab icon. Square image recommended.
+      </p>
     </Field>
   );
 }

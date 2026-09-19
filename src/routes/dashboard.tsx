@@ -502,7 +502,7 @@ function Dashboard() {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
     <DashboardLayout title="Dashboard">
-      <h1 className="mb-4 text-2xl font-bold tracking-tight">
+      <h1 className="mb-1.5 text-2xl font-bold tracking-tight sm:mb-4">
         {greeting}, {firstName}
       </h1>
 
@@ -572,7 +572,7 @@ function Dashboard() {
 
       <div
         ref={kpiScrollRef}
-        className="flex shrink-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pt-4 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:pb-0 sm:pt-0 xl:grid-cols-3 [&::-webkit-scrollbar]:hidden"
+        className="flex shrink-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:pb-0 sm:pt-0 xl:grid-cols-3 [&::-webkit-scrollbar]:hidden"
         aria-busy={youtubeStatus === "loading"}
         aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}
       >
