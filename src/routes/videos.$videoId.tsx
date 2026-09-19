@@ -431,7 +431,7 @@ function VideoDetail() {
             </a>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             <KpiTrendCard
               title="Views in period"
               accent="var(--brand-blue)"
@@ -439,7 +439,7 @@ function VideoDetail() {
               deltaLabel={`${data.startDate} to ${data.endDate}`}
               deltaSuffix=""
               changePercent={kpiTrends.viewsChangePct}
-              periodLabel="vs. first half of period"
+              periodLabel="vs. first half"
               series={kpiTrends.views}
               markerTitle={formatCount(kpiTrends.views.at(-1))}
               markerSubtitle="Latest day"
@@ -452,7 +452,7 @@ function VideoDetail() {
               deltaLabel="YouTube Analytics"
               deltaSuffix=""
               changePercent={kpiTrends.watchTimeChangePct}
-              periodLabel="vs. first half of period"
+              periodLabel="vs. first half"
               series={kpiTrends.watchTime}
               markerTitle={formatMinutes(kpiTrends.watchTime.at(-1))}
               markerSubtitle="Latest day"
@@ -465,7 +465,7 @@ function VideoDetail() {
               deltaLabel="Per playback"
               deltaSuffix=""
               changePercent={kpiTrends.avgDurationChangePct}
-              periodLabel="vs. first half of period"
+              periodLabel="vs. first half"
               series={kpiTrends.avgDuration}
               markerTitle={formatDuration(kpiTrends.avgDuration.at(-1))}
               markerSubtitle="Latest day"
@@ -478,7 +478,7 @@ function VideoDetail() {
               deltaLabel="YouTube Analytics"
               deltaSuffix=""
               changePercent={kpiTrends.avgPercentageChangePct}
-              periodLabel="vs. first half of period"
+              periodLabel="vs. first half"
               series={kpiTrends.avgPercentage}
               markerTitle={formatPercentage(kpiTrends.avgPercentage.at(-1))}
               markerSubtitle="Latest day"
@@ -495,7 +495,7 @@ function VideoDetail() {
               }
               deltaSuffix=""
               changePercent={data.summary.revenueAvailable ? kpiTrends.revenueChangePct : null}
-              periodLabel="vs. first half of period"
+              periodLabel="vs. first half"
               series={kpiTrends.revenue}
               markerTitle={formatCurrency(
                 kpiTrends.revenue.at(-1) ?? null,

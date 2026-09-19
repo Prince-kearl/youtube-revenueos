@@ -105,6 +105,15 @@ const GlowingEffect = memo(
 
     useEffect(() => {
       if (disabled) return;
+      // This effect exists to chase a mouse cursor — meaningless on a touchscreen, since there's
+      // no hover concept there. Skipping it on coarse-pointer (touch-primary) devices matters a
+      // lot more than it looks: every touch-scroll gesture fires a continuous stream of native
+      // pointermove events, and with this component mounted 100+ times across the app (every
+      // "glow" card), each one independently ran the expensive conic-gradient mask animation on
+      // every single one of those events, on every mounted instance, for the entire scroll
+      // gesture — sustained heavy CPU/GPU work throughout normal mobile use that was crashing the
+      // WebKit renderer process after a few minutes of scrolling around the app.
+      if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) return;
 
       const handleScroll = () => handleMove();
       const handlePointerMove = (e: PointerEvent) => handleMove(e);

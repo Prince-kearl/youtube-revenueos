@@ -15,6 +15,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeInjector } from "@/components/ThemeInjector";
 import { ThemeModeApplier } from "@/components/ThemeModeApplier";
 import { NavGlowDriver } from "@/components/NavGlowDriver";
+import { installDemoApiInterceptor } from "@/lib/demo-api";
+
+// Module-level (not inside a component) so it installs during evaluation of the route tree's own
+// root module — before any route component's useEffect has a chance to fire its first fetch. A
+// no-op on the server and in production (see installDemoApiInterceptor's own guards).
+installDemoApiInterceptor();
 
 // Sets the dark class before first paint, so there's no flash of the wrong theme while React
 // hydrates. Reads the same localStorage key useThemeMode()/useLocalStore write (JSON-encoded),

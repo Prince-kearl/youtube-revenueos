@@ -98,7 +98,7 @@ export function NotificationRow({
   return (
     <>
       <div
-        className={`group flex items-start gap-3 rounded-xl border border-border p-3 ${notification.read ? "bg-accent/30" : "bg-primary/5"}`}
+        className={`group flex items-start gap-3 rounded-[14px] border border-border p-3 ${notification.read ? "bg-accent/30" : "bg-primary/5"}`}
       >
         <button
           onClick={openDetail}
