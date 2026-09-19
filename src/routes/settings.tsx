@@ -30,6 +30,7 @@ import {
   ScanLine,
   X,
   Copy,
+  Plus,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
@@ -1339,8 +1340,16 @@ function YouTubeIntegrationPanel() {
   return (
     <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">YouTube Integration</h3>
+        {!loading && channels.length > 0 && (
+          <a
+            href={`/api/youtube/auth?returnTo=${encodeURIComponent("/settings")}`}
+            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+          >
+            <Plus className="h-3.5 w-3.5" /> Connect another channel
+          </a>
+        )}
       </div>
 
       {loading ? (
