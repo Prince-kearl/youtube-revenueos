@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import {
   aggregateYoutubeAnalyticsByMonth,
   queryYoutubeAnalytics,
@@ -45,14 +49,16 @@ export const Route = createFileRoute("/api/youtube/analytics")({
           let channelQuery = client
             .from("youtube_channels")
             .select(
-              "id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry",
+              "id, youtube_channel_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
             )
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error } = await channelQuery.limit(1).maybeSingle();
-          if (error || !channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
+          const connection = normalizeYoutubeConnectionRow(channel?.connection);
+          if (error || !channel || !connection)
+            return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
-          const accessToken = await getValidAccessToken(client, channel);
+          const accessToken = await getValidAccessToken(client, connection);
           const requestedDimensions = input.dimensions?.split(",").filter(Boolean);
           const normalizedDimensions = requestedDimensions?.map((dimension) =>
             dimension === "trafficSourceType" ? "insightTrafficSourceType" : dimension,

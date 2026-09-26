@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import {
   fetchAuthorizedYoutubeChannel,
   fetchRecentYoutubeVideos,
@@ -41,11 +45,14 @@ export const Route = createFileRoute("/api/youtube/comments")({
           const service = createServiceSupabaseClient();
           const { data: secretRow, error: secretError } = await service
             .from("youtube_channels")
-            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .select(
+              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+            )
             .eq("id", channel.id)
             .single();
-          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          const accessToken = await getValidAccessToken(service, secretRow);
+          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+          if (secretError || !connection) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const accessToken = await getValidAccessToken(service, connection);
 
           const liveChannel = await fetchAuthorizedYoutubeChannel(
             accessToken,

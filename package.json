@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:youtube-auth": "node --test --import tsx tests/youtube-auth-reliability.test.ts"
+    "test:youtube-auth": "node --test --import tsx tests/youtube-auth-reliability.test.ts",
+    "test:youtube-connection-resolution": "node --test --import tsx tests/youtube-connection-resolution.test.ts",
+    "test:pre-publish-analysis": "node --test --import tsx tests/ai-pre-publish-analysis.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

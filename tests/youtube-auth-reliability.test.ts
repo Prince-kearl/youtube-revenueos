@@ -16,12 +16,14 @@ const configuredChannelIds = (process.env.YRO_E2E_CHANNEL_IDS ?? "")
   .map((value) => value.trim())
   .filter(Boolean);
 
-function fakeSupabaseClient(updates: Array<{ values: Json; id: string }>): SupabaseClient {
+function fakeSupabaseClient(
+  updates: Array<{ table: string; values: Json; column: string; id: string }>,
+): SupabaseClient {
   return {
-    from: () => ({
+    from: (table: string) => ({
       update: (values: Json) => ({
-        eq: async (_column: string, id: string) => {
-          updates.push({ values, id });
+        eq: async (column: string, id: string) => {
+          updates.push({ table, values, column, id });
           return { data: null, error: null };
         },
       }),
@@ -29,14 +31,14 @@ function fakeSupabaseClient(updates: Array<{ values: Json; id: string }>): Supab
   } as unknown as SupabaseClient;
 }
 
-function channel(tokenExpiry: string): {
+function connection(tokenExpiry: string): {
   id: string;
   access_token_ciphertext: string;
   refresh_token_ciphertext: string;
   token_expiry: string;
 } {
   return {
-    id: "channel-row-1",
+    id: "connection-row-1",
     access_token_ciphertext: "access-ciphertext",
     refresh_token_ciphertext: "refresh-ciphertext",
     token_expiry: tokenExpiry,
@@ -44,11 +46,11 @@ function channel(tokenExpiry: string): {
 }
 
 test("token lifecycle reuses an access token that is safely valid", async () => {
-  const updates: Array<{ values: Json; id: string }> = [];
+  const updates: Array<{ table: string; values: Json; column: string; id: string }> = [];
   let refreshCalls = 0;
   const token = await getValidAccessTokenWithDependencies(
     fakeSupabaseClient(updates),
-    channel(new Date(Date.now() + 10 * 60_000).toISOString()),
+    connection(new Date(Date.now() + 10 * 60_000).toISOString()),
     {
       decrypt: async (value) => (value === "access-ciphertext" ? "access-token" : "refresh-token"),
       encrypt: async (value) => `encrypted:${value}`,
@@ -66,12 +68,12 @@ test("token lifecycle reuses an access token that is safely valid", async () => 
 });
 
 test("token lifecycle refreshes an expired token and persists the replacement", async () => {
-  const updates: Array<{ values: Json; id: string }> = [];
+  const updates: Array<{ table: string; values: Json; column: string; id: string }> = [];
   let receivedRefreshToken = "";
   const now = Date.parse("2026-08-29T12:00:00.000Z");
   const token = await getValidAccessTokenWithDependencies(
     fakeSupabaseClient(updates),
-    channel("2026-08-29T11:00:00.000Z"),
+    connection("2026-08-29T11:00:00.000Z"),
     {
       decrypt: async (value) => (value === "access-ciphertext" ? "old-access" : "refresh-token"),
       encrypt: async (value) => `encrypted:${value}`,
@@ -86,17 +88,18 @@ test("token lifecycle refreshes an expired token and persists the replacement", 
   assert.equal(token, "new-access");
   assert.equal(receivedRefreshToken, "refresh-token");
   assert.equal(updates.length, 1);
-  assert.equal(updates[0]?.id, "channel-row-1");
+  assert.equal(updates[0]?.table, "youtube_connections");
+  assert.equal(updates[0]?.id, "connection-row-1");
   assert.equal(updates[0]?.values.access_token_ciphertext, "encrypted:new-access");
   assert.equal(updates[0]?.values.token_expiry, new Date(now + 3600_000).toISOString());
 });
 
-test("token lifecycle marks reauthentication when Google rejects the refresh token", async () => {
-  const updates: Array<{ values: Json; id: string }> = [];
+test("token lifecycle marks reauthentication on the connection and every channel sharing it when Google rejects the refresh token", async () => {
+  const updates: Array<{ table: string; values: Json; column: string; id: string }> = [];
   await assert.rejects(
     getValidAccessTokenWithDependencies(
       fakeSupabaseClient(updates),
-      channel("2026-08-29T11:00:00.000Z"),
+      connection("2026-08-29T11:00:00.000Z"),
       {
         decrypt: async (value) => (value === "access-ciphertext" ? "old-access" : "refresh-token"),
         encrypt: async (value) => `encrypted:${value}`,
@@ -109,9 +112,17 @@ test("token lifecycle marks reauthentication when Google rejects the refresh tok
     (error) => error instanceof YoutubeReauthRequiredError,
   );
 
-  assert.equal(updates.length, 1);
+  assert.equal(updates.length, 2);
   assert.deepEqual(updates[0], {
-    id: "channel-row-1",
+    table: "youtube_connections",
+    column: "id",
+    id: "connection-row-1",
+    values: { status: "reauth_required" },
+  });
+  assert.deepEqual(updates[1], {
+    table: "youtube_channels",
+    column: "connection_id",
+    id: "connection-row-1",
     values: { last_sync_status: "reauth_required", last_sync_error: null },
   });
   assert.equal(isYoutubeReauthError(new Error("GOOGLE_TOKEN_REQUEST_FAILED:401")), true);

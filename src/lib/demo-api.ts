@@ -1262,6 +1262,7 @@ function demoYoutubeChannels() {
     data: [
       {
         id: CHANNEL_ROW_ID,
+        connection_id: "10000000-0000-4000-8000-000000000099",
         youtube_channel_id: CHANNEL.channelId,
         channel_name: CHANNEL.title,
         channel_handle: CHANNEL.handle,
@@ -1274,7 +1275,6 @@ function demoYoutubeChannels() {
         last_synced_at: "2026-09-19T01:00:00.000Z",
         last_sync_status: "success",
         last_sync_error: null,
-        token_expiry: "2027-01-01T00:00:00.000Z",
       },
     ],
   };

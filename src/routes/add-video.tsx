@@ -20,6 +20,7 @@ import {
   Target,
   Trash2,
   TriangleAlert,
+  Upload,
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
@@ -207,6 +209,7 @@ function AddVideo() {
   const navigate = useNavigate();
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [pickerTab, setPickerTab] = useState<"mine" | "url">("mine");
+  const [prePublishDialogOpen, setPrePublishDialogOpen] = useState(false);
   const [myVideos, setMyVideos] = useState<YoutubeVideo[]>([]);
   const [myVideosStatus, setMyVideosStatus] = useState<
     "idle" | "loading" | "loaded" | "error" | "not_connected"
@@ -814,7 +817,7 @@ function AddVideo() {
           >
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h2 className="text-base font-semibold">Select video source</h2>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setPickerTab("mine")}
@@ -848,6 +851,19 @@ function AddVideo() {
                   <p className="text-sm font-semibold">Paste YouTube URL</p>
                   <p className="truncate text-xs text-muted-foreground">
                     Analyze any public YouTube video
+                  </p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrePublishDialogOpen(true)}
+                className="flex items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-primary/40"
+              >
+                <Upload className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Upload a video (not yet published)</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Get packaging ideas before it&apos;s on YouTube
                   </p>
                 </div>
               </button>
@@ -1621,6 +1637,8 @@ function AddVideo() {
       <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
         <Lock className="h-3 w-3" /> This analysis is private to you.
       </p>
+
+      <PrePublishUploadDialog open={prePublishDialogOpen} onOpenChange={setPrePublishDialogOpen} />
     </DashboardLayout>
   );
 }

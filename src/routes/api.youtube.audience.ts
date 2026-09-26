@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import { queryYoutubeAnalytics } from "@/lib/server/google-oauth";
 
 type AnalyticsPayload = {
@@ -175,11 +179,14 @@ export const Route = createFileRoute("/api/youtube/audience")({
           const serviceClient = createServiceSupabaseClient();
           const { data: secretRow, error: secretError } = await serviceClient
             .from("youtube_channels")
-            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .select(
+              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+            )
             .eq("id", channelRow.id)
             .single();
-          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          const accessToken = await getValidAccessToken(serviceClient, secretRow);
+          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+          if (secretError || !connection) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const accessToken = await getValidAccessToken(serviceClient, connection);
 
           const { data: integrationSettings } = await client
             .from("youtube_integration_settings")

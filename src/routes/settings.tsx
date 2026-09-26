@@ -53,6 +53,7 @@ import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
+import { YoutubeChannelPicker } from "@/components/YoutubeChannelPicker";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
   challengeMfaFactor,
@@ -1146,6 +1147,7 @@ function ConnectedAccountsPanel() {
 
 interface ConnectedYoutubeChannel {
   id: string;
+  connection_id: string | null;
   youtube_channel_id: string;
   channel_name: string;
   channel_handle: string | null;
@@ -1191,6 +1193,15 @@ const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; tex
     type: "error",
     text: "We couldn't find your workspace — please sign out and back in, then try again.",
   },
+  already_connected: { type: "success", text: "That YouTube account is already connected." },
+  connection_ambiguous: {
+    type: "error",
+    text: "We couldn't safely confirm this is the same Google account as an existing connection in this workspace, so nothing was changed. Contact support if you expected this to reconnect automatically.",
+  },
+  no_channels_found: {
+    type: "error",
+    text: "Google didn't return a channel this account owns or manages. If you were invited as an Editor/Manager/Viewer on someone else's channel (YouTube Studio → Settings → Permissions), that access isn't visible to any app's API — ask the channel owner to connect it directly, then invite you to this workspace instead.",
+  },
   error: { type: "error", text: "Something went wrong connecting YouTube." },
 };
 
@@ -1212,6 +1223,8 @@ function YouTubeIntegrationPanel() {
   const [savingSetting, setSavingSetting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [pendingConnectionId, setPendingConnectionId] = useState<string | null>(null);
+  const [findMoreConnectionIds, setFindMoreConnectionIds] = useState<string[] | null>(null);
 
   const loadChannels = async () => {
     setLoading(true);
@@ -1246,15 +1259,24 @@ function YouTubeIntegrationPanel() {
   };
 
   useEffect(() => {
-    const status = new URL(window.location.href).searchParams.get("youtube");
-    const message = status ? YOUTUBE_CALLBACK_MESSAGES[status] : undefined;
-    if (message) {
-      if (message.type === "success") toast.success(message.text);
-      else toast.error(message.text);
+    const currentUrl = new URL(window.location.href);
+    const status = currentUrl.searchParams.get("youtube");
+    const pendingId = currentUrl.searchParams.get("pendingConnectionId");
+    if (status === "pick_channels" && pendingId) {
+      setPendingConnectionId(pendingId);
+    } else {
+      const message = status ? YOUTUBE_CALLBACK_MESSAGES[status] : undefined;
+      if (message) {
+        if (message.type === "success") toast.success(message.text);
+        else toast.error(message.text);
+        if (status === "connected") void goToNextOnboardingStep(navigate, "channel");
+      }
+    }
+    if (status) {
       const url = new URL(window.location.href);
       url.searchParams.delete("youtube");
+      url.searchParams.delete("pendingConnectionId");
       window.history.replaceState({}, "", url.toString());
-      if (status === "connected") void goToNextOnboardingStep(navigate, "channel");
     }
     void loadChannels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1343,14 +1365,43 @@ function YouTubeIntegrationPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">YouTube Integration</h3>
         {!loading && channels.length > 0 && (
-          <a
-            href={`/api/youtube/auth?returnTo=${encodeURIComponent("/settings")}`}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
-          >
-            <Plus className="h-3.5 w-3.5" /> Connect another channel
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() =>
+                setFindMoreConnectionIds([
+                  ...new Set(
+                    channels
+                      .map((channel) => channel.connection_id)
+                      .filter((id): id is string => Boolean(id)),
+                  ),
+                ])
+              }
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+            >
+              Find more channels
+            </button>
+            <a
+              href={`/api/youtube/auth?returnTo=${encodeURIComponent("/settings")}`}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+            >
+              <Plus className="h-3.5 w-3.5" /> Connect another channel
+            </a>
+          </div>
         )}
       </div>
+
+      {(pendingConnectionId || findMoreConnectionIds) && (
+        <YoutubeChannelPicker
+          connectionIds={
+            pendingConnectionId ? [pendingConnectionId] : (findMoreConnectionIds ?? [])
+          }
+          onAdded={() => void loadChannels()}
+          onDismiss={() => {
+            setPendingConnectionId(null);
+            setFindMoreConnectionIds(null);
+          }}
+        />
+      )}
 
       {loading ? (
         <div

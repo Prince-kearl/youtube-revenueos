@@ -6,7 +6,16 @@ import { getServerEnv, requireServerEnv } from "./env";
 // (comments.insert), which read-only access cannot do. Channels connected before this scope was
 // added won't have it on their existing token — see isInsufficientScopeError in youtube-tokens.ts
 // for how that's detected and surfaced as a reconnect prompt rather than a silent failure.
+//
+// openid + email are requested for exactly one reason: they make Google return an id_token whose
+// `sub` claim is the account's stable, non-reassignable identifier. That's what
+// youtube_connections.google_subject_id is keyed on, so the same Google identity reconnecting to a
+// workspace resolves to its existing connection instead of creating a duplicate one. Without it,
+// there is no reliable way to deduplicate connections by identity (email can change; channel id is
+// not the identity). No YouTube data access is gained or lost by adding these two scopes.
 export const YOUTUBE_OAUTH_SCOPES = [
+  "openid",
+  "email",
   "https://www.googleapis.com/auth/youtube.readonly",
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/yt-analytics.readonly",
@@ -77,6 +86,10 @@ interface GoogleTokenResponse {
   expires_in: number;
   scope: string;
   token_type: string;
+  // Present because the `openid` scope was requested (see YOUTUBE_OAUTH_SCOPES) — carries the
+  // stable `sub` claim used to identify the Google account. Absent on a token refresh unless
+  // Google chooses to reissue one, which is why identity is captured at initial consent time.
+  id_token?: string;
 }
 
 async function requestGoogleToken(body: URLSearchParams): Promise<GoogleTokenResponse> {
@@ -112,6 +125,30 @@ export function refreshGoogleAccessToken(refreshToken: string): Promise<GoogleTo
   );
 }
 
+export interface GoogleIdentity {
+  sub: string;
+  email: string | null;
+}
+
+// Decodes the payload of an id_token Google's own token endpoint just returned in this same
+// server-to-server exchange (see exchangeGoogleAuthorizationCode) — this is reading a value Google
+// handed us directly over an HTTPS call authenticated with our client_secret, not accepting a
+// bearer credential from an untrusted caller, so no signature verification is performed here.
+// Never call this on an id_token that arrived from anywhere other than that direct exchange.
+export function decodeGoogleIdentityFromIdToken(idToken: string): GoogleIdentity | null {
+  const segments = idToken.split(".");
+  if (segments.length !== 3) return null;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(segments[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
+    ) as { sub?: unknown; email?: unknown };
+    if (typeof payload.sub !== "string" || !payload.sub) return null;
+    return { sub: payload.sub, email: typeof payload.email === "string" ? payload.email : null };
+  } catch {
+    return null;
+  }
+}
+
 export interface YoutubeChannelSummary {
   channelId: string;
   title: string;
@@ -123,35 +160,18 @@ export interface YoutubeChannelSummary {
   uploadsPlaylistId: string | null;
 }
 
-export async function fetchAuthorizedYoutubeChannel(
-  accessToken: string,
-  expectedChannelId?: string,
-): Promise<YoutubeChannelSummary> {
-  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-  url.searchParams.set("part", "snippet,statistics,contentDetails");
-  url.searchParams.set("mine", "true");
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!response.ok) throw new Error(`YOUTUBE_CHANNEL_FETCH_FAILED:${response.status}`);
-  const data = (await response.json()) as {
-    items?: Array<{
-      id: string;
-      snippet: {
-        title: string;
-        customUrl?: string;
-        thumbnails?: { high?: { url: string }; default?: { url: string } };
-      };
-      statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
-      contentDetails?: { relatedPlaylists?: { uploads?: string } };
-    }>;
+interface RawYoutubeChannelItem {
+  id: string;
+  snippet: {
+    title: string;
+    customUrl?: string;
+    thumbnails?: { high?: { url: string }; default?: { url: string } };
   };
-  const channel = expectedChannelId
-    ? data.items?.find((item) => item.id === expectedChannelId)
-    : data.items?.[0];
-  if (!channel) {
-    throw new Error(
-      expectedChannelId ? "YOUTUBE_CONNECTED_CHANNEL_MISMATCH" : "YOUTUBE_CHANNEL_NOT_FOUND",
-    );
-  }
+  statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+  contentDetails?: { relatedPlaylists?: { uploads?: string } };
+}
+
+function mapYoutubeChannel(channel: RawYoutubeChannelItem): YoutubeChannelSummary {
   return {
     channelId: channel.id,
     title: channel.snippet.title,
@@ -163,6 +183,43 @@ export async function fetchAuthorizedYoutubeChannel(
     videoCount: Number(channel.statistics.videoCount ?? 0),
     uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads ?? null,
   };
+}
+
+// channels.list(mine=true) returns every channel the authenticated identity has account-level
+// rights to — for most creators that's exactly one, but for a legacy Brand Account manager it can
+// be several. This is the only channel-discovery entry point that should be used when the caller
+// doesn't already know which single channel it's looking for; it never discards anything.
+export async function fetchAuthorizedYoutubeChannels(
+  accessToken: string,
+): Promise<YoutubeChannelSummary[]> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+  url.searchParams.set("part", "snippet,statistics,contentDetails");
+  url.searchParams.set("mine", "true");
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error(`YOUTUBE_CHANNEL_FETCH_FAILED:${response.status}`);
+  const data = (await response.json()) as { items?: RawYoutubeChannelItem[] };
+  return (data.items ?? []).map(mapYoutubeChannel);
+}
+
+// For callers that already know the specific channel they're refreshing metadata for (sync jobs,
+// comment automation, video fetches) — always pass expectedChannelId so a connection backing
+// several channels can't silently overwrite one channel's row with another's data. Omitting
+// expectedChannelId only makes sense when the connection is known to back exactly one channel;
+// prefer fetchAuthorizedYoutubeChannels for anything that discovers channels.
+export async function fetchAuthorizedYoutubeChannel(
+  accessToken: string,
+  expectedChannelId?: string,
+): Promise<YoutubeChannelSummary> {
+  const channels = await fetchAuthorizedYoutubeChannels(accessToken);
+  const channel = expectedChannelId
+    ? channels.find((item) => item.channelId === expectedChannelId)
+    : channels[0];
+  if (!channel) {
+    throw new Error(
+      expectedChannelId ? "YOUTUBE_CONNECTED_CHANNEL_MISMATCH" : "YOUTUBE_CHANNEL_NOT_FOUND",
+    );
+  }
+  return channel;
 }
 
 export interface YoutubeVideoSummary {

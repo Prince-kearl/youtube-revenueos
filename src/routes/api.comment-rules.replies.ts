@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import { postYoutubeCommentReply, YoutubeInsufficientScopeError } from "@/lib/server/google-oauth";
 
 const replySchema = z.object({
@@ -176,13 +180,16 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
           const service = createServiceSupabaseClient();
           const { data: secretRow, error: secretError } = await service
             .from("youtube_channels")
-            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .select(
+              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+            )
             .eq("id", channelId)
             .single();
-          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+          if (secretError || !connection) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
           try {
-            const accessToken = await getValidAccessToken(service, secretRow);
+            const accessToken = await getValidAccessToken(service, connection);
             await postYoutubeCommentReply(accessToken, input.youtubeCommentId, input.replyText);
             void service.from("youtube_quota_events").insert({
               user_id: user.id,

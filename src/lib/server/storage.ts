@@ -45,3 +45,40 @@ export async function signedWorkspaceFileUrl(
   if (error || !data) return null;
   return data.signedUrl;
 }
+
+// A signed *upload* URL (distinct from signedWorkspaceFileUrl's download URL above) — lets the
+// browser PUT a large file (e.g. a pre-publish video) directly to Storage without routing the
+// bytes through a Vercel serverless function, which has a small request-body limit and a short
+// execution timeout unsuited to real video files. The caller (an API route) must already have
+// verified the requester owns `path`'s workspace segment before calling this — this function
+// itself performs no authorization, same division of responsibility as uploadWorkspaceFile above.
+// Valid for 2 hours (Supabase's fixed default for signed upload URLs).
+export async function createWorkspaceSignedUploadUrl(
+  path: string,
+): Promise<{ signedUrl: string; token: string } | null> {
+  const service = createServiceSupabaseClient();
+  const { data, error } = await service.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(path, { upsert: true });
+  if (error || !data) return null;
+  return { signedUrl: data.signedUrl, token: data.token };
+}
+
+// Server-side existence/size check (HEAD-equivalent) — used to confirm a browser really finished
+// uploading to a signed URL before the server trusts the client's "upload complete" signal and
+// starts spending AI usage on analyzing it.
+export async function workspaceFileExists(
+  path: string,
+): Promise<{ exists: boolean; size: number | null }> {
+  const service = createServiceSupabaseClient();
+  const lastSlash = path.lastIndexOf("/");
+  const folder = lastSlash === -1 ? "" : path.slice(0, lastSlash);
+  const fileName = lastSlash === -1 ? path : path.slice(lastSlash + 1);
+  const { data, error } = await service.storage.from(BUCKET).list(folder, {
+    search: fileName,
+    limit: 1,
+  });
+  if (error || !data?.length) return { exists: false, size: null };
+  const size = (data[0].metadata as { size?: number } | null)?.size ?? null;
+  return { exists: true, size };
+}

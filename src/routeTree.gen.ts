@@ -28,6 +28,7 @@ import { Route as LandingRouteImport } from './routes/landing'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as LinkTrackingRouteImport } from './routes/link-tracking'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PrePublishRouteImport } from './routes/pre-publish'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -47,6 +48,7 @@ import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
 import { Route as ApiKnowledgeRouteImport } from './routes/api.knowledge'
 import { Route as ApiLeadsRouteImport } from './routes/api.leads'
 import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
+import { Route as ApiPrePublishVideosRouteImport } from './routes/api.pre-publish-videos'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiProjectsRouteImport } from './routes/api.projects'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
@@ -55,6 +57,7 @@ import { Route as ApiVersionRouteImport } from './routes/api.version'
 import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as FSlugRouteImport } from './routes/f.$slug'
+import { Route as PrePublishIdRouteImport } from './routes/pre-publish.$id'
 import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
 import { Route as ApiAdminAuditRouteImport } from './routes/api.admin.audit'
@@ -82,6 +85,7 @@ import { Route as ApiLeadsLinkRouteImport } from './routes/api.leads.link'
 import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
 import { Route as ApiLeadsSummaryRouteImport } from './routes/api.leads.summary'
 import { Route as ApiOnboardingStatusRouteImport } from './routes/api.onboarding.status'
+import { Route as ApiPrePublishVideosAnalyzeRouteImport } from './routes/api.pre-publish-videos.analyze'
 import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.click'
 import { Route as ApiReportsExportRouteImport } from './routes/api.reports.export'
 import { Route as ApiReportsSummaryRouteImport } from './routes/api.reports.summary'
@@ -103,6 +107,7 @@ import { Route as ApiYoutubeBreakdownsRouteImport } from './routes/api.youtube.b
 import { Route as ApiYoutubeCallbackRouteImport } from './routes/api.youtube.callback'
 import { Route as ApiYoutubeChannelsRouteImport } from './routes/api.youtube.channels'
 import { Route as ApiYoutubeCommentsRouteImport } from './routes/api.youtube.comments'
+import { Route as ApiYoutubeConnectionsRouteImport } from './routes/api.youtube.connections'
 import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
 import { Route as ApiYoutubeQuotaRouteImport } from './routes/api.youtube.quota'
@@ -218,6 +223,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrePublishRoute = PrePublishRouteImport.update({
+  id: '/pre-publish',
+  path: '/pre-publish',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -313,6 +323,11 @@ const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
   path: '/api/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPrePublishVideosRoute = ApiPrePublishVideosRouteImport.update({
+  id: '/api/pre-publish-videos',
+  path: '/api/pre-publish-videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProfileRoute = ApiProfileRouteImport.update({
   id: '/api/profile',
   path: '/api/profile',
@@ -352,6 +367,11 @@ const FSlugRoute = FSlugRouteImport.update({
   id: '/f/$slug',
   path: '/f/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PrePublishIdRoute = PrePublishIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PrePublishRoute,
 } as any)
 const RSlugRoute = RSlugRouteImport.update({
   id: '/r/$slug',
@@ -489,6 +509,12 @@ const ApiOnboardingStatusRoute = ApiOnboardingStatusRouteImport.update({
   path: '/api/onboarding/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPrePublishVideosAnalyzeRoute =
+  ApiPrePublishVideosAnalyzeRouteImport.update({
+    id: '/analyze',
+    path: '/analyze',
+    getParentRoute: () => ApiPrePublishVideosRoute,
+  } as any)
 const ApiReferralsClickRoute = ApiReferralsClickRouteImport.update({
   id: '/api/referrals/click',
   path: '/api/referrals/click',
@@ -593,6 +619,11 @@ const ApiYoutubeChannelsRoute = ApiYoutubeChannelsRouteImport.update({
 const ApiYoutubeCommentsRoute = ApiYoutubeCommentsRouteImport.update({
   id: '/api/youtube/comments',
   path: '/api/youtube/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiYoutubeConnectionsRoute = ApiYoutubeConnectionsRouteImport.update({
+  id: '/api/youtube/connections',
+  path: '/api/youtube/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiYoutubeDashboardRoute = ApiYoutubeDashboardRouteImport.update({
@@ -717,6 +748,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/pre-publish': typeof PrePublishRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -736,6 +768,7 @@ export interface FileRoutesByFullPath {
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/pre-publish-videos': typeof ApiPrePublishVideosRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -744,6 +777,7 @@ export interface FileRoutesByFullPath {
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/f/$slug': typeof FSlugRoute
+  '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
@@ -771,6 +805,7 @@ export interface FileRoutesByFullPath {
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
+  '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -792,6 +827,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
+  '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
@@ -832,6 +868,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/pre-publish': typeof PrePublishRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -851,6 +888,7 @@ export interface FileRoutesByTo {
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/pre-publish-videos': typeof ApiPrePublishVideosRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -859,6 +897,7 @@ export interface FileRoutesByTo {
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/f/$slug': typeof FSlugRoute
+  '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
@@ -886,6 +925,7 @@ export interface FileRoutesByTo {
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
+  '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -907,6 +947,7 @@ export interface FileRoutesByTo {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
+  '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
@@ -948,6 +989,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/link-tracking': typeof LinkTrackingRoute
   '/notifications': typeof NotificationsRoute
+  '/pre-publish': typeof PrePublishRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -967,6 +1009,7 @@ export interface FileRoutesById {
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/pre-publish-videos': typeof ApiPrePublishVideosRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -975,6 +1018,7 @@ export interface FileRoutesById {
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/f/$slug': typeof FSlugRoute
+  '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
@@ -1002,6 +1046,7 @@ export interface FileRoutesById {
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
+  '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
@@ -1023,6 +1068,7 @@ export interface FileRoutesById {
   '/api/youtube/callback': typeof ApiYoutubeCallbackRoute
   '/api/youtube/channels': typeof ApiYoutubeChannelsRoute
   '/api/youtube/comments': typeof ApiYoutubeCommentsRoute
+  '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
@@ -1065,6 +1111,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/pre-publish'
     | '/privacy'
     | '/projects'
     | '/reports'
@@ -1084,6 +1131,7 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
+    | '/api/pre-publish-videos'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -1092,6 +1140,7 @@ export interface FileRouteTypes {
     | '/api/videos'
     | '/auth/callback'
     | '/f/$slug'
+    | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
@@ -1119,6 +1168,7 @@ export interface FileRouteTypes {
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
+    | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1140,6 +1190,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/comments'
+    | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
     | '/api/youtube/quota'
@@ -1180,6 +1231,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/pre-publish'
     | '/privacy'
     | '/projects'
     | '/reports'
@@ -1199,6 +1251,7 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
+    | '/api/pre-publish-videos'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -1207,6 +1260,7 @@ export interface FileRouteTypes {
     | '/api/videos'
     | '/auth/callback'
     | '/f/$slug'
+    | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
@@ -1234,6 +1288,7 @@ export interface FileRouteTypes {
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
+    | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1255,6 +1310,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/comments'
+    | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
     | '/api/youtube/quota'
@@ -1295,6 +1351,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/link-tracking'
     | '/notifications'
+    | '/pre-publish'
     | '/privacy'
     | '/projects'
     | '/reports'
@@ -1314,6 +1371,7 @@ export interface FileRouteTypes {
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
+    | '/api/pre-publish-videos'
     | '/api/profile'
     | '/api/projects'
     | '/api/settings'
@@ -1322,6 +1380,7 @@ export interface FileRouteTypes {
     | '/api/videos'
     | '/auth/callback'
     | '/f/$slug'
+    | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
     | '/api/admin/audit'
@@ -1349,6 +1408,7 @@ export interface FileRouteTypes {
     | '/api/leads/messages'
     | '/api/leads/summary'
     | '/api/onboarding/status'
+    | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
@@ -1370,6 +1430,7 @@ export interface FileRouteTypes {
     | '/api/youtube/callback'
     | '/api/youtube/channels'
     | '/api/youtube/comments'
+    | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
     | '/api/youtube/quota'
@@ -1411,6 +1472,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   LinkTrackingRoute: typeof LinkTrackingRoute
   NotificationsRoute: typeof NotificationsRoute
+  PrePublishRoute: typeof PrePublishRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
@@ -1430,6 +1492,7 @@ export interface RootRouteChildren {
   ApiKnowledgeRoute: typeof ApiKnowledgeRoute
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
   ApiNotificationsRoute: typeof ApiNotificationsRoute
+  ApiPrePublishVideosRoute: typeof ApiPrePublishVideosRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -1474,6 +1537,7 @@ export interface RootRouteChildren {
   ApiYoutubeCallbackRoute: typeof ApiYoutubeCallbackRoute
   ApiYoutubeChannelsRoute: typeof ApiYoutubeChannelsRoute
   ApiYoutubeCommentsRoute: typeof ApiYoutubeCommentsRoute
+  ApiYoutubeConnectionsRoute: typeof ApiYoutubeConnectionsRoute
   ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
   ApiYoutubeQuotaRoute: typeof ApiYoutubeQuotaRoute
@@ -1619,6 +1683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pre-publish': {
+      id: '/pre-publish'
+      path: '/pre-publish'
+      fullPath: '/pre-publish'
+      preLoaderRoute: typeof PrePublishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -1752,6 +1823,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pre-publish-videos': {
+      id: '/api/pre-publish-videos'
+      path: '/api/pre-publish-videos'
+      fullPath: '/api/pre-publish-videos'
+      preLoaderRoute: typeof ApiPrePublishVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/profile': {
       id: '/api/profile'
       path: '/api/profile'
@@ -1807,6 +1885,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/f/$slug'
       preLoaderRoute: typeof FSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/pre-publish/$id': {
+      id: '/pre-publish/$id'
+      path: '/$id'
+      fullPath: '/pre-publish/$id'
+      preLoaderRoute: typeof PrePublishIdRouteImport
+      parentRoute: typeof PrePublishRoute
     }
     '/r/$slug': {
       id: '/r/$slug'
@@ -1997,6 +2082,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOnboardingStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pre-publish-videos/analyze': {
+      id: '/api/pre-publish-videos/analyze'
+      path: '/analyze'
+      fullPath: '/api/pre-publish-videos/analyze'
+      preLoaderRoute: typeof ApiPrePublishVideosAnalyzeRouteImport
+      parentRoute: typeof ApiPrePublishVideosRoute
+    }
     '/api/referrals/click': {
       id: '/api/referrals/click'
       path: '/api/referrals/click'
@@ -2144,6 +2236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeCommentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/connections': {
+      id: '/api/youtube/connections'
+      path: '/api/youtube/connections'
+      fullPath: '/api/youtube/connections'
+      preLoaderRoute: typeof ApiYoutubeConnectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/dashboard': {
       id: '/api/youtube/dashboard'
       path: '/api/youtube/dashboard'
@@ -2280,6 +2379,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PrePublishRouteChildren {
+  PrePublishIdRoute: typeof PrePublishIdRoute
+}
+
+const PrePublishRouteChildren: PrePublishRouteChildren = {
+  PrePublishIdRoute: PrePublishIdRoute,
+}
+
+const PrePublishRouteWithChildren = PrePublishRoute._addFileChildren(
+  PrePublishRouteChildren,
+)
+
 interface VideosRouteChildren {
   VideosVideoIdRoute: typeof VideosVideoIdRoute
 }
@@ -2365,6 +2476,17 @@ const ApiLeadsRouteChildren: ApiLeadsRouteChildren = {
 const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(
   ApiLeadsRouteChildren,
 )
+
+interface ApiPrePublishVideosRouteChildren {
+  ApiPrePublishVideosAnalyzeRoute: typeof ApiPrePublishVideosAnalyzeRoute
+}
+
+const ApiPrePublishVideosRouteChildren: ApiPrePublishVideosRouteChildren = {
+  ApiPrePublishVideosAnalyzeRoute: ApiPrePublishVideosAnalyzeRoute,
+}
+
+const ApiPrePublishVideosRouteWithChildren =
+  ApiPrePublishVideosRoute._addFileChildren(ApiPrePublishVideosRouteChildren)
 
 interface ApiTrackingLinksRouteChildren {
   ApiTrackingLinksEnsureRoute: typeof ApiTrackingLinksEnsureRoute
@@ -2463,6 +2585,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   LinkTrackingRoute: LinkTrackingRoute,
   NotificationsRoute: NotificationsRoute,
+  PrePublishRoute: PrePublishRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
@@ -2482,6 +2605,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKnowledgeRoute: ApiKnowledgeRoute,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,
   ApiNotificationsRoute: ApiNotificationsRoute,
+  ApiPrePublishVideosRoute: ApiPrePublishVideosRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiSettingsRoute: ApiSettingsRoute,
@@ -2526,6 +2650,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeCallbackRoute: ApiYoutubeCallbackRoute,
   ApiYoutubeChannelsRoute: ApiYoutubeChannelsRoute,
   ApiYoutubeCommentsRoute: ApiYoutubeCommentsRoute,
+  ApiYoutubeConnectionsRoute: ApiYoutubeConnectionsRoute,
   ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
   ApiYoutubeQuotaRoute: ApiYoutubeQuotaRoute,

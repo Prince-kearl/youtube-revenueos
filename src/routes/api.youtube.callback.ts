@@ -3,12 +3,21 @@ import { getWorkspaceContext } from "@/lib/server/workspace";
 import {
   assertYoutubeOAuthConfigured,
   exchangeGoogleAuthorizationCode,
-  fetchAuthorizedYoutubeChannel,
+  fetchAuthorizedYoutubeChannels,
+  decodeGoogleIdentityFromIdToken,
 } from "@/lib/server/google-oauth";
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
+import {
+  planYoutubeConnectionResolution,
+  type LegacyConnectionCandidate,
+} from "@/lib/server/youtube-connection-resolution";
+
+// Postgres SQLSTATE for a unique-constraint violation — used to detect the race where two
+// concurrent callbacks for the same identity both concluded no connection existed yet.
+const UNIQUE_VIOLATION = "23505";
 
 function redirectToApp(path: string, requestOrigin?: string): Response {
   const isLocalRequest =
@@ -48,19 +57,230 @@ export const Route = createFileRoute("/api/youtube/callback")({
           if (!tokens.refresh_token) {
             // Google omits refresh_token on repeat consent without access_type=offline&prompt=consent
             // having actually forced a new grant — ask the user to reauthorize rather than storing a
-            // channel connection that will silently stop working once the access token expires.
+            // connection that will silently stop working once the access token expires.
             return redirectToApp(`${safeReturnTo}?youtube=reauthorize_required`, url.origin);
           }
 
-          const channel = await fetchAuthorizedYoutubeChannel(tokens.access_token);
+          const identity = tokens.id_token
+            ? decodeGoogleIdentityFromIdToken(tokens.id_token)
+            : null;
+
+          // channels.list(mine=true) returns every channel this Google identity has account-level
+          // rights to — for most creators that's one, but for a legacy Brand Account manager it can
+          // be several. Every one of them is discovered here; none are silently dropped.
+          const discovered = await fetchAuthorizedYoutubeChannels(tokens.access_token);
+          const service = createServiceSupabaseClient();
+          await service.from("youtube_quota_events").insert({
+            user_id: user.id,
+            operation: "channels.list",
+            quota_units: 1,
+            succeeded: true,
+          });
+
+          if (discovered.length === 0) {
+            // This is the one scenario this app cannot fix: a modern YouTube Studio "Channel
+            // Permissions" invite (as opposed to a legacy Brand Account manager role) is not
+            // exposed via any YouTube API to the invited user's own OAuth token, by Google's own
+            // design — see YoutubeReauthNotice / the settings help copy for the workaround
+            // (have the channel owner connect it directly, then invite this user as a Tubify
+            // workspace member).
+            return redirectToApp(`${safeReturnTo}?youtube=no_channels_found`, url.origin);
+          }
+
           const accessTokenCiphertext = await encryptSecretToBytea(tokens.access_token);
           const refreshTokenCiphertext = await encryptSecretToBytea(tokens.refresh_token);
           const tokenExpiry = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+          const grantedScopes = tokens.scope.split(" ").filter(Boolean);
 
+          // Step 1: exact match on this workspace's existing connection for this exact Google
+          // identity — the common case once an identity has connected at least once since the
+          // openid scope was added.
+          let exactMatchConnectionId: string | null = null;
+          if (identity) {
+            const { data: existing } = await client
+              .from("youtube_connections")
+              .select("id")
+              .eq("workspace_id", workspaceId)
+              .eq("google_subject_id", identity.sub)
+              .maybeSingle();
+            exactMatchConnectionId = existing?.id ?? null;
+          }
+
+          // Step 2: if no exact match, look for a legacy (google_subject_id IS NULL) connection
+          // that this reconnect can safely adopt — one backfilled by the pre-connections migration,
+          // referenced by a channel this same OAuth token can also see. See
+          // youtube-connection-resolution.ts for exactly why and how this is scoped conservatively.
+          let eligibleLegacyConnections: LegacyConnectionCandidate[] = [];
+          if (identity && !exactMatchConnectionId && discovered.length > 0) {
+            const { data: matchingChannels } = await client
+              .from("youtube_channels")
+              .select("connection_id")
+              .eq("workspace_id", workspaceId)
+              .in(
+                "youtube_channel_id",
+                discovered.map((channel) => channel.channelId),
+              );
+            const candidateConnectionIds = [
+              ...new Set(
+                (matchingChannels ?? [])
+                  .map((row) => row.connection_id)
+                  .filter((id): id is string => Boolean(id)),
+              ),
+            ];
+            if (candidateConnectionIds.length > 0) {
+              const { data: legacyConnections } = await client
+                .from("youtube_connections")
+                .select("id, access_token_ciphertext, refresh_token_ciphertext")
+                .in("id", candidateConnectionIds)
+                .is("google_subject_id", null);
+              eligibleLegacyConnections = (legacyConnections ?? []).map((row) => ({
+                id: row.id,
+                hasTokenPair:
+                  Boolean(row.access_token_ciphertext) && Boolean(row.refresh_token_ciphertext),
+              }));
+            }
+          }
+
+          const plan = planYoutubeConnectionResolution({
+            exactMatchConnectionId,
+            eligibleLegacyConnections,
+          });
+
+          if (plan.action === "ambiguous") {
+            // More than one legacy connection in this workspace could plausibly belong to this
+            // identity, and there is no reliable way to tell which — never guess, never merge.
+            // Nothing has been written; the operator can resolve this deliberately (e.g. by
+            // disconnecting the stale legacy channel first, or reconnecting each channel
+            // individually) rather than risking two unrelated Google accounts sharing credentials.
+            console.error("YouTube connection reconciliation ambiguous", {
+              workspaceId,
+              candidateConnectionIds: plan.candidateConnectionIds,
+            });
+            return redirectToApp(`${safeReturnTo}?youtube=connection_ambiguous`, url.origin);
+          }
+
+          let connectionId: string;
+          if (plan.action === "reuse" || plan.action === "reconcile") {
+            connectionId = plan.connectionId;
+            const { error: updateError } = await client
+              .from("youtube_connections")
+              .update({
+                access_token_ciphertext: accessTokenCiphertext,
+                refresh_token_ciphertext: refreshTokenCiphertext,
+                token_expiry: tokenExpiry,
+                granted_scopes: grantedScopes,
+                status: "active",
+                // Only meaningfully changes anything on "reconcile" (adopting a legacy NULL-subject
+                // row) — on "reuse" these already match what's stored, so resending is a harmless
+                // no-op write.
+                google_subject_id: identity?.sub ?? null,
+                google_email: identity?.email ?? null,
+              })
+              .eq("id", connectionId);
+            if (updateError) {
+              if (updateError.code === UNIQUE_VIOLATION && identity) {
+                // Extremely narrow race: something else attached this exact sub to a different
+                // connection in the moment between our plan and this write. Recover by adopting
+                // whatever now holds that sub rather than failing the whole connect.
+                const { data: raced } = await client
+                  .from("youtube_connections")
+                  .select("id")
+                  .eq("workspace_id", workspaceId)
+                  .eq("google_subject_id", identity.sub)
+                  .maybeSingle();
+                if (!raced) {
+                  console.error("YouTube connection update failed", updateError.message);
+                  return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                }
+                connectionId = raced.id;
+              } else {
+                console.error("YouTube connection update failed", updateError.message);
+                return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+              }
+            }
+          } else {
+            // plan.action === "create" — no exact match and no safely-adoptable legacy connection.
+            const { data: inserted, error: insertError } = await client
+              .from("youtube_connections")
+              .insert({
+                workspace_id: workspaceId,
+                user_id: user.id,
+                google_subject_id: identity?.sub ?? null,
+                google_email: identity?.email ?? null,
+                access_token_ciphertext: accessTokenCiphertext,
+                refresh_token_ciphertext: refreshTokenCiphertext,
+                token_expiry: tokenExpiry,
+                granted_scopes: grantedScopes,
+                status: "active",
+              })
+              .select("id")
+              .single();
+            if (insertError || !inserted) {
+              if (insertError?.code === UNIQUE_VIOLATION && identity) {
+                // Two concurrent callbacks for the same brand-new identity both concluded no
+                // connection existed and both tried to insert — the (workspace_id,
+                // google_subject_id) unique index let exactly one win. Adopt that one instead of
+                // failing this request; its tokens are just as valid as the ones we would have
+                // written.
+                const { data: raced } = await client
+                  .from("youtube_connections")
+                  .select("id")
+                  .eq("workspace_id", workspaceId)
+                  .eq("google_subject_id", identity.sub)
+                  .maybeSingle();
+                if (!raced) {
+                  console.error("YouTube connection insert failed", insertError?.message);
+                  return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                }
+                connectionId = raced.id;
+              } else {
+                console.error("YouTube connection insert failed", insertError?.message);
+                return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+              }
+            } else {
+              connectionId = inserted.id;
+            }
+          }
+
+          const { data: alreadyConnected } = await client
+            .from("youtube_channels")
+            .select("youtube_channel_id")
+            .eq("workspace_id", workspaceId);
+          const alreadyConnectedIds = new Set(
+            (alreadyConnected ?? []).map((row) => row.youtube_channel_id),
+          );
+          const newChannels = discovered.filter(
+            (channel) => !alreadyConnectedIds.has(channel.channelId),
+          );
+
+          if (newChannels.length === 0) {
+            // Every discovered channel is already connected to this workspace — nothing new to
+            // add, but the connection's tokens were still refreshed above.
+            return redirectToApp(`${safeReturnTo}?youtube=already_connected`, url.origin);
+          }
+
+          if (newChannels.length > 1) {
+            // More than one new channel is available under this identity — let the person choose
+            // which to add rather than guessing, same principle as never taking items[0]. The
+            // settings page picks this up via pendingConnectionId and calls
+            // /api/youtube/connections?discover= to list them.
+            const response = redirectToApp(
+              `/settings?youtube=pick_channels&pendingConnectionId=${connectionId}`,
+              url.origin,
+            );
+            response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_state"));
+            response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_return"));
+            for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
+            return response;
+          }
+
+          // Exactly one new channel — connect it immediately, no picker needed.
+          const channel = newChannels[0];
           const { error: upsertError } = await client.from("youtube_channels").upsert(
             {
               user_id: user.id,
               workspace_id: workspaceId,
+              connection_id: connectionId,
               youtube_channel_id: channel.channelId,
               channel_name: channel.title,
               channel_handle: channel.handle,
@@ -69,9 +289,6 @@ export const Route = createFileRoute("/api/youtube/callback")({
               view_count: channel.viewCount,
               video_count: channel.videoCount,
               uploads_playlist_id: channel.uploadsPlaylistId,
-              access_token_ciphertext: accessTokenCiphertext,
-              refresh_token_ciphertext: refreshTokenCiphertext,
-              token_expiry: tokenExpiry,
               connected_at: new Date().toISOString(),
               // A successful reconnect means the new token is valid — clear a stale
               // reauth_required (or failed) flag from a previous connection immediately, rather
@@ -90,14 +307,6 @@ export const Route = createFileRoute("/api/youtube/callback")({
             });
             return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
           }
-
-          const service = createServiceSupabaseClient();
-          await service.from("youtube_quota_events").insert({
-            user_id: user.id,
-            operation: "channels.list",
-            quota_units: 1,
-            succeeded: true,
-          });
 
           const response = redirectToApp(`${safeReturnTo}?youtube=connected`, url.origin);
           response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_state"));

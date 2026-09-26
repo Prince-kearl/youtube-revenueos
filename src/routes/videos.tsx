@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Filter, Play, Plus, RefreshCw, Search, ThumbsUp } from "lucide-react";
+import { Eye, Filter, Play, Plus, RefreshCw, Search, Sparkles, ThumbsUp } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui-bits";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { ListRowSkeleton } from "@/components/skeletons";
+import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
 
 export const Route = createFileRoute("/videos")({
   component: Videos,
@@ -82,6 +83,7 @@ function Videos() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isVideoListRoute = pathname === "/videos" || pathname === "/videos/";
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  const [prePublishDialogOpen, setPrePublishDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
   const [retryNonce, setRetryNonce] = useState(0);
@@ -276,7 +278,26 @@ function Videos() {
           >
             <Plus className="h-4 w-4" /> Analyze Video
           </Link>
+          <button
+            type="button"
+            onClick={() => setPrePublishDialogOpen(true)}
+            className="flex h-9 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 text-sm font-medium text-primary hover:bg-primary/15"
+          >
+            <Sparkles className="h-4 w-4" /> Analyze Before Publishing
+          </button>
         </div>
+      </div>
+
+      <div className="mt-4 inline-flex rounded-full bg-accent p-1 text-sm">
+        <span className="rounded-full bg-primary px-3 py-1.5 font-medium text-primary-foreground">
+          YouTube Videos
+        </span>
+        <Link
+          to="/pre-publish"
+          className="rounded-full px-3 py-1.5 font-medium text-muted-foreground hover:text-foreground"
+        >
+          Pre-Publish
+        </Link>
       </div>
 
       {refreshError && state.data && state.status === "connected" && (
@@ -373,6 +394,8 @@ function Videos() {
           </div>
         </>
       )}
+
+      <PrePublishUploadDialog open={prePublishDialogOpen} onOpenChange={setPrePublishDialogOpen} />
     </DashboardLayout>
   );
 }

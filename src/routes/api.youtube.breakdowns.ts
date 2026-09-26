@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import {
   fetchRecentYoutubeVideos,
   queryYoutubeAnalytics,
@@ -120,16 +124,17 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
           let channelQuery = client
             .from("youtube_channels")
             .select(
-              "id, youtube_channel_id, uploads_playlist_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry",
+              "id, youtube_channel_id, uploads_playlist_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
             )
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();
-          if (channelError || !channel)
+          const connection = normalizeYoutubeConnectionRow(channel?.connection);
+          if (channelError || !channel || !connection)
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const serviceClient = createServiceSupabaseClient();
-          const accessToken = await getValidAccessToken(serviceClient, channel);
+          const accessToken = await getValidAccessToken(serviceClient, connection);
           const [videoBreakdown, trafficBreakdown, recentVideos] = await Promise.all([
             queryBreakdown(accessToken, channel.youtube_channel_id, startDate, endDate, "video"),
             queryBreakdown(

@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import {
   fetchAuthorizedYoutubeChannel,
   fetchYoutubeVideosPage,
@@ -211,7 +215,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
           let channelQuery = client
             .from("youtube_channels")
             .select(
-              "id, user_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, token_expiry",
+              "id, user_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id",
             )
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
@@ -256,12 +260,15 @@ export const Route = createFileRoute("/api/youtube/videos")({
           const serviceClient = createServiceSupabaseClient();
           const { data: secretRow, error: secretError } = await serviceClient
             .from("youtube_channels")
-            .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+            .select(
+              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+            )
             .eq("id", channelRow.id)
             .single();
-          if (secretError || !secretRow) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+          if (secretError || !connection) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
-          const accessToken = await getValidAccessToken(serviceClient, secretRow);
+          const accessToken = await getValidAccessToken(serviceClient, connection);
           const channel = await fetchAuthorizedYoutubeChannel(
             accessToken,
             channelRow.youtube_channel_id,

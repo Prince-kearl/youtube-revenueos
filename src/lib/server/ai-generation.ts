@@ -770,3 +770,248 @@ export async function generateVideoAnalysis(
   const result = parseAndValidateJson(provider, raw, AnalyzeVideoResultSchema);
   return { result, usage };
 }
+
+// ============================================================
+// Pre-Publish Video Analysis — the same class of report as generateVideoAnalysis above, but for a
+// video that hasn't been uploaded to YouTube yet: no published metadata, no performance metrics,
+// no video ID to look anything up by. Grounded instead in whatever the creator actually supplied
+// (an optional pasted transcript, optional topic/audience/tone/goal context) plus, when available,
+// real context about the channel they intend to publish to. A separate prompt/schema/function
+// rather than reusing analyzeVideoPromptFor — that prompt's FACTS section assumes real YouTube
+// metrics exist to ground INFERENCES in; a pre-publish video has none of that, and forcing it
+// through the same shape would either fabricate metrics or read as a report about data that isn't
+// there. Bump this whenever the prompt or output shape changes, for the same cache-key-safety
+// reason as ANALYZE_VIDEO_PROMPT_VERSION above.
+export const PRE_PUBLISH_ANALYSIS_PROMPT_VERSION = "v1";
+
+export type PrePublishAnalysisInput = {
+  video: {
+    fileName: string;
+    durationSeconds: number | null;
+  };
+  // null = the user chose not to paste one — never an empty string standing in for "none", same
+  // convention as AnalyzeVideoInput.transcript, so the prompt can tell the model the difference.
+  transcript: string | null;
+  context: {
+    topic: string | null;
+    audience: string | null;
+    tone: string | null;
+    goal: string | null;
+  };
+  channel: {
+    name: string | null;
+    subscriberCount: number | null;
+  } | null;
+};
+
+const titleIdeaSchema = z.object({
+  title: z.string().min(1),
+  angle: z.string().min(1),
+  rationale: z.string().min(1),
+});
+const chapterSchema = z.object({
+  timestamp: z.string().min(1),
+  title: z.string().min(1),
+});
+const ctaIdeaSchema = z.object({
+  type: z.string().min(1),
+  text: z.string().min(1),
+  placement: z.string().min(1),
+});
+
+export const PrePublishAnalysisResultSchema = z.object({
+  summary: z.string().min(1),
+  recommendedTitle: z.string().min(1),
+  titleIdeas: z.array(titleIdeaSchema),
+  description: z.string().min(1),
+  tags: z.object({
+    primary: z.array(z.string()),
+    secondary: z.array(z.string()),
+    longTail: z.array(z.string()),
+  }),
+  chapters: z.array(chapterSchema),
+  ctaIdeas: z.array(ctaIdeaSchema),
+  optimizationNotes: z.array(z.string()),
+});
+export type PrePublishAnalysisResult = z.infer<typeof PrePublishAnalysisResultSchema>;
+
+// Hand-written to match PrePublishAnalysisResultSchema, same reasoning as
+// ANALYZE_VIDEO_JSON_SCHEMA above (no zod-to-json-schema dependency in this project).
+export const PRE_PUBLISH_ANALYSIS_JSON_SCHEMA: JsonSchemaSpec = {
+  name: "pre_publish_analysis_result",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      recommendedTitle: { type: "string" },
+      titleIdeas: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            angle: { type: "string" },
+            rationale: { type: "string" },
+          },
+          required: ["title", "angle", "rationale"],
+          additionalProperties: false,
+        },
+      },
+      description: { type: "string" },
+      tags: {
+        type: "object",
+        properties: {
+          primary: { type: "array", items: { type: "string" } },
+          secondary: { type: "array", items: { type: "string" } },
+          longTail: { type: "array", items: { type: "string" } },
+        },
+        required: ["primary", "secondary", "longTail"],
+        additionalProperties: false,
+      },
+      chapters: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            timestamp: { type: "string" },
+            title: { type: "string" },
+          },
+          required: ["timestamp", "title"],
+          additionalProperties: false,
+        },
+      },
+      ctaIdeas: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string" },
+            text: { type: "string" },
+            placement: { type: "string" },
+          },
+          required: ["type", "text", "placement"],
+          additionalProperties: false,
+        },
+      },
+      optimizationNotes: { type: "array", items: { type: "string" } },
+    },
+    required: [
+      "summary",
+      "recommendedTitle",
+      "titleIdeas",
+      "description",
+      "tags",
+      "chapters",
+      "ctaIdeas",
+      "optimizationNotes",
+    ],
+    additionalProperties: false,
+  },
+};
+
+function formatDuration(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds)) return "Not available";
+  const total = Math.round(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")} (${total} seconds total)`;
+}
+
+// Exported for tests, same reasoning as analyzeVideoPromptFor above.
+export function prePublishAnalysisPromptFor(input: PrePublishAnalysisInput): {
+  system: string;
+  user: string;
+} {
+  const transcript = truncatedTranscript(input.transcript);
+
+  const system = [
+    "You are Tubify's pre-publish YouTube packaging assistant. The creator has finished editing a video but has NOT uploaded it to YouTube yet — there is no published title, description, view count, or any other YouTube metadata to reference. Your job is to generate the publishing assets they'll use when they do upload it.",
+    "",
+    "This video has not yet been published to YouTube. Analyze the actual content and generate YouTube publishing assets based on what is genuinely present in the video. Do not invent claims, topics, statistics, products, sponsors, links, or events that are not supported by the video content or the context the creator supplied.",
+    "",
+    "You receive: video metadata (filename, duration), an optional transcript (may be absent — this app does not auto-transcribe yet), optional creator-supplied context (topic/audience/tone/goal), and optional context about the channel they intend to publish to. If no transcript was supplied, say so plainly in the summary and keep the rest of the output grounded in only the filename and whatever context the creator supplied — never fabricate content you cannot see.",
+    "",
+    "titleIdeas: 5-10 options, each with a distinct angle (e.g. Curiosity, Benefit-driven, Search-focused, Educational, Contrarian, Outcome-focused) and a one-sentence rationale. Never present one as objectively 'best' in the rationale text — recommendedTitle is where you name your pick, with reasoning there, not clickbait that misrepresents the content.",
+    "description: a complete YouTube-ready description — opening hook, summary, key points, naturally-incorporated keywords, and a CTA only if genuinely supported by context. Do not embed chapter timestamps in the description text itself (chapters are returned separately) and do not invent links, sponsors, discounts, or credentials.",
+    "tags: split into primary (most relevant, 3-6), secondary (supporting, 3-8), and longTail (specific phrases, 3-8) — no keyword stuffing, no unrelated high-volume terms.",
+    "chapters: only if a transcript with enough structure was supplied — otherwise return an empty array rather than guessing at timestamps you cannot know. The first chapter must start at 00:00. Every timestamp must be plausible given the video's duration (given below) — never exceed it. Titles must accurately describe that section, not be generic filler. Prefer fewer, meaningful chapters over dozens of trivial ones.",
+    "ctaIdeas: 2-5 ideas, each with a type (e.g. Subscribe, Comment, Like, Watch another video, Visit a resource, Download a freebie, Join a newsletter, Product/service) and a placement (Beginning, Mid-video, End, Description, or Pinned comment). Only suggest CTAs that make sense for this video's actual purpose — never invent a specific offer, link, or product that wasn't supplied in context.",
+    "optimizationNotes: 2-5 short, concrete suggestions for improving the video's YouTube packaging (not the video edit itself) — e.g. missing hook, unclear audience fit, transcript too thin to fully optimize.",
+    "",
+    "Return only the structured response — no extra commentary.",
+  ].join("\n");
+
+  const contextLines = [
+    `Topic: ${input.context.topic || "Not provided"}`,
+    `Target audience: ${input.context.audience || "Not provided"}`,
+    `Desired tone: ${input.context.tone || "Not provided"}`,
+    `Primary goal: ${input.context.goal || "Not provided"}`,
+  ].join("\n");
+
+  const channelLines = input.channel
+    ? `Channel: ${input.channel.name ?? "Not available"}\nSubscribers: ${input.channel.subscriberCount === null ? "Not available" : input.channel.subscriberCount.toLocaleString()}`
+    : "No channel selected for this analysis.";
+
+  const user = [
+    "VIDEO METADATA:",
+    `Filename: ${input.video.fileName}`,
+    `Duration: ${formatDuration(input.video.durationSeconds)}`,
+    "",
+    "CREATOR-SUPPLIED CONTEXT:",
+    contextLines,
+    "",
+    "CHANNEL CONTEXT:",
+    channelLines,
+    "",
+    "TRANSCRIPT:",
+    transcript ??
+      "Not available — the creator did not paste a transcript. Ground the summary/description/tags in the filename and supplied context only, say so in the summary, and return an empty chapters array.",
+  ].join("\n");
+
+  return { system, user };
+}
+
+export async function generatePrePublishVideoAnalysis(
+  input: PrePublishAnalysisInput,
+): Promise<{ result: PrePublishAnalysisResult; usage: ProviderUsage | null }> {
+  const provider = configuredProvider();
+  if (!provider) throw new Error("AI_PROVIDER_NOT_CONFIGURED");
+  const prompt = prePublishAnalysisPromptFor(input);
+  const { text: raw, usage } = await callProvider(provider, prompt.system, prompt.user, {
+    jsonMode: true,
+    jsonSchema: PRE_PUBLISH_ANALYSIS_JSON_SCHEMA,
+    maxTokens: 3000,
+  });
+  const result = parseAndValidateJson(provider, raw, PrePublishAnalysisResultSchema);
+  return { result, usage };
+}
+
+// Parses a "M:SS" / "H:MM:SS" chapter timestamp into seconds, or null if unparseable — used to
+// validate AI-generated chapters against the video's real duration before they ever reach the
+// client, per "the backend should validate timestamps against the actual video duration".
+export function parseChapterTimestampSeconds(timestamp: string): number | null {
+  const parts = timestamp.trim().split(":");
+  if (parts.length < 2 || parts.length > 3 || parts.some((p) => !/^\d{1,2}$/.test(p))) return null;
+  const nums = parts.map(Number);
+  const [h, m, s] = nums.length === 3 ? nums : [0, nums[0], nums[1]];
+  if (m >= 60 || s >= 60) return null;
+  return h * 3600 + m * 60 + s;
+}
+
+// Drops any AI-generated chapter whose timestamp is unparseable or exceeds the video's known
+// duration, and re-sorts by timestamp — belt-and-suspenders beyond the prompt instruction, since a
+// model can still get this wrong. When duration is unknown (client couldn't read it), only
+// unparseable timestamps are dropped.
+export function sanitizeChapters(
+  chapters: PrePublishAnalysisResult["chapters"],
+  durationSeconds: number | null,
+): PrePublishAnalysisResult["chapters"] {
+  return chapters
+    .map((chapter) => ({ chapter, seconds: parseChapterTimestampSeconds(chapter.timestamp) }))
+    .filter(
+      ({ seconds }) => seconds !== null && (durationSeconds === null || seconds <= durationSeconds),
+    )
+    .sort((a, b) => (a.seconds ?? 0) - (b.seconds ?? 0))
+    .map(({ chapter }) => chapter);
+}

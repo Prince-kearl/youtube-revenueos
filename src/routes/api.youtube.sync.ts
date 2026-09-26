@@ -2,7 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import {
+  getValidAccessToken,
+  isYoutubeReauthError,
+  normalizeYoutubeConnectionRow,
+} from "@/lib/server/youtube-tokens";
 import {
   aggregateYoutubeAnalyticsByMonth,
   fetchAuthorizedYoutubeChannel,
@@ -25,10 +29,13 @@ type ChannelRow = {
   id: string;
   user_id: string;
   youtube_channel_id: string;
-  access_token_ciphertext: string;
-  refresh_token_ciphertext: string;
-  token_expiry: string | null;
   last_sync_status: string;
+  connection: {
+    id: string;
+    access_token_ciphertext: string;
+    refresh_token_ciphertext: string;
+    token_expiry: string | null;
+  } | null;
 };
 
 function isUuid(value: string): boolean {
@@ -106,8 +113,16 @@ async function syncChannel(
   } as Record<string, string>;
   const failures: string[] = [];
   try {
-    const accessToken = await getValidAccessToken(service, channel);
-    const liveChannel = await fetchAuthorizedYoutubeChannel(accessToken);
+    if (!channel.connection) throw new Error("YOUTUBE_CONNECTION_MISSING");
+    const accessToken = await getValidAccessToken(service, channel.connection);
+    // expectedChannelId is required here — a connection can back more than one channel, and
+    // without it this would silently overwrite this channel's row with whichever channel Google
+    // happens to return first for the shared identity (see fetchAuthorizedYoutubeChannel's doc
+    // comment in google-oauth.ts).
+    const liveChannel = await fetchAuthorizedYoutubeChannel(
+      accessToken,
+      channel.youtube_channel_id,
+    );
     await service
       .from("youtube_channels")
       .update({
@@ -273,11 +288,12 @@ async function getChannel(service: ReturnType<typeof createServiceSupabaseClient
   const { data } = await service
     .from("youtube_channels")
     .select(
-      "id, user_id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry, last_sync_status",
+      "id, user_id, youtube_channel_id, last_sync_status, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
     )
     .eq("id", id)
     .single();
-  return data as ChannelRow | null;
+  if (!data) return null;
+  return { ...data, connection: normalizeYoutubeConnectionRow(data.connection) } as ChannelRow;
 }
 
 export const Route = createFileRoute("/api/youtube/sync")({
@@ -313,10 +329,14 @@ export const Route = createFileRoute("/api/youtube/sync")({
         const { data: channels } = await service
           .from("youtube_channels")
           .select(
-            "id, user_id, youtube_channel_id, access_token_ciphertext, refresh_token_ciphertext, token_expiry, last_sync_status",
+            "id, user_id, youtube_channel_id, last_sync_status, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
           );
+        const normalizedChannels = (channels ?? []).map(
+          (row) =>
+            ({ ...row, connection: normalizeYoutubeConnectionRow(row.connection) }) as ChannelRow,
+        );
         const results = [];
-        for (const channel of (channels ?? []) as ChannelRow[])
+        for (const channel of normalizedChannels)
           results.push({ channelId: channel.id, ...(await syncChannel(service, channel)) });
         return json({ results });
       },
