@@ -244,11 +244,53 @@ export const Route = createFileRoute("/api/youtube/callback")({
 
           const { data: alreadyConnected } = await client
             .from("youtube_channels")
-            .select("youtube_channel_id")
+            .select("youtube_channel_id, connection_id")
             .eq("workspace_id", workspaceId);
           const alreadyConnectedIds = new Set(
             (alreadyConnected ?? []).map((row) => row.youtube_channel_id),
           );
+
+          // Reconnecting an already-connected channel must leave it using THIS grant. The plan
+          // above can resolve to a different connection than the one the channel row points at
+          // (a "create" when no identity/legacy match was found, or a "reuse" of another row for
+          // the same identity) — without this, the fresh tokens are stored but the channel keeps
+          // reading its old, rejected ones and stays stuck on "authorization needs to be renewed".
+          // Safe to attach: channels.list(mine=true) just proved this token can access them.
+          const discoveredIds = new Set(discovered.map((channel) => channel.channelId));
+          const rediscovered = (alreadyConnected ?? []).filter((row) =>
+            discoveredIds.has(row.youtube_channel_id),
+          );
+          if (rediscovered.length > 0) {
+            const rediscoveredIds = rediscovered.map((row) => row.youtube_channel_id);
+            const { error: repointError } = await client
+              .from("youtube_channels")
+              .update({ connection_id: connectionId })
+              .eq("workspace_id", workspaceId)
+              .in("youtube_channel_id", rediscoveredIds);
+            if (repointError) {
+              console.error("YouTube channel reconnect failed", repointError.message);
+              return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+            }
+            // Clear the stale flag now instead of leaving "Reconnect required" until the next sync.
+            await client
+              .from("youtube_channels")
+              .update({ last_sync_status: "never_synced", last_sync_error: null })
+              .eq("workspace_id", workspaceId)
+              .in("youtube_channel_id", rediscoveredIds)
+              .eq("last_sync_status", "reauth_required");
+            // Drop connections this just superseded. The FK is ON DELETE RESTRICT, so one that
+            // still backs another channel is refused by the database and left untouched.
+            const supersededIds = [
+              ...new Set(
+                rediscovered
+                  .map((row) => row.connection_id)
+                  .filter((id): id is string => Boolean(id) && id !== connectionId),
+              ),
+            ];
+            for (const supersededId of supersededIds) {
+              await client.from("youtube_connections").delete().eq("id", supersededId);
+            }
+          }
           const newChannels = discovered.filter(
             (channel) => !alreadyConnectedIds.has(channel.channelId),
           );

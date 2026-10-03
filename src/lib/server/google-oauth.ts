@@ -98,7 +98,15 @@ async function requestGoogleToken(body: URLSearchParams): Promise<GoogleTokenRes
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!response.ok) throw new Error(`GOOGLE_TOKEN_REQUEST_FAILED:${response.status}`);
+  if (!response.ok) {
+    // Google's body carries a short machine-readable code (invalid_grant, invalid_client, ...)
+    // that tells a revoked/expired grant apart from a misconfigured OAuth client. It contains no
+    // secret, so it is appended for logs and for isYoutubeReauthError's classification.
+    const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    const code =
+      typeof payload?.error === "string" ? payload.error.replace(/[^a-z_]/gi, "").slice(0, 40) : "";
+    throw new Error(`GOOGLE_TOKEN_REQUEST_FAILED:${response.status}${code ? `:${code}` : ""}`);
+  }
   return (await response.json()) as GoogleTokenResponse;
 }
 

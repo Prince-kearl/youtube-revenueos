@@ -36,6 +36,10 @@ export class YoutubeReauthRequiredError extends Error {
 
 export function isYoutubeReauthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
+  // invalid_client / unauthorized_client mean this app's own GOOGLE_CLIENT_ID/SECRET are wrong, so
+  // reconnecting cannot help and no creator's connection should be flagged for it.
+  if (/GOOGLE_TOKEN_REQUEST_FAILED:\d{3}:(invalid_client|unauthorized_client)$/.test(message))
+    return false;
   return (
     message === "YOUTUBE_REAUTH_REQUIRED" ||
     /GOOGLE_TOKEN_REQUEST_FAILED:(400|401)(?::|$)/.test(message) ||
@@ -76,6 +80,11 @@ export async function getValidAccessTokenWithDependencies(
     refreshed = await dependencies.refresh(refreshToken);
   } catch (error) {
     if (!isYoutubeReauthError(error)) throw error;
+    console.error("YouTube token refresh rejected by Google", {
+      connectionId: connection.id,
+      reason: error instanceof Error ? error.message : "unknown",
+      timestamp: new Date(dependencies.now()).toISOString(),
+    });
     await client
       .from("youtube_connections")
       .update({ status: "reauth_required" })
