@@ -32,6 +32,9 @@ supabase/.temp/
 !.vscode/extensions.json
 .idea
 .DS_Store
+# macOS zip-extraction metadata
+__MACOSX/
+._*
 *.suo
 *.ntvs*
 *.njsproj
