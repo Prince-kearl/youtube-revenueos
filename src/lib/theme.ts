@@ -8,9 +8,10 @@ export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme", "syste
 // Personal, per-device preference (Settings → Preferences) — was previously a single
 // Superadmin-controlled switch for every user (Customization → General); moved here so each
 // person can opt into the Liquid Glass / iOS 26-inspired look for their own view instead. Defaults
-// to on, matching the old site-wide default. See ThemeInjector for what it actually changes
-// (an .ios26 class plus card/button/input radius CSS vars).
-export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design", true);
+// to off for every user and device; the ".v2" key reset everyone who had opted in under the old
+// default-on key. Keep NO_FLASH_THEME_SCRIPT in __root.tsx in sync. See
+// ThemeInjector for what it actually changes (an .ios26 class plus card/button/input radius CSS vars).
+export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design.v2", false);
 
 // Sub-preference of the above — lets someone keep the glass surfaces/rounded corners without the
 // ios26_light/ios26_dark photo backdrop (see the .ios26-wallpaper class in styles.css). Only

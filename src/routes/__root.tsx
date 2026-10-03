@@ -27,9 +27,9 @@ installDemoApiInterceptor();
 // mirroring the "system" resolution logic in src/lib/theme.ts. Also sets the ios26/ios26-wallpaper
 // classes from the personal "iOS 26 Design" preferences (Settings → Preferences, see
 // useIos26Design/useIos26Wallpaper in src/lib/theme.ts) for the same reason — ThemeInjector's
-// effect runs after first paint, which would otherwise flash flat-then-glass. Both default to true
-// when their key is missing, matching those hooks' defaults.
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var raw=localStorage.getItem("yroos.theme");var mode=raw?JSON.parse(raw):"system";var isDark=mode==="dark"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(isDark)document.documentElement.classList.add("dark");}catch(e){}try{var rawIos26=localStorage.getItem("yroos.ios26Design");var ios26=rawIos26===null?true:JSON.parse(rawIos26);if(ios26)document.documentElement.classList.add("ios26");}catch(e){}try{var rawWallpaper=localStorage.getItem("yroos.ios26Wallpaper");var wallpaper=rawWallpaper===null?true:JSON.parse(rawWallpaper);if(wallpaper)document.documentElement.classList.add("ios26-wallpaper");}catch(e){}})();`;
+// effect runs after first paint, which would otherwise flash flat-then-glass. When their key is
+// missing, ios26 defaults to false and ios26-wallpaper to true, matching those hooks' defaults.
+const NO_FLASH_THEME_SCRIPT = `(function(){try{var raw=localStorage.getItem("yroos.theme");var mode=raw?JSON.parse(raw):"system";var isDark=mode==="dark"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(isDark)document.documentElement.classList.add("dark");}catch(e){}try{var rawIos26=localStorage.getItem("yroos.ios26Design.v2");var ios26=rawIos26===null?false:JSON.parse(rawIos26);if(ios26)document.documentElement.classList.add("ios26");}catch(e){}try{var rawWallpaper=localStorage.getItem("yroos.ios26Wallpaper");var wallpaper=rawWallpaper===null?true:JSON.parse(rawWallpaper);if(wallpaper)document.documentElement.classList.add("ios26-wallpaper");}catch(e){}})();`;
 
 function NotFoundComponent() {
   return (
