@@ -111,6 +111,7 @@ export function YoutubeChannelPicker({
               <div className="flex min-w-0 items-center gap-3">
                 {channel.thumbnail ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={channel.thumbnail}
                     alt={channel.title}
                     className="h-10 w-10 shrink-0 rounded-2xl object-cover"

@@ -3,7 +3,9 @@ import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { generateFreebieContent } from "@/lib/server/ai-generation";
-import { deleteWorkspaceFile, uploadWorkspaceFile, workspaceFilePath } from "@/lib/server/storage";
+import { enforceAiQuota } from "@/lib/server/ai-usage";
+import { deleteWorkspaceFile } from "@/lib/server/storage";
+import { resolveFormUpload } from "@/lib/server/uploads";
 import { extractTextFromFile } from "@/lib/server/text-extraction";
 
 const idSchema = z.string().uuid();
@@ -162,34 +164,39 @@ export const Route = createFileRoute("/api/freebies")({
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           }
 
+          // Before the file is resolved below. The browser may already have put that file in
+          // Storage, so an over-quota request removes it rather than leaving it orphaned.
+          try {
+            await enforceAiQuota(user.id, "freebie_content");
+          } catch (error) {
+            const uploadedPath = String(form.get("uploadedPath") ?? "");
+            if (uploadedPath.startsWith(`${workspaceId}/knowledge/`))
+              await deleteWorkspaceFile(uploadedPath);
+            throw error;
+          }
+
           let perFreebieItemId: string | null = null;
           let perFreebieFilePath: string | null = null;
           let perFreebieItem: { title: string; content: string | null } | null = null;
-          const file = form.get("file");
-          if (file instanceof File && file.size > 0) {
-            if (file.size > 15 * 1024 * 1024)
-              return json({ error: "FILE_TOO_LARGE" }, { status: 413 });
-            perFreebieFilePath = workspaceFilePath(
-              workspaceId,
-              "knowledge",
-              crypto.randomUUID(),
-              file.name,
-            );
-            const { error: uploadError } = await uploadWorkspaceFile(perFreebieFilePath, file);
-            if (uploadError) return json({ error: "UPLOAD_FAILED" }, { status: 500 });
-            const extraction = await extractTextFromFile(file);
+          const upload = await resolveFormUpload(form, workspaceId, "knowledge");
+          if (upload) {
+            perFreebieFilePath = upload.path;
+            const source = await upload.read();
+            const extraction = source
+              ? await extractTextFromFile(source)
+              : { status: "failed" as const, content: null };
             const { data: itemRow, error: itemError } = await client
               .from("knowledge_items")
               .insert({
                 workspace_id: workspaceId,
                 created_by: user.id,
-                title: file.name,
+                title: upload.name,
                 kind: "file",
                 content: extraction.content,
                 file_path: perFreebieFilePath,
-                file_name: file.name,
-                file_type: file.type || null,
-                file_size: file.size,
+                file_name: upload.name,
+                file_type: upload.type,
+                file_size: upload.size,
                 extraction_status: extraction.status,
               })
               .select("id, title, content")

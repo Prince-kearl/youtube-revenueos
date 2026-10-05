@@ -18,6 +18,7 @@ export default function TracingBeamDemo() {
             <div className="text-sm  prose prose-sm dark:prose-invert">
               {item?.image && (
                 <img
+                  referrerPolicy="no-referrer"
                   src={item.image}
                   alt="blog thumbnail"
                   height="1000"

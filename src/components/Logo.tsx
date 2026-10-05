@@ -5,7 +5,7 @@ export function Logo({ collapsed = false }: { collapsed?: boolean }) {
   if (collapsed) {
     return (
       <div className="flex items-center justify-center">
-        <img src={content.logoLightUrl} alt={content.siteName} className="h-9 w-9 object-contain" />
+        <img referrerPolicy="no-referrer" src={content.logoLightUrl} alt={content.siteName} className="h-9 w-9 object-contain" />
       </div>
     );
   }
@@ -13,12 +13,14 @@ export function Logo({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="flex items-center gap-2">
       <img
+        referrerPolicy="no-referrer"
         src={content.logoLightUrl}
         alt={content.siteName}
         className="h-12 w-12 shrink-0 object-contain"
       />
       {hasCustomIcon ? (
         <img
+          referrerPolicy="no-referrer"
           src={content.siteIconUrl}
           alt={content.siteName}
           className="h-12 w-12 shrink-0 object-contain"

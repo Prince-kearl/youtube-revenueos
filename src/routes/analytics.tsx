@@ -768,6 +768,7 @@ function Analytics() {
                             <div className="flex items-center gap-3">
                               {row.thumbnail ? (
                                 <img
+                                  referrerPolicy="no-referrer"
                                   src={String(row.thumbnail)}
                                   alt=""
                                   className="h-12 w-20 rounded-md object-cover"

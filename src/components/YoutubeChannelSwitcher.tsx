@@ -95,6 +95,7 @@ export function YoutubeChannelSwitcher() {
               >
                 {channel.thumbnail ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={channel.thumbnail}
                     alt=""
                     className="h-6 w-6 shrink-0 rounded-full object-cover"

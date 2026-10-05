@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import { FREEBIE_FORMATS, freebieFormatLabel } from "@/lib/freebie-formats";
+import { attachDirectUpload } from "@/lib/upload";
 
 export const Route = createFileRoute("/freebie")({
   component: Freebie,
@@ -107,8 +108,10 @@ function generateErrorMessage(error: string | undefined): string {
     AI_PROVIDER_NOT_CONFIGURED:
       "AI generation isn't set up yet — add an OpenAI or Anthropic API key.",
     GENERATION_FAILED: "Generation failed. Try again.",
+    RATE_LIMIT_EXCEEDED: "You've reached your AI limit for now. Please try again later.",
     VALIDATION_ERROR: "Fill in a product and audience first.",
-    FILE_TOO_LARGE: "That file is too large (15MB max).",
+    FILE_TOO_LARGE: "That file is too large (25MB max for freebies, 15MB for knowledge files).",
+    UPLOAD_FAILED: "The upload didn't complete. Please try again.",
   };
   return messages[error ?? ""] ?? "Couldn't generate that freebie. Please try again.";
 }
@@ -292,7 +295,7 @@ function Freebie() {
       form.set("format", format);
       form.set("formatLabel", formatLabelFor(format));
       form.set("knowledgeItemIds", JSON.stringify([...selectedKnowledgeIds]));
-      if (perFreebieFile) form.set("file", perFreebieFile);
+      if (perFreebieFile) await attachDirectUpload(form, "knowledge", perFreebieFile);
 
       const response = await fetch("/api/freebies", { method: "POST", body: form });
       const body = (await response.json()) as GenerateResponse;
@@ -793,7 +796,7 @@ function KnowledgeTab({
       const form = new FormData();
       form.set("title", uploadTitle.trim() || uploadFile.name);
       form.set("kind", "file");
-      form.set("file", uploadFile);
+      await attachDirectUpload(form, "knowledge", uploadFile);
       const response = await fetch("/api/knowledge", { method: "POST", body: form });
       const body = (await response.json()) as { data?: KnowledgeItem; error?: string };
       if (!response.ok || !body.data) throw new Error(body.error ?? "UPLOAD_FAILED");
@@ -806,8 +809,12 @@ function KnowledgeTab({
           ? "Added to Knowledge Base"
           : "Uploaded, but we couldn't read text from that file type — it's stored but won't be used in generation.",
       );
-    } catch {
-      toast.error("Couldn't upload that file. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message === "FILE_TOO_LARGE"
+          ? "That file is too large (15MB max)."
+          : "Couldn't upload that file. Please try again.",
+      );
     } finally {
       setUploading(false);
     }
@@ -1031,7 +1038,7 @@ function BrandingTab({
             <div className="mt-1.5 flex items-center gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-accent/20">
                 {logoPreview ? (
-                  <img src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
+                  <img referrerPolicy="no-referrer" src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
                 ) : (
                   <Gift className="h-5 w-5 text-muted-foreground" />
                 )}
@@ -1132,7 +1139,7 @@ function BrandingTab({
         <div className="mt-4 overflow-hidden rounded-xl border border-border">
           <div className="flex flex-col items-center gap-2 bg-[#f5f5f7] px-6 py-8 text-center">
             {logoPreview && (
-              <img src={logoPreview} alt="" className="h-8 max-w-[140px] object-contain" />
+              <img referrerPolicy="no-referrer" src={logoPreview} alt="" className="h-8 max-w-[140px] object-contain" />
             )}
             <span
               className="rounded-full px-2.5 py-1 text-[11px] font-medium"
@@ -1196,7 +1203,7 @@ function UploadFreebieDialog({
     try {
       const form = new FormData();
       form.set("title", title.trim());
-      form.set("file", file);
+      await attachDirectUpload(form, "freebies", file);
       const response = await fetch("/api/freebies/upload", { method: "POST", body: form });
       const body = (await response.json()) as { data?: LeadMagnet; error?: string };
       if (!response.ok || !body.data) throw new Error(body.error);

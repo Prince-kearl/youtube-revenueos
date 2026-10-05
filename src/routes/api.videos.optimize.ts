@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { generateOptimizationSuggestions } from "@/lib/server/ai-generation";
+import { enforceAiQuota } from "@/lib/server/ai-usage";
 
 const inputSchema = z.object({
   channelId: z.string().uuid(),
@@ -45,7 +46,7 @@ export const Route = createFileRoute("/api/videos/optimize")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client, user } = await requireSessionUser(request);
           const input = inputSchema.parse(await parseJson(request));
           const { data: channel, error: channelError } = await client
             .from("youtube_channels")
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/api/videos/optimize")({
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
+          await enforceAiQuota(user.id, "video_optimize");
           const suggestions = await generateOptimizationSuggestions({
             title: input.title,
             currentDescription: input.currentDescription,

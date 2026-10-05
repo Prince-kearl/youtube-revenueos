@@ -585,7 +585,7 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
 
 function VideoThumbnail({ video }: { video: YoutubeVideo }) {
   return video.thumbnail ? (
-    <img src={video.thumbnail} alt="" className="h-11 w-16 shrink-0 rounded-md object-cover" />
+    <img referrerPolicy="no-referrer" src={video.thumbnail} alt="" className="h-11 w-16 shrink-0 rounded-md object-cover" />
   ) : (
     <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-red/40 to-brand-purple/40 text-white/80">
       <Play className="h-4 w-4" fill="currentColor" />

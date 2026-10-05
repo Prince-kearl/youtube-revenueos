@@ -399,6 +399,7 @@ function VideoDetail() {
           <div className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center">
             {data.video.thumbnail ? (
               <img
+                referrerPolicy="no-referrer"
                 src={data.video.thumbnail}
                 alt=""
                 className="aspect-video w-full rounded-lg object-cover sm:h-28 sm:w-48"

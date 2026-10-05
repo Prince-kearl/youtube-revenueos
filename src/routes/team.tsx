@@ -566,6 +566,7 @@ function Team() {
                       <div className="flex items-center gap-3">
                         {m.member?.avatar ? (
                           <img
+                            referrerPolicy="no-referrer"
                             src={m.member.avatar}
                             alt={displayName(m)}
                             className="h-11 w-11 rounded-full object-cover"

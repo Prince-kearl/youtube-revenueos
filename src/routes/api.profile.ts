@@ -69,7 +69,10 @@ export const Route = createFileRoute("/api/profile")({
             )
             .eq("id", user.id)
             .maybeSingle();
-          if (lookupError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (lookupError) {
+            console.error("Profile lookup failed", lookupError.code, lookupError.message);
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           const { data: profile, error } = existing
             ? await client
                 .from("profiles")
@@ -90,7 +93,14 @@ export const Route = createFileRoute("/api/profile")({
                   "id, email, name, avatar, role, location, website, bio, cover_url, banner_settings, created_at, updated_at",
                 )
                 .single();
-          if (error || !profile) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (error || !profile) {
+            console.error(
+              existing ? "Profile sync failed" : "Profile create failed",
+              error?.code ?? "NO_PROFILE",
+              error?.message ?? "",
+            );
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           return json({ data: profile });
         } catch (error) {
           if (error instanceof Response) return error;

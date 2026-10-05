@@ -288,6 +288,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
       <div className="relative h-32 overflow-hidden bg-[#151515] sm:h-40">
         {profile.cover_url ? (
           <img
+            referrerPolicy="no-referrer"
             src={profile.cover_url}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
@@ -312,6 +313,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
             <div className="relative">
               {avatar ? (
                 <img
+                  referrerPolicy="no-referrer"
                   src={avatar}
                   alt={name}
                   className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-lg sm:h-28 sm:w-28"
@@ -441,7 +443,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-red/10 text-brand-red">
                     {channel?.thumbnail ? (
-                      <img src={channel.thumbnail} alt="" className="h-full w-full object-cover" />
+                      <img referrerPolicy="no-referrer" src={channel.thumbnail} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <Youtube className="h-4 w-4" />
                     )}
@@ -1111,6 +1113,7 @@ function ConnectedAccountsPanel() {
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-accent/50">
                     <img
+                      referrerPolicy="no-referrer"
                       src={account.logo}
                       alt={`${account.title} logo`}
                       className={`h-6 w-6 object-contain ${account.logoClass ?? ""}`}
@@ -1450,6 +1453,7 @@ function YouTubeIntegrationPanel() {
               <div className="flex min-w-0 items-center gap-4">
                 {channel.thumbnail ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={channel.thumbnail}
                     alt={channel.channel_name}
                     className="h-14 w-14 shrink-0 rounded-3xl object-cover"
@@ -2282,6 +2286,7 @@ function SecurityPanel() {
             <div className="mt-2 flex gap-5 rounded-xl border border-border bg-accent/20 p-4 sm:items-center">
               <div className="grid h-32 w-32 shrink-0 place-items-center rounded-lg bg-white p-2 sm:h-36 sm:w-36">
                 <img
+                  referrerPolicy="no-referrer"
                   src={pendingEnrollment.qrCode}
                   alt="Authenticator app setup QR code"
                   className="h-full w-full"

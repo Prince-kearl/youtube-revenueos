@@ -135,6 +135,7 @@ function Avatar({ lead, size = 36 }: { lead: Pick<Lead, "name" | "avatar_url">; 
   if (lead.avatar_url) {
     return (
       <img
+        referrerPolicy="no-referrer"
         src={lead.avatar_url}
         alt={lead.name}
         className="shrink-0 rounded-full object-cover"
@@ -236,6 +237,7 @@ function errorMessage(error: string): string {
     AI_PROVIDER_NOT_CONFIGURED:
       "AI summaries aren’t available yet. Add a provider API key in Settings.",
     AI_PROVIDER_FAILED: "We couldn’t generate a summary right now. Please try again.",
+    RATE_LIMIT_EXCEEDED: "You’ve reached your AI limit for now. Please try again later.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }

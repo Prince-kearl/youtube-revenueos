@@ -268,7 +268,7 @@ function LogoUploadField({
         )}
       >
         {url ? (
-          <img src={url} alt={label} className="h-16 max-w-[80%] object-contain" />
+          <img referrerPolicy="no-referrer" src={url} alt={label} className="h-16 max-w-[80%] object-contain" />
         ) : (
           <>
             <Upload className="h-5 w-5 text-muted-foreground" />
@@ -311,7 +311,7 @@ function SiteIconUploadField({ url, onChange }: { url: string; onChange: (url: s
           className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-accent/20 transition-colors hover:border-primary"
         >
           {url?.startsWith("data:") ? (
-            <img src={url} alt="Site icon" className="h-9 w-9 object-contain" />
+            <img referrerPolicy="no-referrer" src={url} alt="Site icon" className="h-9 w-9 object-contain" />
           ) : (
             <Upload className="h-4 w-4 text-muted-foreground" />
           )}

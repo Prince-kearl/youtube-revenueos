@@ -56,6 +56,7 @@ function errorMessage(error: string): string {
     VALIDATION_ERROR: "Add a title and a prompt before generating a project.",
     AI_PROVIDER_NOT_CONFIGURED: "AI generation isn't configured yet. Add a provider API key in Settings.",
     DATABASE_ERROR: "We couldn't save that. Please try again.",
+    RATE_LIMIT_EXCEEDED: "You've reached your AI limit for now. Please try again later.",
     SERVER_MISCONFIGURED: "Something went wrong. Please try again in a moment.",
   };
   return messages[error] ?? "Something went wrong. Try again.";

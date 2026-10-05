@@ -140,6 +140,14 @@ export const Route = createFileRoute("/api/destinations")({
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const { error } = await client.from("destinations").delete().eq("id", id);
+          // 23503 = foreign-key violation: tracking links (and their click history) still point
+          // at this destination and the schema refuses to orphan them (ON DELETE RESTRICT). Not a
+          // server fault and not fixed by retrying, so tell the client exactly that.
+          if (error?.code === "23503")
+            return withCookies(
+              json({ error: "DESTINATION_IN_USE" }, { status: 409 }),
+              setCookieHeaders,
+            );
           if (error)
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),

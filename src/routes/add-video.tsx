@@ -965,6 +965,7 @@ function AddVideo() {
                         >
                           {item.thumbnail ? (
                             <img
+                              referrerPolicy="no-referrer"
                               src={item.thumbnail}
                               alt=""
                               className="h-12 w-20 shrink-0 rounded object-cover"
@@ -1025,6 +1026,7 @@ function AddVideo() {
               <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-accent/20 p-3 sm:flex-row sm:items-center">
                 {video.thumbnail ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={video.thumbnail}
                     alt=""
                     className="h-14 w-24 shrink-0 rounded object-cover"
@@ -1406,6 +1408,7 @@ function AddVideo() {
                 <div className="mt-3 flex gap-3">
                   {video.thumbnail ? (
                     <img
+                      referrerPolicy="no-referrer"
                       src={video.thumbnail}
                       alt=""
                       className="h-16 w-28 shrink-0 rounded-lg object-cover"

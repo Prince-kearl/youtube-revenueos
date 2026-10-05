@@ -150,6 +150,7 @@ function PublicFreebie() {
             <div className="freebie-chrome flex flex-col items-center gap-3 px-8 pb-2 pt-10 text-center">
               {meta.branding.logoUrl && (
                 <img
+                  referrerPolicy="no-referrer"
                   src={meta.branding.logoUrl}
                   alt={meta.workspaceName ?? "Logo"}
                   className="h-10 max-w-[180px] object-contain"

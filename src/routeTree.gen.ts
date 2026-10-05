@@ -53,6 +53,7 @@ import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiProjectsRouteImport } from './routes/api.projects'
 import { Route as ApiSettingsRouteImport } from './routes/api.settings'
 import { Route as ApiTrackingLinksRouteImport } from './routes/api.tracking-links'
+import { Route as ApiUploadsRouteImport } from './routes/api.uploads'
 import { Route as ApiVersionRouteImport } from './routes/api.version'
 import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -346,6 +347,11 @@ const ApiSettingsRoute = ApiSettingsRouteImport.update({
 const ApiTrackingLinksRoute = ApiTrackingLinksRouteImport.update({
   id: '/api/tracking-links',
   path: '/api/tracking-links',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUploadsRoute = ApiUploadsRouteImport.update({
+  id: '/api/uploads',
+  path: '/api/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVersionRoute = ApiVersionRouteImport.update({
@@ -773,6 +779,7 @@ export interface FileRoutesByFullPath {
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -893,6 +900,7 @@ export interface FileRoutesByTo {
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -1014,6 +1022,7 @@ export interface FileRoutesById {
   '/api/projects': typeof ApiProjectsRoute
   '/api/settings': typeof ApiSettingsRoute
   '/api/tracking-links': typeof ApiTrackingLinksRouteWithChildren
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
@@ -1136,6 +1145,7 @@ export interface FileRouteTypes {
     | '/api/projects'
     | '/api/settings'
     | '/api/tracking-links'
+    | '/api/uploads'
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
@@ -1256,6 +1266,7 @@ export interface FileRouteTypes {
     | '/api/projects'
     | '/api/settings'
     | '/api/tracking-links'
+    | '/api/uploads'
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
@@ -1376,6 +1387,7 @@ export interface FileRouteTypes {
     | '/api/projects'
     | '/api/settings'
     | '/api/tracking-links'
+    | '/api/uploads'
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
@@ -1497,6 +1509,7 @@ export interface RootRouteChildren {
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
   ApiTrackingLinksRoute: typeof ApiTrackingLinksRouteWithChildren
+  ApiUploadsRoute: typeof ApiUploadsRoute
   ApiVersionRoute: typeof ApiVersionRoute
   ApiVideosRoute: typeof ApiVideosRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -1856,6 +1869,13 @@ declare module '@tanstack/react-router' {
       path: '/api/tracking-links'
       fullPath: '/api/tracking-links'
       preLoaderRoute: typeof ApiTrackingLinksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/uploads': {
+      id: '/api/uploads'
+      path: '/api/uploads'
+      fullPath: '/api/uploads'
+      preLoaderRoute: typeof ApiUploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/version': {
@@ -2610,6 +2630,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProjectsRoute: ApiProjectsRoute,
   ApiSettingsRoute: ApiSettingsRoute,
   ApiTrackingLinksRoute: ApiTrackingLinksRouteWithChildren,
+  ApiUploadsRoute: ApiUploadsRoute,
   ApiVersionRoute: ApiVersionRoute,
   ApiVideosRoute: ApiVideosRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,

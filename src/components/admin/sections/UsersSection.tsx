@@ -428,6 +428,7 @@ export function UsersSection() {
                   <div className="flex items-center gap-3">
                     {u.avatar ? (
                       <img
+                        referrerPolicy="no-referrer"
                         src={u.avatar}
                         alt={u.name ?? ""}
                         className="h-8 w-8 rounded-full object-cover"
@@ -550,6 +551,7 @@ export function UsersSection() {
                 <Checkbox checked={selected.has(u.id)} onCheckedChange={() => toggleOne(u.id)} />
                 {u.avatar ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={u.avatar}
                     alt={u.name ?? ""}
                     className="h-9 w-9 shrink-0 rounded-full object-cover"

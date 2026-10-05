@@ -116,11 +116,18 @@ function Destinations() {
     setDestinations((current) => current.filter((x) => x.id !== d.id));
     try {
       const response = await fetch(`/api/destinations?id=${d.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "");
+      }
       toast.success("Destination deleted");
-    } catch {
+    } catch (error) {
       setDestinations(previous);
-      toast.error("We couldn’t delete that destination. Please try again.");
+      toast.error(
+        error instanceof Error && error.message === "DESTINATION_IN_USE"
+          ? "This destination still has tracking links. Delete those links first, or archive the destination instead."
+          : "We couldn’t delete that destination. Please try again.",
+      );
     }
   };
 
@@ -491,6 +498,7 @@ function DestinationCard({
                 </span>
                 {v.thumbnail ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={v.thumbnail}
                     alt=""
                     className="h-8 w-14 shrink-0 rounded object-cover"

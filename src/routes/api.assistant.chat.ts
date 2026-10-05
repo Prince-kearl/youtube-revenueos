@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import { generateAssistantReply } from "@/lib/server/ai-generation";
+import { enforceAiQuota } from "@/lib/server/ai-usage";
 
 // Real backing for Tubi, the in-app assistant (see HelpSheet in DashboardLayout.tsx) — replaces
 // the old MockLlmService keyword-matched canned copy. Available to any signed-in workspace member
@@ -104,6 +105,7 @@ export const Route = createFileRoute("/api/assistant/chat")({
         try {
           const ctx = await getWorkspaceContext(request);
           const input = chatSchema.parse(await parseJson(request));
+          await enforceAiQuota(ctx.user.id, "assistant_chat");
 
           const { data: workspace } = await ctx.client
             .from("workspaces")

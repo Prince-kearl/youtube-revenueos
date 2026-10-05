@@ -475,6 +475,13 @@ function Dashboard() {
   }, [dashboardData]);
   const videosSeries = videosByMonth.map((m) => m.count);
   const latestVideoMonthLabel = monthLabel(videosByMonth.at(-1)?.month);
+  // The delta on each card is the LATEST MONTH THAT HAS DATA, which is usually not the current
+  // calendar month (YouTube analytics lag, and a channel may not have published for months) —
+  // name that month instead of claiming "this month".
+  const latestMonthSuffix = latestMonthLabel ? `in ${latestMonthLabel}` : "this month";
+  const latestVideoMonthSuffix = latestVideoMonthLabel
+    ? `published in ${latestVideoMonthLabel}`
+    : "published this month";
 
   const revenueChangePct = pctChange(revenueSeries);
   // Revenue Split — YouTube's own reported revenue types for the latest month. "Other" is the
@@ -590,7 +597,7 @@ function Dashboard() {
               deltaLabel={
                 revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
               }
-              deltaSuffix="this month"
+              deltaSuffix={latestMonthSuffix}
               changePercent={revenueChangePct}
               periodLabel={trendPeriodLabel}
               series={revenueSeries}
@@ -606,7 +613,7 @@ function Dashboard() {
                 dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"
               }
               deltaLabel={signed(recentRevenueChange, formatMoney)}
-              deltaSuffix="vs last month"
+              deltaSuffix="vs the month before"
               changePercent={revenueChangePct}
               periodLabel={trendPeriodLabel}
               series={revenueSeries}
@@ -620,7 +627,7 @@ function Dashboard() {
               accent="var(--brand-purple)"
               value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
               deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
-              deltaSuffix="this month"
+              deltaSuffix={latestMonthSuffix}
               changePercent={viewsChangePct}
               periodLabel={trendPeriodLabel}
               series={viewsSeries}
@@ -636,7 +643,7 @@ function Dashboard() {
               deltaLabel={
                 videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"
               }
-              deltaSuffix="published this month"
+              deltaSuffix={latestVideoMonthSuffix}
               changePercent={videosChangePct}
               periodLabel={trendPeriodLabel}
               series={videosSeries}
@@ -652,7 +659,7 @@ function Dashboard() {
               deltaLabel={
                 subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"
               }
-              deltaSuffix="gained this month"
+              deltaSuffix={`gained ${latestMonthSuffix}`}
               changePercent={subsChangePct}
               periodLabel={trendPeriodLabel}
               series={subsSeries}
@@ -674,7 +681,7 @@ function Dashboard() {
                   ? signed(watchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`)
                   : "—"
               }
-              deltaSuffix="this month"
+              deltaSuffix={latestMonthSuffix}
               changePercent={watchChangePct}
               periodLabel={trendPeriodLabel}
               series={watchSeries}
@@ -692,7 +699,7 @@ function Dashboard() {
                 deltaLabel={
                   revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
                 }
-                deltaSuffix="this month"
+                deltaSuffix={latestMonthSuffix}
                 changePercent={revenueChangePct}
                 periodLabel={trendPeriodLabel}
                 series={revenueSeries}
@@ -931,6 +938,7 @@ function Dashboard() {
                   <div className="relative shrink-0">
                     {row.video.thumbnail ? (
                       <img
+                        referrerPolicy="no-referrer"
                         src={row.video.thumbnail}
                         alt=""
                         className="h-14 w-24 rounded-lg object-cover"
@@ -1013,6 +1021,7 @@ function Dashboard() {
                           <span className="text-muted-foreground">{index + 1}</span>
                           {row.video.thumbnail && (
                             <img
+                              referrerPolicy="no-referrer"
                               src={row.video.thumbnail}
                               alt=""
                               className="h-10 w-16 shrink-0 rounded object-cover"
@@ -1206,6 +1215,7 @@ function Dashboard() {
                 <div className="relative shrink-0">
                   <div className="rounded-full bg-white/10 p-1 ring-1 ring-white/20">
                     <img
+                      referrerPolicy="no-referrer"
                       src={dashboardData.channel.thumbnail}
                       alt={dashboardData.channel.title}
                       className="h-11 w-11 rounded-full object-cover sm:h-14 sm:w-14"
@@ -1333,6 +1343,7 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
       <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
         {post.thumbnail && (
           <img
+            referrerPolicy="no-referrer"
             src={post.thumbnail}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
@@ -1661,6 +1672,7 @@ function VideoInsightsCard({
       <div className="flex items-start gap-3">
         {latestVideo?.thumbnail ? (
           <img
+            referrerPolicy="no-referrer"
             src={latestVideo.thumbnail}
             alt=""
             className="h-14 w-14 shrink-0 rounded-lg object-cover"

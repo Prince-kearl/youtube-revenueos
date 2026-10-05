@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
-import { uploadWorkspaceFile, deleteWorkspaceFile, workspaceFilePath } from "@/lib/server/storage";
+import { deleteWorkspaceFile } from "@/lib/server/storage";
+import { resolveFormUpload } from "@/lib/server/uploads";
 import { extractTextFromFile } from "@/lib/server/text-extraction";
 
 // Real backing for the Freebie page's Knowledge Base: pasted notes or uploaded files (transcripts,
 // sheets, docs) a creator drops in so AI Lab/Freebie generation can be grounded in their own
 // material instead of inventing everything. `lead_magnet_id` null = usable by any freebie in the
 // workspace; set = attached to one specific freebie (see api.freebies.ts, which reparents a
-// freshly-uploaded "just for this freebie" file onto the new row once generation succeeds).
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
+// freshly-uploaded "just for this freebie" file onto the new row once generation succeeds). Files
+// arrive via a direct-to-Storage upload; the size limit lives in uploads.ts.
 
 const idSchema = z.string().uuid();
 
@@ -102,16 +103,14 @@ export const Route = createFileRoute("/api/knowledge")({
             return json({ data }, { status: 201 });
           }
 
-          const file = form.get("file");
-          if (!(file instanceof File) || file.size === 0)
-            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          if (file.size > MAX_FILE_BYTES) return json({ error: "FILE_TOO_LARGE" }, { status: 413 });
+          const upload = await resolveFormUpload(form, workspaceId, "knowledge");
+          if (!upload) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          const path = upload.path;
 
-          const path = workspaceFilePath(workspaceId, "knowledge", crypto.randomUUID(), file.name);
-          const { error: uploadError } = await uploadWorkspaceFile(path, file);
-          if (uploadError) return json({ error: "UPLOAD_FAILED" }, { status: 500 });
-
-          const extraction = await extractTextFromFile(file);
+          const source = await upload.read();
+          const extraction = source
+            ? await extractTextFromFile(source)
+            : { status: "failed" as const, content: null };
           const { data, error } = await client
             .from("knowledge_items")
             .insert({
@@ -122,9 +121,9 @@ export const Route = createFileRoute("/api/knowledge")({
               kind: "file",
               content: extraction.content,
               file_path: path,
-              file_name: file.name,
-              file_type: file.type || null,
-              file_size: file.size,
+              file_name: upload.name,
+              file_type: upload.type,
+              file_size: upload.size,
               extraction_status: extraction.status,
             })
             .select(

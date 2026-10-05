@@ -173,6 +173,7 @@ function NavBar() {
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <img
+              referrerPolicy="no-referrer"
               src={content.logoLightUrl}
               alt={content.siteName}
               className="h-8 w-8 object-contain"
@@ -1563,6 +1564,7 @@ function ContentMarqueeSection() {
           <div key={v.title} className="group">
             <div className="relative aspect-video overflow-hidden rounded-xl bg-accent">
               <img
+                referrerPolicy="no-referrer"
                 src={v.image}
                 alt={v.title}
                 className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -1662,6 +1664,7 @@ function FooterSection() {
         <div className="col-span-2">
           <div className="flex items-center gap-2">
             <img
+              referrerPolicy="no-referrer"
               src={content.logoDarkUrl}
               alt={content.siteName}
               className="h-8 w-8 object-contain"

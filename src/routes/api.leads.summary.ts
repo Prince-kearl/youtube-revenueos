@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { generateLeadSummary } from "@/lib/server/ai-generation";
+import { enforceAiQuota } from "@/lib/server/ai-usage";
 
 const bodySchema = z.object({ leadId: z.string().uuid() });
 
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/api/leads/summary")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "leads");
+          const { client, user } = await requireWorkspaceFeature(request, "leads");
           const input = bodySchema.parse(await parseJson(request));
           const { data: lead, error: leadError } = await client
             .from("leads")
@@ -45,6 +46,7 @@ export const Route = createFileRoute("/api/leads/summary")({
             .order("created_at", { ascending: true });
           if (messagesError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
+          await enforceAiQuota(user.id, "lead_summary");
           const summary = await generateLeadSummary({
             leadName: lead.name ?? "This lead",
             messages: (messages ?? []).map((m) => ({

@@ -127,6 +127,7 @@ function errorMessage(error: string): string {
     AI_PROVIDER_NOT_CONFIGURED:
       "AI writing isn’t available yet. Add a provider API key in Settings.",
     AI_PROVIDER_FAILED: "We couldn’t complete that AI request right now. Please try again.",
+    RATE_LIMIT_EXCEEDED: "You’ve reached your AI limit for now. Please try again later.",
     VALIDATION_ERROR: "Give the template a name before saving.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
@@ -545,6 +546,7 @@ function AILab() {
                     {triggerVideo ? (
                       triggerVideo.thumbnail ? (
                         <img
+                          referrerPolicy="no-referrer"
                           src={triggerVideo.thumbnail}
                           alt=""
                           className="h-9 w-16 shrink-0 rounded object-cover"
@@ -599,6 +601,7 @@ function AILab() {
                         >
                           {item.thumbnail ? (
                             <img
+                              referrerPolicy="no-referrer"
                               src={item.thumbnail}
                               alt=""
                               className="h-10 w-[4.5rem] shrink-0 rounded object-cover"

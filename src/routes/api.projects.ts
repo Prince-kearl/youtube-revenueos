@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { generateProjectConcept } from "@/lib/server/ai-generation";
+import { enforceAiQuota } from "@/lib/server/ai-usage";
 
 const createProjectSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -69,6 +70,7 @@ export const Route = createFileRoute("/api/projects")({
             "projects",
           );
           const input = createProjectSchema.parse(await parseJson(request));
+          await enforceAiQuota(user.id, "project_concept");
 
           let generation: Awaited<ReturnType<typeof generateProjectConcept>>;
           try {

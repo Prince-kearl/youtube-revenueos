@@ -146,6 +146,7 @@ export function OrganizationsSection() {
               <div className="flex min-w-0 items-center gap-3">
                 {w.ownerAvatar ? (
                   <img
+                    referrerPolicy="no-referrer"
                     src={w.ownerAvatar}
                     alt={w.ownerName ?? ""}
                     className="h-10 w-10 shrink-0 rounded-full object-cover"

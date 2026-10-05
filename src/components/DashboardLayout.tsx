@@ -542,6 +542,7 @@ export function DashboardLayout({
             >
               {video.thumbnail ? (
                 <img
+                  referrerPolicy="no-referrer"
                   src={video.thumbnail}
                   alt=""
                   className="h-6 w-10 shrink-0 rounded object-cover"
@@ -971,6 +972,7 @@ export function DashboardLayout({
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-full px-1 py-1 hover:bg-accent">
                   <img
+                    referrerPolicy="no-referrer"
                     src={profile.avatar}
                     alt={profile.name}
                     className="h-8 w-8 rounded-full object-cover"
@@ -1243,7 +1245,9 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
         const errorText =
           body.error === "AI_PROVIDER_NOT_CONFIGURED"
             ? "Tubi isn't set up yet — an admin needs to add an AI provider key in Settings."
-            : "Sorry, I couldn't get an answer just now. Please try again.";
+            : body.error === "RATE_LIMIT_EXCEEDED"
+              ? "You've reached your AI limit for now. Please try again later."
+              : "Sorry, I couldn't get an answer just now. Please try again.";
         setMsgs((m) => [...m, { id: uid(), role: "bot", text: errorText }]);
         return;
       }

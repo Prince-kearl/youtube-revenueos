@@ -46,6 +46,16 @@ export async function signedWorkspaceFileUrl(
   return data.signedUrl;
 }
 
+// Reads a stored file back into the server — needed for a file the browser uploaded directly to
+// Storage (see createWorkspaceSignedUploadUrl below) when the server still has to look inside it,
+// e.g. Knowledge Base text extraction.
+export async function downloadWorkspaceFile(path: string): Promise<Blob | null> {
+  const service = createServiceSupabaseClient();
+  const { data, error } = await service.storage.from(BUCKET).download(path);
+  if (error || !data) return null;
+  return data;
+}
+
 // A signed *upload* URL (distinct from signedWorkspaceFileUrl's download URL above) — lets the
 // browser PUT a large file (e.g. a pre-publish video) directly to Storage without routing the
 // bytes through a Vercel serverless function, which has a small request-body limit and a short
