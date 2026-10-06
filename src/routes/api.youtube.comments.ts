@@ -36,6 +36,7 @@ export const Route = createFileRoute("/api/youtube/comments")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id")
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();

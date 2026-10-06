@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { softDisconnectChannel } from "@/lib/server/youtube-disconnect";
 
 const idSchema = z.string().uuid();
 
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/api/youtube/channels")({
             .select(
               "id, connection_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error",
             )
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           return json({ data: channels ?? [] });
@@ -44,36 +46,75 @@ export const Route = createFileRoute("/api/youtube/channels")({
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
 
-          const { data: channelRow, error: channelError } = await client
-            .from("youtube_channels")
-            .select("id, connection_id")
-            .eq("id", id)
-            .maybeSingle();
-          if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          if (!channelRow) return json({ success: true });
+          // Disconnecting removes ACCESS, not HISTORY (see youtube-disconnect.ts): the channel row
+          // is detached from its Google connection and kept, so its videos, daily stats, sync
+          // state and link/click/lead attribution all survive and are picked up again if the
+          // same channel is reconnected. The stored credentials are deleted unless another
+          // channel still uses the same connection. Every query runs on the caller's own
+          // RLS-scoped client, exactly as the hard delete did before.
+          const fail = (operation: string, error: { message: string } | null): never => {
+            console.error("YouTube disconnect failed", { operation, message: error?.message });
+            throw new Error("DISCONNECT_DATABASE_ERROR");
+          };
+          const result = await softDisconnectChannel(
+            {
+              async getChannel(channelId) {
+                const { data, error } = await client
+                  .from("youtube_channels")
+                  .select("id, connection_id")
+                  .eq("id", channelId)
+                  .maybeSingle();
+                if (error) fail("load", error);
+                return data
+                  ? { id: data.id as string, connectionId: (data.connection_id as string) ?? null }
+                  : null;
+              },
+              async detachChannel(channelId) {
+                const { error } = await client
+                  .from("youtube_channels")
+                  .update({ connection_id: null })
+                  .eq("id", channelId);
+                if (error) fail("detach", error);
+              },
+              async attachChannel(channelId, connectionId) {
+                const { error } = await client
+                  .from("youtube_channels")
+                  .update({ connection_id: connectionId })
+                  .eq("id", channelId);
+                if (error) fail("reattach", error);
+              },
+              async countOtherChannelsUsingConnection(connectionId, exceptChannelId) {
+                const { count, error } = await client
+                  .from("youtube_channels")
+                  .select("id", { count: "exact", head: true })
+                  .eq("connection_id", connectionId)
+                  .neq("id", exceptChannelId);
+                if (error) fail("count", error);
+                return count ?? 0;
+              },
+              async deleteConnection(connectionId) {
+                // Ask for the deleted row back: a delete that matches nothing is not an error in
+                // PostgREST, and the credentials must never be reported removed when they weren't.
+                const { data, error } = await client
+                  .from("youtube_connections")
+                  .delete()
+                  .eq("id", connectionId)
+                  .select("id");
+                if (error) fail("delete_connection", error);
+                if (!data || data.length === 0)
+                  fail("delete_connection", { message: "no connection row was deleted" });
+              },
+            },
+            id,
+          );
 
-          const { error } = await client.from("youtube_channels").delete().eq("id", id);
-          if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-
-          // A connection can back several channels at once (e.g. a legacy Brand Account manager
-          // with rights to more than one channel). Disconnecting one channel must never revoke or
-          // delete the shared OAuth credentials while a sibling channel still depends on them —
-          // only clean up the connection once nothing references it anymore.
-          if (channelRow.connection_id) {
-            const { count, error: countError } = await client
-              .from("youtube_channels")
-              .select("id", { count: "exact", head: true })
-              .eq("connection_id", channelRow.connection_id);
-            if (!countError && !count) {
-              await client.from("youtube_connections").delete().eq("id", channelRow.connection_id);
-            }
-          }
-
-          return json({ success: true });
+          return json({ success: true, status: result.status });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          if (error instanceof Error && error.message === "DISCONNECT_DATABASE_ERROR")
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },

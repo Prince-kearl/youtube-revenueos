@@ -51,6 +51,7 @@ export const Route = createFileRoute("/api/youtube/analytics")({
             .select(
               "id, youtube_channel_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
             )
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error } = await channelQuery.limit(1).maybeSingle();

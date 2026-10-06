@@ -18,7 +18,10 @@ export const Route = createFileRoute("/api/onboarding/status")({
         try {
           const { client } = await getWorkspaceContext(request);
           const [channels, videos, rules, links] = await Promise.all([
-            client.from("youtube_channels").select("id", { count: "exact", head: true }),
+            client
+              .from("youtube_channels")
+              .select("id", { count: "exact", head: true })
+              .not("connection_id", "is", null),
             client.from("videos").select("id", { count: "exact", head: true }),
             client.from("comment_automation_rules").select("id", { count: "exact", head: true }),
             client.from("tracking_links").select("id", { count: "exact", head: true }),

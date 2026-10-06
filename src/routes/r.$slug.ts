@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getCookie, buildSetCookie } from "@/lib/server/cookies";
+import { clickAttributionFromLink } from "@/lib/server/click-attribution";
 
 const PRIVACY_ID_COOKIE = "tubify_pid";
 const PRIVACY_ID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year — long enough for real "unique visitor" counting
@@ -28,7 +29,9 @@ export const Route = createFileRoute("/r/$slug")({
         const service = createServiceSupabaseClient();
         const { data: link, error } = await service
           .from("tracking_links")
-          .select("id, status, destination_id, destination:destinations(url)")
+          .select(
+            "id, status, destination_id, video_id, campaign_id, destination:destinations(url), video:videos(channel_id)",
+          )
           .eq("slug", params.slug)
           .maybeSingle();
         if (error || !link || link.status !== "active") return notFoundResponse();
@@ -42,9 +45,12 @@ export const Route = createFileRoute("/r/$slug")({
           ? undefined
           : buildSetCookie(PRIVACY_ID_COOKIE, privacyId, { maxAge: PRIVACY_ID_MAX_AGE });
 
+        // Record which video (and channel/campaign) this click belongs to, copied from the link
+        // at the moment of the click — so the attribution stays correct even if the link is later
+        // pointed at a different video. These columns always existed but were never written,
+        // which left every click unattributable.
         await service.from("link_click_events").insert({
-          link_id: link.id,
-          destination_id: link.destination_id,
+          ...clickAttributionFromLink(link),
           referrer: request.headers.get("referer"),
           user_agent: request.headers.get("user-agent"),
           device_type: deviceTypeFromUserAgent(request.headers.get("user-agent")),

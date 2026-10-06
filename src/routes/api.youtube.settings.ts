@@ -34,6 +34,7 @@ async function getOwnedChannel(
   let query = client
     .from("youtube_channels")
     .select("id")
+    .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedChannelId) query = query.eq("id", requestedChannelId);
   const { data, error } = await query.limit(1).maybeSingle();

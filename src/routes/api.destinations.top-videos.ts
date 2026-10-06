@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { getWorkspaceContext } from "@/lib/server/workspace";
+import { topVideosByClicks } from "@/lib/server/click-attribution";
 
 const idSchema = z.string().uuid();
 
@@ -23,9 +24,13 @@ function withCookies(response: Response, setCookieHeaders: string[]) {
 // Top 3 videos (by click count) that sent traffic to one destination — aggregated here in JS
 // rather than a SQL view/RPC, matching how this codebase already aggregates YouTube Analytics
 // rows (see aggregateYoutubeAnalyticsByMonth in google-oauth.ts) rather than reaching for a
-// database function for a one-off report. link_click_events.destination_id + video_id are both
-// direct columns already (no join needed); RLS (via tracking_links.workspace_id) scopes the read
+// database function for a one-off report. RLS (via tracking_links.workspace_id) scopes the read
 // to this workspace's own click events without any extra filtering here.
+//
+// This relies on link_click_events.video_id, which the redirect route (r.$slug.ts) only started
+// writing with the revenue-data-foundation change — before that every click had a NULL video and
+// this endpoint could never return anything. Clicks made through a link that has no video are,
+// correctly, not counted towards any video.
 export const Route = createFileRoute("/api/destinations/top-videos")({
   server: {
     handlers: {
@@ -45,15 +50,12 @@ export const Route = createFileRoute("/api/destinations/top-videos")({
               setCookieHeaders,
             );
 
-          const counts = new Map<string, number>();
-          for (const row of events ?? []) {
-            const videoId = row.video_id as string;
-            counts.set(videoId, (counts.get(videoId) ?? 0) + 1);
-          }
-          const topIds = [...counts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([videoId]) => videoId);
+          const top = topVideosByClicks(
+            (events ?? []).map((row) => ({ video_id: row.video_id as string | null })),
+            3,
+          );
+          const counts = new Map(top.map((entry) => [entry.videoId, entry.clicks]));
+          const topIds = top.map((entry) => entry.videoId);
 
           if (topIds.length === 0) return withCookies(json({ data: [] }), setCookieHeaders);
 

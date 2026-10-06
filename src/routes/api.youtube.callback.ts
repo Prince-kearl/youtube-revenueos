@@ -14,6 +14,7 @@ import {
   planYoutubeConnectionResolution,
   type LegacyConnectionCandidate,
 } from "@/lib/server/youtube-connection-resolution";
+import { planReconnect } from "@/lib/server/youtube-disconnect";
 
 // Postgres SQLSTATE for a unique-constraint violation — used to detect the race where two
 // concurrent callbacks for the same identity both concluded no connection existed yet.
@@ -242,12 +243,23 @@ export const Route = createFileRoute("/api/youtube/callback")({
             }
           }
 
-          const { data: alreadyConnected } = await client
+          const { data: existingRows } = await client
             .from("youtube_channels")
             .select("youtube_channel_id, connection_id")
             .eq("workspace_id", workspaceId);
-          const alreadyConnectedIds = new Set(
-            (alreadyConnected ?? []).map((row) => row.youtube_channel_id),
+          // Sorts the channels this grant can see into "currently connected here" (refresh their
+          // connection) and "not connected here" — brand new OR previously disconnected. A
+          // disconnected channel keeps its row (see youtube-disconnect.ts), and goes through the
+          // ordinary connect step below, whose upsert on (workspace_id, youtube_channel_id)
+          // reattaches that same row — same id, history intact — rather than creating a second
+          // one. Identity is the YouTube channel id only.
+          const reconnect = planReconnect(
+            (existingRows ?? []) as Array<{
+              youtube_channel_id: string;
+              connection_id: string | null;
+            }>,
+            discovered.map((channel) => channel.channelId),
+            connectionId,
           );
 
           // Reconnecting an already-connected channel must leave it using THIS grant. The plan
@@ -256,12 +268,8 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // the same identity) — without this, the fresh tokens are stored but the channel keeps
           // reading its old, rejected ones and stays stuck on "authorization needs to be renewed".
           // Safe to attach: channels.list(mine=true) just proved this token can access them.
-          const discoveredIds = new Set(discovered.map((channel) => channel.channelId));
-          const rediscovered = (alreadyConnected ?? []).filter((row) =>
-            discoveredIds.has(row.youtube_channel_id),
-          );
-          if (rediscovered.length > 0) {
-            const rediscoveredIds = rediscovered.map((row) => row.youtube_channel_id);
+          if (reconnect.refreshIds.length > 0) {
+            const rediscoveredIds = reconnect.refreshIds;
             const { error: repointError } = await client
               .from("youtube_channels")
               .update({ connection_id: connectionId })
@@ -280,20 +288,12 @@ export const Route = createFileRoute("/api/youtube/callback")({
               .eq("last_sync_status", "reauth_required");
             // Drop connections this just superseded. The FK is ON DELETE RESTRICT, so one that
             // still backs another channel is refused by the database and left untouched.
-            const supersededIds = [
-              ...new Set(
-                rediscovered
-                  .map((row) => row.connection_id)
-                  .filter((id): id is string => Boolean(id) && id !== connectionId),
-              ),
-            ];
-            for (const supersededId of supersededIds) {
+            for (const supersededId of reconnect.supersededConnectionIds) {
               await client.from("youtube_connections").delete().eq("id", supersededId);
             }
           }
-          const newChannels = discovered.filter(
-            (channel) => !alreadyConnectedIds.has(channel.channelId),
-          );
+          const connectIds = new Set(reconnect.connectIds);
+          const newChannels = discovered.filter((channel) => connectIds.has(channel.channelId));
 
           if (newChannels.length === 0) {
             // Every discovered channel is already connected to this workspace — nothing new to

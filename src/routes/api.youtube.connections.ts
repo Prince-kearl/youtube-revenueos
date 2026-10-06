@@ -86,7 +86,10 @@ export const Route = createFileRoute("/api/youtube/connections")({
           const { data: alreadyConnected, error: connectedError } = await client
             .from("youtube_channels")
             .select("youtube_channel_id")
-            .eq("workspace_id", workspaceId);
+            .eq("workspace_id", workspaceId)
+            // Connected channels only: a previously disconnected channel keeps its row, and
+            // must be offered here so it can be reattached (the POST below upserts onto it).
+            .not("connection_id", "is", null);
           if (connectedError)
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),

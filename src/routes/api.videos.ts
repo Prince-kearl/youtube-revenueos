@@ -61,6 +61,7 @@ async function findOwnedChannel(
   let query = client
     .from("youtube_channels")
     .select("id, user_id, youtube_channel_id")
+    .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (id) query = query.eq("id", id);
   const { data, error } = await query.limit(1).maybeSingle();
@@ -118,6 +119,7 @@ export const Route = createFileRoute("/api/videos")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, user_id, youtube_channel_id, channel_name, channel_handle")
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (channelId) channelQuery = channelQuery.eq("id", channelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();

@@ -16,6 +16,11 @@ import {
   type YoutubeAnalyticsPayload,
   type YoutubeVideoSummary,
 } from "@/lib/server/google-oauth";
+import {
+  runRevenueDataBatch,
+  runRevenueDataSync,
+  statsSyncTimeBudgetMs,
+} from "@/lib/server/youtube-stats-runner";
 
 const defaults = {
   auto_sync_videos: true,
@@ -308,6 +313,7 @@ export const Route = createFileRoute("/api/youtube/sync")({
           let ownedQuery = client
             .from("youtube_channels")
             .select("id")
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) ownedQuery = ownedQuery.eq("id", requestedChannelId);
           const { data: owned } = await ownedQuery.limit(1).maybeSingle();
@@ -315,7 +321,14 @@ export const Route = createFileRoute("/api/youtube/sync")({
           const service = createServiceSupabaseClient();
           const channel = await getChannel(service, owned.id);
           if (!channel) return json({ error: "YOUTUBE_NOT_CONNECTED" }, { status: 409 });
-          return json(await syncChannel(service, channel));
+          const legacy = await syncChannel(service, channel);
+          // One bounded unit of the stored revenue-data sync for this channel. Reported
+          // separately and never allowed to change the outcome above.
+          const revenueData =
+            legacy.status === "success" || legacy.status === "partial"
+              ? await runRevenueDataSync(service, channel.id)
+              : null;
+          return json({ ...legacy, revenueData });
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SYNC_UNAVAILABLE" }, { status: 502 });
@@ -330,15 +343,22 @@ export const Route = createFileRoute("/api/youtube/sync")({
           .from("youtube_channels")
           .select(
             "id, user_id, youtube_channel_id, last_sync_status, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
-          );
+          )
+          // Disconnected channels keep their row and history but have no connection; they are
+          // not synced (and must not be marked "failed" every night for lacking credentials).
+          .not("connection_id", "is", null);
         const normalizedChannels = (channels ?? []).map(
           (row) =>
             ({ ...row, connection: normalizeYoutubeConnectionRow(row.connection) }) as ChannelRow,
         );
+        const startedAt = Date.now();
         const results = [];
         for (const channel of normalizedChannels)
           results.push({ channelId: channel.id, ...(await syncChannel(service, channel)) });
-        return json({ results });
+        // Then spend whatever time is left on the stored revenue-data sync: bounded work per
+        // channel, least recently run first, resuming where the previous invocation stopped.
+        const revenueData = await runRevenueDataBatch(service, startedAt + statsSyncTimeBudgetMs());
+        return json({ results, revenueData });
       },
     },
   },

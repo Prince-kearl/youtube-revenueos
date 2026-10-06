@@ -48,7 +48,11 @@ async function buildAccountContext(
   workspaceName: string,
 ): Promise<string> {
   const [channels, deals, leads, unreadLeads, links, destinations, freebies] = await Promise.all([
-    client.from("youtube_channels").select("channel_name").eq("workspace_id", workspaceId),
+    client
+      .from("youtube_channels")
+      .select("channel_name")
+      .eq("workspace_id", workspaceId)
+      .not("connection_id", "is", null),
     client.from("deals").select("stage").eq("workspace_id", workspaceId),
     client
       .from("leads")

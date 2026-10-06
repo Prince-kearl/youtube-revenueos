@@ -374,6 +374,9 @@ export async function fetchYoutubeVideoById(
 
 export type YoutubeVideoPage = {
   videos: YoutubeVideoSummary[];
+  // Every video id the uploads playlist listed on this page, including ones filtered out of
+  // `videos` — the catalogue sync uses this to tell "already known" from "new".
+  listedIds: string[];
   nextPageToken: string | null;
 };
 
@@ -382,8 +385,12 @@ export async function fetchYoutubeVideosPage(
   uploadsPlaylistId: string | null,
   pageToken?: string,
   limit = 50,
+  // The pages shown to creators list public videos only. The catalogue sync passes
+  // includeNonPublic so unlisted/private uploads (which still earn and still have history) are
+  // not silently missing from the stored catalogue.
+  options: { includeNonPublic?: boolean } = {},
 ): Promise<YoutubeVideoPage> {
-  if (!uploadsPlaylistId || limit <= 0) return { videos: [], nextPageToken: null };
+  if (!uploadsPlaylistId || limit <= 0) return { videos: [], listedIds: [], nextPageToken: null };
 
   const playlistParams: Record<string, string> = {
     part: "contentDetails",
@@ -403,7 +410,8 @@ export async function fetchYoutubeVideosPage(
         .filter((videoId): videoId is string => Boolean(videoId)),
     ),
   ];
-  if (!ids.length) return { videos: [], nextPageToken: playlist.nextPageToken ?? null };
+  if (!ids.length)
+    return { videos: [], listedIds: [], nextPageToken: playlist.nextPageToken ?? null };
 
   const videos = await youtubeApiRequest<{
     items?: Array<{
@@ -426,9 +434,10 @@ export async function fetchYoutubeVideosPage(
 
   return {
     videos: (videos.items ?? [])
-      .filter((video) => video.status?.privacyStatus === "public")
+      .filter((video) => options.includeNonPublic || video.status?.privacyStatus === "public")
       .map(mapYoutubeVideo)
       .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")),
+    listedIds: ids,
     nextPageToken: playlist.nextPageToken ?? null,
   };
 }
@@ -564,6 +573,9 @@ export interface YoutubeAnalyticsQuery {
   filters?: string;
   sort?: string;
   maxResults?: number;
+  // ISO 4217 code for revenue metrics. The API defaults to USD when omitted and rejects codes it
+  // does not support (e.g. GHS), so stored revenue always passes "USD" explicitly.
+  currency?: string;
 }
 
 export async function queryYoutubeAnalytics(
@@ -579,6 +591,7 @@ export async function queryYoutubeAnalytics(
   if (query.filters) url.searchParams.set("filters", query.filters);
   if (query.sort) url.searchParams.set("sort", query.sort);
   if (query.maxResults) url.searchParams.set("maxResults", String(query.maxResults));
+  if (query.currency) url.searchParams.set("currency", query.currency);
   const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`YOUTUBE_ANALYTICS_QUERY_FAILED:${response.status}`);
   return response.json();

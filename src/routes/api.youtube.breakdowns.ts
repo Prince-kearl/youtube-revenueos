@@ -126,6 +126,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
             .select(
               "id, youtube_channel_id, uploads_playlist_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
             )
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();

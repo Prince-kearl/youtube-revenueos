@@ -175,6 +175,7 @@ export const Route = createFileRoute("/api/youtube/video")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id, channel_name, channel_handle")
+            .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (channelId) channelQuery = channelQuery.eq("id", channelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();

@@ -45,6 +45,7 @@ async function findOwnedChannel(client: SupabaseClientLike, requestedId: string 
   let query = client
     .from("youtube_channels")
     .select("id")
+    .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedId) query = query.eq("id", requestedId);
   const { data, error } = await query.limit(1).maybeSingle();

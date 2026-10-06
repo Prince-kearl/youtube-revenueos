@@ -28,6 +28,7 @@ export const Route = createFileRoute("/api/youtube/auth")({
             const { data: channels, error: channelsError } = await client
               .from("youtube_channels")
               .select("id")
+              .not("connection_id", "is", null)
               .limit(1);
             if (channelsError || (channels?.length ?? 0) > 0) {
               const skip = new Response(null, { status: 302, headers: { Location: safeReturnTo } });
