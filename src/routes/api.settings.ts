@@ -30,7 +30,18 @@ export const Route = createFileRoute("/api/settings")({
             .eq("id", SETTINGS_ROW_ID)
             .maybeSingle();
           if (error) return json({ success: false, error: "DATABASE_ERROR" });
-          return json({ success: true, content: data?.content ?? null });
+          // Identical for every visitor and requested on every page load, and large when logos
+          // are stored inline (data URLs) — let the CDN answer it instead of running a function
+          // and a database query each time. Browsers still revalidate (no max-age), so an admin's
+          // change shows up within s-maxage seconds everywhere.
+          return json(
+            { success: true, content: data?.content ?? null },
+            {
+              headers: {
+                "Cache-Control": "public, max-age=0, s-maxage=30, stale-while-revalidate=300",
+              },
+            },
+          );
         } catch {
           return json({ success: false, error: "SERVER_MISCONFIGURED" });
         }

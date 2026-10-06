@@ -1067,7 +1067,7 @@ function HeroDeviceShowcase() {
                 )}
               </div>
               <img
-                src="/devices/macbook-pro.svg"
+                src="/devices/macbook-pro.webp"
                 alt=""
                 draggable={false}
                 className="pointer-events-none relative z-20 block w-full select-none"
