@@ -89,12 +89,17 @@ export function OnboardingTour() {
       <Link
         to={currentStep.to}
         search={currentStep.search}
-        className="fixed bottom-20 left-4 z-40 flex items-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-sm font-medium text-background shadow-xl sm:bottom-6"
+        // Bottom-right: clear of the sidebar on desktop (sits beside the help button) and above
+        // the bottom navigation on phones, where it collapses to a short label so it doesn't
+        // cover a full row of page content.
+        aria-label={`Getting started, step ${activeIndex + 1}: ${currentStep.label}`}
+        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-foreground px-3 py-2 text-sm font-medium text-background shadow-xl md:bottom-7 md:right-24 md:px-4 md:py-2.5"
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
           {activeIndex + 1}
         </span>
-        {currentStep.label}
+        <span className="md:hidden">Setup</span>
+        <span className="hidden md:inline">{currentStep.label}</span>
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -115,7 +120,7 @@ export function OnboardingTour() {
   // browse via Back/Next, just without a spotlight to anchor to.
   if (!rect) {
     return (
-      <div className="fixed bottom-20 left-4 z-40 w-80 rounded-2xl border border-border bg-background p-5 shadow-2xl sm:bottom-6">
+      <div className="fixed bottom-20 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-background p-5 shadow-2xl md:bottom-6 md:right-24">
         <button
           onClick={dismiss}
           className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"

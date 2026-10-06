@@ -4,7 +4,11 @@ import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2, CheckCircle2 } from
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
-import { signUpWithPassword, signInWithGoogle } from "@/lib/supabase/auth";
+import {
+  resendSignupConfirmation,
+  signUpWithPassword,
+  signInWithGoogle,
+} from "@/lib/supabase/auth";
 
 export const Route = createFileRoute("/signup")({
   component: Signup,
@@ -23,7 +27,19 @@ function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
 
-  const [referredByCode] = useState(() => new URLSearchParams(window.location.search).get("ref"));
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+
+  // `window` does not exist while this page is rendered on the server — reading it unguarded
+  // threw there and silently forced the whole page to re-render in the browser.
+  const [referredByCode] = useState(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("ref"),
+  );
+
+  const handleResend = async () => {
+    setResendState("sending");
+    const { error: resendError } = await resendSignupConfirmation(email);
+    setResendState(resendError ? "failed" : "sent");
+  };
 
   useEffect(() => {
     if (!sessionLoading && user) navigate({ to: "/dashboard" });
@@ -63,7 +79,7 @@ function Signup() {
     // A session on the returned user means email confirmation is disabled for this project —
     // otherwise Supabase requires the confirmation link before a session exists.
     if (data.session) {
-      window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
+      window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard&ifNeeded=1";
       return;
     }
     setConfirmationSent(true);
@@ -102,6 +118,25 @@ function Signup() {
               <span className="font-medium text-foreground">{email}</span>. Click it to activate
               your account.
             </p>
+            <p className="text-xs text-muted-foreground">
+              The link expires after a short while. Didn’t get it, or opened it too late?
+            </p>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendState === "sending"}
+              className="text-sm font-medium text-primary hover:underline disabled:opacity-60"
+            >
+              {resendState === "sending" ? "Sending…" : "Resend confirmation email"}
+            </button>
+            {resendState === "sent" && (
+              <p className="text-xs text-success">Sent. Check your inbox and spam folder.</p>
+            )}
+            {resendState === "failed" && (
+              <p className="text-xs text-destructive">
+                We couldn’t send it just now. Wait a minute and try again.
+              </p>
+            )}
             <Link to="/" className="mt-2 text-sm font-medium text-primary hover:underline">
               Back to sign in
             </Link>

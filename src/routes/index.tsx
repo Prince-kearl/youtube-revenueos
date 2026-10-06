@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Zap, Loader2 } from "lucide-react"
 import { Logo } from "@/components/Logo";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
-import { challengeMfaFactor, getMfaAssuranceLevel, listMfaFactors, signInWithPassword, signInWithGoogle, verifyMfaFactor } from "@/lib/supabase/auth";
+import { challengeMfaFactor, getMfaAssuranceLevel, listMfaFactors, resendSignupConfirmation, signInWithPassword, signInWithGoogle, verifyMfaFactor } from "@/lib/supabase/auth";
 
 export const Route = createFileRoute("/")({
   component: Login,
@@ -24,9 +24,33 @@ function Login() {
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
 
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+
   useEffect(() => {
     if (!sessionLoading && user && !mfaRequired) navigate({ to: "/dashboard" });
   }, [sessionLoading, user, mfaRequired, navigate]);
+
+  // /auth/callback sends people back here with ?auth_error=... when an emailed link or Google
+  // sign-in could not be completed (most often a confirmation link opened after it expired).
+  // Without this they simply landed on the sign-in page with no explanation.
+  useEffect(() => {
+    const authError = new URLSearchParams(window.location.search).get("auth_error");
+    if (!authError) return;
+    setError(
+      authError === "missing_code"
+        ? "That link is invalid or has expired. Sign in below — if your email isn't confirmed yet, we'll offer to send a new link."
+        : "We couldn't complete that sign-in. Please try again.",
+    );
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  const needsConfirmation = Boolean(error && /not confirmed/i.test(error));
+  const handleResend = async () => {
+    if (!email) return;
+    setResendState("sending");
+    const { error: resendError } = await resendSignupConfirmation(email);
+    setResendState(resendError ? "failed" : "sent");
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -74,7 +98,7 @@ function Login() {
     }
     setSubmitting(false);
     setMfaRequired(false);
-    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
+    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard&ifNeeded=1";
   };
 
   const handleMfaVerify = async (event: FormEvent) => {
@@ -90,7 +114,7 @@ function Login() {
       setError("The verification code is incorrect. Check your authenticator app and try again.");
       return;
     }
-    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard";
+    window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard&ifNeeded=1";
   };
 
   const handleGoogle = async () => {
@@ -146,6 +170,18 @@ function Login() {
         ) : <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+          )}
+          {needsConfirmation && (
+            <p className="text-sm text-muted-foreground">
+              {resendState === "sent" ? (
+                "Confirmation email sent. Check your inbox and spam folder."
+              ) : (
+                <button type="button" onClick={handleResend} disabled={resendState === "sending"} className="font-medium text-primary hover:underline disabled:opacity-60">
+                  {resendState === "sending" ? "Sending…" : "Resend confirmation email"}
+                </button>
+              )}
+              {resendState === "failed" && " We couldn't send it just now. Wait a minute and try again."}
+            </p>
           )}
 
           <div>

@@ -57,14 +57,17 @@ export const Route = createFileRoute("/api/admin/users")({
       // exist together.
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePermission(request, "manage_users");
-          const { data, error } = await client
+          await requirePermission(request, "manage_users");
+          // Service client, not the caller's: profiles RLS only lets a user read their OWN row,
+          // so a session-scoped query here returned just the admin themselves and hid every other
+          // account. Authorization is the requirePermission check above.
+          const service = createServiceSupabaseClient();
+          const { data, error } = await service
             .from("profiles")
             .select("id, name, email, avatar, role, created_at")
             .order("created_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
-          const service = createServiceSupabaseClient();
           const authUsers = await listAllAuthUsers(service);
 
           const rows = (data ?? []).map((row) => {
@@ -222,7 +225,7 @@ export const Route = createFileRoute("/api/admin/users")({
             });
           }
 
-          const { data: updated } = await client
+          const { data: updated } = await service
             .from("profiles")
             .select("id, name, email, avatar, role, created_at")
             .eq("id", targetId)

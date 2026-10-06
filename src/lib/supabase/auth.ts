@@ -22,6 +22,17 @@ export function signUpWithPassword(
   });
 }
 
+// Sends a fresh sign-up confirmation email — the original link is short-lived, so someone who
+// opens it late needs a way to get another one.
+export function resendSignupConfirmation(email: string) {
+  const supabase = getSupabaseBrowserClient();
+  return supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${currentOrigin()}/auth/callback` },
+  });
+}
+
 export function signInWithPassword(email: string, password: string) {
   const supabase = getSupabaseBrowserClient();
   return supabase.auth.signInWithPassword({ email, password });

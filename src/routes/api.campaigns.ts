@@ -90,8 +90,10 @@ export const Route = createFileRoute("/api/campaigns")({
             .update(input)
             .eq("id", id)
             .select("id, name, subject, body, status, created_at, updated_at")
-            .single();
+            .maybeSingle();
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          // No row = an id that doesn't exist or belongs to another workspace (hidden by RLS).
+          if (!data) return json({ error: "NOT_FOUND" }, { status: 404 });
           return json({ data });
         } catch (error) {
           if (error instanceof Response) return error;

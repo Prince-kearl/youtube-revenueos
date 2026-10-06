@@ -81,7 +81,29 @@ export const Route = createFileRoute("/api/workspace/members")({
             .neq("status", "removed")
             .order("created_at", { ascending: true });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          return json({ data, meta: { role: ctx.workspaceRole } });
+
+          // Sending an invite creates the invitee's auth account straight away, and
+          // handle_new_user() marks their membership 'active' at that same moment — before they
+          // have accepted anything. Stored status stays as-is (workspace access is keyed on it),
+          // but the list reports such a member as "invited" until they have signed in for the
+          // first time, which is what accepting the invitation link does. Best-effort: if the
+          // lookup fails the stored status is shown.
+          const service = createServiceSupabaseClient();
+          const rows = await Promise.all(
+            (data ?? []).map(async (row) => {
+              if (row.status !== "active" || !row.user_id || row.user_id === ctx.user.id)
+                return row;
+              try {
+                const { data: auth } = await service.auth.admin.getUserById(row.user_id);
+                return auth?.user && !auth.user.last_sign_in_at
+                  ? { ...row, status: "invited" }
+                  : row;
+              } catch {
+                return row;
+              }
+            }),
+          );
+          return json({ data: rows, meta: { role: ctx.workspaceRole } });
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
