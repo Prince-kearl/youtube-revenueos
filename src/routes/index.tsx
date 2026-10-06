@@ -24,7 +24,10 @@ function Login() {
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
 
-  const [resendState, setResendState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [resendState, setResendState] = useState<
+    "idle" | "needsEmail" | "sending" | "sent" | "failed"
+  >("idle");
+  const [linkExpired, setLinkExpired] = useState(false);
 
   useEffect(() => {
     if (!sessionLoading && user && !mfaRequired) navigate({ to: "/dashboard" });
@@ -38,15 +41,20 @@ function Login() {
     if (!authError) return;
     setError(
       authError === "missing_code"
-        ? "That link is invalid or has expired. Sign in below — if your email isn't confirmed yet, we'll offer to send a new link."
+        ? "That link is invalid or has expired. If you were confirming your email, enter it below and choose “Resend confirmation email” — otherwise just sign in."
         : "We couldn't complete that sign-in. Please try again.",
     );
+    // Offer the resend straight away for an expired link — no need to attempt a sign-in first.
+    setLinkExpired(authError === "missing_code");
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
-  const needsConfirmation = Boolean(error && /not confirmed/i.test(error));
+  const needsConfirmation = linkExpired || Boolean(error && /not confirmed/i.test(error));
   const handleResend = async () => {
-    if (!email) return;
+    if (!email.trim()) {
+      setResendState("needsEmail");
+      return;
+    }
     setResendState("sending");
     const { error: resendError } = await resendSignupConfirmation(email);
     setResendState(resendError ? "failed" : "sent");
@@ -171,18 +179,6 @@ function Login() {
           {error && (
             <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
           )}
-          {needsConfirmation && (
-            <p className="text-sm text-muted-foreground">
-              {resendState === "sent" ? (
-                "Confirmation email sent. Check your inbox and spam folder."
-              ) : (
-                <button type="button" onClick={handleResend} disabled={resendState === "sending"} className="font-medium text-primary hover:underline disabled:opacity-60">
-                  {resendState === "sending" ? "Sending…" : "Resend confirmation email"}
-                </button>
-              )}
-              {resendState === "failed" && " We couldn't send it just now. Wait a minute and try again."}
-            </p>
-          )}
 
           <div>
             <label className="mb-2 block text-sm font-medium">Email</label>
@@ -197,6 +193,20 @@ function Login() {
                 className="h-12 w-full rounded-xl border border-border bg-accent/30 pl-11 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
             </div>
+            {/* Directly under the email field it depends on. */}
+            {needsConfirmation && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {resendState === "sent" ? (
+                  "If that email still needs confirming, a new link is on its way. Check your inbox and spam folder."
+                ) : (
+                  <button type="button" onClick={handleResend} disabled={resendState === "sending"} className="font-medium text-primary hover:underline disabled:opacity-60">
+                    {resendState === "sending" ? "Sending…" : "Resend confirmation email"}
+                  </button>
+                )}
+                {resendState === "needsEmail" && " Enter your email address above first."}
+                {resendState === "failed" && " We couldn't send it just now. Wait a minute and try again."}
+              </p>
+            )}
           </div>
 
           <div>
