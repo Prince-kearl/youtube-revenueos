@@ -121,6 +121,13 @@ export interface CatalogueVideo {
   privacyStatus: string | null;
 }
 
+/**
+ * "deleted" is an existing enum value kept for compatibility. What it actually records is
+ * narrower than the word: the video was absent from a completed pass over the uploads playlist
+ * AND a direct lookup of its id returned nothing. It says YouTube does not currently return the
+ * video — not who removed it or why, and not that it can never come back (a video that reappears
+ * is restored). The row and all of its history are always kept.
+ */
 export type StoredVideoStatus = "active" | "archived" | "deleted";
 
 export interface StoredVideo {
@@ -179,6 +186,11 @@ export interface StatsSyncApi {
     listedIds: string[];
     nextPageToken: string | null;
   }>;
+  /** Look videos up directly by id (at most LOOKUP_BATCH_SIZE ids). Returns the ones YouTube
+   * returns, in any privacy state; an id missing from the result does not currently exist as far
+   * as YouTube is concerned. Costs 1 Google request. Must throw on any API failure — a failed
+   * lookup is not an empty answer. */
+  lookupVideos(youtubeVideoIds: string[]): Promise<CatalogueVideo[]>;
   /** One YouTube Analytics query for this channel, always in USD. Costs 1 request. Throws an
    * Error whose message ends in `:<http status>` on failure. */
   queryAnalytics(request: AnalyticsRequest): Promise<YoutubeAnalyticsPayload>;
@@ -190,8 +202,12 @@ export interface StatsSyncStore {
   listVideos(channelId: string): Promise<StoredVideo[]>;
   /** Insert new videos / update existing ones (never deleting), stamping catalogue_seen_at. */
   upsertCatalogueVideos(channelId: string, videos: CatalogueVideo[], seenAt: string): Promise<void>;
-  /** Mark videos not seen since `passStartedAt` as deleted. Returns how many. Rows are kept. */
-  markVideosNotSeenAsDeleted(channelId: string, passStartedAt: string): Promise<number>;
+  /** YouTube ids of this channel's videos that are not already 'deleted' and were not seen
+   * since `passStartedAt`. These are only CANDIDATES: absence from the playlist proves nothing
+   * on its own. */
+  listVideosNotSeenSince(channelId: string, passStartedAt: string): Promise<string[]>;
+  /** Set status 'deleted' on exactly these videos. Returns how many. Rows are kept. */
+  markVideosDeleted(channelId: string, youtubeVideoIds: string[]): Promise<number>;
   upsertChannelDays(channelId: string, rows: DailyStats[], fetchedAt: string): Promise<void>;
   /** Make the stored rows for these videos in [startDate, endDate] exactly equal `rows`:
    * upsert them, then remove any older row in that range that is not among them. */
@@ -410,13 +426,56 @@ export interface CatalogueResult {
   pages: number;
   videosSeen: number;
   newVideos: number;
+  /** Known videos the completed pass did not see, looked up directly by id. */
+  absentChecked: number;
+  /** Of those, the ones YouTube still returns: kept, and refreshed from the lookup. */
+  stillAvailable: number;
   markedDeleted: number;
+}
+
+/** videos.list accepts at most 50 ids per request. */
+export const LOOKUP_BATCH_SIZE = 50;
+
+// Stored in catalogue_page_token once the playlist has been walked to its end and only the
+// confirmation of absent videos is left, so a pass interrupted there resumes at the confirmation
+// instead of walking the whole playlist again. Never sent to YouTube.
+const CONFIRMING_ABSENT = "#confirm-absent";
+
+/**
+ * The only place a video can become 'deleted'. Reached only after the uploads playlist has been
+ * walked to its genuine end. Being absent from the playlist is not treated as evidence by
+ * itself: every absent video is looked up directly by id, and only an id YouTube does not return
+ * is marked. A video the lookup still returns is kept and refreshed. If a lookup fails, the
+ * error propagates: that batch (and any after it) is left exactly as it was, the pass stays
+ * open, and the next run retries it.
+ */
+async function confirmAbsentVideos(
+  ctx: ChannelSyncContext,
+  passStartedAt: string,
+  result: CatalogueResult,
+): Promise<"complete" | "paused"> {
+  const { api, store, channelId, budget, now } = ctx;
+  const absent = await store.listVideosNotSeenSince(channelId, passStartedAt);
+  for (const ids of chunk(absent, LOOKUP_BATCH_SIZE)) {
+    if (!budget.take(1)) return "paused";
+    const found = await api.lookupVideos(ids);
+    // Only ids that were asked about count; anything else in the answer is ignored.
+    const present = found.filter((video) => ids.includes(video.youtubeVideoId));
+    const presentIds = new Set(present.map((video) => video.youtubeVideoId));
+    const gone = ids.filter((id) => !presentIds.has(id));
+    await store.upsertCatalogueVideos(channelId, present, now.toISOString());
+    result.absentChecked += ids.length;
+    result.stillAvailable += present.length;
+    if (gone.length) result.markedDeleted += await store.markVideosDeleted(channelId, gone);
+  }
+  return "complete";
 }
 
 /**
  * Full pass: walk every page of the uploads playlist (resumable through the stored page token),
- * then mark anything not seen during the pass as deleted — keeping the row and its history.
- * Incremental pass: read from the newest page and stop at the first page that contains no video
+ * then confirm each known video the pass did not see with a direct lookup and mark as deleted
+ * only those YouTube no longer returns (see confirmAbsentVideos) — keeping the row and its
+ * history. Incremental pass: read from the newest page and stop at the first page that contains no video
  * we don't already know (the playlist is newest-first), so a channel with thousands of videos
  * normally costs one page.
  */
@@ -440,8 +499,24 @@ export async function syncCatalogue(ctx: ChannelSyncContext): Promise<CatalogueR
     pages: 0,
     videosSeen: 0,
     newVideos: 0,
+    absentChecked: 0,
+    stillAvailable: 0,
     markedDeleted: 0,
   };
+
+  const finishFullPass = async (): Promise<CatalogueResult> => {
+    if ((await confirmAbsentVideos(ctx, passStartedAt, result)) === "paused")
+      return { ...result, status: "paused" };
+    await store.saveState(channelId, {
+      cataloguePassStartedAt: null,
+      cataloguePageToken: null,
+      catalogueFullSyncedAt: nowIso,
+      catalogueSyncedAt: nowIso,
+    });
+    return result;
+  };
+  // The playlist was already walked to its end by an earlier run; only confirmation is left.
+  if (pageToken === CONFIRMING_ABSENT) return finishFullPass();
 
   if (mode === "full" && !resuming) {
     await store.saveState(channelId, {
@@ -481,15 +556,10 @@ export async function syncCatalogue(ctx: ChannelSyncContext): Promise<CatalogueR
         await store.saveState(channelId, { cataloguePageToken: pageToken });
         continue;
       }
-      // Only a pass that reached the genuine end of the playlist may conclude anything is gone.
-      result.markedDeleted = await store.markVideosNotSeenAsDeleted(channelId, passStartedAt);
-      await store.saveState(channelId, {
-        cataloguePassStartedAt: null,
-        cataloguePageToken: null,
-        catalogueFullSyncedAt: nowIso,
-        catalogueSyncedAt: nowIso,
-      });
-      return result;
+      // Only a pass that reached the genuine end of the playlist may go on to ask whether
+      // anything is gone — and even then each absent video is confirmed individually.
+      await store.saveState(channelId, { cataloguePageToken: CONFIRMING_ABSENT });
+      return finishFullPass();
     }
 
     if (!page.nextPageToken || unknown.length === 0) {

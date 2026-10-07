@@ -5,9 +5,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   fetchAuthorizedYoutubeChannel,
+  fetchYoutubeVideosByIds,
   fetchYoutubeVideosPage,
   queryYoutubeAnalytics,
   type YoutubeAnalyticsPayload,
+  type YoutubeVideoSummary,
 } from "./google-oauth";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "./youtube-tokens";
 import { isSyncableChannel } from "./youtube-disconnect";
@@ -46,8 +48,22 @@ export function createStatsSyncApi(
   accessToken: string,
   channel: { youtubeChannelId: string; uploadsPlaylistId: string | null },
 ): StatsSyncApi {
+  const toCatalogueVideo = (video: YoutubeVideoSummary): CatalogueVideo => ({
+    youtubeVideoId: video.id,
+    title: video.title,
+    description: video.description,
+    thumbnail: video.thumbnail,
+    publishedAt: video.publishedAt,
+    durationSeconds: video.durationSeconds,
+    privacyStatus: video.privacyStatus,
+  });
   return {
     async listUploadsPage(pageToken) {
+      // fetchYoutubeVideosPage answers "no playlist" with an empty page and no request at all.
+      // For a screen that is harmless; here an empty page would read as "this channel has no
+      // videos" and become grounds for marking every known video deleted. Not knowing the
+      // playlist is an error, never an empty catalogue.
+      if (!channel.uploadsPlaylistId) throw new Error("YOUTUBE_UPLOADS_PLAYLIST_MISSING");
       const page = await fetchYoutubeVideosPage(
         accessToken,
         channel.uploadsPlaylistId,
@@ -56,18 +72,13 @@ export function createStatsSyncApi(
         { includeNonPublic: true },
       );
       return {
-        videos: page.videos.map((video): CatalogueVideo => ({
-          youtubeVideoId: video.id,
-          title: video.title,
-          description: video.description,
-          thumbnail: video.thumbnail,
-          publishedAt: video.publishedAt,
-          durationSeconds: video.durationSeconds,
-          privacyStatus: video.privacyStatus,
-        })),
+        videos: page.videos.map(toCatalogueVideo),
         listedIds: page.listedIds,
         nextPageToken: page.nextPageToken,
       };
+    },
+    async lookupVideos(youtubeVideoIds) {
+      return (await fetchYoutubeVideosByIds(accessToken, youtubeVideoIds)).map(toCatalogueVideo);
     },
     async queryAnalytics(request) {
       return (await queryYoutubeAnalytics(accessToken, {
@@ -208,13 +219,31 @@ export function createStatsSyncStore(service: SupabaseClient): StatsSyncStore {
       }
     },
 
-    async markVideosNotSeenAsDeleted(channelId, passStartedAt) {
+    async listVideosNotSeenSince(channelId, passStartedAt) {
+      const ids: string[] = [];
+      for (let from = 0; ; from += READ_PAGE) {
+        const { data, error } = await service
+          .from("videos")
+          .select("youtube_video_id")
+          .eq("channel_id", channelId)
+          .neq("status", "deleted")
+          .or(`catalogue_seen_at.is.null,catalogue_seen_at.lt."${passStartedAt}"`)
+          .order("youtube_video_id", { ascending: true })
+          .range(from, from + READ_PAGE - 1);
+        if (error) fail("LIST_NOT_SEEN", error);
+        for (const row of data ?? []) ids.push(row.youtube_video_id as string);
+        if ((data ?? []).length < READ_PAGE) return ids;
+      }
+    },
+
+    async markVideosDeleted(channelId, youtubeVideoIds) {
+      if (!youtubeVideoIds.length) return 0;
       const { data, error } = await service
         .from("videos")
         .update({ status: "deleted" })
         .eq("channel_id", channelId)
+        .in("youtube_video_id", youtubeVideoIds)
         .neq("status", "deleted")
-        .or(`catalogue_seen_at.is.null,catalogue_seen_at.lt."${passStartedAt}"`)
         .select("id");
       if (error) fail("MARK_DELETED", error);
       return (data ?? []).length;

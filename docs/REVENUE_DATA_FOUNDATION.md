@@ -28,7 +28,7 @@ If the code is deployed before the migration, the existing sync keeps working an
 
 One invocation does a bounded amount of work per channel (`requestBudget`, default 60 Google requests) and records where it stopped. Channels are taken least-recently-run first.
 
-1. **Catalogue.** First run and then weekly: page through the whole uploads playlist, then mark videos not seen as `deleted` (rows and history are kept). Other runs: read from the newest page and stop at the first page with nothing new.
+1. **Catalogue.** First run and then weekly: page through the whole uploads playlist, then look up every known video the pass did not see directly by id (`videos.list`, 50 per request) and mark as `deleted` only those YouTube does not return (rows and history are kept; a video the lookup still returns is kept and refreshed). Being absent from the playlist is never enough on its own, a missing playlist id or a failed lookup marks nothing, and the pass stays open until it can be confirmed. `deleted` means "not currently returned by YouTube", not a statement about who removed the video or why. Other runs: read from the newest page and stop at the first page with nothing new.
 2. **Channel totals.** One request per 365 days with `dimensions=day`.
 3. **Per-video rows.** Known video ids in batches of 50, using `dimensions=day,video` with an id filter. Each batch is checked against per-video view totals; a video that does not match, or the whole batch if Google rejects the query, is re-fetched with the documented one-video query.
 4. **Refresh windows.** Ordinary run: last 7 days. Every 7 days: last 62 days, to absorb revenue adjustments. First run: up to 1,095 days. All are settings in `DEFAULT_STATS_SYNC_CONFIG`.

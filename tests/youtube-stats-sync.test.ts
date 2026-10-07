@@ -74,11 +74,17 @@ class FakeStore implements StatsSyncStore {
       });
     }
   }
-  async markVideosNotSeenAsDeleted(channelId: string, passStartedAt: string) {
+  async listVideosNotSeenSince(channelId: string, passStartedAt: string) {
+    return [...this.videos.values()]
+      .filter((video) => video.channelId === channelId && video.status !== "deleted")
+      .filter((video) => video.seenAt === null || video.seenAt < passStartedAt)
+      .map((video) => video.youtubeVideoId);
+  }
+  async markVideosDeleted(channelId: string, youtubeVideoIds: string[]) {
     let count = 0;
     for (const video of this.videos.values()) {
       if (video.channelId !== channelId || video.status === "deleted") continue;
-      if (video.seenAt === null || video.seenAt < passStartedAt) {
+      if (youtubeVideoIds.includes(video.youtubeVideoId)) {
         video.status = "deleted";
         count += 1;
       }
@@ -166,7 +172,26 @@ class FakeYoutube implements StatsSyncApi {
     this.activity.get(id)!.set(day, { views, minutes: views * 2, revenue });
   }
 
+  /** Videos that still exist on YouTube but that the uploads playlist does not list. */
+  existsButNotListed: CatalogueVideo[] = [];
+  /** Every direct id lookup made, one entry per request. */
+  lookups: string[][] = [];
+  /** "ok" | "error" (every lookup fails) | a number N (the Nth lookup fails, 1-based). */
+  lookupFailure: "ok" | "error" | number = "ok";
+  /** When true the playlist request itself fails, as it does for a channel with no playlist id. */
+  playlistMissing = false;
+
+  async lookupVideos(youtubeVideoIds: string[]) {
+    this.lookups.push([...youtubeVideoIds]);
+    if (this.lookupFailure === "error" || this.lookupFailure === this.lookups.length)
+      throw new Error("YOUTUBE_VIDEOS_FAILED:503");
+    return [...this.catalogue, ...this.existsButNotListed].filter((video) =>
+      youtubeVideoIds.includes(video.youtubeVideoId),
+    );
+  }
+
   async listUploadsPage(pageToken: string | null) {
+    if (this.playlistMissing) throw new Error("YOUTUBE_UPLOADS_PLAYLIST_MISSING");
     this.pagesListed += 1;
     const start = pageToken ? Number(pageToken) : 0;
     if (Number.isNaN(start)) throw new Error("YOUTUBE_PLAYLISTITEMS_FAILED:400");
@@ -434,6 +459,368 @@ test("catalogue: private uploads are stored as archived, not dropped", async () 
   await syncCatalogue(context(store, youtube));
   assert.equal(store.video("priv").status, "archived");
   assert.equal(store.video("unl").status, "active");
+});
+
+// ------------------------------------------------------------
+// Deletion safety: absence from the uploads playlist is never enough on its own. A known video
+// becomes 'deleted' only after a completed pass AND a direct lookup that does not return it.
+// ------------------------------------------------------------
+
+const WEEK_LATER = new Date("2026-10-18T08:00:00Z");
+
+async function syncedChannel(videoCount: number) {
+  const store = new FakeStore();
+  const youtube = new FakeYoutube();
+  for (let i = 1; i <= videoCount; i++)
+    youtube.addVideo(`vid${i}`, `2026-09-${String(((i - 1) % 28) + 1).padStart(2, "0")}`);
+  await syncCatalogue(context(store, youtube));
+  youtube.lookups = [];
+  youtube.pagesListed = 0;
+  return { store, youtube };
+}
+
+const statuses = (store: FakeStore) =>
+  Object.fromEntries([...store.videos.values()].map((v) => [v.youtubeVideoId, v.status]));
+
+test("deletion safety: an empty uploads playlist alone marks nothing — every known video is looked up first", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  // The playlist comes back empty, but all three videos still exist on YouTube.
+  youtube.existsButNotListed = youtube.catalogue;
+  youtube.catalogue = [];
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(result.status, "complete");
+  assert.equal(result.videosSeen, 0, "the playlist really did list nothing");
+  assert.deepEqual(
+    youtube.lookups.map((ids) => [...ids].sort()),
+    [["vid1", "vid2", "vid3"]],
+    "all three were confirmed directly before any conclusion",
+  );
+  assert.equal(result.absentChecked, 3);
+  assert.equal(result.stillAvailable, 3);
+  assert.equal(result.markedDeleted, 0);
+  assert.deepEqual(statuses(store), { vid1: "active", vid2: "active", vid3: "active" });
+});
+
+test("deletion safety: a missing uploads playlist id is an error, not an empty catalogue", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  youtube.playlistMissing = true;
+
+  const result = await runChannelSync(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(result.status, "failed");
+  assert.match(result.error ?? "", /YOUTUBE_UPLOADS_PLAYLIST_MISSING/);
+  assert.equal(result.stats, null, "stats are not attempted on an unfinished catalogue");
+  assert.deepEqual(statuses(store), { vid1: "active", vid2: "active", vid3: "active" });
+  assert.deepEqual(youtube.lookups, [], "it never got as far as asking whether anything is gone");
+  const state = await store.getState(CHANNEL);
+  assert.ok(state.cataloguePassStartedAt, "the pass is left open, not recorded as completed");
+  assert.equal(state.catalogueFullSyncedAt, NOW.toISOString(), "still the earlier full pass");
+  assert.match(state.lastError ?? "", /YOUTUBE_UPLOADS_PLAYLIST_MISSING/);
+
+  // Once the playlist is known again the same pass completes normally.
+  youtube.playlistMissing = false;
+  const retry = await runChannelSync(
+    context(store, youtube, { now: new Date("2026-10-19T08:00:00Z") }),
+  );
+  assert.equal(retry.status, "complete");
+  assert.equal(retry.catalogue?.markedDeleted, 0);
+  assert.equal((await store.getState(CHANNEL)).lastError, null);
+});
+
+test("deletion safety: the real API adapter refuses a channel with no playlist id without calling YouTube", async () => {
+  const realFetch = globalThis.fetch;
+  let called = 0;
+  globalThis.fetch = (async () => {
+    called += 1;
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const api = createStatsSyncApi("token", { youtubeChannelId: "UCx", uploadsPlaylistId: null });
+    await assert.rejects(api.listUploadsPage(null), /YOUTUBE_UPLOADS_PLAYLIST_MISSING/);
+    assert.equal(called, 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("deletion safety: a video absent from the playlist and from the direct lookup is marked deleted", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid2");
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.deepEqual(youtube.lookups, [["vid2"]]);
+  assert.equal(result.absentChecked, 1);
+  assert.equal(result.stillAvailable, 0);
+  assert.equal(result.markedDeleted, 1);
+  assert.deepEqual(statuses(store), { vid1: "active", vid2: "deleted", vid3: "active" });
+  assert.equal(store.videos.size, 3, "the row is kept");
+});
+
+test("deletion safety: a video the direct lookup still returns is kept and refreshed", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  const hidden = youtube.catalogue.find((v) => v.youtubeVideoId === "vid2")!;
+  youtube.catalogue = youtube.catalogue.filter((v) => v !== hidden);
+  // Still on YouTube, now private and retitled, just not in the playlist response.
+  youtube.existsButNotListed = [{ ...hidden, title: "Renamed", privacyStatus: "private" }];
+  const idBefore = store.video("vid2").id;
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(result.markedDeleted, 0);
+  assert.equal(result.stillAvailable, 1);
+  assert.equal(store.video("vid2").status, "archived", "its state follows what the lookup says");
+  assert.equal(store.video("vid2").title, "Renamed");
+  assert.equal(store.video("vid2").id, idBefore, "same row, no duplicate");
+  assert.equal(store.videos.size, 3);
+  assert.equal(store.video("vid2").seenAt, WEEK_LATER.toISOString());
+});
+
+test("deletion safety: a mixed answer marks only the ids the lookup did not return", async () => {
+  const { store, youtube } = await syncedChannel(4);
+  const stillThere = youtube.catalogue.find((v) => v.youtubeVideoId === "vid1")!;
+  youtube.existsButNotListed = [stillThere];
+  youtube.catalogue = youtube.catalogue.filter((v) => !["vid1", "vid3"].includes(v.youtubeVideoId));
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.deepEqual([result.absentChecked, result.stillAvailable, result.markedDeleted], [2, 1, 1]);
+  assert.deepEqual(statuses(store), {
+    vid1: "active",
+    vid2: "active",
+    vid3: "deleted",
+    vid4: "active",
+  });
+});
+
+test("deletion safety: a failed direct lookup marks nothing and the next sync retries it", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid2");
+  youtube.lookupFailure = "error";
+
+  const failed = await runChannelSync(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(failed.status, "failed");
+  assert.match(failed.error ?? "", /YOUTUBE_VIDEOS_FAILED:503/);
+  assert.deepEqual(statuses(store), { vid1: "active", vid2: "active", vid3: "active" });
+  const state = await store.getState(CHANNEL);
+  assert.ok(state.cataloguePassStartedAt, "the pass is still open");
+  assert.equal(state.catalogueFullSyncedAt, NOW.toISOString(), "not recorded as a completed pass");
+  assert.match(state.lastError ?? "", /YOUTUBE_VIDEOS_FAILED/);
+
+  // Next run: the playlist is not walked again, only the confirmation is retried.
+  youtube.lookupFailure = "ok";
+  youtube.pagesListed = 0;
+  const nextDay = new Date("2026-10-19T08:00:00Z");
+  const retry = await syncCatalogue(context(store, youtube, { now: nextDay }));
+  assert.equal(retry.status, "complete");
+  assert.equal(youtube.pagesListed, 0, "the finished walk is not repeated");
+  assert.equal(retry.markedDeleted, 1);
+  assert.equal(store.video("vid2").status, "deleted");
+  assert.equal((await store.getState(CHANNEL)).cataloguePassStartedAt, null);
+});
+
+test("deletion safety: when one lookup batch fails, only confirmed batches are acted on", async () => {
+  const { store, youtube } = await syncedChannel(120);
+  youtube.pageSize = 50;
+  youtube.catalogue = [];
+  youtube.lookupFailure = 2;
+
+  const failed = await runChannelSync(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(failed.status, "failed");
+  const afterFailure = Object.values(statuses(store));
+  assert.equal(afterFailure.filter((s) => s === "deleted").length, 50, "batch 1 was confirmed");
+  assert.equal(afterFailure.filter((s) => s === "active").length, 70, "batches 2 and 3 untouched");
+
+  youtube.lookupFailure = "ok";
+  youtube.lookups = [];
+  const retry = await syncCatalogue(
+    context(store, youtube, { now: new Date("2026-10-19T08:00:00Z") }),
+  );
+  assert.equal(retry.status, "complete");
+  assert.deepEqual(
+    youtube.lookups.map((ids) => ids.length),
+    [50, 20],
+    "only the 70 still-unconfirmed videos are asked about again",
+  );
+  assert.ok(Object.values(statuses(store)).every((s) => s === "deleted"));
+});
+
+test("deletion safety: an interrupted pass asks nothing and marks nothing", async () => {
+  const { store, youtube } = await syncedChannel(6);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid1");
+
+  const paused = await syncCatalogue(context(store, youtube, { now: WEEK_LATER, budget: 4 }));
+
+  assert.equal(paused.status, "paused");
+  assert.equal(paused.pages, 2, "two of three pages");
+  assert.deepEqual(youtube.lookups, [], "no confirmation is attempted before the walk is finished");
+  assert.equal(paused.markedDeleted, 0);
+  assert.ok(Object.values(statuses(store)).every((s) => s === "active"));
+});
+
+test("deletion safety: running out of budget at the confirmation step pauses there and resumes there", async () => {
+  const { store, youtube } = await syncedChannel(4);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid1");
+
+  // 4 videos at 2 per page were 2 pages; 3 remain, still 2 pages = 4 requests, none left over.
+  const paused = await syncCatalogue(context(store, youtube, { now: WEEK_LATER, budget: 4 }));
+  assert.equal(paused.status, "paused");
+  assert.equal(paused.pages, 2, "the walk itself finished");
+  assert.deepEqual(youtube.lookups, []);
+  assert.equal(store.video("vid1").status, "active");
+  assert.equal((await store.getState(CHANNEL)).catalogueFullSyncedAt, NOW.toISOString());
+
+  youtube.pagesListed = 0;
+  const resumed = await syncCatalogue(
+    context(store, youtube, { now: new Date("2026-10-18T09:00:00Z") }),
+  );
+  assert.equal(resumed.status, "complete");
+  assert.equal(youtube.pagesListed, 0, "the playlist is not walked a second time");
+  assert.deepEqual(youtube.lookups, [["vid1"]]);
+  assert.equal(store.video("vid1").status, "deleted");
+  const state = await store.getState(CHANNEL);
+  assert.equal(state.cataloguePassStartedAt, null);
+  assert.equal(state.cataloguePageToken, null, "no marker is left behind");
+});
+
+test("deletion safety: after a multi-page pass only the genuinely absent ids are looked up", async () => {
+  const { store, youtube } = await syncedChannel(9);
+  youtube.catalogue = youtube.catalogue.filter((v) => !["vid2", "vid7"].includes(v.youtubeVideoId));
+  youtube.addVideo("brandnew", "2026-10-15");
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(result.pages, 4, "8 videos at 2 per page");
+  assert.equal(youtube.lookups.length, 1);
+  assert.deepEqual([...youtube.lookups[0]].sort(), ["vid2", "vid7"]);
+  assert.equal(result.newVideos, 1);
+  assert.equal(store.video("brandnew").status, "active", "a newly discovered video is stored");
+  assert.equal(result.markedDeleted, 2);
+  assert.equal(store.videos.size, 10);
+});
+
+test("deletion safety: a pass that sees every known video makes no lookup at all", async () => {
+  const { store, youtube } = await syncedChannel(5);
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+  assert.equal(result.mode, "full");
+  assert.deepEqual(youtube.lookups, [], "no extra request when nothing is absent");
+  assert.equal(result.absentChecked, 0);
+});
+
+test("deletion safety: videos already marked deleted are not looked up again every week", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid2");
+  await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+  youtube.lookups = [];
+
+  await syncCatalogue(context(store, youtube, { now: new Date("2026-10-26T08:00:00Z") }));
+
+  assert.deepEqual(youtube.lookups, []);
+  assert.equal(store.video("vid2").status, "deleted");
+});
+
+test("deletion safety: a deleted video that reappears in the playlist is restored", async () => {
+  const { store, youtube } = await syncedChannel(3);
+  const removed = youtube.catalogue.find((v) => v.youtubeVideoId === "vid2")!;
+  youtube.catalogue = youtube.catalogue.filter((v) => v !== removed);
+  await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+  assert.equal(store.video("vid2").status, "deleted");
+  const idWhileDeleted = store.video("vid2").id;
+
+  youtube.catalogue.push(removed);
+  await syncCatalogue(context(store, youtube, { now: new Date("2026-10-26T08:00:00Z") }));
+
+  assert.equal(store.video("vid2").status, "active");
+  assert.equal(store.video("vid2").id, idWhileDeleted, "the same row, with its history");
+  assert.equal(store.videos.size, 3);
+});
+
+test("deletion safety: direct lookups are sent in batches of at most 50 ids", async () => {
+  const { store, youtube } = await syncedChannel(120);
+  youtube.pageSize = 50;
+  youtube.catalogue = [];
+
+  const result = await syncCatalogue(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.deepEqual(
+    youtube.lookups.map((ids) => ids.length),
+    [50, 50, 20],
+  );
+  assert.equal(new Set(youtube.lookups.flat()).size, 120, "every id asked exactly once");
+  assert.equal(result.absentChecked, 120);
+  assert.equal(result.markedDeleted, 120);
+});
+
+test("deletion safety: an incremental pass never looks anything up or marks anything", async () => {
+  const { store, youtube } = await syncedChannel(4);
+  youtube.catalogue = youtube.catalogue.filter((v) => v.youtubeVideoId !== "vid1");
+
+  const nextDay = new Date("2026-10-11T08:00:00Z");
+  const result = await syncCatalogue(context(store, youtube, { now: nextDay }));
+
+  assert.equal(result.mode, "incremental");
+  assert.deepEqual(youtube.lookups, []);
+  assert.equal(store.video("vid1").status, "active");
+});
+
+test("deletion safety: a channel whose videos are all gone ends in the same state, now confirmed per video", async () => {
+  // The case seen in production: 8 known videos, a complete and genuinely empty playlist, and a
+  // direct lookup that returns none of them.
+  const { store, youtube } = await syncedChannel(8);
+  youtube.catalogue = [];
+
+  const result = await runChannelSync(context(store, youtube, { now: WEEK_LATER }));
+
+  assert.equal(result.status, "complete");
+  assert.equal(result.catalogue?.videosSeen, 0);
+  assert.equal(youtube.lookups.length, 1, "one request confirms all 8");
+  assert.equal(youtube.lookups[0].length, 8);
+  assert.equal(result.catalogue?.absentChecked, 8);
+  assert.equal(result.catalogue?.stillAvailable, 0);
+  assert.equal(result.catalogue?.markedDeleted, 8);
+  assert.ok(Object.values(statuses(store)).every((s) => s === "deleted"));
+  assert.equal(store.videos.size, 8, "all rows kept");
+  assert.equal((await store.getState(CHANNEL)).catalogueFullSyncedAt, WEEK_LATER.toISOString());
+});
+
+test("deletion safety: the by-id lookup helper asks YouTube once for up to 50 ids and refuses more", async () => {
+  const realFetch = globalThis.fetch;
+  const urls: URL[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    urls.push(new URL(String(input)));
+    return new Response(
+      JSON.stringify({
+        items: [{ id: "keep", snippet: { title: "Kept" }, status: { privacyStatus: "private" } }],
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  try {
+    const api = createStatsSyncApi("token", { youtubeChannelId: "UCx", uploadsPlaylistId: "UUx" });
+    const found = await api.lookupVideos(["keep", "gone"]);
+    assert.equal(urls.length, 1);
+    assert.equal(urls[0].pathname, "/youtube/v3/videos");
+    assert.equal(urls[0].searchParams.get("id"), "keep,gone");
+    assert.deepEqual(
+      found.map((v) => [v.youtubeVideoId, v.privacyStatus]),
+      [["keep", "private"]],
+      "a private video is returned, an id with no video is simply absent",
+    );
+    await assert.rejects(
+      api.lookupVideos(Array.from({ length: 51 }, (_, i) => `id${i}`)),
+      /YOUTUBE_VIDEOS_TOO_MANY_IDS/,
+    );
+    assert.equal(urls.length, 1, "the oversized request was never sent");
+
+    globalThis.fetch = (async () => new Response("{}", { status: 403 })) as typeof fetch;
+    await assert.rejects(api.lookupVideos(["keep"]), /YOUTUBE_VIDEOS_FAILED:403/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 // ============================================================

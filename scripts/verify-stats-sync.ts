@@ -105,10 +105,14 @@ const store: StatsSyncStore = {
       });
     }
   },
-  markVideosNotSeenAsDeleted: async (_id, since) => {
+  listVideosNotSeenSince: async (_id, since) =>
+    [...videos.values()]
+      .filter((video) => video.status !== "deleted" && video.seenAt < since)
+      .map((video) => video.youtubeVideoId),
+  markVideosDeleted: async (_id, youtubeVideoIds) => {
     let count = 0;
     for (const video of videos.values()) {
-      if (video.status !== "deleted" && video.seenAt < since) {
+      if (video.status !== "deleted" && youtubeVideoIds.includes(video.youtubeVideoId)) {
         video.status = "deleted";
         count += 1;
       }

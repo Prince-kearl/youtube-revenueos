@@ -372,6 +372,25 @@ export async function fetchYoutubeVideoById(
   return mapYoutubeVideo(video);
 }
 
+/** Videos looked up directly by id, in any privacy state the token is allowed to see. An id
+ * YouTube has no video for is simply missing from the result. At most 50 ids per call (the
+ * videos.list limit). */
+export async function fetchYoutubeVideosByIds(
+  accessToken: string,
+  videoIds: string[],
+): Promise<YoutubeVideoSummary[]> {
+  if (!videoIds.length) return [];
+  if (videoIds.length > 50) throw new Error("YOUTUBE_VIDEOS_TOO_MANY_IDS");
+  const response = await youtubeApiRequest<{
+    items?: Array<Parameters<typeof mapYoutubeVideo>[0]>;
+  }>(accessToken, "videos", {
+    part: "snippet,contentDetails,statistics,status",
+    id: videoIds.join(","),
+    maxResults: "50",
+  });
+  return (response.items ?? []).map(mapYoutubeVideo);
+}
+
 export type YoutubeVideoPage = {
   videos: YoutubeVideoSummary[];
   // Every video id the uploads playlist listed on this page, including ones filtered out of
