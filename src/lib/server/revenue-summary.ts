@@ -33,6 +33,7 @@ import {
   loadRevenueData,
   nullableNumber,
   type RevenueChannel,
+  type RevenueDataset,
   type RevenueReadContext,
 } from "./revenue-store";
 import { addDays, isoDay } from "./youtube-stats-sync";
@@ -48,7 +49,7 @@ export const MAX_TOP_VIDEOS = 50;
 // Above this many days a daily trend is more points than a chart can use; default to months.
 const DAILY_TREND_MAX_DAYS = 92;
 
-const dayString = z
+export const revenueDayString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   // Rejects dates that look right but do not exist (2026-02-30).
@@ -57,11 +58,16 @@ const dayString = z
     return !Number.isNaN(date.getTime()) && isoDay(date) === value;
   });
 
-const querySchema = z.object({
-  start: dayString.optional(),
-  end: dayString.optional(),
+/** The parameters every revenue endpoint accepts, declared once. */
+export const revenuePeriodParams = {
+  start: revenueDayString.optional(),
+  end: revenueDayString.optional(),
   days: z.coerce.number().int().min(1).max(MAX_PERIOD_DAYS).optional(),
   channelId: z.string().uuid().optional(),
+};
+
+const querySchema = z.object({
+  ...revenuePeriodParams,
   granularity: z.enum(["day", "month"]).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_TOP_VIDEOS).optional(),
 });
@@ -84,7 +90,14 @@ export class RevenueSummaryError extends Error {
   }
 }
 
+/** Query parameters as a plain object; an empty parameter is the same as an absent one. */
+export function readQueryParams(url: URL): Record<string, string> {
+  return Object.fromEntries([...url.searchParams].filter(([, value]) => value !== ""));
+}
+
 /**
+ * The one definition of a requested period, shared by every revenue endpoint.
+ *
  * Dates are YouTube reporting days (YYYY-MM-DD), exactly as stored: YouTube labels a day in
  * Pacific time and those labels are compared as-is, never shifted into another timezone. `today`
  * is the current UTC calendar date and is used only to bound the request and to pick the default
@@ -93,18 +106,12 @@ export class RevenueSummaryError extends Error {
  *   ?start=&end=   an explicit inclusive range
  *   ?days=N        the N days ending on the newest day YouTube is expected to have reported
  *   (nothing)      the same, with N = 28
- *
- * Any query parameter not listed in the schema (including a workspace id) is ignored: the
- * workspace always comes from the session.
  */
-export function parseRevenueSummaryQuery(url: URL, today: string): RevenueSummaryQuery {
-  const raw = Object.fromEntries(
-    [...url.searchParams].filter(([, value]) => value !== "").map(([key, value]) => [key, value]),
-  );
-  const parsed = querySchema.safeParse(raw);
-  if (!parsed.success) throw new RevenueSummaryError("VALIDATION_ERROR", 422);
-  const { start, end, days, channelId, granularity, limit } = parsed.data;
-
+export function resolveRevenuePeriod(
+  input: { start?: string; end?: string; days?: number },
+  today: string,
+): { period: RevenuePeriod; defaulted: boolean } {
+  const { start, end, days } = input;
   // A range needs both ends, and a range and a day count are two different requests.
   if (Boolean(start) !== Boolean(end) || (start && days !== undefined))
     throw new RevenueSummaryError("VALIDATION_ERROR", 422);
@@ -118,9 +125,21 @@ export function parseRevenueSummaryQuery(url: URL, today: string): RevenueSummar
     const endDate = addDays(today, -DEFAULT_REVENUE_METRICS_CONFIG.dataLagDays);
     period = { startDate: addDays(endDate, -((days ?? DEFAULT_PERIOD_DAYS) - 1)), endDate };
   }
+  return { period, defaulted: !start && days === undefined };
+}
+
+/**
+ * Any query parameter not listed in the schema (including a workspace id) is ignored: the
+ * workspace always comes from the session.
+ */
+export function parseRevenueSummaryQuery(url: URL, today: string): RevenueSummaryQuery {
+  const parsed = querySchema.safeParse(readQueryParams(url));
+  if (!parsed.success) throw new RevenueSummaryError("VALIDATION_ERROR", 422);
+  const { channelId, granularity, limit } = parsed.data;
+  const { period, defaulted } = resolveRevenuePeriod(parsed.data, today);
   return {
     period,
-    defaulted: !start && days === undefined,
+    defaulted,
     channelId: channelId ?? null,
     granularity: granularity ?? (periodLengthDays(period) > DAILY_TREND_MAX_DAYS ? "month" : "day"),
     topVideos: limit ?? DEFAULT_TOP_VIDEOS,
@@ -140,7 +159,7 @@ export interface RevenueAmountView {
   unknownDays: number;
 }
 
-function amountView(amount: RevenueAmount): RevenueAmountView {
+export function amountView(amount: RevenueAmount): RevenueAmountView {
   return {
     usd: amount.usd,
     availability: amount.availability,
@@ -384,7 +403,7 @@ export interface RevenueSummaryResponse {
 
 const PAGE_SIZE = 1000;
 
-interface VideoMeta {
+export interface VideoMeta {
   id: string;
   channel_id: string;
   youtube_video_id: string | null;
@@ -400,7 +419,10 @@ function fail(operation: string, error: { code?: string } | null): never {
   throw new Error(`REVENUE_SUMMARY:${operation}`);
 }
 
-async function readVideos(ctx: RevenueReadContext, channelIds: string[]): Promise<VideoMeta[]> {
+export async function readVideos(
+  ctx: RevenueReadContext,
+  channelIds: string[],
+): Promise<VideoMeta[]> {
   const rows: VideoMeta[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await ctx.client
@@ -417,7 +439,7 @@ async function readVideos(ctx: RevenueReadContext, channelIds: string[]): Promis
   }
 }
 
-async function readSyncFacts(
+export async function readSyncFacts(
   ctx: RevenueReadContext,
   channelIds: string[],
   videos: VideoMeta[],
@@ -470,6 +492,66 @@ async function readDeals(ctx: RevenueReadContext): Promise<DealRow[]> {
 }
 
 // ============================================================================================
+// Attribution
+// ============================================================================================
+
+export type AttributionView = RevenueSummaryResponse["videos"]["attribution"];
+
+/**
+ * How much of the channel total is explained by stored video rows, and — per channel — why any
+ * remainder exists. Each channel is reconciled on its own with the same canonical function, only
+ * so its remainder can be explained by that channel's own sync state.
+ */
+export function describeAttribution(
+  dataset: Pick<RevenueDataset, "channels" | "channelRows" | "videoRows">,
+  period: RevenuePeriod,
+  facts: Map<string, ChannelSyncFacts>,
+  reconciliation: RevenueReconciliation,
+): AttributionView {
+  const byChannel = dataset.channels.map(({ id: channelId }) => {
+    const own = reconcilePeriod(
+      dataset.channelRows.filter((row) => row.channelId === channelId),
+      dataset.videoRows.filter((row) => row.channelId === channelId),
+      period,
+    );
+    const channelFacts = facts.get(channelId)!;
+    return {
+      channelId,
+      state: attributionStateFor(own, channelFacts),
+      unattributedViews: own.unattributedViews,
+      unattributedRevenue: amountView(own.unattributedRevenue),
+      videosNoLongerListed: channelFacts.videosNoLongerListed,
+      videosAwaitingHistory: channelFacts.videosAwaitingHistory,
+    };
+  });
+  return {
+    state:
+      ATTRIBUTION_PRIORITY.find((candidate) => byChannel.some((c) => c.state === candidate)) ??
+      "fully_attributed",
+    channelRevenue: amountView(reconciliation.channelRevenue),
+    attributedRevenue: amountView(reconciliation.attributedRevenue),
+    unattributedRevenue: amountView(reconciliation.unattributedRevenue),
+    channelViews: reconciliation.channelViews,
+    attributedViews: reconciliation.attributedViews,
+    unattributedViews: reconciliation.unattributedViews,
+    daysVideosExceedChannel: reconciliation.daysVideosExceedChannel,
+    byChannel,
+  };
+}
+
+export type SyncView = RevenueSummaryResponse["dataQuality"]["sync"];
+
+/** When each channel was last synced, without any raw error text. */
+export function describeSync(channelIds: string[], facts: Map<string, ChannelSyncFacts>): SyncView {
+  return channelIds.map((channelId) => ({
+    channelId,
+    lastStatsSyncAt: facts.get(channelId)!.statsSyncedAt,
+    lastFullCatalogueAt: facts.get(channelId)!.catalogueFullSyncedAt,
+    hasSyncError: facts.get(channelId)!.hasSyncError,
+  }));
+}
+
+// ============================================================================================
 // Build
 // ============================================================================================
 
@@ -513,33 +595,10 @@ export async function buildRevenueSummary(
     : new Map<string, ChannelSyncFacts>();
   const videoById = new Map(videos.map((video) => [video.id, video]));
 
-  // Reconciled per channel with the same canonical function, only so each channel's remainder
-  // can be explained by that channel's own sync state.
-  const byChannel = channelIds.map((channelId) => {
-    const reconciliation = reconcilePeriod(
-      dataset.channelRows.filter((row) => row.channelId === channelId),
-      dataset.videoRows.filter((row) => row.channelId === channelId),
-      query.period,
-    );
-    const channelFacts = facts.get(channelId)!;
-    return {
-      channelId,
-      state: attributionStateFor(reconciliation, channelFacts),
-      unattributedViews: reconciliation.unattributedViews,
-      unattributedRevenue: amountView(reconciliation.unattributedRevenue),
-      videosNoLongerListed: channelFacts.videosNoLongerListed,
-      videosAwaitingHistory: channelFacts.videosAwaitingHistory,
-    };
-  });
-  const state =
-    ATTRIBUTION_PRIORITY.find((candidate) => byChannel.some((c) => c.state === candidate)) ??
-    "fully_attributed";
-
   const deals: RevenueSummaryResponse["deals"] = options.includeDeals
     ? { available: true, byCurrency: summarizeDeals(await readDeals(ctx), query.period) }
     : { available: false, reason: "FEATURE_UNAVAILABLE" };
 
-  const { reconciliation } = summary;
   return {
     status: channelIds.length ? "connected" : "not_connected",
     currency: summary.currency,
@@ -594,28 +653,13 @@ export async function buildRevenueSummary(
         };
       }),
       count: summary.videos.length,
-      attribution: {
-        state,
-        channelRevenue: amountView(reconciliation.channelRevenue),
-        attributedRevenue: amountView(reconciliation.attributedRevenue),
-        unattributedRevenue: amountView(reconciliation.unattributedRevenue),
-        channelViews: reconciliation.channelViews,
-        attributedViews: reconciliation.attributedViews,
-        unattributedViews: reconciliation.unattributedViews,
-        daysVideosExceedChannel: reconciliation.daysVideosExceedChannel,
-        byChannel,
-      },
+      attribution: describeAttribution(dataset, query.period, facts, summary.reconciliation),
     },
     dataQuality: {
       freshness: summary.freshness,
       invalidRows: summary.current.invalidRows,
       negativeRevenueRows: summary.current.negativeRevenueRows,
-      sync: channelIds.map((channelId) => ({
-        channelId,
-        lastStatsSyncAt: facts.get(channelId)!.statsSyncedAt,
-        lastFullCatalogueAt: facts.get(channelId)!.catalogueFullSyncedAt,
-        hasSyncError: facts.get(channelId)!.hasSyncError,
-      })),
+      sync: describeSync(channelIds, facts),
     },
     deals,
   };
@@ -625,7 +669,7 @@ export async function buildRevenueSummary(
 // HTTP
 // ============================================================================================
 
-function json(body: unknown, init?: ResponseInit) {
+export function revenueJson(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
     headers: {
@@ -634,6 +678,17 @@ function json(body: unknown, init?: ResponseInit) {
       ...init?.headers,
     },
   });
+}
+
+/** The response for anything a revenue endpoint throws: an auth Response passes through, a
+ * request error becomes its own status, and anything else is a 500 with a stable code and no
+ * details. */
+export function revenueErrorResponse(error: unknown, label: string): Response {
+  if (error instanceof Response) return error;
+  if (error instanceof RevenueSummaryError)
+    return revenueJson({ error: error.code }, { status: error.status });
+  console.error(label, { message: error instanceof Error ? error.message : "unknown" });
+  return revenueJson({ error: "DATABASE_ERROR" }, { status: 500 });
 }
 
 export interface RevenueSummaryDeps {
@@ -657,14 +712,8 @@ export async function handleRevenueSummaryRequest(
       today,
       includeDeals: await deps.canViewDeals(request),
     });
-    return json({ data });
+    return revenueJson({ data });
   } catch (error) {
-    if (error instanceof Response) return error;
-    if (error instanceof RevenueSummaryError)
-      return json({ error: error.code }, { status: error.status });
-    console.error("Revenue summary failed", {
-      message: error instanceof Error ? error.message : "unknown",
-    });
-    return json({ error: "DATABASE_ERROR" }, { status: 500 });
+    return revenueErrorResponse(error, "Revenue summary failed");
   }
 }

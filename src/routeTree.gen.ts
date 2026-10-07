@@ -91,6 +91,7 @@ import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.cl
 import { Route as ApiReportsExportRouteImport } from './routes/api.reports.export'
 import { Route as ApiReportsSummaryRouteImport } from './routes/api.reports.summary'
 import { Route as ApiRevenueSummaryRouteImport } from './routes/api.revenue.summary'
+import { Route as ApiRevenueVideosRouteImport } from './routes/api.revenue.videos'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe.webhook'
 import { Route as ApiSupportContactRouteImport } from './routes/api.support.contact'
@@ -543,6 +544,11 @@ const ApiRevenueSummaryRoute = ApiRevenueSummaryRouteImport.update({
   path: '/api/revenue/summary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRevenueVideosRoute = ApiRevenueVideosRouteImport.update({
+  id: '/api/revenue/videos',
+  path: '/api/revenue/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSecurityRecoveryCodesRoute =
   ApiSecurityRecoveryCodesRouteImport.update({
     id: '/api/security/recovery-codes',
@@ -829,6 +835,7 @@ export interface FileRoutesByFullPath {
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
+  '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
@@ -952,6 +959,7 @@ export interface FileRoutesByTo {
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
+  '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
@@ -1076,6 +1084,7 @@ export interface FileRoutesById {
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
+  '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/support/contact': typeof ApiSupportContactRoute
@@ -1201,6 +1210,7 @@ export interface FileRouteTypes {
     | '/api/reports/export'
     | '/api/reports/summary'
     | '/api/revenue/summary'
+    | '/api/revenue/videos'
     | '/api/security/recovery-codes'
     | '/api/stripe/webhook'
     | '/api/support/contact'
@@ -1324,6 +1334,7 @@ export interface FileRouteTypes {
     | '/api/reports/export'
     | '/api/reports/summary'
     | '/api/revenue/summary'
+    | '/api/revenue/videos'
     | '/api/security/recovery-codes'
     | '/api/stripe/webhook'
     | '/api/support/contact'
@@ -1447,6 +1458,7 @@ export interface FileRouteTypes {
     | '/api/reports/export'
     | '/api/reports/summary'
     | '/api/revenue/summary'
+    | '/api/revenue/videos'
     | '/api/security/recovery-codes'
     | '/api/stripe/webhook'
     | '/api/support/contact'
@@ -1560,6 +1572,7 @@ export interface RootRouteChildren {
   ApiReportsExportRoute: typeof ApiReportsExportRoute
   ApiReportsSummaryRoute: typeof ApiReportsSummaryRoute
   ApiRevenueSummaryRoute: typeof ApiRevenueSummaryRoute
+  ApiRevenueVideosRoute: typeof ApiRevenueVideosRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiSupportContactRoute: typeof ApiSupportContactRoute
@@ -2163,6 +2176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRevenueSummaryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/revenue/videos': {
+      id: '/api/revenue/videos'
+      path: '/api/revenue/videos'
+      fullPath: '/api/revenue/videos'
+      preLoaderRoute: typeof ApiRevenueVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/security/recovery-codes': {
       id: '/api/security/recovery-codes'
       path: '/api/security/recovery-codes'
@@ -2697,6 +2717,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReportsExportRoute: ApiReportsExportRoute,
   ApiReportsSummaryRoute: ApiReportsSummaryRoute,
   ApiRevenueSummaryRoute: ApiRevenueSummaryRoute,
+  ApiRevenueVideosRoute: ApiRevenueVideosRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiSupportContactRoute: ApiSupportContactRoute,
