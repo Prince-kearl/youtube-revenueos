@@ -243,21 +243,26 @@ test("sync: success and partial behave exactly as before", async () => {
   assert.equal(ok.body.status, "success");
   assert.deepEqual(ok.syncStatuses, ["syncing", "success"]);
 
-  // One optional part fails with a non-authorization error: the sync is "partial".
+  // One optional part fails with a non-authorization error: the sync is "partial". (Only the
+  // channel sync's own listing is refused; the revenue-data sync that follows asks again.)
   const partial = await runRoute(sync, "POST", SYNC, {
-    api: ({ resource }) => (resource === "reports" ? 500 : undefined),
+    api: ({ resource, attempt }) =>
+      resource === "playlistItems" && attempt === 1 ? 500 : undefined,
   });
   assert.equal(partial.body.status, "partial");
   assert.deepEqual(partial.syncStatuses, ["syncing", "partial"]);
   assert.equal(partial.tokenRefreshes, 0);
 });
 
-test("sync: an optional part that keeps answering 401 makes the sync partial, not reauth_required", async () => {
+test("sync: the channel sync asks YouTube Analytics for nothing, so an Analytics 401 cannot make it partial", async () => {
   const run = await runRoute(sync, "POST", SYNC, {
     api: ({ resource }) => (resource === "reports" ? 401 : undefined),
   });
-  assert.equal(run.body.status, "partial");
-  assert.deepEqual(run.syncStatuses, ["syncing", "partial"]);
+  assert.equal(run.body.status, "success");
+  assert.deepEqual(run.syncStatuses, ["syncing", "success"]);
+  assert.equal("analytics" in (run.body.result as Record<string, unknown>), false);
+  // The Analytics failure belongs to the revenue-data sync, which reports it separately.
+  assert.equal((run.body.revenueData as { status: string }).status, "failed");
   assert.deepEqual(run.connectionStatuses, []);
   assert.ok(!everyWrite(run).includes("reauth_required"));
   assert.equal(run.tokenRefreshes, 1);

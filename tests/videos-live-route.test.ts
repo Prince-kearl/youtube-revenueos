@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 // Runs the real GET /api/youtube/videos handler with every outside call (Supabase auth,
 // PostgREST, YouTube Data API, YouTube Analytics) answered by a stub, and records which YouTube
-// Analytics reports it asks for. This shows that the Videos page's request (enrich=0) makes no
-// revenue, CPM or trend request while still returning the full video list, and that every other
-// caller of the route gets exactly what it always got.
+// Analytics reports it asks for. This shows that the route makes no revenue, CPM or trend request
+// for any caller — with or without the old enrich=0 parameter — while still returning the full
+// video list from the YouTube Data API.
 
 const SUPABASE = "https://testref.supabase.co";
 (globalThis as Record<string, unknown>).__env__ = {
@@ -17,7 +17,8 @@ const SUPABASE = "https://testref.supabase.co";
 };
 
 const { encryptSecretToBytea } = await import("../src/lib/server/crypto");
-const { Route, videosWantLiveEnrichment } = await import("../src/routes/api.youtube.videos");
+const videosRoute = await import("../src/routes/api.youtube.videos");
+const { Route } = videosRoute;
 
 const CHANNEL_ROW = "aaaaaaaa-0000-4000-8000-000000000001";
 const USER = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -183,16 +184,8 @@ async function callVideos(query: string) {
   }
 }
 
-test("the opt-out is exactly enrich=0", () => {
-  const wants = (query: string) =>
-    videosWantLiveEnrichment(new URL(`https://app.test/api/youtube/videos${query}`));
-  assert.equal(wants(""), true);
-  assert.equal(wants("?limit=50"), true);
-  assert.equal(wants("?enrich=1"), true);
-  assert.equal(wants("?enrich="), true);
-  assert.equal(wants("?revenue=0"), true, "another route's parameter does not apply here");
-  assert.equal(wants("?limit=50&enrich=0"), false);
-  assert.equal(wants("?pageToken=abc&limit=50&enrich=0"), false);
+test("the live-enrichment switch is gone: there is nothing left to opt out of", () => {
+  assert.equal("videosWantLiveEnrichment" in videosRoute, false);
 });
 
 test("the Videos page's request (enrich=0) makes no YouTube Analytics request at all", async () => {
@@ -220,44 +213,27 @@ test("with enrich=0 the video list is complete: identity, thumbnail, views, like
   assert.equal(first.likes, 7);
   assert.equal(first.duration, "4:05");
   assert.equal(first.url, "https://www.youtube.com/watch?v=VIDEOAAAAA1");
-  // The enrichment fields are present but empty: nothing is fabricated.
+  // The old enrichment fields are gone from the response altogether.
   for (const item of data.videos)
-    assert.deepEqual(
-      [item.estimatedRevenue, item.cpm, item.changePercent, item.status],
-      [null, null, null, null],
-    );
-  assert.equal(data.revenueAvailable, false);
+    for (const field of ["estimatedRevenue", "cpm", "changePercent", "status"])
+      assert.equal(field in item, false, field);
+  assert.equal("revenueAvailable" in data, false);
 });
 
-test("every other caller (no parameter) still gets the live enrichment, unchanged", async () => {
-  const live = await callVideos("?limit=50");
-  const off = await callVideos("?limit=50&enrich=0");
-  assert.equal(live.status, 200);
-  assert.deepEqual(
-    live.analytics.map((call) => `${call.metrics} by ${call.dimensions}`),
-    ["views,estimatedRevenue,cpm by video", "views by video", "views by video"],
-  );
-  assert.ok(live.analytics.every((call) => call.filters?.startsWith("video==")));
-  assert.equal(live.data.revenueAvailable, true);
-  const top = live.data.videos.find((v) => v.id === "VIDEOCCCCC3")!;
-  assert.equal(top.estimatedRevenue, 30);
-  assert.equal(top.cpm, 30);
-  assert.equal(top.status, "Top Performer");
-  // Same list and same response shape either way: the opt-out removes requests, not fields.
-  assert.deepEqual(Object.keys(off.data).sort(), Object.keys(live.data).sort());
-  assert.deepEqual(Object.keys(off.data.videos[0]).sort(), Object.keys(live.data.videos[0]).sort());
-  const identity = (v: ListedVideo) => [
-    v.id,
-    v.title,
-    v.thumbnail,
-    v.views,
-    v.likes,
-    v.duration,
-    v.url,
-  ];
-  assert.deepEqual(off.data.videos.map(identity), live.data.videos.map(identity));
-  assert.deepEqual(off.dataApi, live.dataApi);
-  assert.equal(live.analytics.length - off.analytics.length, 3, "three Analytics requests fewer");
+test("every other caller (no parameter) gets the same list and makes no Analytics request either", async () => {
+  const plain = await callVideos("?limit=50");
+  const withOptOut = await callVideos("?limit=50&enrich=0");
+  assert.equal(plain.status, 200);
+  assert.deepEqual(plain.analytics, [], "search, Add Video and AI Lab cost no Analytics request");
+  assert.deepEqual(plain.dataApi, ["channels", "playlistItems", "videos"]);
+  assert.deepEqual(plain.data, withOptOut.data);
+  assert.deepEqual(plain.dataApi, withOptOut.dataApi);
+});
+
+test("the route's source makes no YouTube Analytics request and names no revenue or CPM metric", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync("src/routes/api.youtube.videos.ts", "utf8");
+  assert.doesNotMatch(source, /queryYoutubeAnalytics|estimatedRevenue|\bcpm\b/);
 });
 
 test("search, Add Video and AI Lab still call the route without the opt-out", async () => {

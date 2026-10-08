@@ -112,32 +112,6 @@ export function optionalSectionFailureStatus(error: unknown): AnalyticsAvailabil
   return safeProviderReason(error) === "403" ? "forbidden" : "unavailable";
 }
 
-// cpm is a rate, not additive — summing a month's worth of daily cpm values (what
-// mergeAnalyticsReports does for real additive metrics like views/revenue) would produce a
-// meaningless inflated number, so it gets its own averaging pass instead of going through that
-// function.
-function averageCpmByMonth(payload: AnalyticsPayload | null): Map<string, number> {
-  const result = new Map<string, number>();
-  if (!payload?.columnHeaders?.length) return result;
-  const headers = payload.columnHeaders.map((header) => header.name);
-  const dayIndex = headers.indexOf("day");
-  const cpmIndex = headers.indexOf("cpm");
-  if (dayIndex < 0 || cpmIndex < 0) return result;
-
-  const sums = new Map<string, { total: number; count: number }>();
-  for (const row of payload.rows ?? []) {
-    const month = String(row[dayIndex] ?? "").slice(0, 7);
-    const value = row[cpmIndex];
-    if (month.length !== 7 || typeof value !== "number") continue;
-    const entry = sums.get(month) ?? { total: 0, count: 0 };
-    entry.total += value;
-    entry.count += 1;
-    sums.set(month, entry);
-  }
-  for (const [month, { total, count }] of sums) result.set(month, total / count);
-  return result;
-}
-
 function mergeAnalyticsReports(
   ...payloads: Array<AnalyticsPayload | null>
 ): AnalyticsPayload | null {
@@ -191,19 +165,6 @@ function mergeAnalyticsReports(
   return { columnHeaders: headers.map((name) => ({ name })), rows: sortedRows };
 }
 
-/**
- * Whether this request wants the live revenue reports (estimatedRevenue by day, cpm by day, and
- * the top-videos-by-revenue report with its two trend queries).
- *
- * The Dashboard page no longer shows live revenue — it reads stored revenue from
- * /api/revenue/summary and /api/revenue/videos — so it asks for `?revenue=0` and those five
- * YouTube Analytics requests are simply not made. Every other caller is unaffected: without the
- * parameter the response is exactly what it has always been.
- */
-export function dashboardWantsLiveRevenue(url: URL): boolean {
-  return url.searchParams.get("revenue") !== "0";
-}
-
 export const Route = createFileRoute("/api/youtube/dashboard")({
   server: {
     handlers: {
@@ -215,7 +176,6 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
-          const includeRevenue = dashboardWantsLiveRevenue(requestUrl);
           const cacheHeaders = forceRefresh ? { "Cache-Control": "private, no-store" } : undefined;
           let channelQuery = client
 
@@ -296,15 +256,12 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           let analytics: AnalyticsPayload | null = null;
           let analyticsRequestSucceeded = false;
           let analyticsStatus: AnalyticsAvailability = "available";
-          let revenueStatus: AnalyticsAvailability = "available";
           let watchTimeStatus: AnalyticsAvailability = "available";
-          let cpmStatus: AnalyticsAvailability = "available";
-          let cpmByMonth: Array<{ month: string; cpm: number }> = [];
+          // Revenue is not requested here: every page reads it from the canonical revenue API
+          // (/api/revenue/summary, /api/revenue/videos), which serves stored data.
           if (!settings.import_analytics) {
             analyticsStatus = "disabled";
-            revenueStatus = "disabled";
             watchTimeStatus = "disabled";
-            cpmStatus = "disabled";
           } else {
             let coreAnalytics: AnalyticsPayload | null = null;
             try {
@@ -320,28 +277,6 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               analyticsStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("analytics_core", channelRow.user_id, channelRow.id, error);
             }
-            let revenue: AnalyticsPayload | null = null;
-            if (!includeRevenue) revenueStatus = "disabled";
-            else
-              try {
-                revenue = (await queryYoutubeAnalytics(accessToken, {
-                  channelId: channel.channelId,
-                  startDate: isoDate(startDate),
-                  endDate: isoDate(endDate),
-                  // estimatedAdRevenue / estimatedRedPartnerRevenue (YouTube Premium's revenue
-                  // share) are real per-source breakdowns YouTube itself reports — used by the
-                  // Revenue Split card. Anything not covered by those two (Shorts fund, Super
-                  // Chat/Thanks, etc.) is shown there as "Other", computed client-side as the
-                  // remainder against estimatedRevenue rather than fabricated categories YouTube
-                  // doesn't actually track (e.g. brand deals, affiliate links).
-                  metrics: ["estimatedRevenue", "estimatedAdRevenue", "estimatedRedPartnerRevenue"],
-                  dimensions: ["day"],
-                })) as AnalyticsPayload;
-                analyticsRequestSucceeded = true;
-              } catch (error) {
-                revenueStatus = optionalSectionFailureStatus(error);
-                logOptionalFailure("analytics_revenue", channelRow.user_id, channelRow.id, error);
-              }
             let watchTime: AnalyticsPayload | null = null;
             try {
               watchTime = (await queryYoutubeAnalytics(accessToken, {
@@ -356,36 +291,13 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               watchTimeStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("analytics_watch_time", channelRow.user_id, channelRow.id, error);
             }
-            // cpm belongs to a different YouTube Analytics metric group than estimatedRevenue and
-            // can't be requested in the same call — see averageCpmByMonth for why it's aggregated
-            // separately from the additive metrics above too.
-            let cpmPayload: AnalyticsPayload | null = null;
-            if (!includeRevenue) cpmStatus = "disabled";
-            else
-              try {
-                cpmPayload = (await queryYoutubeAnalytics(accessToken, {
-                  channelId: channel.channelId,
-                  startDate: isoDate(startDate),
-                  endDate: isoDate(endDate),
-                  metrics: ["cpm"],
-                  dimensions: ["day"],
-                })) as AnalyticsPayload;
-                analyticsRequestSucceeded = true;
-              } catch (error) {
-                cpmStatus = optionalSectionFailureStatus(error);
-                logOptionalFailure("analytics_cpm", channelRow.user_id, channelRow.id, error);
-              }
-            cpmByMonth = [...averageCpmByMonth(cpmPayload)].map(([month, cpm]) => ({ month, cpm }));
-            if (cpmStatus === "available" && !cpmByMonth.length) cpmStatus = "unavailable";
-            analytics = mergeAnalyticsReports(coreAnalytics, revenue, watchTime);
+            analytics = mergeAnalyticsReports(coreAnalytics, watchTime);
             // Only downgrades a still-"available" status (the request succeeded but came back
             // empty) — must not run when the catch blocks above already classified the failure as
             // a failure, since the payload is null there too and this would otherwise silently
             // relabel that failure as "no data reported".
             if (analyticsStatus === "available" && !coreAnalytics?.rows?.length)
               analyticsStatus = "unavailable";
-            if (revenueStatus === "available" && !revenue?.rows?.length)
-              revenueStatus = "unavailable";
             if (watchTimeStatus === "available" && !watchTime?.rows?.length)
               watchTimeStatus = "unavailable";
           }
@@ -394,7 +306,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               user_id: channelRow.user_id,
               channel_id: channelRow.id,
               operation: "reports.query",
-              quota_units: includeRevenue ? 4 : 2,
+              quota_units: 2,
               succeeded: analyticsRequestSucceeded,
             });
           }
@@ -553,102 +465,6 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             });
           }
 
-          // Top Revenue Videos — ranked over the same 12-month window as the rest of the
-          // dashboard via YouTube Analytics' "video" dimension (one row per video, no per-video
-          // filtering needed). "Change" is a separate, more recent signal: trailing-30-days views
-          // vs the 30 days before that, for just these top videos — a longer ranking window and a
-          // shorter trend window answer different questions, so they're intentionally not the same
-          // date range.
-          let topRevenueVideosStatus: AnalyticsAvailability =
-            settings.import_analytics && includeRevenue ? "available" : "disabled";
-          let topRevenueVideos: Array<{
-            videoId: string;
-            views: number;
-            revenue: number;
-            changePercent: number | null;
-          }> = [];
-          if (topRevenueVideosStatus === "available") {
-            try {
-              const revenuePayload = (await queryYoutubeAnalytics(accessToken, {
-                channelId: channel.channelId,
-                startDate: isoDate(startDate),
-                endDate: isoDate(endDate),
-                metrics: ["views", "estimatedRevenue"],
-                dimensions: ["video"],
-                sort: "-estimatedRevenue",
-                maxResults: 10,
-              })) as AnalyticsPayload;
-              const revenueRows = analyticsRows(revenuePayload)
-                .map((row) => ({
-                  videoId: String(row.video ?? ""),
-                  views: Number(row.views ?? 0),
-                  revenue: Number(row.estimatedRevenue ?? 0),
-                }))
-                .filter((row) => row.videoId && row.revenue > 0);
-
-              if (revenueRows.length) {
-                const trendEnd = new Date();
-                const trendStart = new Date();
-                trendStart.setUTCDate(trendStart.getUTCDate() - 30);
-                const prevTrendEnd = new Date(trendStart);
-                const prevTrendStart = new Date(trendStart);
-                prevTrendStart.setUTCDate(prevTrendStart.getUTCDate() - 30);
-                const videoIdFilter = revenueRows.map((row) => row.videoId).join(",");
-
-                const [currentTrendPayload, prevTrendPayload] = await Promise.all([
-                  queryYoutubeAnalytics(accessToken, {
-                    channelId: channel.channelId,
-                    startDate: isoDate(trendStart),
-                    endDate: isoDate(trendEnd),
-                    metrics: ["views"],
-                    dimensions: ["video"],
-                    filters: `video==${videoIdFilter}`,
-                  }).catch(() => null) as Promise<AnalyticsPayload | null>,
-                  queryYoutubeAnalytics(accessToken, {
-                    channelId: channel.channelId,
-                    startDate: isoDate(prevTrendStart),
-                    endDate: isoDate(prevTrendEnd),
-                    metrics: ["views"],
-                    dimensions: ["video"],
-                    filters: `video==${videoIdFilter}`,
-                  }).catch(() => null) as Promise<AnalyticsPayload | null>,
-                ]);
-                const currentTrendById = new Map(
-                  analyticsRows(currentTrendPayload).map((row) => [
-                    String(row.video ?? ""),
-                    Number(row.views ?? 0),
-                  ]),
-                );
-                const prevTrendById = new Map(
-                  analyticsRows(prevTrendPayload).map((row) => [
-                    String(row.video ?? ""),
-                    Number(row.views ?? 0),
-                  ]),
-                );
-
-                topRevenueVideos = revenueRows.map((row) => {
-                  const prevViews = prevTrendById.get(row.videoId) ?? 0;
-                  const currentViews = currentTrendById.get(row.videoId) ?? 0;
-                  const changePercent =
-                    prevViews > 0 ? ((currentViews - prevViews) / prevViews) * 100 : null;
-                  return { ...row, changePercent };
-                });
-              } else {
-                topRevenueVideosStatus = "unavailable";
-              }
-            } catch (error) {
-              topRevenueVideosStatus = optionalSectionFailureStatus(error);
-              logOptionalFailure("top_revenue_videos", channelRow.user_id, channelRow.id, error);
-            }
-            recordQuotaEvent(serviceClient, {
-              user_id: channelRow.user_id,
-              channel_id: channelRow.id,
-              operation: "reports.query.top_revenue_videos",
-              quota_units: 3,
-              succeeded: topRevenueVideosStatus === "available",
-            });
-          }
-
           const { error: channelSyncError } = await client
             .from("youtube_channels")
             .update({
@@ -701,30 +517,23 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 videosStatus,
                 analytics: analyticsRows(analytics),
                 analyticsStatus,
-                revenueStatus,
                 watchTimeStatus,
-                cpmByMonth,
-                cpmStatus,
                 audience: { topCountries, ageGroups, genders },
                 audienceStatus,
                 videoInsights: { subscribersGained: videoSubscribersGained, devices: deviceViews },
                 videoInsightsStatus,
                 engagementHeatmap,
                 engagementHeatmapStatus,
-                topRevenueVideos,
-                topRevenueVideosStatus,
                 fetchedAt,
                 meta: { lastUpdated: fetchedAt },
                 sections: {
                   channel: { available: true },
                   videos: { available: videosStatus === "available" },
                   analytics: { available: analyticsStatus === "available" },
-                  revenue: { available: revenueStatus === "available" },
                   watchTime: { available: watchTimeStatus === "available" },
                   audience: { available: audienceStatus === "available" },
                   videoInsights: { available: videoInsightsStatus === "available" },
                   engagementHeatmap: { available: engagementHeatmapStatus === "available" },
-                  topRevenueVideos: { available: topRevenueVideosStatus === "available" },
                 },
               },
             },

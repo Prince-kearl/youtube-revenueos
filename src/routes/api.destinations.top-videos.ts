@@ -23,7 +23,7 @@ function withCookies(response: Response, setCookieHeaders: string[]) {
 
 // Top 3 videos (by click count) that sent traffic to one destination — aggregated here in JS
 // rather than a SQL view/RPC, matching how this codebase already aggregates YouTube Analytics
-// rows (see aggregateYoutubeAnalyticsByMonth in google-oauth.ts) rather than reaching for a
+// rows rather than reaching for a
 // database function for a one-off report. RLS (via tracking_links.workspace_id) scopes the read
 // to this workspace's own click events without any extra filtering here.
 //

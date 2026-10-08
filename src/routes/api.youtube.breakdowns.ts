@@ -53,18 +53,8 @@ function safeReason(error: unknown): string {
   return error.message.match(/:(\d{3})(?::|$)/)?.[1] ?? error.message.split(":")[0].slice(0, 80);
 }
 
-/**
- * Whether this request wants live per-video revenue in the video breakdown.
- *
- * The Analytics page reads each video's earnings from /api/revenue/videos (stored data), so it
- * sends `videoRevenue=0` and the video breakdown asks YouTube for views and watch time only.
- * Without the parameter the route behaves exactly as it always has. Traffic-source revenue is not
- * affected either way: it has no stored equivalent.
- */
-export function breakdownWantsLiveVideoRevenue(url: URL): boolean {
-  return url.searchParams.get("videoRevenue") !== "0";
-}
-
+// The traffic-source breakdown asks for revenue because it has no stored equivalent. The video
+// breakdown does not: each video's earnings come from /api/revenue/videos (stored data).
 async function queryBreakdown(
   accessToken: string,
   channelId: string,
@@ -157,7 +147,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
               startDate,
               endDate,
               "video",
-              breakdownWantsLiveVideoRevenue(requestUrl),
+              false,
             ),
             queryBreakdown(
               accessToken,

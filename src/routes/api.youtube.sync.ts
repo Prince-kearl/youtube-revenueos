@@ -8,12 +8,9 @@ import {
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
-  aggregateYoutubeAnalyticsByMonth,
   fetchAuthorizedYoutubeChannel,
   fetchRecentYoutubeComments,
   fetchRecentYoutubeVideos,
-  queryYoutubeAnalytics,
-  type YoutubeAnalyticsPayload,
   type YoutubeVideoSummary,
 } from "@/lib/server/google-oauth";
 import {
@@ -52,10 +49,6 @@ function json(body: unknown, init?: ResponseInit) {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
-}
-
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function parseChapters(description: string | null, durationSeconds: number | null) {
@@ -112,7 +105,6 @@ async function syncChannel(
   const settings = await loadSettings(service, channel.id);
   const result = {
     videos: "skipped",
-    analytics: "skipped",
     comments: "skipped",
     chapters: "skipped",
   } as Record<string, string>;
@@ -142,6 +134,8 @@ async function syncChannel(
       })
       .eq("id", channel.id);
 
+    // Channel statistics and revenue are not collected here: the stored revenue-data sync
+    // (youtube-stats-sync.ts, run right after this) is the one source for them.
     let videos: YoutubeVideoSummary[] = [];
     if (settings.auto_sync_videos || settings.sync_comments || settings.import_chapters) {
       try {
@@ -177,35 +171,6 @@ async function syncChannel(
       } catch {
         result.videos = "failed";
         failures.push("videos");
-      }
-    }
-
-    if (settings.import_analytics) {
-      try {
-        const endDate = new Date();
-        const startDate = new Date(endDate);
-        startDate.setUTCMonth(startDate.getUTCMonth() - 12);
-        const periodStart = isoDate(startDate);
-        const periodEnd = isoDate(endDate);
-        const dailyPayload = (await queryYoutubeAnalytics(accessToken, {
-          channelId: liveChannel.channelId,
-          startDate: periodStart,
-          endDate: periodEnd,
-          metrics: ["views", "estimatedRevenue", "subscribersGained", "estimatedMinutesWatched"],
-          dimensions: ["day"],
-        })) as YoutubeAnalyticsPayload;
-        const payload = aggregateYoutubeAnalyticsByMonth(dailyPayload);
-        const { error } = await service
-          .from("youtube_analytics_snapshots")
-          .upsert(
-            { channel_id: channel.id, period_start: periodStart, period_end: periodEnd, payload },
-            { onConflict: "channel_id,period_start,period_end" },
-          );
-        if (error) throw new Error("analytics");
-        result.analytics = "success";
-      } catch {
-        result.analytics = "failed";
-        failures.push("analytics");
       }
     }
 

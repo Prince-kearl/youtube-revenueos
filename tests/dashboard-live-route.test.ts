@@ -3,8 +3,9 @@ import { test } from "node:test";
 
 // Runs the real GET /api/youtube/dashboard handler with every outside call (Supabase auth,
 // PostgREST, YouTube Data API, YouTube Analytics) answered by a stub, and records exactly which
-// YouTube Analytics reports it asks for. This is what shows that the Dashboard page's request
-// (revenue=0) makes no live revenue request, while every other caller gets what it always got.
+// YouTube Analytics reports it asks for. This is what shows that the route makes no live revenue
+// or CPM request for anyone: revenue is read from the canonical revenue API (stored data), and
+// the old revenue=0 opt-out the pages still send is simply ignored.
 
 const SUPABASE = "https://testref.supabase.co";
 (globalThis as Record<string, unknown>).__env__ = {
@@ -16,7 +17,8 @@ const SUPABASE = "https://testref.supabase.co";
 };
 
 const { encryptSecretToBytea } = await import("../src/lib/server/crypto");
-const { Route, dashboardWantsLiveRevenue } = await import("../src/routes/api.youtube.dashboard");
+const dashboardRoute = await import("../src/routes/api.youtube.dashboard");
+const { Route } = dashboardRoute;
 
 const CHANNEL_ROW = "aaaaaaaa-0000-4000-8000-000000000001";
 const USER = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -141,16 +143,8 @@ async function callDashboard(query: string) {
 const isRevenueCall = (call: AnalyticsCall) =>
   /estimatedRevenue|estimatedAdRevenue|estimatedRedPartnerRevenue|cpm/i.test(call.metrics);
 
-test("the opt-out is exactly revenue=0", () => {
-  const wants = (query: string) =>
-    dashboardWantsLiveRevenue(new URL(`https://app.test/api/youtube/dashboard${query}`));
-  assert.equal(wants(""), true);
-  assert.equal(wants("?channelId=x"), true);
-  assert.equal(wants("?revenue=1"), true);
-  assert.equal(wants("?revenue="), true);
-  assert.equal(wants("?revenue=false"), true, "only the literal 0 switches revenue off");
-  assert.equal(wants("?revenue=0"), false);
-  assert.equal(wants("?channelId=x&revenue=0&refresh=1"), false);
+test("the live-revenue switch is gone: there is nothing left to opt out of", () => {
+  assert.equal("dashboardWantsLiveRevenue" in dashboardRoute, false);
 });
 
 test("the Dashboard page's request (revenue=0) asks YouTube for no revenue report at all", async () => {
@@ -173,11 +167,18 @@ test("the Dashboard page's request (revenue=0) asks YouTube for no revenue repor
       "views,subscribersGained by day",
     ].sort(),
   );
-  assert.equal(data.revenueStatus, "disabled");
-  assert.equal(data.cpmStatus, "disabled");
-  assert.deepEqual(data.cpmByMonth, []);
-  assert.equal(data.topRevenueVideosStatus, "disabled");
-  assert.deepEqual(data.topRevenueVideos, []);
+  // The response no longer carries the live revenue fields at all.
+  for (const field of [
+    "revenueStatus",
+    "cpmStatus",
+    "cpmByMonth",
+    "topRevenueVideos",
+    "topRevenueVideosStatus",
+  ])
+    assert.equal(field in data, false, field);
+  const sections = data.sections as Record<string, unknown>;
+  assert.equal("revenue" in sections, false);
+  assert.equal("topRevenueVideos" in sections, false);
 });
 
 test("with revenue=0 the non-revenue Dashboard data is still all there", async () => {
@@ -199,25 +200,25 @@ test("with revenue=0 the non-revenue Dashboard data is still all there", async (
   assert.ok(Array.isArray(data.videos));
 });
 
-test("every other caller (no parameter) still gets the live revenue reports, unchanged", async () => {
-  const live = await callDashboard("");
-  const off = await callDashboard("?revenue=0");
-  assert.equal(live.status, 200);
-  const revenueCalls = live.analytics
-    .filter(isRevenueCall)
-    .map((c) => `${c.metrics} by ${c.dimensions}`);
-  assert.deepEqual(revenueCalls.sort(), [
-    "cpm by day",
-    "estimatedRevenue,estimatedAdRevenue,estimatedRedPartnerRevenue by day",
-    "views,estimatedRevenue by video",
-  ]);
-  assert.equal(live.data.revenueStatus, "available");
-  assert.equal(live.data.cpmStatus, "available");
-  const rows = live.data.analytics as Array<Record<string, unknown>>;
-  assert.equal(rows[0].estimatedRevenue, 5);
-  // Same response shape either way: the opt-out removes requests, not fields.
-  assert.deepEqual(Object.keys(off.data).sort(), Object.keys(live.data).sort());
-  assert.equal(live.analytics.length - off.analytics.length, 3, "three reports fewer here");
-  // The route's own bookkeeping writes are the same with and without revenue.
-  assert.deepEqual([...new Set(off.writes)].sort(), [...new Set(live.writes)].sort());
+test("without the parameter the route makes exactly the same requests: no live revenue for anyone", async () => {
+  const plain = await callDashboard("");
+  const withOptOut = await callDashboard("?revenue=0");
+  assert.equal(plain.status, 200);
+  assert.deepEqual(plain.analytics.filter(isRevenueCall), [], "no revenue or CPM metric");
+  assert.ok(!plain.analytics.some((call) => call.dimensions === "video"));
+  const requests = (run: typeof plain) =>
+    run.analytics.map((call) => `${call.metrics} by ${call.dimensions}`).sort();
+  assert.deepEqual(requests(plain), requests(withOptOut));
+  assert.equal(plain.analytics.length, 6, "the six non-revenue reports the cards need");
+  assert.deepEqual(Object.keys(plain.data).sort(), Object.keys(withOptOut.data).sort());
+  const rows = plain.data.analytics as Array<Record<string, unknown>>;
+  assert.ok(!("estimatedRevenue" in rows[0]), "no revenue column in the trend rows");
+  assert.deepEqual([...new Set(plain.writes)].sort(), [...new Set(withOptOut.writes)].sort());
+});
+
+test("the route's source asks YouTube Analytics for no revenue or CPM metric", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync("src/routes/api.youtube.dashboard.ts", "utf8");
+  assert.doesNotMatch(source, /estimatedRevenue|estimatedAdRevenue|RedPartner|"cpm"|cpmByMonth/);
+  assert.doesNotMatch(source, /topRevenueVideos/);
 });

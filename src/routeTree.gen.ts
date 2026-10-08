@@ -102,7 +102,6 @@ import { Route as ApiVideosOptimizeRouteImport } from './routes/api.videos.optim
 import { Route as ApiWorkspaceBrandingRouteImport } from './routes/api.workspace.branding'
 import { Route as ApiWorkspaceDomainRouteImport } from './routes/api.workspace.domain'
 import { Route as ApiWorkspaceMembersRouteImport } from './routes/api.workspace.members'
-import { Route as ApiYoutubeAnalyticsRouteImport } from './routes/api.youtube.analytics'
 import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
 import { Route as ApiYoutubeAudienceRouteImport } from './routes/api.youtube.audience'
 import { Route as ApiYoutubeAuthRouteImport } from './routes/api.youtube.auth'
@@ -600,11 +599,6 @@ const ApiWorkspaceMembersRoute = ApiWorkspaceMembersRouteImport.update({
   path: '/api/workspace/members',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeAnalyticsRoute = ApiYoutubeAnalyticsRouteImport.update({
-  id: '/api/youtube/analytics',
-  path: '/api/youtube/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiYoutubeAnalyzeVideoRoute = ApiYoutubeAnalyzeVideoRouteImport.update({
   id: '/api/youtube/analyze-video',
   path: '/api/youtube/analyze-video',
@@ -846,7 +840,6 @@ export interface FileRoutesByFullPath {
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
-  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
@@ -970,7 +963,6 @@ export interface FileRoutesByTo {
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
-  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
@@ -1095,7 +1087,6 @@ export interface FileRoutesById {
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
-  '/api/youtube/analytics': typeof ApiYoutubeAnalyticsRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
   '/api/youtube/audience': typeof ApiYoutubeAudienceRoute
   '/api/youtube/auth': typeof ApiYoutubeAuthRoute
@@ -1221,7 +1212,6 @@ export interface FileRouteTypes {
     | '/api/workspace/branding'
     | '/api/workspace/domain'
     | '/api/workspace/members'
-    | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
     | '/api/youtube/audience'
     | '/api/youtube/auth'
@@ -1345,7 +1335,6 @@ export interface FileRouteTypes {
     | '/api/workspace/branding'
     | '/api/workspace/domain'
     | '/api/workspace/members'
-    | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
     | '/api/youtube/audience'
     | '/api/youtube/auth'
@@ -1469,7 +1458,6 @@ export interface FileRouteTypes {
     | '/api/workspace/branding'
     | '/api/workspace/domain'
     | '/api/workspace/members'
-    | '/api/youtube/analytics'
     | '/api/youtube/analyze-video'
     | '/api/youtube/audience'
     | '/api/youtube/auth'
@@ -1580,7 +1568,6 @@ export interface RootRouteChildren {
   ApiWorkspaceBrandingRoute: typeof ApiWorkspaceBrandingRoute
   ApiWorkspaceDomainRoute: typeof ApiWorkspaceDomainRoute
   ApiWorkspaceMembersRoute: typeof ApiWorkspaceMembersRoute
-  ApiYoutubeAnalyticsRoute: typeof ApiYoutubeAnalyticsRoute
   ApiYoutubeAnalyzeVideoRoute: typeof ApiYoutubeAnalyzeVideoRoute
   ApiYoutubeAudienceRoute: typeof ApiYoutubeAudienceRoute
   ApiYoutubeAuthRoute: typeof ApiYoutubeAuthRoute
@@ -2253,13 +2240,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWorkspaceMembersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/analytics': {
-      id: '/api/youtube/analytics'
-      path: '/api/youtube/analytics'
-      fullPath: '/api/youtube/analytics'
-      preLoaderRoute: typeof ApiYoutubeAnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/youtube/analyze-video': {
       id: '/api/youtube/analyze-video'
       path: '/api/youtube/analyze-video'
@@ -2725,7 +2705,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWorkspaceBrandingRoute: ApiWorkspaceBrandingRoute,
   ApiWorkspaceDomainRoute: ApiWorkspaceDomainRoute,
   ApiWorkspaceMembersRoute: ApiWorkspaceMembersRoute,
-  ApiYoutubeAnalyticsRoute: ApiYoutubeAnalyticsRoute,
   ApiYoutubeAnalyzeVideoRoute: ApiYoutubeAnalyzeVideoRoute,
   ApiYoutubeAudienceRoute: ApiYoutubeAudienceRoute,
   ApiYoutubeAuthRoute: ApiYoutubeAuthRoute,

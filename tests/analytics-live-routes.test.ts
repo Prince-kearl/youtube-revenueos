@@ -3,9 +3,10 @@ import { test } from "node:test";
 
 // Runs the real live YouTube route handlers the Analytics page still calls, with every outside
 // call (Supabase auth, PostgREST, YouTube Data API, YouTube Analytics) answered by a stub, and
-// records exactly which YouTube Analytics reports they ask for. This shows that the Analytics
-// page's requests (revenue=0 / videoRevenue=0) make no live revenue or CPM request for the
-// surfaces that now read stored revenue, while the non-revenue data still arrives.
+// records exactly which YouTube Analytics reports they ask for. This shows that neither route
+// makes a live revenue or CPM request for the surfaces that read stored revenue — with or without
+// the old revenue=0 / videoRevenue=0 parameters — while the non-revenue data still arrives and
+// traffic sources keep the live revenue that has no stored equivalent.
 
 const SUPABASE = "https://testref.supabase.co";
 (globalThis as Record<string, unknown>).__env__ = {
@@ -164,9 +165,8 @@ test("the Analytics KPI request (revenue=0) makes no revenue and no CPM request"
   assert.equal(status, 200);
   assert.deepEqual(analytics.filter(wantsRevenue), []);
   assert.deepEqual(analytics.filter(wantsCpm), [], "the daily CPM report is not requested");
-  assert.equal(data.cpmStatus, "disabled");
-  assert.deepEqual(data.cpmByMonth, []);
-  assert.equal(data.revenueStatus, "disabled");
+  for (const field of ["cpmStatus", "cpmByMonth", "revenueStatus"])
+    assert.equal(field in data, false, `${field} is no longer part of the response`);
 });
 
 test("views and watch time for the KPI row still arrive with revenue switched off", async () => {
@@ -182,17 +182,8 @@ test("views and watch time for the KPI row still arrive with revenue switched of
 
 // ---------- tables: /api/youtube/breakdowns?videoRevenue=0 ----------
 
-test("the opt-out is exactly videoRevenue=0", () => {
-  const wants = (query: string) =>
-    breakdowns.breakdownWantsLiveVideoRevenue(
-      new URL(`https://app.test/api/youtube/breakdowns${query}`),
-    );
-  assert.equal(wants(""), true);
-  assert.equal(wants("?range=12M"), true);
-  assert.equal(wants("?videoRevenue=1"), true);
-  assert.equal(wants("?videoRevenue="), true);
-  assert.equal(wants("?revenue=0"), true, "the dashboard route's parameter does not apply here");
-  assert.equal(wants("?range=12M&videoRevenue=0"), false);
+test("the per-video revenue switch is gone: there is nothing left to opt out of", () => {
+  assert.equal("breakdownWantsLiveVideoRevenue" in breakdowns, false);
 });
 
 test("the Analytics breakdown request (videoRevenue=0) asks for no per-video revenue", async () => {
@@ -233,17 +224,22 @@ test("traffic sources are untouched by the opt-out, including their live revenue
   assert.equal(analytics.length, 2, "one request per breakdown, no retry");
 });
 
-test("without the parameter the breakdown route behaves exactly as before", async () => {
-  const live = await callRoute(breakdowns, "/api/youtube/breakdowns?range=12M");
-  const off = await callRoute(breakdowns, "/api/youtube/breakdowns?range=12M&videoRevenue=0");
-  assert.deepEqual(live.analytics.filter((call) => call.dimensions === "video").map(describe), [
-    "views,estimatedMinutesWatched,estimatedRevenue by video",
+test("without the parameter the breakdown route asks for exactly the same reports", async () => {
+  const plain = await callRoute(breakdowns, "/api/youtube/breakdowns?range=12M");
+  const withOptOut = await callRoute(
+    breakdowns,
+    "/api/youtube/breakdowns?range=12M&videoRevenue=0",
+  );
+  assert.deepEqual(plain.analytics.filter((call) => call.dimensions === "video").map(describe), [
+    "views,estimatedMinutesWatched by video",
   ]);
-  assert.equal(live.data.video.revenueAvailable, true);
-  assert.equal(live.data.video.rows[0].estimatedRevenue, 5);
-  assert.deepEqual(Object.keys(off.data).sort(), Object.keys(live.data).sort());
-  assert.deepEqual(off.data.trafficSources, live.data.trafficSources);
-  assert.deepEqual([live.data.range, live.data.startDate], [off.data.range, off.data.startDate]);
+  assert.deepEqual(plain.analytics.map(describe).sort(), withOptOut.analytics.map(describe).sort());
+  assert.equal(plain.data.video.revenueAvailable, false);
+  assert.ok(!("estimatedRevenue" in plain.data.video.rows[0]));
+  assert.deepEqual(plain.data, withOptOut.data);
+  // Traffic sources keep their live revenue either way.
+  assert.equal(plain.data.trafficSources.revenueAvailable, true);
+  assert.equal(plain.data.trafficSources.rows[0].estimatedRevenue, 5);
 });
 
 // ---------- the Dashboard's Step 4A request is unaffected ----------
@@ -259,6 +255,6 @@ test("the Dashboard's own live request behaves as it did after Step 4A", async (
     [],
   );
   assert.ok(!analytics.some((call) => call.dimensions === "video"));
-  assert.equal(data.topRevenueVideosStatus, "disabled");
+  assert.equal("topRevenueVideosStatus" in data, false);
   assert.equal(data.engagementHeatmapStatus, "available");
 });
