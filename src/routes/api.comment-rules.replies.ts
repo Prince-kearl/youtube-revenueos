@@ -4,7 +4,7 @@ import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import { postYoutubeCommentReply, YoutubeInsufficientScopeError } from "@/lib/server/google-oauth";
@@ -224,7 +224,7 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
             return json({ data }, { status: 201 });
           } catch (postError) {
             const insufficientScope = postError instanceof YoutubeInsufficientScopeError;
-            const reauthRequired = isYoutubeReauthError(postError);
+            const reauthRequired = isYoutubeTokenRefreshReauthError(postError);
             await client.from("comment_automation_replies").insert({
               channel_id: channelId,
               rule_id: input.ruleId ?? null,

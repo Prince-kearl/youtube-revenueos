@@ -1,4 +1,5 @@
 import { getServerEnv, requireServerEnv } from "./env";
+import { latestYoutubeAccessToken, youtubeAccessTokenForRetry } from "./youtube-token-registry";
 
 // Do NOT request the youtubepartner scope (out of MVP scope) — read-only access is sufficient
 // for channel metadata, analytics, and revenue reporting. youtube.force-ssl IS requested despite
@@ -101,7 +102,7 @@ async function requestGoogleToken(body: URLSearchParams): Promise<GoogleTokenRes
   if (!response.ok) {
     // Google's body carries a short machine-readable code (invalid_grant, invalid_client, ...)
     // that tells a revoked/expired grant apart from a misconfigured OAuth client. It contains no
-    // secret, so it is appended for logs and for isYoutubeReauthError's classification.
+    // secret, so it is appended for logs and for isYoutubeTokenRefreshReauthError's classification.
     const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
     const code =
       typeof payload?.error === "string" ? payload.error.replace(/[^a-z_]/gi, "").slice(0, 40) : "";
@@ -203,7 +204,7 @@ export async function fetchAuthorizedYoutubeChannels(
   const url = new URL("https://www.googleapis.com/youtube/v3/channels");
   url.searchParams.set("part", "snippet,statistics,contentDetails");
   url.searchParams.set("mine", "true");
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const response = await youtubeFetch(accessToken, url);
   if (!response.ok) throw new Error(`YOUTUBE_CHANNEL_FETCH_FAILED:${response.status}`);
   const data = (await response.json()) as { items?: RawYoutubeChannelItem[] };
   return (data.items ?? []).map(mapYoutubeChannel);
@@ -252,14 +253,53 @@ function youtubeApiUrl(path: string, params: Record<string, string>): URL {
   return url;
 }
 
+/**
+ * Every authenticated request to the YouTube Data / Analytics APIs goes through here.
+ *
+ * A 401 from one of those APIs is not, by itself, proof that the creator's authorization has been
+ * revoked. So on a 401 — and only on a 401 — the token's connection is asked for a freshly
+ * refreshed access token and the request is sent once more:
+ *
+ *   refresh rejected by Google   → the genuine "reauthorization required" error propagates
+ *   refresh ok, retry succeeds   → the caller never sees the 401
+ *   refresh ok, retry fails      → the second response is returned as it is, and the caller
+ *                                  reports an ordinary API failure (it is not swallowed)
+ *
+ * There is exactly one retry and no loop. A token that was not issued by getValidAccessToken
+ * (for example the one just obtained in the OAuth callback) cannot be refreshed here, so its 401
+ * is returned unchanged. Successful requests and non-401 errors are never retried or refreshed.
+ */
+async function youtubeFetch(
+  accessToken: string,
+  input: string | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const send = (token: string) =>
+    fetch(input, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  const response = await send(latestYoutubeAccessToken(accessToken));
+  if (response.status !== 401) return response;
+
+  let retryToken: string | null;
+  try {
+    retryToken = await youtubeAccessTokenForRetry(accessToken);
+  } catch (error) {
+    // Google refused the refresh: the grant is really gone. That error (raised, and recorded on
+    // the connection, by youtube-tokens.ts) is the one that must reach the caller.
+    if (error instanceof Error && error.message === "YOUTUBE_REAUTH_REQUIRED") throw error;
+    // The refresh could not be attempted or completed for an unrelated reason (network, Google
+    // 5xx): nothing was learned about the grant, so the original 401 stands as an API failure.
+    return response;
+  }
+  if (retryToken === null) return response;
+  return send(retryToken);
+}
+
 async function youtubeApiRequest<T>(
   accessToken: string,
   path: string,
   params: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(youtubeApiUrl(path, params), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await youtubeFetch(accessToken, youtubeApiUrl(path, params));
   if (!response.ok) throw new Error(`YOUTUBE_${path.toUpperCase()}_FAILED:${response.status}`);
   return (await response.json()) as T;
 }
@@ -560,12 +600,9 @@ export async function postYoutubeCommentReply(
 ): Promise<{ id: string; publishedAt: string | null }> {
   const url = new URL("https://www.googleapis.com/youtube/v3/comments");
   url.searchParams.set("part", "snippet");
-  const response = await fetch(url, {
+  const response = await youtubeFetch(accessToken, url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ snippet: { parentId: parentCommentId, textOriginal: text } }),
   });
   if (!response.ok) {
@@ -611,7 +648,7 @@ export async function queryYoutubeAnalytics(
   if (query.sort) url.searchParams.set("sort", query.sort);
   if (query.maxResults) url.searchParams.set("maxResults", String(query.maxResults));
   if (query.currency) url.searchParams.set("currency", query.currency);
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const response = await youtubeFetch(accessToken, url);
   if (!response.ok) throw new Error(`YOUTUBE_ANALYTICS_QUERY_FAILED:${response.status}`);
   return response.json();
 }

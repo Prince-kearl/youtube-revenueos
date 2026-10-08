@@ -4,7 +4,7 @@ import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
@@ -226,7 +226,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
         } catch (error) {
           if (error instanceof Response) return error;
           const message = error instanceof Error ? error.message : "";
-          if (isYoutubeReauthError(error)) {
+          if (isYoutubeTokenRefreshReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           console.error("YouTube breakdown request failed", {

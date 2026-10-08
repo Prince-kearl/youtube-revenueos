@@ -3,7 +3,7 @@ import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/youtube/comments")({
           });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (isYoutubeReauthError(error))
+          if (isYoutubeTokenRefreshReauthError(error))
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           console.error("Comment fetch failed");
           return json({ error: "YOUTUBE_DATA_UNAVAILABLE" }, { status: 502 });

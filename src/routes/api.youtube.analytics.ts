@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
@@ -158,7 +158,7 @@ export const Route = createFileRoute("/api/youtube/analytics")({
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR", details: error.flatten() }, { status: 422 });
           const message = error instanceof Error ? error.message : "";
-          if (isYoutubeReauthError(error)) {
+          if (isYoutubeTokenRefreshReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           console.error("YouTube Analytics query failed", {

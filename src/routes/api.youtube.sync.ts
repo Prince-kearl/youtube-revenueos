@@ -4,7 +4,7 @@ import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
@@ -277,7 +277,10 @@ async function syncChannel(
       .eq("id", channel.id);
     return { status, result };
   } catch (error) {
-    const status = isYoutubeReauthError(error) ? "reauth_required" : "failed";
+    // Only Google rejecting the token refresh means the creator must reconnect. A YouTube API
+    // 401 that survived the forced refresh and single retry (see youtubeFetch in google-oauth.ts)
+    // is an ordinary failure: it must never mark the channel "reauth_required".
+    const status = isYoutubeTokenRefreshReauthError(error) ? "reauth_required" : "failed";
     await service
       .from("youtube_channels")
       .update({

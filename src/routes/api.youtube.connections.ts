@@ -4,7 +4,7 @@ import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { fetchAuthorizedYoutubeChannels } from "@/lib/server/google-oauth";
-import { getValidAccessToken, isYoutubeReauthError } from "@/lib/server/youtube-tokens";
+import { getValidAccessToken, isYoutubeTokenRefreshReauthError } from "@/lib/server/youtube-tokens";
 
 const idSchema = z.string().uuid();
 
@@ -114,7 +114,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          if (isYoutubeReauthError(error))
+          if (isYoutubeTokenRefreshReauthError(error))
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
@@ -190,7 +190,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          if (isYoutubeReauthError(error))
+          if (isYoutubeTokenRefreshReauthError(error))
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }

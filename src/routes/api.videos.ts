@@ -4,7 +4,7 @@ import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import { fetchYoutubeVideoById } from "@/lib/server/google-oauth";
@@ -180,7 +180,7 @@ export const Route = createFileRoute("/api/videos")({
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          if (isYoutubeReauthError(error)) {
+          if (isYoutubeTokenRefreshReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           if (error instanceof Error && error.message === "YOUTUBE_VIDEO_NOT_FOUND") {
@@ -264,7 +264,7 @@ export const Route = createFileRoute("/api/videos")({
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          if (isYoutubeReauthError(error)) {
+          if (isYoutubeTokenRefreshReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           if (error instanceof Error && error.message === "YOUTUBE_VIDEO_NOT_FOUND") {

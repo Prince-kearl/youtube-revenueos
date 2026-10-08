@@ -3,7 +3,7 @@ import { test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getValidAccessTokenWithDependencies,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   YoutubeReauthRequiredError,
 } from "../src/lib/server/youtube-tokens";
 
@@ -125,7 +125,10 @@ test("token lifecycle marks reauthentication on the connection and every channel
     id: "connection-row-1",
     values: { last_sync_status: "reauth_required", last_sync_error: null },
   });
-  assert.equal(isYoutubeReauthError(new Error("GOOGLE_TOKEN_REQUEST_FAILED:401")), true);
+  assert.equal(
+    isYoutubeTokenRefreshReauthError(new Error("GOOGLE_TOKEN_REQUEST_FAILED:401")),
+    true,
+  );
 });
 
 async function request(

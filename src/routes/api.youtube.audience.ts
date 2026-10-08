@@ -4,7 +4,7 @@ import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import { queryYoutubeAnalytics } from "@/lib/server/google-oauth";
@@ -268,7 +268,7 @@ export const Route = createFileRoute("/api/youtube/audience")({
           });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (isYoutubeReauthError(error))
+          if (isYoutubeTokenRefreshReauthError(error))
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           console.error("YouTube audience request failed", { reason: safeReason(error) });
           return json({ error: "YOUTUBE_AUDIENCE_ERROR" }, { status: 502 });

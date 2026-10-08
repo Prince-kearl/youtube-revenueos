@@ -3,7 +3,7 @@ import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
-  isYoutubeReauthError,
+  isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
 import {
@@ -726,7 +726,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             reason,
             timestamp: new Date().toISOString(),
           });
-          if (isYoutubeReauthError(error)) {
+          if (isYoutubeTokenRefreshReauthError(error)) {
             return json({ error: "YOUTUBE_REAUTH_REQUIRED" }, { status: 401 });
           }
           if (message === "YOUTUBE_CONNECTED_CHANNEL_MISMATCH") {

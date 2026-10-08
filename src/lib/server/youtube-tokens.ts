@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecretFromBytea, encryptSecretToBytea } from "./crypto";
 import { refreshGoogleAccessToken } from "./google-oauth";
+import { registerYoutubeAccessToken } from "./youtube-token-registry";
 
 // A connection's token pair is shared by every youtube_channels row with a matching
 // connection_id — refreshing it here benefits all of them at once, and a failure here means every
@@ -34,7 +35,23 @@ export class YoutubeReauthRequiredError extends Error {
   }
 }
 
-export function isYoutubeReauthError(error: unknown): boolean {
+// Two different things can look like "unauthorized", and only one of them means the creator has
+// to reconnect:
+//
+//   isYoutubeTokenRefreshReauthError  Google refused to issue an access token for the stored
+//                                     refresh token. The grant is gone: reauthorization required.
+//   isYoutubeApiUnauthorizedError     A YouTube API endpoint answered 401. On its own this proves
+//                                     nothing about the grant — it has been seen on tokens Google
+//                                     issued seconds earlier. The request layer answers it by
+//                                     forcing a refresh and retrying once (google-oauth.ts); if
+//                                     the refresh succeeds and the retry still fails, it is an
+//                                     ordinary, retryable API failure.
+//
+// Nothing may treat the second as the first.
+
+/** True only when Google rejected the OAuth credential itself while obtaining or refreshing an
+ * access token — the one genuine "reauthorization required" condition. */
+export function isYoutubeTokenRefreshReauthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   // invalid_client / unauthorized_client mean this app's own GOOGLE_CLIENT_ID/SECRET are wrong, so
   // reconnecting cannot help and no creator's connection should be flagged for it.
@@ -42,9 +59,16 @@ export function isYoutubeReauthError(error: unknown): boolean {
     return false;
   return (
     message === "YOUTUBE_REAUTH_REQUIRED" ||
-    /GOOGLE_TOKEN_REQUEST_FAILED:(400|401)(?::|$)/.test(message) ||
-    /YOUTUBE_[A-Z_]+_FAILED:401(?::|$)/.test(message)
+    /GOOGLE_TOKEN_REQUEST_FAILED:(400|401)(?::|$)/.test(message)
   );
+}
+
+/** True when a YouTube API request (not the token endpoint) was answered with HTTP 401 even
+ * after the forced refresh and single retry. A retryable upstream failure — never grounds for
+ * marking a channel "reauth_required" or telling a creator to reconnect. */
+export function isYoutubeApiUnauthorizedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /YOUTUBE_[A-Z_]+_FAILED:401(?::|$)/.test(message);
 }
 
 // Returns a usable access token, transparently refreshing (and persisting the refreshed
@@ -69,17 +93,45 @@ export async function getValidAccessTokenWithDependencies(
   connection: YoutubeConnectionRow,
   dependencies: TokenLifecycleDependencies,
 ): Promise<string> {
+  // Whatever token is handed out is registered with a way to force a refresh for this
+  // connection, so the API request layer can answer a 401 by actually testing the grant
+  // (see youtube-token-registry.ts) instead of assuming it has been revoked.
+  const forceRefresh = async () => {
+    const token = await refreshAndPersistAccessToken(client, connection, dependencies);
+    registerYoutubeAccessToken(token, connection.id, forceRefresh, {
+      forced: true,
+      now: dependencies.now(),
+    });
+    return token;
+  };
   const expiresAt = connection.token_expiry ? new Date(connection.token_expiry).getTime() : 0;
-  if (expiresAt - EXPIRY_SAFETY_MARGIN_MS > dependencies.now()) {
-    return dependencies.decrypt(connection.access_token_ciphertext);
-  }
+  const token =
+    expiresAt - EXPIRY_SAFETY_MARGIN_MS > dependencies.now()
+      ? await dependencies.decrypt(connection.access_token_ciphertext)
+      : await refreshAndPersistAccessToken(client, connection, dependencies);
+  registerYoutubeAccessToken(token, connection.id, forceRefresh, { now: dependencies.now() });
+  return token;
+}
 
+/**
+ * Asks Google for a new access token with the stored refresh token and persists it.
+ *
+ * This is the only place a connection is ever marked "reauth_required": if Google rejects the
+ * refresh, the grant is genuinely gone, the connection and every channel sharing it are flagged,
+ * and YoutubeReauthRequiredError is thrown. Any other failure (network, Google 5xx) is rethrown
+ * unchanged and flags nothing.
+ */
+async function refreshAndPersistAccessToken(
+  client: SupabaseClient,
+  connection: YoutubeConnectionRow,
+  dependencies: TokenLifecycleDependencies,
+): Promise<string> {
   const refreshToken = await dependencies.decrypt(connection.refresh_token_ciphertext);
   let refreshed: Awaited<ReturnType<typeof refreshGoogleAccessToken>>;
   try {
     refreshed = await dependencies.refresh(refreshToken);
   } catch (error) {
-    if (!isYoutubeReauthError(error)) throw error;
+    if (!isYoutubeTokenRefreshReauthError(error)) throw error;
     console.error("YouTube token refresh rejected by Google", {
       connectionId: connection.id,
       reason: error instanceof Error ? error.message : "unknown",
