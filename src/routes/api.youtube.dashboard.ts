@@ -3,6 +3,7 @@ import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
+  isYoutubeApiUnauthorizedError,
   isYoutubeTokenRefreshReauthError,
   normalizeYoutubeConnectionRow,
 } from "@/lib/server/youtube-tokens";
@@ -40,9 +41,10 @@ function isoDate(date: Date): string {
 }
 
 function analyticsRows(payload: unknown): Array<Record<string, string | number>> {
-  const report = payload as AnalyticsPayload;
-  const headers = report.columnHeaders?.map((header) => header.name) ?? [];
-  return (report.rows ?? []).map((row) =>
+  // null when every report behind it failed: that is "no rows", not a reason to fail the request.
+  const report = payload as AnalyticsPayload | null;
+  const headers = report?.columnHeaders?.map((header) => header.name) ?? [];
+  return (report?.rows ?? []).map((row) =>
     Object.fromEntries(headers.map((header, index) => [header, row[index] ?? 0])),
   );
 }
@@ -87,17 +89,27 @@ function recordQuotaEvent(
     });
 }
 
-// "forbidden" is distinct from "unavailable": the request reached YouTube and was rejected for
-// auth/permission reasons (401/403) — most commonly a token that predates a scope being added to
-// YOUTUBE_OAUTH_SCOPES (e.g. yt-analytics-monetary.readonly for revenue), fixable by
-// reconnecting — versus "unavailable", which means the request succeeded but YouTube genuinely
-// has nothing to report for the period (e.g. an unmonetized channel). The two need different UI:
-// one is actionable, the other isn't.
-type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
+// Why an optional section has nothing to show. Each needs different wording:
+//
+//   "forbidden"                the creator has to act. YouTube refused the request for a
+//                              permission reason (403) — most commonly a token that predates a
+//                              scope being added to YOUTUBE_OAUTH_SCOPES — or Google rejected
+//                              the token refresh itself. Reconnecting fixes it.
+//   "temporarily_unavailable"  YouTube answered 401 even after the forced refresh and single
+//                              retry (see youtubeFetch in google-oauth.ts). The refresh succeeded,
+//                              so the authorization is intact and reconnecting would not help;
+//                              the section is simply unavailable right now.
+//   "unavailable"              any other failure, or the request succeeded but YouTube has
+//                              nothing to report for the period (e.g. an unmonetized channel).
+type AnalyticsAvailability =
+  "available" | "unavailable" | "disabled" | "forbidden" | "temporarily_unavailable";
 
-function isPermissionError(error: unknown): boolean {
-  const reason = safeProviderReason(error);
-  return reason === "401" || reason === "403";
+/** The status an optional section gets when its YouTube request failed. Never writes anything:
+ * a failed optional request only ever changes what that one section displays. */
+export function optionalSectionFailureStatus(error: unknown): AnalyticsAvailability {
+  if (isYoutubeTokenRefreshReauthError(error)) return "forbidden";
+  if (isYoutubeApiUnauthorizedError(error)) return "temporarily_unavailable";
+  return safeProviderReason(error) === "403" ? "forbidden" : "unavailable";
 }
 
 // cpm is a rate, not additive — summing a month's worth of daily cpm values (what
@@ -305,7 +317,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
             } catch (error) {
-              analyticsStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              analyticsStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("analytics_core", channelRow.user_id, channelRow.id, error);
             }
             let revenue: AnalyticsPayload | null = null;
@@ -327,7 +339,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 })) as AnalyticsPayload;
                 analyticsRequestSucceeded = true;
               } catch (error) {
-                revenueStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+                revenueStatus = optionalSectionFailureStatus(error);
                 logOptionalFailure("analytics_revenue", channelRow.user_id, channelRow.id, error);
               }
             let watchTime: AnalyticsPayload | null = null;
@@ -341,7 +353,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               })) as AnalyticsPayload;
               analyticsRequestSucceeded = true;
             } catch (error) {
-              watchTimeStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              watchTimeStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("analytics_watch_time", channelRow.user_id, channelRow.id, error);
             }
             // cpm belongs to a different YouTube Analytics metric group than estimatedRevenue and
@@ -360,7 +372,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 })) as AnalyticsPayload;
                 analyticsRequestSucceeded = true;
               } catch (error) {
-                cpmStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+                cpmStatus = optionalSectionFailureStatus(error);
                 logOptionalFailure("analytics_cpm", channelRow.user_id, channelRow.id, error);
               }
             cpmByMonth = [...averageCpmByMonth(cpmPayload)].map(([month, cpm]) => ({ month, cpm }));
@@ -368,8 +380,8 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             analytics = mergeAnalyticsReports(coreAnalytics, revenue, watchTime);
             // Only downgrades a still-"available" status (the request succeeded but came back
             // empty) — must not run when the catch blocks above already classified the failure as
-            // "forbidden", since the payload is null there too and this would otherwise silently
-            // relabel a permission error as "no data reported".
+            // a failure, since the payload is null there too and this would otherwise silently
+            // relabel that failure as "no data reported".
             if (analyticsStatus === "available" && !coreAnalytics?.rows?.length)
               analyticsStatus = "unavailable";
             if (revenueStatus === "available" && !revenue?.rows?.length)
@@ -437,7 +449,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               if (!topCountries.length && !ageGroups.length && !genders.length)
                 audienceStatus = "unavailable";
             } catch (error) {
-              audienceStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              audienceStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("audience_breakdown", channelRow.user_id, channelRow.id, error);
             }
             recordQuotaEvent(serviceClient, {
@@ -491,7 +503,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 else if (device === "TABLET") deviceViews.tablet += views;
               }
             } catch (error) {
-              videoInsightsStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              videoInsightsStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("video_insights", channelRow.user_id, channelRow.id, error);
             }
             recordQuotaEvent(serviceClient, {
@@ -529,7 +541,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
               }));
               if (!engagementHeatmap.length) engagementHeatmapStatus = "unavailable";
             } catch (error) {
-              engagementHeatmapStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              engagementHeatmapStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("engagement_heatmap", channelRow.user_id, channelRow.id, error);
             }
             recordQuotaEvent(serviceClient, {
@@ -625,7 +637,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 topRevenueVideosStatus = "unavailable";
               }
             } catch (error) {
-              topRevenueVideosStatus = isPermissionError(error) ? "forbidden" : "unavailable";
+              topRevenueVideosStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("top_revenue_videos", channelRow.user_id, channelRow.id, error);
             }
             recordQuotaEvent(serviceClient, {

@@ -86,10 +86,13 @@ type DashboardAnalyticsRow = {
   watchTimeMinutes?: number;
 };
 
-// "forbidden" = YouTube rejected the request for auth/permission reasons (401/403) — most often a
-// token that predates a scope being added, fixable by reconnecting. Distinct from "unavailable",
-// which means the request succeeded but there's genuinely nothing to report for the period.
-type AnalyticsAvailability = "available" | "unavailable" | "disabled" | "forbidden";
+// "forbidden" = the creator has to reconnect: YouTube refused the request for a permission
+// reason (most often a token that predates a scope being added) or the authorization itself was
+// rejected. "temporarily_unavailable" = YouTube failed the request although the authorization is
+// intact, so reconnecting would not help. "unavailable" = any other failure, or the request
+// succeeded but there's genuinely nothing to report for the period.
+type AnalyticsAvailability =
+  "available" | "unavailable" | "disabled" | "forbidden" | "temporarily_unavailable";
 
 type AudienceCountryRow = { country: string; views: number };
 type AudienceAgeRow = { ageGroup: string; viewerPercentage: number };
@@ -718,7 +721,8 @@ function Dashboard() {
         </div>
       )}
 
-      {dashboardData?.analyticsStatus === "unavailable" && (
+      {(dashboardData?.analyticsStatus === "unavailable" ||
+        dashboardData?.analyticsStatus === "temporarily_unavailable") && (
         <p className="text-xs text-warning">
           YouTube Analytics is temporarily unavailable. Channel and video metrics are current;
           analytics data was not substituted.
@@ -1448,6 +1452,7 @@ const AUDIENCE_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
   available: "",
   disabled: "Analytics import is turned off in settings.",
   forbidden: "Reconnect YouTube to view your audience breakdown.",
+  temporarily_unavailable: "Audience breakdown is temporarily unavailable. Please try again later.",
   unavailable: "Audience data isn't available for this period yet.",
 };
 
@@ -1593,6 +1598,7 @@ const VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> 
   available: "",
   disabled: "Video sync or analytics import is turned off in settings.",
   forbidden: "Reconnect YouTube to view video insights.",
+  temporarily_unavailable: "Video insights are temporarily unavailable. Please try again later.",
   unavailable: "Video insights aren't available for your latest video yet.",
 };
 
@@ -1834,6 +1840,7 @@ const ENGAGEMENT_HEATMAP_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, stri
   available: "",
   disabled: "Analytics import is turned off in settings.",
   forbidden: "Reconnect YouTube to view daily engagement.",
+  temporarily_unavailable: "Daily engagement is temporarily unavailable. Please try again later.",
   unavailable: "Daily engagement data isn't available yet.",
 };
 
