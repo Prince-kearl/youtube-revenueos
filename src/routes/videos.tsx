@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Filter, Play, Plus, RefreshCw, Search, Sparkles, ThumbsUp } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
@@ -9,6 +9,17 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { ListRowSkeleton } from "@/components/skeletons";
 import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
+import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
+import {
+  EMPTY_VIDEOS_REVENUE,
+  describeVideosRevenue,
+  mapVideosRevenuePage,
+  mergeVideosRevenue,
+  videosRevenueRequests,
+  type VideoRevenueCell,
+  type VideosRevenuePage,
+} from "@/lib/videos-revenue";
+import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 
 export const Route = createFileRoute("/videos")({
   component: Videos,
@@ -25,10 +36,6 @@ type YoutubeVideo = {
   comments: number | null;
   privacyStatus: string | null;
   url: string;
-  estimatedRevenue: number | null;
-  cpm: number | null;
-  changePercent: number | null;
-  status: string | null;
 };
 
 type VideosData = {
@@ -44,8 +51,11 @@ type VideosData = {
   nextPageToken: string | null;
   videosStatus: "available" | "disabled" | "unavailable";
   totalVideoCount: number;
-  revenueAvailable: boolean;
 };
+
+// Revenue, Status and Change for the listed videos come from the canonical revenue API (stored
+// data) — see @/lib/videos-revenue. "loading" shows "…" in those cells; "error" shows a note.
+type RevenueState = { page: VideosRevenuePage; status: "idle" | "loading" | "ready" | "error" };
 
 type VideosResponse =
   | { status: "connected"; data: VideosData }
@@ -58,15 +68,6 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value,
   );
-}
-
-function formatMoney(value: number, fractionDigits = 0): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(value);
 }
 
 function formatDate(value: string | null): string {
@@ -109,7 +110,9 @@ function Videos() {
       status: previous.data ? previous.status : "loading",
       error: previous.data ? previous.error : null,
     }));
-    const params = new URLSearchParams({ limit: "50" });
+    // enrich=0: revenue, status and change come from the canonical API below, so the live
+    // route returns the video list only and makes no YouTube Analytics request.
+    const params = new URLSearchParams({ limit: "50", enrich: "0" });
     if (activeChannelId) params.set("channelId", activeChannelId);
 
     fetch(`/api/youtube/videos?${params.toString()}`, {
@@ -172,12 +175,81 @@ function Videos() {
     return () => controller.abort();
   }, [activeChannelId, isVideoListRoute, retryNonce]);
 
+  // ---- canonical revenue for the listed videos ----
+  // Each page of the list (first load, then every "Load more") asks about exactly its own videos:
+  // two requests per page, never one per video and never the whole channel. Results are kept as
+  // pages are added. A new channel or a retry starts over.
+  const [revenue, setRevenue] = useState<RevenueState>({
+    page: EMPTY_VIDEOS_REVENUE,
+    status: "idle",
+  });
+  const revenueRequested = useRef(new Set<string>());
+  const revenueGeneration = useRef(0);
+
+  useEffect(() => {
+    revenueGeneration.current += 1;
+    revenueRequested.current = new Set();
+    setRevenue({ page: EMPTY_VIDEOS_REVENUE, status: "idle" });
+  }, [activeChannelId, retryNonce]);
+
+  useEffect(() => {
+    const data = state.data;
+    if (!data || !isVideoListRoute) return;
+    const fresh = data.videos
+      .map((video) => video.id)
+      .filter((id) => !revenueRequested.current.has(id));
+    // Scoped to the channel the list itself came from.
+    const requests = videosRevenueRequests(data.channel.id, fresh, { demoIds: IS_LOCAL_DEMO });
+    for (const id of fresh) revenueRequested.current.add(id);
+    if (!requests.length) {
+      setRevenue((previous) =>
+        previous.status === "idle" ? { ...previous, status: "ready" } : previous,
+      );
+      return;
+    }
+    const generation = revenueGeneration.current;
+    setRevenue((previous) => ({
+      ...previous,
+      status: previous.status === "ready" ? "ready" : "loading",
+    }));
+    const read = async (url: string) => {
+      const response = await fetch(url, { cache: "no-store" });
+      const body = (await response.json()) as { data?: RevenueVideosResponse };
+      if (!response.ok || !body.data) throw new Error("REVENUE_UNAVAILABLE");
+      return body.data;
+    };
+    void Promise.all(
+      requests.map(async (request) =>
+        mapVideosRevenuePage(
+          await read(request.revenueUrl),
+          // The trend is optional: without it revenue still stands.
+          await read(request.changeUrl).catch(() => null),
+        ),
+      ),
+    )
+      .then((pages) => {
+        if (generation !== revenueGeneration.current) return;
+        setRevenue((previous) => ({
+          page: pages.reduce(mergeVideosRevenue, previous.page),
+          status: "ready",
+        }));
+      })
+      .catch(() => {
+        if (generation !== revenueGeneration.current) return;
+        // Let a later load try these videos again.
+        for (const id of fresh) revenueRequested.current.delete(id);
+        setRevenue((previous) => ({ ...previous, status: "error" }));
+      });
+    // activeChannelId / retryNonce: after the reset above, ask again for what is on screen even
+    // if the list request that follows fails and leaves the same data in place.
+  }, [state.data, isVideoListRoute, activeChannelId, retryNonce]);
+
   const loadMore = async () => {
     const token = state.data?.nextPageToken;
     if (!token || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const params = new URLSearchParams({ pageToken: token, limit: "50" });
+      const params = new URLSearchParams({ pageToken: token, limit: "50", enrich: "0" });
       if (activeChannelId) params.set("channelId", activeChannelId);
       const response = await fetch(`/api/youtube/videos?${params.toString()}`, {
         cache: "default",
@@ -361,14 +433,13 @@ function Videos() {
             </div>
           )}
 
-          {state.status === "connected" &&
-            !state.data?.revenueAvailable &&
-            filteredVideos.length > 0 && (
-              <p className="mt-6 text-xs text-muted-foreground">
-                Revenue and CPM aren&apos;t available for this channel yet — reconnect YouTube in
-                Settings to grant the monetary analytics scope.
-              </p>
-            )}
+          {state.status === "connected" && filteredVideos.length > 0 && (
+            <p className="mt-6 hidden text-xs text-muted-foreground sm:block">
+              {revenue.status === "error"
+                ? "Revenue couldn't be loaded for these videos. Try refreshing."
+                : describeVideosRevenue(revenue.page)}
+            </p>
+          )}
 
           <div className="relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
@@ -378,7 +449,6 @@ function Videos() {
                   <th className="px-5 py-4 font-medium">Video</th>
                   <th className="px-3 py-4 font-medium">Views</th>
                   <th className="px-3 py-4 font-medium">Revenue</th>
-                  <th className="px-3 py-4 font-medium">CPM</th>
                   <th className="px-3 py-4 font-medium">Likes</th>
                   <th className="px-3 py-4 font-medium">Status</th>
                   <th className="px-3 py-4 font-medium">Change</th>
@@ -386,7 +456,12 @@ function Videos() {
               </thead>
               <tbody>
                 {filteredVideos.map((video) => (
-                  <VideoRow key={video.id} video={video} />
+                  <VideoRow
+                    key={video.id}
+                    video={video}
+                    revenue={revenue.page.cells.get(video.id)}
+                    revenueLoading={revenue.status === "idle" || revenue.status === "loading"}
+                  />
                 ))}
               </tbody>
             </table>
@@ -504,7 +579,18 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
   );
 }
 
-function VideoRow({ video }: { video: YoutubeVideo }) {
+function VideoRow({
+  video,
+  revenue,
+  revenueLoading,
+}: {
+  video: YoutubeVideo;
+  /** The video's canonical revenue cell; undefined when nothing is stored for it. */
+  revenue: VideoRevenueCell | undefined;
+  /** True until the canonical answer for this row's page has arrived. */
+  revenueLoading: boolean;
+}) {
+  const pending = !revenue && revenueLoading;
   return (
     <tr className="border-b border-border last:border-0 transition-colors hover:bg-accent/30">
       <td className="px-5 py-3.5">
@@ -537,14 +623,23 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
         </span>
       </td>
       <td className="px-3 py-3.5 font-medium">
-        {video.estimatedRevenue === null ? (
+        {pending ? (
+          <span className="text-muted-foreground">…</span>
+        ) : !revenue?.revenue.available ? (
           <span className="text-muted-foreground">—</span>
         ) : (
-          formatMoney(video.estimatedRevenue)
+          <>
+            {revenue.revenue.text}
+            {revenue.revenue.partial && (
+              <span
+                className="ml-1.5 text-xs font-normal text-muted-foreground"
+                title={`Reported for ${revenue.knownDays} of ${revenue.knownDays + revenue.unknownDays} days with activity`}
+              >
+                partial
+              </span>
+            )}
+          </>
         )}
-      </td>
-      <td className="px-3 py-3.5 text-muted-foreground">
-        {video.cpm === null ? "—" : formatMoney(video.cpm, 2)}
       </td>
       <td className="px-3 py-3.5 text-muted-foreground">
         <span className="flex items-center gap-1.5">
@@ -559,23 +654,31 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
         </span>
       </td>
       <td className="px-3 py-3.5">
-        {video.status ? (
-          <StatusBadge status={video.status} />
+        {pending ? (
+          <span className="text-muted-foreground">…</span>
+        ) : revenue?.status ? (
+          <StatusBadge status={revenue.status} />
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </td>
       <td className="px-3 py-3.5">
-        {video.changePercent === null ? (
-          <span className="text-muted-foreground">New</span>
-        ) : (
+        {pending ? (
+          <span className="text-muted-foreground">…</span>
+        ) : revenue?.change.kind === "percent" ? (
           <span
             className={
-              video.changePercent >= 0 ? "font-medium text-success" : "font-medium text-destructive"
+              revenue.change.percent >= 0
+                ? "font-medium text-success"
+                : "font-medium text-destructive"
             }
           >
-            {video.changePercent >= 0 ? "+" : ""}
-            {video.changePercent.toFixed(1)}%
+            {revenue.change.percent >= 0 ? "+" : ""}
+            {revenue.change.percent.toFixed(1)}%
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            {revenue?.change.kind === "new" ? "New" : "—"}
           </span>
         )}
       </td>
@@ -585,7 +688,12 @@ function VideoRow({ video }: { video: YoutubeVideo }) {
 
 function VideoThumbnail({ video }: { video: YoutubeVideo }) {
   return video.thumbnail ? (
-    <img referrerPolicy="no-referrer" src={video.thumbnail} alt="" className="h-11 w-16 shrink-0 rounded-md object-cover" />
+    <img
+      referrerPolicy="no-referrer"
+      src={video.thumbnail}
+      alt=""
+      className="h-11 w-16 shrink-0 rounded-md object-cover"
+    />
   ) : (
     <span className="flex h-11 w-16 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-red/40 to-brand-purple/40 text-white/80">
       <Play className="h-4 w-4" fill="currentColor" />

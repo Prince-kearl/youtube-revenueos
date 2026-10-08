@@ -191,6 +191,13 @@ function demoRevenueVideos(url: URL) {
   );
   const none = demoAmount(null);
   const unknown = { current: null, previous: null, absolute: null, percent: null };
+  // The same sample trend the demo video list has always shown; the last video is new.
+  const viewTrend = [22.2, -4.1, 12.6, null];
+  const viewsChange = (views: number, index: number) => {
+    const percent = viewTrend[index] ?? null;
+    const previous = percent === null ? 0 : Math.round(views / (1 + percent / 100));
+    return { current: views, previous, absolute: views - previous, percent };
+  };
   return {
     data: {
       status: "connected",
@@ -208,6 +215,7 @@ function demoRevenueVideos(url: URL) {
       ],
       sort: { by: "revenue", direction: "desc" },
       videos: rows.map((row) => ({
+        // (index in the full demo list, so a filtered request keeps each video's own trend)
         videoId: row.video,
         youtubeVideoId: row.video,
         title: row.title,
@@ -223,7 +231,15 @@ function demoRevenueVideos(url: URL) {
         revenueShare: null,
         viewShare: null,
         previous: { revenue: none, views: 0, watchMinutes: 0, rpm: null },
-        change: { revenue: unknown, views: unknown, watchMinutes: unknown, rpm: unknown },
+        change: {
+          revenue: unknown,
+          views: viewsChange(
+            row.views,
+            demoBreakdowns().data.video.rows.findIndex((item) => item.video === row.video),
+          ),
+          watchMinutes: unknown,
+          rpm: unknown,
+        },
         dataQuality: {
           availability: "complete",
           incompleteTrend: false,

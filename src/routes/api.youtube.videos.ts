@@ -197,6 +197,19 @@ async function enrichVideosWithAnalytics(
   return { revenueAvailable, byId };
 }
 
+/**
+ * Whether this request wants each video enriched from live YouTube Analytics (12-month revenue
+ * and CPM, and the two 30-day view reports behind the status and change fields).
+ *
+ * The Videos page reads revenue, status and change from /api/revenue/videos (stored data), so it
+ * sends `enrich=0` and those three Analytics requests are not made; it still gets the full video
+ * list from the YouTube Data API. Every other caller is unaffected: without the parameter the
+ * response is exactly what it has always been.
+ */
+export function videosWantLiveEnrichment(url: URL): boolean {
+  return url.searchParams.get("enrich") !== "0";
+}
+
 export const Route = createFileRoute("/api/youtube/videos")({
   server: {
     handlers: {
@@ -283,7 +296,11 @@ export const Route = createFileRoute("/api/youtube/videos")({
 
           let revenueAvailable = false;
           let enrichedVideos = videoPage.videos;
-          if (integrationSettings?.import_analytics !== false && videoPage.videos.length) {
+          if (
+            videosWantLiveEnrichment(url) &&
+            integrationSettings?.import_analytics !== false &&
+            videoPage.videos.length
+          ) {
             const enrichment = await enrichVideosWithAnalytics(
               accessToken,
               channel.channelId,
