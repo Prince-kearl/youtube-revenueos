@@ -32,6 +32,21 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useProfile } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
+import {
+  EMPTY_DASHBOARD_REVENUE,
+  demoDashboardRevenue,
+  dashboardRevenueUrls,
+  emptyRevenueTrend,
+  formatUsdCompact,
+  mapDashboardRevenue,
+  mapTopRevenueVideos,
+  trendForRange,
+  type DashboardRevenueRange,
+  type DashboardRevenueView,
+  type DashboardTopVideo,
+} from "@/lib/dashboard-revenue";
+import type { RevenueSummaryResponse } from "@/lib/server/revenue-summary";
+import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
@@ -67,9 +82,6 @@ type DashboardChannel = {
 type DashboardAnalyticsRow = {
   month?: string;
   views?: number;
-  estimatedRevenue?: number;
-  estimatedAdRevenue?: number;
-  estimatedRedPartnerRevenue?: number;
   subscribersGained?: number;
   watchTimeMinutes?: number;
 };
@@ -89,7 +101,6 @@ type DashboardData = {
   videosStatus: "available" | "unavailable" | "disabled";
   analytics: DashboardAnalyticsRow[];
   analyticsStatus: AnalyticsAvailability;
-  revenueStatus: AnalyticsAvailability;
   watchTimeStatus: AnalyticsAvailability;
   audience: {
     topCountries: AudienceCountryRow[];
@@ -104,13 +115,6 @@ type DashboardData = {
   videoInsightsStatus: AnalyticsAvailability;
   engagementHeatmap: Array<{ date: string; views: number }>;
   engagementHeatmapStatus: AnalyticsAvailability;
-  topRevenueVideos: Array<{
-    videoId: string;
-    views: number;
-    revenue: number;
-    changePercent: number | null;
-  }>;
-  topRevenueVideosStatus: AnalyticsAvailability;
   fetchedAt: string;
 };
 
@@ -119,41 +123,14 @@ type DashboardResponse =
   | { status: "connected"; data: DashboardData }
   | { error: string };
 
-type RevenueRange = "3M" | "6M" | "12M";
-
-type RevenueTrendPoint = { month: string; monthKey: string; revenue: number };
-
-function buildRevenueTrend(
-  analytics: DashboardAnalyticsRow[],
-  range: RevenueRange,
-): RevenueTrendPoint[] {
-  const count = range === "3M" ? 3 : range === "6M" ? 6 : 12;
-  const validMonths = analytics
-    .map((row) => row.month)
-    .filter((month): month is string => Boolean(month && /^\d{4}-\d{2}$/.test(month)))
-    .sort();
-  const endMonth = validMonths.at(-1) ?? new Date().toISOString().slice(0, 7);
-  const [endYear, endMonthNumber] = endMonth.split("-").map(Number);
-  const revenueByMonth = new Map<string, number>();
-
-  for (const row of analytics) {
-    if (!row.month || !/^\d{4}-\d{2}$/.test(row.month)) continue;
-    revenueByMonth.set(
-      row.month,
-      (revenueByMonth.get(row.month) ?? 0) + Number(row.estimatedRevenue ?? 0),
-    );
-  }
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.UTC(endYear, endMonthNumber - count + index, 1));
-    const monthKey = date.toISOString().slice(0, 7);
-    return {
-      month: date.toLocaleDateString("en", { month: "short", timeZone: "UTC" }),
-      monthKey,
-      revenue: (revenueByMonth.get(monthKey) ?? 0) / 1000,
-    };
-  });
-}
+// Revenue on this page comes from the canonical revenue API (stored data), mapped by
+// @/lib/dashboard-revenue. Everything else still comes from /api/youtube/dashboard, which is
+// asked NOT to fetch live revenue (revenue=0).
+type RevenueState = {
+  status: "loading" | "ready" | "error";
+  view: DashboardRevenueView;
+  topVideos: DashboardTopVideo[];
+};
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
@@ -219,7 +196,13 @@ const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
 function Dashboard() {
   const { settings } = useChannelSettings();
   const [profile] = useProfile();
-  const [range, setRange] = useState<"3M" | "6M" | "12M">("12M");
+  const [range, setRange] = useState<DashboardRevenueRange>("12M");
+  const [revenueState, setRevenueState] = useState<RevenueState>({
+    status: "loading",
+    view: EMPTY_DASHBOARD_REVENUE,
+    topVideos: [],
+  });
+  const revenueRequestRef = useRef(0);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<
     "loading" | "connected" | "not_connected" | "error" | "reauth"
@@ -230,6 +213,41 @@ function Dashboard() {
   const youtubeRequestRef = useRef(0);
   const kpiScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeKpiIndex, setActiveKpiIndex] = useState(0);
+  // Independent of the YouTube request below: a revenue failure leaves the other cards intact,
+  // and a YouTube failure does not blank out stored revenue.
+  const loadRevenue = async () => {
+    const requestId = ++revenueRequestRef.current;
+    if (IS_LOCAL_DEMO) {
+      const demo = demoDashboardRevenue(DEMO_YOUTUBE_DASHBOARD);
+      setRevenueState({ status: "ready", view: demo.revenue, topVideos: demo.topVideos });
+      return;
+    }
+    const urls = dashboardRevenueUrls(activeChannelId);
+    try {
+      const [summaryResponse, videosResponse] = await Promise.all([
+        fetch(urls.summary, { cache: "no-store" }),
+        fetch(urls.videos, { cache: "no-store" }).catch(() => null),
+      ]);
+      const summaryBody = (await summaryResponse.json()) as { data?: RevenueSummaryResponse };
+      if (requestId !== revenueRequestRef.current) return;
+      if (!summaryResponse.ok || !summaryBody.data) throw new Error("REVENUE_UNAVAILABLE");
+      // The video list is optional: without it the totals still stand.
+      const videosBody = videosResponse?.ok
+        ? ((await videosResponse.json().catch(() => null)) as {
+            data?: RevenueVideosResponse;
+          } | null)
+        : null;
+      if (requestId !== revenueRequestRef.current) return;
+      setRevenueState({
+        status: "ready",
+        view: mapDashboardRevenue(summaryBody.data),
+        topVideos: videosBody?.data ? mapTopRevenueVideos(videosBody.data) : [],
+      });
+    } catch {
+      if (requestId !== revenueRequestRef.current) return;
+      setRevenueState({ status: "error", view: EMPTY_DASHBOARD_REVENUE, topVideos: [] });
+    }
+  };
   const loadYoutubeData = async (
     forceRefresh = false,
   ): Promise<"connected" | "not_connected" | "reauth" | "error" | null> => {
@@ -245,7 +263,9 @@ function Dashboard() {
       return "connected";
     }
     try {
-      const params = new URLSearchParams();
+      // revenue=0: this page reads revenue from the canonical API, so the live revenue reports
+      // are not requested here at all.
+      const params = new URLSearchParams({ revenue: "0" });
       if (activeChannelId) params.set("channelId", activeChannelId);
       if (forceRefresh) params.set("refresh", "1");
       const query = params.toString();
@@ -287,6 +307,7 @@ function Dashboard() {
   };
   useEffect(() => {
     void loadYoutubeData();
+    void loadRevenue();
     return () => youtubeAbortRef.current?.abort();
   }, [activeChannelId]);
 
@@ -359,21 +380,28 @@ function Dashboard() {
     return () => el.removeEventListener("scroll", updateActiveIndex);
   }, [youtubeStatus]);
 
-  const trend = useMemo(() => {
-    if (
-      dashboardData?.analyticsStatus !== "available" ||
-      dashboardData.revenueStatus !== "available"
-    )
-      return [];
-    return buildRevenueTrend(dashboardData.analytics ?? [], range);
-  }, [dashboardData, range]);
-  // Zero-value axis shape shown in place of `trend` when analytics are unavailable/disabled — the
-  // chart frame (axes, gridlines) still renders instead of collapsing to a bare text message, per
-  // "show the chart at least even if there is no data". The empty-state message overlays on top.
-  const trendFallback = useMemo(() => buildRevenueTrend([], range), [range]);
+  const revenue = revenueState.view;
+  const revenueLoading = revenueState.status === "loading";
+  const topRevenueVideos = revenueState.topVideos;
+  // Revenue Trends: the selected slice of the one canonical monthly trend. A month whose revenue
+  // is not available is a gap in the line, not a point at $0.
+  const trend = useMemo(
+    () =>
+      trendForRange(revenue.trend, range).map((point) => ({
+        month: point.month,
+        revenue: point.revenueUsd,
+      })),
+    [revenue.trend, range],
+  );
+  const hasTrend = trend.some((point) => point.revenue !== null);
+  // Zero-value axis shape shown in place of `trend` when there is nothing to draw — the chart
+  // frame (axes, gridlines) still renders instead of collapsing to a bare text message. The
+  // empty-state message overlays on top.
+  const trendFallback = useMemo(() => emptyRevenueTrend(range, new Date()), [range]);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
+    void loadRevenue();
     void loadYoutubeData(true)
       .then((status) => {
         if (status === "connected") toast.success("Dashboard refreshed");
@@ -388,60 +416,26 @@ function Dashboard() {
       : dashboardData?.videosStatus === "disabled"
         ? "Recent video sync is disabled in YouTube Integration settings."
         : "No published videos are available.";
-  // Joined client-side against the already-fetched recent-videos list for title/thumbnail/url —
-  // the analytics "video" dimension only returns IDs. A top-revenue video outside the recent-sync
-  // window (rare for a small channel) has no metadata to show, so it's dropped rather than shown
-  // with a fabricated title.
-  const topRevenueVideos = useMemo(() => {
-    const byId = new Map(videos.map((video) => [video.id, video]));
-    return (dashboardData?.topRevenueVideos ?? [])
-      .map((row) => ({ ...row, video: byId.get(row.videoId) }))
-      .filter((row): row is typeof row & { video: DashboardVideo } => Boolean(row.video));
-  }, [dashboardData?.topRevenueVideos, videos]);
   const topRevenueVideosEmptyMessage =
-    dashboardData?.topRevenueVideosStatus === "forbidden"
-      ? "Reconnect YouTube to view top revenue videos."
-      : dashboardData?.topRevenueVideosStatus === "disabled"
-        ? "Analytics import is disabled in YouTube Integration settings."
-        : "No video revenue was reported for this period.";
+    revenueState.status === "error"
+      ? "Revenue data couldn't be loaded. Try refreshing."
+      : revenue.state === "not_connected"
+        ? "Connect YouTube to view top revenue videos."
+        : revenue.state === "empty"
+          ? "Your video revenue history is still being imported."
+          : "No video revenue has been recorded for this period.";
   const revenueEmptyContent =
-    youtubeStatus !== "connected" ? (
-      "Connect YouTube to view revenue trends."
-    ) : dashboardData?.revenueStatus === "disabled" ? (
-      "YouTube Analytics import is disabled in Integration settings."
-    ) : dashboardData?.revenueStatus === "forbidden" ? (
-      <>
-        Revenue access needs to be reconnected —{" "}
-        <Link
-          to="/settings"
-          search={{ tab: "YouTube Integration" }}
-          className="font-medium text-primary underline"
-        >
-          reconnect YouTube
-        </Link>{" "}
-        to fix it.
-      </>
-    ) : dashboardData?.analyticsStatus === "available" ? (
-      "No estimated revenue was reported for this period."
-    ) : (
-      "YouTube Analytics revenue data isn't available yet."
-    );
-  const totalRevenue =
-    dashboardData?.revenueStatus === "available"
-      ? dashboardData.analytics.reduce((sum, row) => sum + Number(row.estimatedRevenue ?? 0), 0)
-      : 0;
-  const latestRevenue =
-    dashboardData?.revenueStatus === "available"
-      ? (dashboardData.analytics.at(-1)?.estimatedRevenue ?? 0)
-      : 0;
+    revenueState.status === "error"
+      ? "Revenue data couldn't be loaded. Try refreshing."
+      : revenue.state === "not_connected"
+        ? "Connect YouTube to view revenue trends."
+        : revenue.state === "empty"
+          ? "Your revenue history is still being imported. Check back shortly."
+          : "No estimated revenue was reported for this period.";
+  const revenueValue = (text: string) => (revenueLoading ? "…" : text);
   const totalWatchTime =
     dashboardData?.watchTimeStatus === "available"
       ? dashboardData.analytics.reduce((sum, row) => sum + Number(row.watchTimeMinutes ?? 0), 0)
-      : 0;
-  const recentRevenueChange =
-    dashboardData?.analytics.length && dashboardData.analytics.length > 1
-      ? Number(dashboardData.analytics.at(-1)?.estimatedRevenue ?? 0) -
-        Number(dashboardData.analytics.at(-2)?.estimatedRevenue ?? 0)
       : 0;
 
   // Per-metric monthly series (raw, not cumulative — shows real month-to-month shape rather than
@@ -455,7 +449,6 @@ function Dashboard() {
         .sort((a, b) => (a.month! > b.month! ? 1 : -1)),
     [dashboardData],
   );
-  const revenueSeries = analyticsRows.map((r) => Number(r.estimatedRevenue ?? 0));
   const viewsSeries = analyticsRows.map((r) => Number(r.views ?? 0));
   const subsSeries = analyticsRows.map((r) => Number(r.subscribersGained ?? 0));
   const watchSeries = analyticsRows.map((r) => Number(r.watchTimeMinutes ?? 0));
@@ -483,23 +476,6 @@ function Dashboard() {
     ? `published in ${latestVideoMonthLabel}`
     : "published this month";
 
-  const revenueChangePct = pctChange(revenueSeries);
-  // Revenue Split — YouTube's own reported revenue types for the latest month. "Other" is the
-  // remainder against estimatedRevenue (Shorts fund, Super Chat/Thanks, etc.), not a fabricated
-  // category — YouTube doesn't track off-platform sources like brand deals or affiliate links.
-  const latestAdRevenue = analyticsRows.at(-1)?.estimatedAdRevenue ?? 0;
-  const latestPremiumRevenue = analyticsRows.at(-1)?.estimatedRedPartnerRevenue ?? 0;
-  const latestOtherRevenue = Math.max(0, latestRevenue - latestAdRevenue - latestPremiumRevenue);
-  const revenueSplitRows = [
-    { key: "ads", label: "Ad Revenue", value: latestAdRevenue, color: "var(--brand-blue)" },
-    {
-      key: "premium",
-      label: "YouTube Premium",
-      value: latestPremiumRevenue,
-      color: "var(--brand-purple)",
-    },
-    { key: "other", label: "Other", value: latestOtherRevenue, color: "var(--brand-green)" },
-  ].filter((row) => row.value > 0);
   const viewsChangePct = pctChange(viewsSeries);
   const subsChangePct = pctChange(subsSeries);
   const watchChangePct = pctChange(watchSeries);
@@ -593,33 +569,39 @@ function Dashboard() {
               className={kpiCardClassName}
               title="Estimated Revenue"
               accent="var(--brand-green)"
-              value={dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"}
-              deltaLabel={
-                revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
+              value={revenueValue(revenue.total.text)}
+              deltaLabel={revenue.changeText}
+              deltaSuffix={
+                revenue.total.partial
+                  ? `${revenue.comparisonLabel} · partly reported`
+                  : revenue.comparisonLabel
               }
-              deltaSuffix={latestMonthSuffix}
-              changePercent={revenueChangePct}
-              periodLabel={trendPeriodLabel}
-              series={revenueSeries}
-              markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-              markerSubtitle={latestMonthLabel}
-              positive={(revenueChangePct ?? 0) >= 0}
+              changePercent={revenue.changePercent}
+              periodLabel={revenue.periodLabel}
+              series={revenue.series}
+              markerTitle={revenue.latest?.text ?? "—"}
+              markerSubtitle={revenue.latest?.label ?? ""}
+              positive={revenue.positive}
             />
             <KpiTrendCard
               className={kpiCardClassName}
               title="Latest Revenue"
               accent="var(--brand-blue)"
-              value={
-                dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"
+              value={revenueValue(revenue.latest?.text ?? "—")}
+              deltaLabel={revenue.latest?.label ?? "—"}
+              deltaSuffix={
+                revenue.latest
+                  ? revenue.latest.incomplete
+                    ? "so far · still updating"
+                    : "latest reported month"
+                  : ""
               }
-              deltaLabel={signed(recentRevenueChange, formatMoney)}
-              deltaSuffix="vs the month before"
-              changePercent={revenueChangePct}
-              periodLabel={trendPeriodLabel}
-              series={revenueSeries}
-              markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-              markerSubtitle={latestMonthLabel}
-              positive={recentRevenueChange >= 0}
+              changePercent={null}
+              periodLabel={revenue.periodLabel}
+              series={revenue.series}
+              markerTitle={revenue.latest?.text ?? "—"}
+              markerSubtitle={revenue.latest?.label ?? ""}
+              positive
             />
             <KpiTrendCard
               className={kpiCardClassName}
@@ -693,19 +675,19 @@ function Dashboard() {
               <KpiTrendCard
                 title="Estimated Revenue"
                 accent="var(--brand-green)"
-                value={
-                  dashboardData?.revenueStatus === "available" ? formatMoney(totalRevenue) : "—"
+                value={revenueValue(revenue.total.text)}
+                deltaLabel={revenue.changeText}
+                deltaSuffix={
+                  revenue.total.partial
+                    ? `${revenue.comparisonLabel} · partly reported`
+                    : revenue.comparisonLabel
                 }
-                deltaLabel={
-                  revenueSeries.length ? signed(revenueSeries.at(-1) ?? 0, formatMoney) : "—"
-                }
-                deltaSuffix={latestMonthSuffix}
-                changePercent={revenueChangePct}
-                periodLabel={trendPeriodLabel}
-                series={revenueSeries}
-                markerTitle={formatMoney(revenueSeries.at(-1) ?? 0)}
-                markerSubtitle={latestMonthLabel}
-                positive={(revenueChangePct ?? 0) >= 0}
+                changePercent={revenue.changePercent}
+                periodLabel={revenue.periodLabel}
+                series={revenue.series}
+                markerTitle={revenue.latest?.text ?? "—"}
+                markerSubtitle={revenue.latest?.label ?? ""}
+                positive={revenue.positive}
               />
             </div>
           </>
@@ -773,7 +755,9 @@ function Dashboard() {
           <div className="flex shrink-0 items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold">Revenue Trends</h3>
-              <p className="text-sm text-muted-foreground">All revenue streams over time</p>
+              <p className="text-sm text-muted-foreground">
+                {revenue.freshnessNote || "Estimated YouTube revenue over time"}
+              </p>
             </div>
             <div className="glass-pill flex gap-0.5 p-1 text-xs backdrop-blur-lg">
               {(["3M", "6M", "12M"] as const).map((t) => (
@@ -793,17 +777,14 @@ function Dashboard() {
           <div className="mt-4 flex shrink-0 items-center gap-5 text-xs">
             <Legend color="var(--color-brand-blue)" label="Estimated YouTube revenue" />
           </div>
-          {dashboardData?.revenueStatus === "forbidden" && (
-            <p className="mt-2 shrink-0 text-xs text-warning">{revenueEmptyContent}</p>
-          )}
 
           <div className="relative mt-4 min-h-[300px] flex-1">
-            {youtubeStatus === "loading" ? (
+            {revenueLoading ? (
               <Skeleton className="h-full w-full rounded-xl" />
             ) : (
               <>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trend.length ? trend : trendFallback}>
+                  <AreaChart data={hasTrend ? trend : trendFallback}>
                     <defs>
                       <linearGradient id="gBrand" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--color-brand-purple)" stopOpacity={0.4} />
@@ -822,13 +803,14 @@ function Dashboard() {
                       tickLine={false}
                     />
                     <YAxis
-                      tickFormatter={(v) => `$${v}k`}
+                      tickFormatter={(v) => formatUsdCompact(Number(v))}
                       tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                     />
-                    {trend.length > 0 && (
+                    {hasTrend && (
                       <Tooltip
+                        formatter={(value) => [formatUsdCompact(Number(value)), "Revenue"]}
                         contentStyle={{
                           background: "color-mix(in srgb, var(--color-popover) 85%, transparent)",
                           border: "1px solid color-mix(in srgb, white 20%, var(--color-border))",
@@ -848,7 +830,7 @@ function Dashboard() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-                {!trend.length && (
+                {!hasTrend && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <p className="rounded-lg bg-card/90 px-3 py-1.5 text-center text-sm text-muted-foreground shadow-sm">
                       {revenueEmptyContent}
@@ -912,10 +894,10 @@ function Dashboard() {
           {/* Mobile: stacked cards */}
           <div
             className="mt-4 space-y-2.5 sm:hidden"
-            aria-busy={youtubeStatus === "loading"}
-            aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}
+            aria-busy={revenueLoading}
+            aria-label={revenueLoading ? "Loading top revenue videos" : undefined}
           >
-            {youtubeStatus === "loading" &&
+            {revenueLoading &&
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg">
                   <Skeleton className="h-14 w-24 shrink-0 rounded-lg" />
@@ -926,20 +908,20 @@ function Dashboard() {
                   </div>
                 </div>
               ))}
-            {youtubeStatus !== "loading" &&
+            {!revenueLoading &&
               topRevenueVideos.slice(0, 5).map((row, index) => (
                 <a
                   key={row.videoId}
-                  href={row.video.url}
+                  href={row.url ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg"
                 >
                   <div className="relative shrink-0">
-                    {row.video.thumbnail ? (
+                    {row.thumbnail ? (
                       <img
                         referrerPolicy="no-referrer"
-                        src={row.video.thumbnail}
+                        src={row.thumbnail}
                         alt=""
                         className="h-14 w-24 rounded-lg object-cover"
                       />
@@ -953,15 +935,21 @@ function Dashboard() {
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{row.video.title}</p>
+                    <p className="truncate text-sm font-medium">
+                      {row.title}
+                      {!row.currentlyListed && (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          · no longer on YouTube
+                        </span>
+                      )}
+                    </p>
                     <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1" title="Views">
                         <Eye className="h-3.5 w-3.5" />
                         {formatCount(row.views)}
                       </span>
-                      <span className="font-medium text-foreground">
-                        {formatMoney(row.revenue)}
-                      </span>
+                      <span className="font-medium text-foreground">{row.revenue.text}</span>
                       {row.changePercent !== null ? (
                         <span
                           className={
@@ -980,7 +968,7 @@ function Dashboard() {
                   </div>
                 </a>
               ))}
-            {youtubeStatus !== "loading" && !topRevenueVideos.length && (
+            {!revenueLoading && !topRevenueVideos.length && (
               <p className="py-6 text-sm text-muted-foreground">{topRevenueVideosEmptyMessage}</p>
             )}
           </div>
@@ -997,10 +985,10 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody
-                aria-busy={youtubeStatus === "loading"}
-                aria-label={youtubeStatus === "loading" ? "Loading top revenue videos" : undefined}
+                aria-busy={revenueLoading}
+                aria-label={revenueLoading ? "Loading top revenue videos" : undefined}
               >
-                {youtubeStatus === "loading" &&
+                {revenueLoading &&
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-t border-border">
                       <td className="py-3" colSpan={4}>
@@ -1008,39 +996,43 @@ function Dashboard() {
                       </td>
                     </tr>
                   ))}
-                {youtubeStatus !== "loading" &&
+                {!revenueLoading &&
                   topRevenueVideos.slice(0, 5).map((row, index) => (
                     <tr key={row.videoId} className="border-t border-border">
                       <td className="py-3">
                         <a
-                          href={row.video.url}
+                          href={row.url ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3"
                         >
                           <span className="text-muted-foreground">{index + 1}</span>
-                          {row.video.thumbnail && (
+                          {row.thumbnail && (
                             <img
                               referrerPolicy="no-referrer"
-                              src={row.video.thumbnail}
+                              src={row.thumbnail}
                               alt=""
                               className="h-10 w-16 shrink-0 rounded object-cover"
                             />
                           )}
                           <span className="min-w-0">
                             <span className="block max-w-[26rem] truncate font-medium">
-                              {row.video.title}
+                              {row.title}
+                              {!row.currentlyListed && (
+                                <span className="font-normal text-muted-foreground">
+                                  {" "}
+                                  · no longer on YouTube
+                                </span>
+                              )}
                             </span>
                             <span className="block text-xs text-muted-foreground">
-                              {formatDate(row.video.publishedAt)}
+                              {formatDate(row.publishedAt)}
                             </span>
                           </span>
                         </a>
                       </td>
                       <td className="py-3 text-muted-foreground">{formatCount(row.views)}</td>
-                      <td className="py-3 font-medium text-foreground">
-                        {formatMoney(row.revenue)}
-                      </td>
+                      <td className="py-3 font-medium text-foreground">{row.revenue.text}</td>
                       <td className="py-3 text-right">
                         {row.changePercent !== null ? (
                           <span
@@ -1059,7 +1051,7 @@ function Dashboard() {
                       </td>
                     </tr>
                   ))}
-                {youtubeStatus !== "loading" && !topRevenueVideos.length && (
+                {!revenueLoading && !topRevenueVideos.length && (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
                       {topRevenueVideosEmptyMessage}
@@ -1078,10 +1070,10 @@ function Dashboard() {
 
           <div
             className="mt-4 space-y-3.5"
-            aria-busy={youtubeStatus === "loading"}
-            aria-label={youtubeStatus === "loading" ? "Loading revenue split" : undefined}
+            aria-busy={revenueLoading}
+            aria-label={revenueLoading ? "Loading revenue split" : undefined}
           >
-            {youtubeStatus === "loading" ? (
+            {revenueLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i}>
                   <div className="flex items-center justify-between">
@@ -1091,8 +1083,8 @@ function Dashboard() {
                   <Skeleton className="mt-1.5 h-1.5 w-full rounded-full" />
                 </div>
               ))
-            ) : dashboardData?.revenueStatus === "available" && revenueSplitRows.length ? (
-              revenueSplitRows.map((row) => (
+            ) : revenue.split.length ? (
+              revenue.split.map((row) => (
                 <div key={row.key}>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-1.5 font-medium">
@@ -1104,17 +1096,14 @@ function Dashboard() {
                       <span className="truncate">{row.label}</span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">
-                      {formatMoney(row.value)}{" "}
-                      <span className="text-xs">
-                        {latestRevenue > 0 ? Math.round((row.value / latestRevenue) * 100) : 0}%
-                      </span>
+                      {row.text} <span className="text-xs">{row.sharePercent}%</span>
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${latestRevenue > 0 ? Math.max((row.value / latestRevenue) * 100, 4) : 0}%`,
+                        width: `${row.sharePercent > 0 ? Math.max(row.sharePercent, 4) : 0}%`,
                         backgroundColor: row.color,
                       }}
                     />
@@ -1123,37 +1112,32 @@ function Dashboard() {
               ))
             ) : (
               <p className="py-2 text-sm text-muted-foreground">
-                {dashboardData?.revenueStatus === "forbidden"
-                  ? "Reconnect YouTube to view your revenue split."
-                  : "No estimated revenue was reported for this period."}
+                {revenueState.status === "error"
+                  ? "Revenue data couldn't be loaded. Try refreshing."
+                  : revenue.latest
+                    ? "The revenue split isn't available for this month."
+                    : revenueEmptyContent}
               </p>
             )}
           </div>
 
           <div className="mt-4 border-t border-border pt-4">
-            <p className="text-sm text-muted-foreground">This month total</p>
-            {youtubeStatus === "loading" ? (
+            <p className="text-sm text-muted-foreground">
+              {revenue.latest ? `${revenue.latest.label} total` : "Latest month total"}
+            </p>
+            {revenueLoading ? (
               <>
                 <Skeleton className="mt-2 h-7 w-24" />
                 <Skeleton className="mt-2 h-3 w-32" />
               </>
             ) : (
               <>
-                <p className="mt-1 text-2xl font-bold">
-                  {dashboardData?.revenueStatus === "available" ? formatMoney(latestRevenue) : "—"}
+                <p className="mt-1 text-2xl font-bold">{revenue.latest?.text ?? "—"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {revenue.latest?.incomplete
+                    ? "Month in progress · recent days can still change"
+                    : "Platform attribution is not included"}
                 </p>
-                {dashboardData?.revenueStatus === "available" && revenueChangePct !== null ? (
-                  <p
-                    className={`mt-1 text-xs font-medium ${revenueChangePct >= 0 ? "text-success" : "text-destructive"}`}
-                  >
-                    {revenueChangePct >= 0 ? "▲" : "▼"} {Math.abs(revenueChangePct).toFixed(1)}% vs
-                    last month
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Platform attribution is not included
-                  </p>
-                )}
               </>
             )}
           </div>
