@@ -15,7 +15,15 @@
 // layer. A reported $0 is "$0"; revenue that is not available, and a video with nothing stored,
 // are "—" and never "$0". CPM is deliberately absent, and RPM is not offered in its place.
 
-import { UNAVAILABLE, formatUsd, type RevenueFigure } from "@/lib/dashboard-revenue";
+import {
+  UNAVAILABLE,
+  formatUsd,
+  revenueDataNotice,
+  revenueDataNoticeText,
+  strongerRevenueDataNotice,
+  type RevenueDataNotice,
+  type RevenueFigure,
+} from "@/lib/dashboard-revenue";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 
 /** Revenue is shown for a trailing year — the window this column has always covered. */
@@ -100,6 +108,8 @@ export interface VideosRevenuePage {
   cells: Map<string, VideoRevenueCell>;
   /** The newest day stored data covers (YYYY-MM-DD), or null when nothing is stored. */
   dataThrough: string | null;
+  /** A known problem with the stored data for this channel (see revenueDataNotice). */
+  notice: RevenueDataNotice;
 }
 
 function changeOf(video: RevenueVideosResponse["videos"][number] | undefined): VideoChange {
@@ -169,7 +179,11 @@ export function mapVideosRevenuePage(
   });
   // A video with recent activity but nothing in the revenue response cannot occur (28 days lie
   // inside the 365), so the revenue response alone decides which videos have a cell.
-  return { cells, dataThrough: revenue.dataQuality.freshness.latestStoredDay };
+  return {
+    cells,
+    dataThrough: revenue.dataQuality.freshness.latestStoredDay,
+    notice: revenueDataNotice(revenue.dataQuality),
+  };
 }
 
 /** Adds a newly loaded page's cells to those already shown. */
@@ -185,10 +199,15 @@ export function mergeVideosRevenue(
           ? current.dataThrough
           : next.dataThrough
         : (current.dataThrough ?? next.dataThrough),
+    notice: strongerRevenueDataNotice(current.notice, next.notice),
   };
 }
 
-export const EMPTY_VIDEOS_REVENUE: VideosRevenuePage = { cells: new Map(), dataThrough: null };
+export const EMPTY_VIDEOS_REVENUE: VideosRevenuePage = {
+  cells: new Map(),
+  dataThrough: null,
+  notice: null,
+};
 
 /** What the Revenue cell prints for a row: the stored amount, or "—" when there is none. */
 export function videoRevenueText(page: VideosRevenuePage, youtubeVideoId: string): string {
@@ -208,6 +227,7 @@ export function describeVideosRevenue(page: VideosRevenuePage): string {
   return (
     `Revenue is estimated YouTube revenue for the last ${VIDEOS_REVENUE_DAYS} days${through}. ` +
     `Change compares views in the last ${VIDEOS_CHANGE_DAYS} days with the ${VIDEOS_CHANGE_DAYS} before. ` +
-    `The most recent days can still change.`
+    `The most recent days can still change.` +
+    (page.notice ? ` ${revenueDataNoticeText(page.notice, { sentence: true })}` : "")
   );
 }

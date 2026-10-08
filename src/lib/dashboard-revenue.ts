@@ -89,6 +89,53 @@ function dayLabel(day: string): string {
   });
 }
 
+// ---------- data-quality notice ----------
+
+/**
+ * Whether the stored revenue data behind a response has a known problem, from the two facts the
+ * canonical revenue APIs already report for the channels in scope:
+ *
+ *   "sync_error"    the most recent revenue-data sync of a channel in scope did not complete
+ *   "missing_days"  days in the period that should have been reported by now have nothing stored
+ *
+ * They are different things — a failed run can leave the data fully current, and data can be
+ * missing without any run having failed — so each has its own wording. When both hold, the sync
+ * error is the one reported: it is the more specific statement, and one notice is enough.
+ */
+export type RevenueDataNotice = "sync_error" | "missing_days" | null;
+
+const REVENUE_DATA_NOTICE_TEXT: Record<Exclude<RevenueDataNotice, null>, string> = {
+  sync_error: "the latest update didn't complete",
+  missing_days: "some data for this period is still unavailable",
+};
+
+export function revenueDataNotice(dataQuality: {
+  freshness: { missingDays: string[] };
+  sync: Array<{ hasSyncError: boolean }>;
+}): RevenueDataNotice {
+  if (dataQuality.sync.some((channel) => channel.hasSyncError)) return "sync_error";
+  return dataQuality.freshness.missingDays.length > 0 ? "missing_days" : null;
+}
+
+/** The notice as a lower-case phrase without a full stop ("" when there is none), so it can be
+ * joined onto an existing note or used as a sentence. */
+export function revenueDataNoticeText(
+  notice: RevenueDataNotice,
+  options: { sentence?: boolean } = {},
+): string {
+  if (!notice) return "";
+  const text = REVENUE_DATA_NOTICE_TEXT[notice];
+  return options.sentence ? `${text[0].toUpperCase()}${text.slice(1)}.` : text;
+}
+
+/** The notice to keep when two responses are combined. */
+export function strongerRevenueDataNotice(
+  a: RevenueDataNotice,
+  b: RevenueDataNotice,
+): RevenueDataNotice {
+  return a === "sync_error" || b === "sync_error" ? "sync_error" : (a ?? b);
+}
+
 // ---------- view model ----------
 
 export interface RevenueFigure {
@@ -233,6 +280,17 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
   // leaves it null when the previous period is zero or unknown.
   const changePercent = earned.change.revenueComparable ? change.percent : null;
   const hasStoredData = freshness.latestStoredDay !== null;
+  const notice = revenueDataNotice(dataQuality);
+  const freshnessNote = hasStoredData
+    ? `Estimated YouTube revenue through ${dayLabel(freshness.latestStoredDay!)}` +
+      (freshness.provisionalDays.length > 0 || freshness.pendingDays.length > 0
+        ? " · the most recent days can still change"
+        : "") +
+      (notice ? ` · ${revenueDataNoticeText(notice)}` : "")
+    : // Nothing stored yet is the ordinary empty state; only a failed update is worth saying.
+      notice === "sync_error"
+      ? revenueDataNoticeText(notice, { sentence: true }).slice(0, -1)
+      : "";
   return {
     state: summary.status === "not_connected" ? "not_connected" : hasStoredData ? "ready" : "empty",
     total: figure(earned.revenue),
@@ -245,12 +303,7 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
     latest,
     trend,
     split,
-    freshnessNote: hasStoredData
-      ? `Estimated YouTube revenue through ${dayLabel(freshness.latestStoredDay!)}` +
-        (freshness.provisionalDays.length > 0 || freshness.pendingDays.length > 0
-          ? " · the most recent days can still change"
-          : "")
-      : "",
+    freshnessNote,
   };
 }
 

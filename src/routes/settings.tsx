@@ -50,6 +50,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
+import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
@@ -443,7 +444,12 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-red/10 text-brand-red">
                     {channel?.thumbnail ? (
-                      <img referrerPolicy="no-referrer" src={channel.thumbnail} alt="" className="h-full w-full object-cover" />
+                      <img
+                        referrerPolicy="no-referrer"
+                        src={channel.thumbnail}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <Youtube className="h-4 w-4" />
                     )}
@@ -1321,22 +1327,12 @@ function YouTubeIntegrationPanel() {
     try {
       const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
       const response = await fetch(`/api/youtube/sync${query}`, { method: "POST" });
-      const body = (await response.json()) as {
-        status?: string;
-        result?: Record<string, string>;
-        error?: string;
-      };
+      const body = (await response.json()) as YoutubeSyncResponse;
       if (!response.ok) throw new Error(body.error ?? "sync_failed");
       await loadChannels();
-      if (body.status === "reauth_required") {
-        toast.error("YouTube authorization needs to be renewed before syncing.");
-      } else {
-        toast.success(
-          body.status === "partial"
-            ? "YouTube sync completed with warnings"
-            : "YouTube sync complete",
-        );
-      }
+      const result = youtubeSyncToast(body);
+      if (result.kind === "error") toast.error(result.message);
+      else toast.success(result.message);
     } catch (error) {
       toast.error(
         error instanceof Error && error.message === "YOUTUBE_NOT_CONNECTED"
