@@ -26,6 +26,7 @@ import {
   type RevenueFreshness,
   type RevenuePeriod,
   type RevenueReconciliation,
+  type RevenueSplit,
   type RevenueTotals,
   type TrendGranularity,
 } from "./revenue-metrics";
@@ -168,17 +169,21 @@ export function amountView(amount: RevenueAmount): RevenueAmountView {
   };
 }
 
+function splitView(split: RevenueSplit) {
+  return {
+    ad: amountView(split.ad),
+    premium: amountView(split.premium),
+    other: amountView(split.other),
+  };
+}
+
 function totalsView(totals: RevenueTotals) {
   return {
     revenue: amountView(totals.earned),
     views: totals.views,
     watchMinutes: totals.watchMinutes,
     rpm: totals.rpm,
-    split: {
-      ad: amountView(totals.split.ad),
-      premium: amountView(totals.split.premium),
-      other: amountView(totals.split.other),
-    },
+    split: splitView(totals.split),
   };
 }
 
@@ -327,6 +332,9 @@ export interface RevenueSummaryResponse {
       startDate: string;
       endDate: string;
       revenue: RevenueAmountView;
+      /** This bucket's ad / Premium / other revenue. `other` is known only where total, ad
+       * and Premium are all known; an unknown part is null, never zero. */
+      split: ReturnType<typeof splitView>;
       views: number;
       watchMinutes: number;
       rpm: number | null;
@@ -626,6 +634,7 @@ export async function buildRevenueSummary(
         startDate: point.startDate,
         endDate: point.endDate,
         revenue: amountView(point.earned),
+        split: splitView(point.split),
         views: point.views,
         watchMinutes: point.watchMinutes,
         rpm: point.rpm,

@@ -53,6 +53,10 @@ import { isoDay } from "./youtube-stats-sync";
 export const DEFAULT_VIDEO_PAGE_SIZE = 50;
 export const MAX_VIDEO_PAGE_SIZE = 100;
 
+/** Most YouTube video ids one request may ask about — one full page of this endpoint. */
+export const MAX_VIDEO_ID_FILTER = 100;
+const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+
 export const VIDEO_SORT_KEYS = ["revenue", "views", "rpm", "watchMinutes", "revenueShare"] as const;
 export type VideoSortKey = (typeof VIDEO_SORT_KEYS)[number];
 
@@ -62,6 +66,12 @@ const querySchema = z.object({
   offset: z.coerce.number().int().min(0).max(1_000_000).optional(),
   sort: z.enum(VIDEO_SORT_KEYS).optional(),
   direction: z.enum(["asc", "desc"]).optional(),
+  // Public YouTube video ids, comma-separated. Duplicates are harmless and removed.
+  videoIds: z
+    .string()
+    .transform((value) => [...new Set(value.split(","))])
+    .pipe(z.array(z.string().regex(YOUTUBE_VIDEO_ID)).min(1).max(MAX_VIDEO_ID_FILTER))
+    .optional(),
 });
 
 export interface RevenueVideosQuery {
@@ -72,14 +82,20 @@ export interface RevenueVideosQuery {
   offset: number;
   sort: VideoSortKey;
   direction: "asc" | "desc";
+  /** Restrict the list to these YouTube video ids; null = no restriction. */
+  videoIds: string[] | null;
 }
 
 /** Same period rules as the summary endpoint; unknown parameters (including any workspace id)
  * are ignored. */
 export function parseRevenueVideosQuery(url: URL, today: string): RevenueVideosQuery {
+  // An empty `videoIds=` is refused rather than read as "no filter": a caller that meant to ask
+  // about a list which happens to be empty must not be handed every video instead.
+  if (url.searchParams.has("videoIds") && !url.searchParams.get("videoIds"))
+    throw new RevenueSummaryError("VALIDATION_ERROR", 422);
   const parsed = querySchema.safeParse(readQueryParams(url));
   if (!parsed.success) throw new RevenueSummaryError("VALIDATION_ERROR", 422);
-  const { channelId, limit, offset, sort, direction } = parsed.data;
+  const { channelId, limit, offset, sort, direction, videoIds } = parsed.data;
   return {
     ...resolveRevenuePeriod(parsed.data, today),
     channelId: channelId ?? null,
@@ -87,6 +103,7 @@ export function parseRevenueVideosQuery(url: URL, today: string): RevenueVideosQ
     offset: offset ?? 0,
     sort: sort ?? "revenue",
     direction: direction ?? "desc",
+    videoIds: videoIds ?? null,
   };
 }
 
@@ -159,8 +176,11 @@ export interface RevenueVideosResponse {
   previousPeriod: RevenuePeriod;
   channels: RevenueChannel[];
   sort: { by: VideoSortKey; direction: "asc" | "desc" };
-  /** Videos with stored activity in the period — one page of them. */
+  /** Videos with stored activity in the period — one page of them. With `videoIds`, only those
+   * of the requested videos that have stored activity; an id that is unknown, has no activity,
+   * or belongs to a channel outside the request's scope is simply absent. */
   videos: RevenueVideoItem[];
+  /** `total` counts the videos that match the request, including any `videoIds` filter. */
   pagination: { limit: number; offset: number; total: number; hasMore: boolean };
   /** The channel-level picture the videos sit inside. The videos above explain
    * `attributedRevenue`; `unattributedRevenue` is channel revenue no video row explains. */
@@ -307,7 +327,16 @@ export async function buildRevenueVideos(
     };
   });
 
-  const sorted = sortRevenueVideos(all, query.sort, query.direction);
+  // The filter only narrows which already-calculated videos are returned. It runs after the
+  // channel scope (the caller's connected channels, or the one requested) has decided what is
+  // visible at all, so an id from another workspace or a disconnected channel can never match;
+  // and every figure — including each video's share of the channel total — is exactly what it
+  // would be without the filter.
+  const wanted = query.videoIds ? new Set(query.videoIds) : null;
+  const matching = wanted
+    ? all.filter((item) => item.youtubeVideoId !== null && wanted.has(item.youtubeVideoId))
+    : all;
+  const sorted = sortRevenueVideos(matching, query.sort, query.direction);
   const page = sorted.slice(query.offset, query.offset + query.limit);
   return {
     status: channelIds.length ? "connected" : "not_connected",

@@ -355,6 +355,9 @@ export interface RevenueTrendPoint {
   startDate: string;
   endDate: string;
   earned: RevenueAmount;
+  /** Ad / Premium / other for this bucket alone — the same calculation as the period split,
+   * applied to this bucket's channel rows. */
+  split: RevenueSplit;
   views: number;
   watchMinutes: number;
   rpm: number | null;
@@ -398,6 +401,7 @@ export function revenueTrend(
       startDate: days[0],
       endDate: days[days.length - 1],
       earned: totals.earned,
+      split: totals.split,
       views: totals.views,
       watchMinutes: totals.watchMinutes,
       rpm: totals.rpm,

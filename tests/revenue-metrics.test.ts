@@ -763,3 +763,38 @@ function daysOf(period: { startDate: string; endDate: string }): string[] {
     days.push(cursor.toISOString().slice(0, 10));
   return days;
 }
+
+// ---------- per-bucket split on the trend ----------
+
+test("each trend bucket carries its own split, computed like the period split", () => {
+  const rows = [
+    channelDay("2026-08-30", { estimatedRevenueUsd: 10, adRevenueUsd: 7, premiumRevenueUsd: 1 }),
+    channelDay("2026-08-31", { estimatedRevenueUsd: 4, adRevenueUsd: 4, premiumRevenueUsd: 0 }),
+    channelDay("2026-09-01", { estimatedRevenueUsd: 6, adRevenueUsd: null, premiumRevenueUsd: 1 }),
+    channelDay("2026-09-02", {
+      estimatedRevenueUsd: null,
+      adRevenueUsd: null,
+      premiumRevenueUsd: null,
+    }),
+  ];
+  const period = { startDate: "2026-08-30", endDate: "2026-09-03" };
+  const daily = revenueTrend(rows, period, "day");
+  assert.deepEqual(
+    daily.map((p) => [p.split.ad.usd, p.split.premium.usd, p.split.other.usd]),
+    [
+      [7, 1, 2],
+      [4, 0, 0],
+      [null, 1, null],
+      [null, null, null],
+      [null, null, null], // no row at all
+    ],
+  );
+  const monthly = revenueTrend(rows, period, "month");
+  assert.deepEqual(monthly[0].split, totalsFor(rows.slice(0, 2)).split);
+  assert.deepEqual(monthly[1].split, totalsFor(rows.slice(2)).split);
+  assert.equal(monthly[1].split.other.usd, null, "other is not invented without ad revenue");
+  // The buckets add up to the period split.
+  const whole = channelTotals(rows, period).split;
+  assert.equal(monthly[0].split.ad.usd! + (monthly[1].split.ad.usd ?? 0), whole.ad.usd);
+  assert.equal(monthly[0].split.premium.usd! + monthly[1].split.premium.usd!, whole.premium.usd);
+});

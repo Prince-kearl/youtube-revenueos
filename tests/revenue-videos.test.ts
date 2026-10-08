@@ -861,3 +861,254 @@ test("a database failure is a 500 with a stable code and no details", async () =
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), { error: "DATABASE_ERROR" });
 });
+
+// ============================================================
+// videoIds filter (public YouTube video ids)
+// ============================================================
+
+// Real YouTube ids are 11 characters; the shared fixture's placeholder ids are not, so the
+// filter tests give each video a well-formed one.
+const YT: Record<string, string> = {
+  "v-big": "BIGBIGBIG01",
+  "v-small": "SMALLSMALL1",
+  "v-gone": "GONEGONE001",
+  "v-partial": "PARTIALPAR1",
+  "v-zero": "ZEROZERO001",
+  "v-unknown": "UNKNOWNUNK1",
+  "v-second": "SECONDSEC01",
+  "v-bravo": "BRAVOBRAVO1",
+  "v-off": "OFFOFFOFF01",
+  "v-idle": "IDLEIDLE001",
+};
+
+function seedWithYoutubeIds() {
+  const db = seed();
+  channel(db, A_OFF, WS_A, "Disconnected", false);
+  video(db, "v-off", A_OFF);
+  videoDay(db, "v-off", A_OFF, sept(4), { estimated_revenue_usd: 5000, views: 777 });
+  video(db, "v-idle", A1); // known and listed, but no stored activity in the period
+  for (const row of db.tables.videos) row.youtube_video_id = YT[row.id as string];
+  return db;
+}
+
+const idsParam = (...keys: string[]) => `videoIds=${keys.map((key) => YT[key]).join(",")}`;
+
+test("videoIds: a single id returns that video, with exactly the figures it has unfiltered", async () => {
+  const db = seedWithYoutubeIds();
+  const all = (await call(db, SEPT)).data;
+  const one = (await call(db, `${SEPT}&${idsParam("v-small")}`)).data;
+  assert.deepEqual(ids(one), ["v-small"]);
+  assert.deepEqual(one.pagination, { limit: 50, offset: 0, total: 1, hasMore: false });
+  assert.deepEqual(
+    one.videos[0],
+    byId(all, "v-small"),
+    "revenue, RPM, shares and change unchanged",
+  );
+  assert.equal(one.videos[0].youtubeVideoId, "SMALLSMALL1");
+  assert.equal(one.videos[0].revenueShare, 0.083333, "still a share of the whole channel total");
+});
+
+test("videoIds: several ids return those videos and nothing else", async () => {
+  const db = seedWithYoutubeIds();
+  const { data } = await call(db, `${SEPT}&${idsParam("v-zero", "v-big", "v-second")}`);
+  assert.deepEqual(ids(data), ["v-big", "v-second", "v-zero"], "in the normal revenue order");
+  assert.equal(data.pagination.total, 3);
+  // Order in the request does not matter, and a repeated id is harmless.
+  const shuffled = await call(db, `${SEPT}&${idsParam("v-second", "v-big", "v-zero", "v-big")}`);
+  assert.deepEqual(shuffled.data, data);
+});
+
+test("videoIds: an id that does not exist, or has no stored activity, is simply absent", async () => {
+  const db = seedWithYoutubeIds();
+  const unknown = await call(db, `${SEPT}&videoIds=NOSUCHVID01`);
+  assert.equal(unknown.status, 200);
+  assert.deepEqual(unknown.data.videos, []);
+  assert.deepEqual(unknown.data.pagination, { limit: 50, offset: 0, total: 0, hasMore: false });
+
+  const idle = await call(db, `${SEPT}&${idsParam("v-idle")}`);
+  assert.deepEqual(idle.data.videos, [], "no row is manufactured for a video with no activity");
+
+  const mixed = await call(db, `${SEPT}&videoIds=NOSUCHVID01,${YT["v-big"]},${YT["v-idle"]}`);
+  assert.deepEqual(ids(mixed.data), ["v-big"]);
+});
+
+test("videoIds: another workspace's video id returns nothing, alone or mixed with own ids", async () => {
+  const db = seedWithYoutubeIds();
+  const foreign = await call(db, `${SEPT}&${idsParam("v-bravo")}`);
+  assert.equal(foreign.status, 200);
+  assert.deepEqual(foreign.data.videos, []);
+  assert.equal(foreign.data.pagination.total, 0);
+  assert.ok(!JSON.stringify(foreign.data).includes("999"));
+  // Indistinguishable from an id that does not exist at all.
+  const missing = await call(db, `${SEPT}&videoIds=NOSUCHVID01`);
+  assert.deepEqual(foreign.data, missing.data);
+
+  const mixed = await call(db, `${SEPT}&${idsParam("v-bravo", "v-small")}`);
+  assert.deepEqual(ids(mixed.data), ["v-small"]);
+
+  // The owner of that video does get it.
+  const owner = await call(db, `${SEPT}&${idsParam("v-bravo")}`, { as: WS_B });
+  assert.deepEqual(ids(owner.data), ["v-bravo"]);
+  // And cannot reach workspace A's videos the same way.
+  const reverse = await call(db, `${SEPT}&${idsParam("v-big", "v-second")}`, { as: WS_B });
+  assert.deepEqual(reverse.data.videos, []);
+});
+
+test("videoIds: a video on another channel of the same workspace is outside a channel-scoped request", async () => {
+  const db = seedWithYoutubeIds();
+  const scoped = await call(db, `${SEPT}&channelId=${A1}&${idsParam("v-second", "v-big")}`);
+  assert.deepEqual(ids(scoped.data), ["v-big"], "v-second belongs to the other channel");
+  assert.deepEqual(
+    scoped.data.channels.map((c) => c.id),
+    [A1],
+  );
+
+  const unscoped = await call(db, `${SEPT}&${idsParam("v-second", "v-big")}`);
+  assert.deepEqual(ids(unscoped.data), ["v-big", "v-second"]);
+
+  // A foreign channel id is still a 404 whatever ids are asked for.
+  const foreignChannel = await call(db, `${SEPT}&channelId=${B1}&${idsParam("v-bravo")}`);
+  assert.deepEqual(
+    [foreignChannel.status, foreignChannel.body],
+    [404, { error: "CHANNEL_NOT_FOUND" }],
+  );
+});
+
+test("videoIds: a disconnected channel's video cannot be retrieved by its id", async () => {
+  const db = seedWithYoutubeIds();
+  const { data } = await call(db, `${SEPT}&${idsParam("v-off")}`);
+  assert.deepEqual(data.videos, []);
+  assert.ok(!JSON.stringify(data).includes("5000"));
+  const scoped = await call(db, `${SEPT}&channelId=${A_OFF}&${idsParam("v-off")}`);
+  assert.equal(scoped.status, 404);
+});
+
+test("videoIds: pagination runs over the matching videos only", async () => {
+  const db = seedWithYoutubeIds();
+  const filter = idsParam("v-big", "v-small", "v-gone", "v-zero", "v-bravo");
+  const first = await call(db, `${SEPT}&${filter}&limit=2`);
+  assert.deepEqual(ids(first.data), ["v-big", "v-small"]);
+  assert.deepEqual(first.data.pagination, { limit: 2, offset: 0, total: 4, hasMore: true });
+  const second = await call(db, `${SEPT}&${filter}&limit=2&offset=2`);
+  assert.deepEqual(ids(second.data), ["v-gone", "v-zero"]);
+  assert.deepEqual(second.data.pagination, { limit: 2, offset: 2, total: 4, hasMore: false });
+  const past = await call(db, `${SEPT}&${filter}&limit=2&offset=4`);
+  assert.deepEqual(past.data.videos, []);
+  assert.equal(past.data.pagination.total, 4);
+});
+
+test("videoIds: sorting applies to the matching videos, with unknowns still last", async () => {
+  const db = seedWithYoutubeIds();
+  const filter = idsParam("v-unknown", "v-gone", "v-big", "v-partial");
+  const order = async (query: string) => ids((await call(db, `${SEPT}&${filter}&${query}`)).data);
+  assert.deepEqual(await order("sort=revenue"), ["v-big", "v-gone", "v-partial", "v-unknown"]);
+  assert.deepEqual(await order("sort=revenue&direction=asc"), [
+    "v-partial",
+    "v-gone",
+    "v-big",
+    "v-unknown",
+  ]);
+  assert.deepEqual(await order("sort=views&direction=asc"), [
+    "v-unknown",
+    "v-partial",
+    "v-gone",
+    "v-big",
+  ]);
+  assert.deepEqual(await order("sort=rpm"), ["v-partial", "v-gone", "v-big", "v-unknown"]);
+});
+
+test("videoIds: malformed, empty and oversized lists are 422 and read nothing", async () => {
+  const many = (count: number) =>
+    Array.from({ length: count }, (_, i) => `VID${String(i).padStart(8, "0")}`).join(",");
+  const bad = [
+    "videoIds=", // present but empty must not mean "everything"
+    "videoIds=,",
+    "videoIds=short",
+    "videoIds=TOOLONGTOOLONG",
+    `videoIds=${YT["v-big"]},`, // trailing comma = an empty id
+    `videoIds=${YT["v-big"]},,${YT["v-small"]}`,
+    "videoIds=BAD%20ID%20001", // spaces
+    "videoIds=BADID%2F00001", // a slash
+    "videoIds=aaaaaaaa-0000-4000-8000-000000000001", // an internal uuid is not a YouTube id
+    `videoIds=${many(101)}`,
+  ];
+  for (const query of bad) {
+    const db = seedWithYoutubeIds();
+    const { status, body } = await call(db, `${SEPT}&${query}`);
+    assert.deepEqual(
+      [query.slice(0, 40), status, body],
+      [query.slice(0, 40), 422, { error: "VALIDATION_ERROR" }],
+    );
+    assert.deepEqual(db.reads, [], `${query.slice(0, 40)} read nothing`);
+  }
+  // Exactly the maximum is accepted, and duplicates do not count against it.
+  assert.equal((await call(seedWithYoutubeIds(), `${SEPT}&videoIds=${many(100)}`)).status, 200);
+  const repeated = `${many(100)},${Array(50).fill(YT["v-big"]).join(",")},${YT["v-big"]}`;
+  assert.equal(
+    (await call(seedWithYoutubeIds(), `${SEPT}&videoIds=${repeated.split(",").slice(1).join(",")}`))
+      .status,
+    200,
+  );
+  assert.equal(parseRevenueVideosQuery(new URL("https://app.test/x"), "2026-10-10").videoIds, null);
+  assert.deepEqual(
+    parseRevenueVideosQuery(
+      new URL(`https://app.test/x?videoIds=${YT["v-big"]},${YT["v-big"]}`),
+      "2026-10-10",
+    ).videoIds,
+    [YT["v-big"]],
+  );
+});
+
+test("videoIds: authentication still comes first, and the filter changes nothing else", async () => {
+  const db = seedWithYoutubeIds();
+  const out = await call(db, `${SEPT}&${idsParam("v-big")}`, { as: null });
+  assert.deepEqual([out.status, out.body], [401, { error: "AUTH_REQUIRED" }]);
+  assert.deepEqual(db.reads, []);
+
+  const all = (await call(db, SEPT)).data;
+  const filtered = (await call(db, `${SEPT}&${idsParam("v-big")}`)).data;
+  // The channel-level picture is not narrowed by the filter: it still describes the channels.
+  assert.deepEqual(filtered.attribution, all.attribution);
+  assert.deepEqual(filtered.dataQuality, all.dataQuality);
+  assert.deepEqual(filtered.channels, all.channels);
+  assert.deepEqual(Object.keys(filtered), Object.keys(all), "no new top-level fields");
+  // A spoofed workspace id alongside the filter is still ignored.
+  const spoofed = await call(db, `${SEPT}&${idsParam("v-big")}&workspaceId=${WS_B}`);
+  assert.deepEqual(spoofed.data, filtered);
+});
+
+test("videoIds: still a stored-data read — same five reads, no network, no deals", async () => {
+  const realFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    throw new Error("network access is not allowed here");
+  }) as typeof fetch;
+  try {
+    const db = seedWithYoutubeIds();
+    deal(db, WS_A, "contracted", 5000);
+    const { status, data } = await call(db, `${SEPT}&${idsParam("v-big", "v-small")}`);
+    assert.equal(status, 200);
+    assert.equal(data.pagination.total, 2);
+    assert.deepEqual(calls, []);
+    assert.equal(db.reads.length, 5);
+    assert.ok(!db.reads.includes("deals"));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("without videoIds the response is exactly what it was before the filter existed", async () => {
+  const db = seedWithYoutubeIds();
+  const { data } = await call(db, SEPT);
+  assert.deepEqual(ids(data), [
+    "v-big",
+    "v-second",
+    "v-small",
+    "v-gone",
+    "v-partial",
+    "v-zero",
+    "v-unknown",
+  ]);
+  assert.equal(data.pagination.total, 7);
+});

@@ -776,3 +776,257 @@ test("a database failure is a 500 with a stable code and no details", async () =
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), { error: "DATABASE_ERROR" });
 });
+
+// ============================================================
+// Per-bucket revenue split on the trend (ad / Premium / other)
+// ============================================================
+
+const day = (month: number, d: number) =>
+  `2026-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+/**
+ * Alpha, July–September 2026:
+ *   July       every day  $10 = $7 ads + $1 Premium + $2 other
+ *   August     every day  $4, all of it ads
+ *   September  1st: $6 with $1 Premium, ad revenue not reported
+ *              2nd: nothing reported at all
+ *              3rd–30th: a reported zero in every column
+ * Second, 1–10 August only: $3 = $1 ads + $1 Premium + $1 other
+ */
+function seedSplit() {
+  const db = new FakeDb();
+  channel(db, A1, WS_A, "Alpha");
+  channel(db, A2, WS_A, "Second");
+  channel(db, B1, WS_B, "Bravo");
+  for (const id of [A1, A2, B1]) synced(db, id);
+  const money = (total: number | null, ad: number | null, premium: number | null) => ({
+    estimated_revenue_usd: total,
+    ad_revenue_usd: ad,
+    premium_revenue_usd: premium,
+  });
+  for (let d = 1; d <= 31; d++) {
+    channelDay(db, A1, day(7, d), money(10, 7, 1));
+    channelDay(db, A1, day(8, d), money(4, 4, 0));
+    channelDay(db, B1, day(8, d), money(999, 999, 0));
+  }
+  for (let d = 1; d <= 10; d++) channelDay(db, A2, day(8, d), money(3, 1, 1));
+  channelDay(db, A1, day(9, 1), money(6, null, 1));
+  channelDay(db, A1, day(9, 2), money(null, null, null));
+  for (let d = 3; d <= 30; d++) channelDay(db, A1, day(9, d), money(0, 0, 0));
+  return db;
+}
+
+const QUARTER = "start=2026-07-01&end=2026-09-30&granularity=month";
+const usd = (split: RevenueSummaryResponse["earned"]["trend"][number]["split"]) => [
+  split.ad.usd,
+  split.premium.usd,
+  split.other.usd,
+];
+
+test("trend split: each month carries its own ad, Premium and other revenue", async () => {
+  const { data } = await call(seedSplit(), QUARTER);
+  const [july, august] = data.earned.trend;
+  assert.equal(july.bucket, "2026-07");
+  assert.equal(july.revenue.usd, 310);
+  assert.deepEqual(usd(july.split), [217, 31, 62]);
+  assert.deepEqual(july.split.ad, {
+    usd: 217,
+    availability: "available",
+    knownDays: 31,
+    unknownDays: 0,
+  });
+  assert.equal(july.split.premium.availability, "available");
+  assert.equal(july.split.other.availability, "available");
+  // Where every part is known, the three parts are exactly the bucket's revenue.
+  assert.equal(217 + 31 + 62, july.revenue.usd);
+  assert.equal(august.bucket, "2026-08");
+});
+
+test("trend split: channels are added together within a month, and nothing is counted twice", async () => {
+  const { data } = await call(seedSplit(), QUARTER);
+  const august = data.earned.trend[1];
+  // Alpha: 31 × $4 ads. Second: 10 × ($1 ads + $1 Premium + $1 other).
+  assert.equal(august.revenue.usd, 154);
+  assert.deepEqual(usd(august.split), [134, 10, 10]);
+  assert.equal(134 + 10 + 10, august.revenue.usd);
+  assert.equal(august.split.ad.knownDays, 41, "31 Alpha days + 10 Second days");
+
+  const alphaOnly = await call(seedSplit(), `${QUARTER}&channelId=${A1}`);
+  assert.deepEqual(usd(alphaOnly.data.earned.trend[1].split), [124, 0, 0]);
+  assert.ok(!JSON.stringify(data).includes("999"), "another workspace is never included");
+});
+
+test("trend split: a reported zero is zero, an unreported part is null, and a partial month says so", async () => {
+  const { data } = await call(seedSplit(), QUARTER);
+  const september = data.earned.trend[2];
+  assert.equal(september.bucket, "2026-09");
+  assert.deepEqual(september.revenue, {
+    usd: 6,
+    availability: "partial",
+    knownDays: 29,
+    unknownDays: 1,
+  });
+  // Ad revenue was not reported on the 1st or the 2nd; the other 28 days are a real zero.
+  assert.deepEqual(september.split.ad, {
+    usd: 0,
+    availability: "partial",
+    knownDays: 28,
+    unknownDays: 2,
+  });
+  assert.deepEqual(september.split.premium, {
+    usd: 1,
+    availability: "partial",
+    knownDays: 29,
+    unknownDays: 1,
+  });
+  // "Other" is not invented for the 1st: without ad revenue it cannot be known.
+  assert.deepEqual(september.split.other, {
+    usd: 0,
+    availability: "partial",
+    knownDays: 28,
+    unknownDays: 2,
+  });
+  assert.notEqual(
+    september.split.ad.usd! + september.split.premium.usd! + september.split.other.usd!,
+    september.revenue.usd,
+    "with unknown parts the split is not forced to add up",
+  );
+});
+
+test("trend split: a month where nothing was reported is null throughout, not zero", async () => {
+  const db = new FakeDb();
+  channel(db, A1, WS_A, "Alpha");
+  synced(db, A1);
+  const blank = { estimated_revenue_usd: null, ad_revenue_usd: null, premium_revenue_usd: null };
+  for (let d = 1; d <= 31; d++) channelDay(db, A1, day(8, d), blank);
+  const { data } = await call(db, QUARTER);
+  const [july, august] = data.earned.trend;
+  // July has no rows at all; August has rows with nothing reported.
+  for (const point of [july, august]) {
+    assert.deepEqual(usd(point.split), [null, null, null]);
+    assert.equal(point.split.ad.availability, "unavailable");
+    assert.equal(point.split.premium.availability, "unavailable");
+    assert.equal(point.split.other.availability, "unavailable");
+  }
+  assert.equal(july.hasData, false);
+  assert.equal(august.hasData, true);
+  assert.equal(august.split.ad.unknownDays, 31);
+});
+
+test("trend split: an all-zero month is a real, available zero in every part", async () => {
+  const db = new FakeDb();
+  channel(db, A1, WS_A, "Alpha");
+  synced(db, A1);
+  const zero = { estimated_revenue_usd: 0, ad_revenue_usd: 0, premium_revenue_usd: 0 };
+  for (let d = 1; d <= 31; d++) channelDay(db, A1, day(8, d), zero);
+  const august = (await call(db, QUARTER)).data.earned.trend[1];
+  assert.deepEqual(usd(august.split), [0, 0, 0]);
+  assert.equal(august.split.other.availability, "available");
+});
+
+test("trend split: the months add up to the period split and to the headline revenue", async () => {
+  const { data } = await call(seedSplit(), QUARTER);
+  const sum = (pick: (point: (typeof data.earned.trend)[number]) => number | null) =>
+    Math.round(data.earned.trend.reduce((total, point) => total + (pick(point) ?? 0), 0) * 1e6) /
+    1e6;
+  assert.equal(
+    sum((p) => p.split.ad.usd),
+    data.earned.split.ad.usd,
+  );
+  assert.equal(
+    sum((p) => p.split.premium.usd),
+    data.earned.split.premium.usd,
+  );
+  assert.equal(
+    sum((p) => p.split.other.usd),
+    data.earned.split.other.usd,
+  );
+  assert.equal(
+    sum((p) => p.revenue.usd),
+    data.earned.revenue.usd,
+  );
+  assert.deepEqual(
+    [data.earned.split.ad.usd, data.earned.split.premium.usd, data.earned.split.other.usd],
+    [351, 42, 72],
+  );
+  assert.equal(data.earned.revenue.usd, 470);
+});
+
+test("trend split: it comes from channel rows only — video rows never change it", async () => {
+  const plain = (await call(seedSplit(), QUARTER)).data;
+  const db = seedSplit();
+  video(db, "v-loud", A1);
+  for (let d = 1; d <= 31; d++)
+    videoDay(db, "v-loud", A1, day(7, d), {
+      estimated_revenue_usd: 5000,
+      ad_revenue_usd: 5000,
+      premium_revenue_usd: 5000,
+    });
+  const withVideos = (await call(db, QUARTER)).data;
+  assert.deepEqual(withVideos.earned.trend, plain.earned.trend);
+  assert.deepEqual(withVideos.earned.split, plain.earned.split);
+  assert.equal(withVideos.earned.revenue.usd, 470);
+});
+
+test("trend split: daily points carry it too, and a partly reported period stays partial", async () => {
+  const { data } = await call(seedSplit(), "start=2026-08-30&end=2026-09-03");
+  assert.equal(data.granularity, "day");
+  assert.deepEqual(
+    data.earned.trend.map((p) => [p.bucket, ...usd(p.split)]),
+    [
+      ["2026-08-30", 4, 0, 0],
+      ["2026-08-31", 4, 0, 0],
+      ["2026-09-01", null, 1, null],
+      ["2026-09-02", null, null, null],
+      ["2026-09-03", 0, 0, 0],
+    ],
+  );
+  assert.equal(data.earned.split.ad.availability, "partial");
+});
+
+test("trend split: the rest of the summary contract is unchanged", async () => {
+  const { data } = await call(seed(), SEPT);
+  // Every field a trend point had before is still there with the same value; `split` is the
+  // only addition.
+  assert.deepEqual(Object.keys(data.earned.trend[0]), [
+    "bucket",
+    "startDate",
+    "endDate",
+    "revenue",
+    "split",
+    "views",
+    "watchMinutes",
+    "rpm",
+    "hasData",
+    "incomplete",
+  ]);
+  assert.deepEqual(Object.keys(data), [
+    "status",
+    "currency",
+    "dateBasis",
+    "period",
+    "previousPeriod",
+    "granularity",
+    "channels",
+    "earned",
+    "videos",
+    "dataQuality",
+    "deals",
+  ]);
+  assert.deepEqual(Object.keys(data.earned), [
+    "revenue",
+    "views",
+    "watchMinutes",
+    "rpm",
+    "split",
+    "previous",
+    "change",
+    "trend",
+  ]);
+  const first = data.earned.trend[0];
+  assert.deepEqual(
+    [first.bucket, first.revenue.usd, first.views, first.rpm, first.hasData, first.incomplete],
+    ["2026-09-01", 10, 2000, 5, true, false],
+  );
+  assert.deepEqual(usd(first.split), [7, 0.5, 2.5]);
+});
