@@ -49,6 +49,195 @@ function demoDashboard() {
   };
 }
 
+// ============ revenue/summary + revenue/videos ============
+// The Analytics page reads revenue from the canonical revenue API. In the demo preview those two
+// requests are answered here from the same sample numbers, in the canonical response shape, so
+// the page shows coherent revenue and never reaches a real revenue endpoint.
+function demoAmount(usd: number | null, days = 30) {
+  return usd === null
+    ? { usd: null, availability: "unavailable", knownDays: 0, unknownDays: 0 }
+    : { usd, availability: "available", knownDays: days, unknownDays: 0 };
+}
+
+function demoRevenueSummary() {
+  const months = [...DEMO_YOUTUBE_DASHBOARD.analytics].sort((a, b) =>
+    a.month.localeCompare(b.month),
+  );
+  const split = (row: (typeof months)[number]) => {
+    const total = row.estimatedRevenue;
+    const ads = "estimatedAdRevenue" in row ? Number(row.estimatedAdRevenue) : total * 0.77;
+    const premium =
+      "estimatedRedPartnerRevenue" in row ? Number(row.estimatedRedPartnerRevenue) : total * 0.17;
+    const round = (value: number) => Number(value.toFixed(2));
+    return {
+      ad: demoAmount(round(ads)),
+      premium: demoAmount(round(premium)),
+      other: demoAmount(round(Math.max(0, total - ads - premium))),
+    };
+  };
+  const sum = (pick: (row: (typeof months)[number]) => number) =>
+    Number(months.reduce((total, row) => total + pick(row), 0).toFixed(2));
+  const revenue = sum((row) => row.estimatedRevenue);
+  const views = sum((row) => row.views);
+  const days = months.length * 30;
+  const totals = {
+    revenue: demoAmount(revenue, days),
+    views,
+    watchMinutes: sum((row) => row.watchTimeMinutes),
+    rpm: views > 0 ? Number(((revenue / views) * 1000).toFixed(6)) : null,
+    split: {
+      ad: demoAmount(
+        sum((row) => split(row).ad.usd ?? 0),
+        days,
+      ),
+      premium: demoAmount(
+        sum((row) => split(row).premium.usd ?? 0),
+        days,
+      ),
+      other: demoAmount(
+        sum((row) => split(row).other.usd ?? 0),
+        days,
+      ),
+    },
+  };
+  const unknown = { current: null, previous: null, absolute: null, percent: null };
+  const first = months[0].month;
+  const last = months[months.length - 1].month;
+  return {
+    data: {
+      status: "connected",
+      currency: "USD",
+      dateBasis: "youtube_reporting_day",
+      period: { startDate: `${first}-01`, endDate: `${last}-28`, days, defaulted: false },
+      previousPeriod: { startDate: `${first}-01`, endDate: `${first}-01` },
+      granularity: "month",
+      channels: [
+        {
+          id: CHANNEL_ROW_ID,
+          youtubeChannelId: CHANNEL.channelId,
+          name: CHANNEL.title,
+          connected: true,
+        },
+      ],
+      earned: {
+        ...totals,
+        // Sample data has no earlier period, so no comparison is invented.
+        previous: {
+          revenue: demoAmount(null),
+          views: 0,
+          watchMinutes: 0,
+          rpm: null,
+          split: { ad: demoAmount(null), premium: demoAmount(null), other: demoAmount(null) },
+        },
+        change: {
+          revenue: unknown,
+          views: unknown,
+          watchMinutes: unknown,
+          rpm: unknown,
+          revenueComparable: false,
+        },
+        trend: months.map((row) => ({
+          bucket: row.month,
+          startDate: `${row.month}-01`,
+          endDate: `${row.month}-28`,
+          revenue: demoAmount(row.estimatedRevenue),
+          split: split(row),
+          views: row.views,
+          watchMinutes: row.watchTimeMinutes,
+          rpm:
+            row.views > 0 ? Number(((row.estimatedRevenue / row.views) * 1000).toFixed(6)) : null,
+          hasData: true,
+          incomplete: false,
+        })),
+      },
+      videos: {
+        top: [],
+        count: 0,
+        attribution: {
+          state: "fully_attributed",
+          channelRevenue: demoAmount(revenue, days),
+          attributedRevenue: demoAmount(revenue, days),
+          unattributedRevenue: demoAmount(0, days),
+          channelViews: views,
+          attributedViews: views,
+          unattributedViews: 0,
+          daysVideosExceedChannel: 0,
+          byChannel: [],
+        },
+      },
+      dataQuality: {
+        freshness: {
+          asOf: `${last}-28`,
+          expectedThrough: `${last}-28`,
+          latestStoredDay: `${last}-28`,
+          provisionalDays: [],
+          pendingDays: [],
+          missingDays: [],
+          complete: true,
+        },
+        invalidRows: 0,
+        negativeRevenueRows: 0,
+        sync: [],
+      },
+      deals: { available: false, reason: "FEATURE_UNAVAILABLE" },
+    },
+  };
+}
+
+function demoRevenueVideos(url: URL) {
+  const wanted = url.searchParams.get("videoIds")?.split(",") ?? null;
+  const rows = demoBreakdowns().data.video.rows.filter(
+    (row) => !wanted || wanted.includes(row.video),
+  );
+  const none = demoAmount(null);
+  const unknown = { current: null, previous: null, absolute: null, percent: null };
+  return {
+    data: {
+      status: "connected",
+      currency: "USD",
+      dateBasis: "youtube_reporting_day",
+      period: { startDate: "2025-09-19", endDate: "2026-09-19", days: 366, defaulted: false },
+      previousPeriod: { startDate: "2024-09-18", endDate: "2025-09-18" },
+      channels: [
+        {
+          id: CHANNEL_ROW_ID,
+          youtubeChannelId: CHANNEL.channelId,
+          name: CHANNEL.title,
+          connected: true,
+        },
+      ],
+      sort: { by: "revenue", direction: "desc" },
+      videos: rows.map((row) => ({
+        videoId: row.video,
+        youtubeVideoId: row.video,
+        title: row.title,
+        thumbnail: row.thumbnail,
+        publishedAt: row.publishedAt,
+        channelId: CHANNEL_ROW_ID,
+        channelTitle: CHANNEL.title,
+        currentlyListed: true,
+        revenue: demoAmount(row.estimatedRevenue),
+        views: row.views,
+        watchMinutes: row.estimatedMinutesWatched,
+        rpm: null,
+        revenueShare: null,
+        viewShare: null,
+        previous: { revenue: none, views: 0, watchMinutes: 0, rpm: null },
+        change: { revenue: unknown, views: unknown, watchMinutes: unknown, rpm: unknown },
+        dataQuality: {
+          availability: "complete",
+          incompleteTrend: false,
+          hasProvisionalDays: false,
+          historyLoaded: true,
+        },
+      })),
+      pagination: { limit: 100, offset: 0, total: rows.length, hasMore: false },
+      attribution: demoRevenueSummary().data.videos.attribution,
+      dataQuality: demoRevenueSummary().data.dataQuality,
+    },
+  };
+}
+
 // ============ youtube/breakdowns ============
 function demoBreakdowns() {
   return {
@@ -1347,6 +1536,8 @@ function demoBillingSubscription() {
 const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/youtube/breakdowns": demoBreakdowns,
   "/api/youtube/dashboard": demoDashboard,
+  "/api/revenue/summary": demoRevenueSummary,
+  "/api/revenue/videos": demoRevenueVideos,
   "/api/features/access": demoFeaturesAccess,
   "/api/youtube/audience": demoAudience,
   "/api/youtube/videos": demoVideosList,
