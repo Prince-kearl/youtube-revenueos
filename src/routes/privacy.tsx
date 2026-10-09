@@ -1,18 +1,22 @@
-import type { ReactNode } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Mail } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  ContactBlock,
+  Email,
+  External,
+  H3,
+  LegalDocument,
+  List,
+  P,
+  type LegalSection,
+} from "@/components/LegalDocument";
 
-// The Privacy Policy is a PUBLIC page: it must be readable without an account (visitors arrive
-// from the landing page's footer, and Google's OAuth and YouTube API reviews open it signed
-// out). It therefore renders its own simple shell instead of DashboardLayout, which sends
-// signed-out visitors back to the landing page.
+// The Privacy Policy. A PUBLIC page (see LegalDocument): it must be readable without an account —
+// visitors arrive from the landing page's footer, and Google's OAuth and YouTube API reviews
+// open it signed out.
 
 const LAST_UPDATED = "October 9, 2026";
 const LAST_UPDATED_ISO = "2026-10-09";
 const PRIVACY_EMAIL = "hey@tubify.app";
-const CONTACT_EMAIL = "youtubesoftware5@gmail.com";
-const WEBSITE_URL = "https://youtube-revenueos.vercel.app/";
 const DESCRIPTION =
   "How Tubify collects, uses, stores, shares and protects personal information, including data obtained through Google and YouTube API Services.";
 
@@ -29,55 +33,8 @@ export const Route = createFileRoute("/privacy")({
   component: Privacy,
 });
 
-// ---------- small building blocks ----------
-
-function P({ children }: { children: ReactNode }) {
-  return <p className="mt-3 first:mt-0">{children}</p>;
-}
-
-function H3({ children }: { children: ReactNode }) {
-  return <h3 className="mt-6 text-base font-semibold text-foreground first:mt-0">{children}</h3>;
-}
-
-function List({ items }: { items: ReactNode[] }) {
-  return (
-    <ul className="mt-3 list-disc space-y-1.5 pl-5 marker:text-primary/70">
-      {items.map((item, index) => (
-        <li key={index}>{item}</li>
-      ))}
-    </ul>
-  );
-}
-
-const linkClass =
-  "font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm";
-
-function External({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
-      {children}
-    </a>
-  );
-}
-
-function Email({ address }: { address: string }) {
-  return (
-    <a href={`mailto:${address}`} className={linkClass}>
-      {address}
-    </a>
-  );
-}
-
-// ---------- the policy ----------
-
-interface PolicySection {
-  /** Used for in-page links. `sharing` and `security` are linked from Settings. */
-  id: string;
-  title: string;
-  body: ReactNode;
-}
-
-const SECTIONS: PolicySection[] = [
+// `sharing` and `security` are linked from Settings; keep those ids.
+const SECTIONS: LegalSection[] = [
   {
     id: "information-we-collect",
     title: "Information We Collect",
@@ -510,23 +467,7 @@ const SECTIONS: PolicySection[] = [
           For questions, privacy requests, YouTube data deletion, or concerns about this Privacy
           Policy, contact:
         </P>
-        <address className="mt-4 rounded-xl border border-border bg-accent/30 p-5 not-italic">
-          <p className="font-semibold text-foreground">Tubify</p>
-          <dl className="mt-3 space-y-2">
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Email:</dt>
-              <dd>
-                <Email address={CONTACT_EMAIL} />
-              </dd>
-            </div>
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Website:</dt>
-              <dd>
-                <External href={WEBSITE_URL}>{WEBSITE_URL}</External>
-              </dd>
-            </div>
-          </dl>
-        </address>
+        <ContactBlock />
       </>
     ),
   },
@@ -534,125 +475,35 @@ const SECTIONS: PolicySection[] = [
 
 function Privacy() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <a
-        href="#policy"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
-      >
-        Skip to the policy
-      </a>
-
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur print:static print:border-0">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <Link to="/" aria-label="Tubify home" className="shrink-0">
-            <Logo />
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary print:hidden"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to Tubify
-          </Link>
-        </div>
-      </header>
-
-      <main id="policy" className="mx-auto max-w-6xl px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
-        <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Legal</p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">Privacy Policy</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Last updated: <time dateTime={LAST_UPDATED_ISO}>{LAST_UPDATED}</time>
+    <LegalDocument
+      path="/privacy"
+      title="Privacy Policy"
+      lastUpdated={LAST_UPDATED}
+      lastUpdatedIso={LAST_UPDATED_ISO}
+      intro={
+        <>
+          <p>
+            Tubify (&ldquo;Tubify,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;)
+            provides a revenue management and analytics platform for YouTube creators, teams, and
+            agencies.
           </p>
-
-          <div className="mt-8 space-y-3 text-base leading-relaxed text-muted-foreground">
-            <p>
-              Tubify (&ldquo;Tubify,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or
-              &ldquo;our&rdquo;) provides a revenue management and analytics platform for YouTube
-              creators, teams, and agencies.
-            </p>
-            <p>
-              This Privacy Policy explains how we collect, use, store, disclose, and protect
-              personal information when you visit our website, use our services, or connect your
-              YouTube channel.
-            </p>
-            <p>
-              It also explains your choices regarding information obtained through Google and
-              YouTube API Services.
-            </p>
-            <p>
-              By using Tubify, you acknowledge this Privacy Policy. Where consent is required, we
-              will request it separately.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-12 grid gap-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-14">
-          <nav
-            aria-label="On this page"
-            className="self-start rounded-xl border border-border bg-card/60 p-5 lg:sticky lg:top-24 print:hidden"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              On this page
-            </p>
-            <ol className="mt-3 space-y-1.5 text-sm">
-              {SECTIONS.map((section, index) => (
-                <li key={section.id}>
-                  <a
-                    href={`#${section.id}`}
-                    className="flex gap-2 rounded-md py-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <span className="w-5 shrink-0 tabular-nums text-muted-foreground/70">
-                      {index + 1}.
-                    </span>
-                    <span>{section.title}</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
-
-          <article className="min-w-0 max-w-3xl">
-            {SECTIONS.map((section, index) => (
-              <section
-                key={section.id}
-                id={section.id}
-                aria-labelledby={`${section.id}-title`}
-                className="scroll-mt-24 border-t border-border py-9 first:border-t-0 first:pt-0"
-              >
-                <h2
-                  id={`${section.id}-title`}
-                  className="flex items-baseline gap-3 text-2xl font-semibold tracking-tight"
-                >
-                  <span className="text-base font-semibold tabular-nums text-primary">
-                    {index + 1}.
-                  </span>
-                  {section.title}
-                </h2>
-                <div className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-                  {section.body}
-                </div>
-              </section>
-            ))}
-
-            <p className="mt-2 border-t border-border pt-8 text-sm text-muted-foreground">
-              Tubify is an independent service and is not affiliated with or endorsed by Google or
-              YouTube.
-            </p>
-          </article>
-        </div>
-      </main>
-
-      <footer className="border-t border-border print:hidden">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-sm text-muted-foreground sm:flex-row sm:px-8">
-          <span>&copy; {new Date().getFullYear()} Tubify</span>
-          <a
-            href={`mailto:${PRIVACY_EMAIL}`}
-            className="flex items-center gap-1.5 hover:text-foreground"
-          >
-            <Mail className="h-4 w-4" aria-hidden="true" /> {PRIVACY_EMAIL}
-          </a>
-        </div>
-      </footer>
-    </div>
+          <p>
+            This Privacy Policy explains how we collect, use, store, disclose, and protect personal
+            information when you visit our website, use our services, or connect your YouTube
+            channel.
+          </p>
+          <p>
+            It also explains your choices regarding information obtained through Google and YouTube
+            API Services.
+          </p>
+          <p>
+            By using Tubify, you acknowledge this Privacy Policy. Where consent is required, we will
+            request it separately.
+          </p>
+        </>
+      }
+      sections={SECTIONS}
+      closing="Tubify is an independent service and is not affiliated with or endorsed by Google or YouTube."
+    />
   );
 }

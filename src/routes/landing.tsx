@@ -1723,6 +1723,10 @@ function FooterSection() {
         <Link to="/privacy" className="hover:text-background/70">
           Privacy Policy
         </Link>
+        <span className="hidden sm:inline">·</span>
+        <Link to="/terms" className="hover:text-background/70">
+          Terms of Service
+        </Link>
       </div>
     </footer>
   );

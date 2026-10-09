@@ -37,6 +37,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as ApiCampaignsRouteImport } from './routes/api.campaigns'
 import { Route as ApiCommentRulesRouteImport } from './routes/api.comment-rules'
@@ -269,6 +270,11 @@ const SupportRoute = SupportRouteImport.update({
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VideosRoute = VideosRouteImport.update({
@@ -775,6 +781,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/videos': typeof VideosRouteWithChildren
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
@@ -898,6 +905,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/videos': typeof VideosRouteWithChildren
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
@@ -1022,6 +1030,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/videos': typeof VideosRouteWithChildren
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
@@ -1147,6 +1156,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/team'
+    | '/terms'
     | '/videos'
     | '/api/campaigns'
     | '/api/comment-rules'
@@ -1270,6 +1280,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/team'
+    | '/terms'
     | '/videos'
     | '/api/campaigns'
     | '/api/comment-rules'
@@ -1393,6 +1404,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/support'
     | '/team'
+    | '/terms'
     | '/videos'
     | '/api/campaigns'
     | '/api/comment-rules'
@@ -1517,6 +1529,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
+  TermsRoute: typeof TermsRoute
   VideosRoute: typeof VideosRouteWithChildren
   ApiCampaignsRoute: typeof ApiCampaignsRoute
   ApiCommentRulesRoute: typeof ApiCommentRulesRouteWithChildren
@@ -1783,6 +1796,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/videos': {
@@ -2654,6 +2674,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
+  TermsRoute: TermsRoute,
   VideosRoute: VideosRouteWithChildren,
   ApiCampaignsRoute: ApiCampaignsRoute,
   ApiCommentRulesRoute: ApiCommentRulesRouteWithChildren,

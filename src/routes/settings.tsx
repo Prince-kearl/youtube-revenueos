@@ -2599,6 +2599,9 @@ function CompliancePanel() {
           <Link to="/privacy" className="text-primary hover:underline">
             Privacy Policy
           </Link>
+          <Link to="/terms" className="text-primary hover:underline">
+            Terms of Service
+          </Link>
           <a href="/privacy#security" className="text-primary hover:underline">
             Security &amp; Data Protection
           </a>
