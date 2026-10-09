@@ -22,7 +22,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Tag } from "@/components/ui-bits";
+import { EmptyState, ErrorState, ListLoadingState, Tag } from "@/components/ui-bits";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import {
   DropdownMenu,
@@ -527,23 +527,34 @@ function BrandDeals() {
         </div>
       )}
 
-      {status === "loading" && (
-        <p className="mt-6 text-sm text-muted-foreground">Loading your pipeline…</p>
-      )}
+      {status === "loading" && <ListLoadingState className="mt-6" label="Loading your deals" />}
 
       {status === "error" && (
-        <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">Couldn't load your deals.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-6"
+          title="We couldn't load your deals"
+          description="Your deals are safe; this page just couldn't reach the server. Try again in a moment."
+          onRetry={() => setRetryNonce((n) => n + 1)}
+        />
       )}
 
-      {status === "ready" && (
+      {status === "ready" && deals.length === 0 && (
+        <EmptyState
+          className="mt-6"
+          icon={<Plus className="h-5 w-5" />}
+          title="No brand deals tracked yet"
+          description="Add a sponsorship or partnership to follow it from first contact to payment. Deals you add here also appear in Reports and on the Dashboard."
+        >
+          <button
+            onClick={() => setCreating({ open: true })}
+            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Add your first deal
+          </button>
+        </EmptyState>
+      )}
+
+      {status === "ready" && deals.length > 0 && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {stagesGrouped.map((s) => (
             <div key={s.stage} className="min-w-0">

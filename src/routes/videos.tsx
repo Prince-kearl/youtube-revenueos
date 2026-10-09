@@ -1,10 +1,22 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Filter, Play, Plus, RefreshCw, Search, Sparkles, ThumbsUp } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  Info,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  ThumbsUp,
+  Video as VideoIcon,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { StatusBadge } from "@/components/ui-bits";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/ui-bits";
+import { videosCountLine, videosEmptyState } from "@/lib/videos-page";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { ListRowSkeleton } from "@/components/skeletons";
@@ -298,11 +310,26 @@ function Videos() {
     return <Outlet />;
   }
 
+  // The table lists the channel's public videos; YouTube's channel total is a separate figure
+  // and the two can differ (see lib/videos-page.ts), so the line says which is which.
   const totalVideoCount = state.data?.totalVideoCount ?? 0;
-  const summary =
-    state.status === "connected" || state.status === "disabled"
-      ? `${filteredVideos.length} of ${totalVideoCount.toLocaleString()} published videos`
-      : "Your authenticated YouTube videos";
+  const listLoaded = state.status === "connected" || state.status === "disabled";
+  const countLine = videosCountLine({
+    shown: filteredVideos.length,
+    loaded: state.data?.videos.length ?? 0,
+    hasMore: Boolean(state.data?.nextPageToken),
+    channelVideoCount: totalVideoCount,
+    searching: Boolean(search.trim()),
+    syncDisabled: state.status === "disabled",
+  });
+  const summary = listLoaded ? countLine.text : "Your authenticated YouTube videos";
+  // null while video sync is switched off: the "sync is disabled" notice below is the only
+  // true explanation for an empty list then.
+  const emptyState = videosEmptyState({
+    search,
+    channelVideoCount: totalVideoCount,
+    syncDisabled: state.status === "disabled",
+  });
 
   return (
     <DashboardLayout title="Videos">
@@ -311,6 +338,12 @@ function Videos() {
           <h1 className="text-3xl font-bold tracking-tight">Videos</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
             {summary}
+            {listLoaded && countLine.hint && (
+              <span title={countLine.hint} className="inline-flex">
+                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sr-only">{countLine.hint}</span>
+              </span>
+            )}
             {isRefreshing && state.data && (
               <RefreshCw className="h-3 w-3 animate-spin" aria-label="Refreshing" />
             )}
@@ -393,17 +426,12 @@ function Videos() {
         </div>
       )}
       {state.status === "error" && (
-        <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
-          <p className="font-semibold">We couldn&apos;t load your YouTube videos</p>
-          <p className="mt-1">The YouTube API is temporarily unavailable.</p>
-          <button
-            type="button"
-            onClick={() => setRetryNonce((value) => value + 1)}
-            className="mt-3 rounded-[var(--button-radius)] border border-destructive/30 px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10"
-          >
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-6"
+          title="We couldn't load your YouTube videos"
+          description="YouTube didn't answer this time. That is usually temporary and does not mean your channel needs reconnecting."
+          onRetry={() => setRetryNonce((value) => value + 1)}
+        />
       )}
       {state.status === "disabled" && (
         <div className="mt-6 rounded-xl border border-border bg-accent/20 p-5 text-sm text-muted-foreground">
@@ -413,11 +441,31 @@ function Videos() {
 
       {(state.status === "connected" || state.status === "disabled") && (
         <>
+          {!filteredVideos.length && emptyState && (
+            <EmptyState
+              className="mt-6"
+              icon={<VideoIcon className="h-5 w-5" />}
+              title={emptyState.title}
+              description={emptyState.description}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  emptyState.action === "clear_search"
+                    ? setSearch("")
+                    : setRetryNonce((value) => value + 1)
+                }
+                className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {emptyState.actionLabel}
+              </button>
+            </EmptyState>
+          )}
+
           <div className="mt-6 space-y-3 sm:hidden">
             {filteredVideos.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}
-            {!filteredVideos.length && <EmptyVideos search={search} />}
           </div>
 
           {state.data?.nextPageToken && (
@@ -441,7 +489,9 @@ function Videos() {
             </p>
           )}
 
-          <div className="relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline sm:block">
+          <div
+            className={`relative mt-6 hidden overflow-x-auto rounded-xl card-gradient-outline ${filteredVideos.length ? "sm:block" : ""}`}
+          >
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <table className="w-full text-sm">
               <thead>
@@ -465,7 +515,6 @@ function Videos() {
                 ))}
               </tbody>
             </table>
-            {!filteredVideos.length && <EmptyVideos search={search} />}
           </div>
         </>
       )}
@@ -508,16 +557,6 @@ function MessageState({
         {action}
       </Link>
     </div>
-  );
-}
-
-function EmptyVideos({ search }: { search: string }) {
-  return (
-    <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-      {search
-        ? "No videos match your search."
-        : "No published videos are available for this channel."}
-    </p>
   );
 }
 

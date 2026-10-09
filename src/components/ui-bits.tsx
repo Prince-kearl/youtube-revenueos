@@ -88,3 +88,112 @@ export function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+// ---------- shared page states ----------
+// One look for "nothing here yet", "couldn't load" and "loading" across the app, so each page
+// only has to say what is missing, why, and what to do next.
+
+/** Nothing to show. Say what is missing and why in `description`; put the next step in `children`. */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  children,
+  className,
+}: {
+  icon?: ReactNode;
+  title: string;
+  description?: ReactNode;
+  /** Actions: buttons or links. */
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center",
+        className,
+      )}
+    >
+      {icon && (
+        <span
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-muted-foreground"
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+      )}
+      <div>
+        <h2 className="text-base font-semibold">{title}</h2>
+        {description && (
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {children && (
+        <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
+      )}
+    </div>
+  );
+}
+
+/** A request failed. `description` should say whether trying again is likely to help. */
+export function ErrorState({
+  title,
+  description,
+  onRetry,
+  retryLabel = "Try again",
+  className,
+}: {
+  title: string;
+  description?: ReactNode;
+  onRetry?: () => void;
+  retryLabel?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="alert"
+      className={cn(
+        "flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center",
+        className,
+      )}
+    >
+      <div>
+        <h2 className="text-base font-semibold text-destructive">{title}</h2>
+        {description && (
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {retryLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Placeholder rows while a list loads: keeps the page's shape instead of a line of text. */
+export function ListLoadingState({
+  label,
+  rows = 3,
+  className,
+}: {
+  /** Read by screen readers, e.g. "Loading your deals". */
+  label: string;
+  rows?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-3", className)} role="status" aria-label={label} aria-busy="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="h-16 animate-pulse rounded-xl bg-accent/60" />
+      ))}
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}

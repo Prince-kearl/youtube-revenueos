@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { DollarSign, Users, Video, FileText, Download, RefreshCw } from "lucide-react";
+import { DollarSign, Users, Video, FileText, Download } from "lucide-react";
+import { ErrorState, ListLoadingState } from "@/components/ui-bits";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -77,20 +78,15 @@ function Reports() {
         </div>
       </div>
 
-      {status === "loading" && (
-        <p className="mt-6 text-sm text-muted-foreground">Loading your reports…</p>
-      )}
+      {status === "loading" && <ListLoadingState className="mt-6" label="Loading your reports" />}
 
       {status === "error" && (
-        <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">Couldn't load your reports.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-6"
+          title="We couldn't load your reports"
+          description="The summary couldn't be fetched just now. Nothing is lost; try again in a moment."
+          onRetry={() => setRetryNonce((n) => n + 1)}
+        />
       )}
 
       {status === "ready" && summary && (
@@ -98,7 +94,7 @@ function Reports() {
           <h2 className="mt-6 text-lg font-semibold">Key Insights — {summary.periodLabel}</h2>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <FlatKpiCard
-              title="Revenue Closed"
+              title="Brand Deal Revenue Closed"
               value={fmtMoney(summary.revenueThisPeriod)}
               caption={
                 summary.revenueChangePct !== null

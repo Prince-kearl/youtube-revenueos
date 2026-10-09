@@ -128,8 +128,12 @@ function changeOf(video: RevenueVideosResponse["videos"][number] | undefined): V
  * rest of the top quarter by revenue is "High Revenue", then the trend decides between Growing,
  * Declining and Steady — applied to canonical figures. Videos are ranked by revenue only when at
  * least one of them has actually earned something; otherwise by views, and nothing is called
- * "High Revenue" on the strength of $0.
+ * "High Revenue" on the strength of $0. A ranking badge needs something to be ranked against:
+ * with a single video on the page there is no "top", so only the trend labels apply.
  */
+/** Fewer videos than this cannot be ranked against each other. */
+export const MIN_VIDEOS_TO_RANK = 2;
+
 export function mapVideosRevenuePage(
   revenue: RevenueVideosResponse,
   change: RevenueVideosResponse | null,
@@ -148,15 +152,16 @@ export function mapVideosRevenuePage(
       a.youtubeVideoId!.localeCompare(b.youtubeVideoId!),
   );
   const topQuarter = Math.max(1, Math.ceil(ranked.length * 0.25));
+  const comparable = ranked.length >= MIN_VIDEOS_TO_RANK;
 
   const cells = new Map<string, VideoRevenueCell>();
   ranked.forEach((video, rank) => {
     const trend = changeOf(recent.get(video.youtubeVideoId!));
     const percent = trend.kind === "percent" ? trend.percent : null;
     const status: VideoStatusLabel =
-      rank === 0
+      comparable && rank === 0
         ? "Top Performer"
-        : earning && rank < topQuarter
+        : comparable && earning && rank < topQuarter
           ? "High Revenue"
           : percent !== null && percent >= 5
             ? "Growing"

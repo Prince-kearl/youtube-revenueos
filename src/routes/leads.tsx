@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { leadSourceLinks } from "@/lib/lead-sources";
 import { useEffect, useMemo, useState } from "react";
 import {
   Inbox,
@@ -264,6 +265,21 @@ function LeadInbox() {
       .catch(() => setTeam([]));
   }, []);
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Which lead sources this user may open, from the same server-backed feature access the
+  // navigation uses. null until it has loaded: no link is offered on a guess.
+  const [featureAccess, setFeatureAccess] = useState<Record<string, boolean> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/features/access", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as { data?: { features?: Record<string, boolean> } };
+        setFeatureAccess(body.data?.features ?? {});
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const sourceLinks = leadSourceLinks(featureAccess);
   const [leadsStatus, setLeadsStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retryToken, setRetryToken] = useState(0);
   const [query, setQuery] = useState("");
@@ -797,9 +813,37 @@ function LeadInbox() {
                   );
                 })}
               {leadsStatus === "ready" && filtered.length === 0 && (
-                <p className="p-6 text-center text-sm text-muted-foreground">
-                  {showArchived ? "No archived chats." : "No leads match this filter."}
-                </p>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  {showArchived ? (
+                    "No archived chats."
+                  ) : leads.length === 0 ? (
+                    // Nothing captured at all is a different situation from a filter hiding
+                    // everything: say where leads come from and how to start getting them.
+                    <>
+                      <p className="font-semibold text-foreground">No leads captured yet</p>
+                      <p className="mt-1">
+                        Leads arrive from comment automation replies and freebie opt-in pages, or
+                        you can add one by hand with New Lead.
+                      </p>
+                      {/* Only destinations this user is allowed to open are linked. */}
+                      {sourceLinks.length > 0 && (
+                        <p className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1">
+                          {sourceLinks.map((source) => (
+                            <Link
+                              key={source.to}
+                              to={source.to}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {source.label}
+                            </Link>
+                          ))}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    "No leads match this filter."
+                  )}
+                </div>
               )}
               {leadsStatus === "ready" && !showArchived && archivedCount > 0 && (
                 <button

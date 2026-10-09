@@ -12,7 +12,7 @@ function json(body: unknown, init?: ResponseInit) {
   });
 }
 
-// Shared read endpoint for admin_audit_log, used by both Feature Management and Version Control
+// Shared read endpoint for admin_audit_log, used by both Feature Management and the Release Registry
 // (filtered client-side by action-name prefix: "feature_" vs "release_") rather than building two
 // near-identical read routes for one generic table.
 export const Route = createFileRoute("/api/admin/audit")({

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { adminSectionFrom } from "@/lib/admin-nav";
 import { ArrowLeft, Loader2, Shield } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminNav, type AdminSection } from "@/components/admin/AdminNav";
@@ -23,6 +24,12 @@ import { RoadmapSection } from "@/components/admin/sections/RoadmapSection";
 import { ChangelogSection } from "@/components/admin/sections/ChangelogSection";
 
 export const Route = createFileRoute("/admin")({
+  // The open section is part of the address (/admin?section=billing), so a section can be
+  // bookmarked, shared and survives a refresh. Unknown values fall back to the dashboard.
+  validateSearch: (search: Record<string, unknown>): { section?: AdminSection } => {
+    const section = adminSectionFrom(search.section);
+    return section === "dashboard" ? {} : { section };
+  },
   component: AdminConsole,
 });
 
@@ -49,7 +56,9 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
 
 function AdminConsole() {
   const navigate = useNavigate();
-  const [section, setSection] = useState<AdminSection>("dashboard");
+  const section = adminSectionFrom(Route.useSearch().section);
+  const setSection = (next: AdminSection) =>
+    navigate({ to: "/admin", search: next === "dashboard" ? {} : { section: next } });
   // Real server-side authorization lives in every admin API route (requireAdminUser) — this is
   // only a UX guard so a non-admin who navigates here sees a redirect instead of the console
   // shell, not the actual security boundary.

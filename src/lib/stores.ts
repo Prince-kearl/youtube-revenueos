@@ -1,4 +1,5 @@
 import { useLocalStore, uid } from "./local-store";
+import { EMPTY_ONBOARDING_STATE, type OnboardingState } from "./onboarding";
 import { dealStages as seedDealStages } from "./data";
 
 // ============ DEALS ============
@@ -117,16 +118,11 @@ export const useProfile = () => useLocalStore<Profile>("yroos.profile", seedProf
 
 // ============ ONBOARDING ============
 // Step completion itself is derived from real account state (see /api/onboarding/status and
-// lib/onboarding.ts) — this only remembers whether the user dismissed the checklist and, when
-// they've navigated with Back/Next, which step they're explicitly looking at (null = auto-pick
-// the first incomplete one).
-export interface OnboardingState {
-  dismissed: boolean;
-  reviewIndex: number | null;
-}
-const seedOnboarding = (): OnboardingState => ({ dismissed: false, reviewIndex: null });
-export const useOnboarding = () =>
-  useLocalStore<OnboardingState>("yroos.onboarding", seedOnboarding());
+// lib/onboarding.ts) — this only remembers what the user did with the guide (closed it, skipped
+// a step, is browsing it). It is kept per user under a key that signing out does not clear; see
+// onboardingStorageKey.
+export const useOnboarding = (storageKey: string) =>
+  useLocalStore<Partial<OnboardingState>>(storageKey, EMPTY_ONBOARDING_STATE);
 
 // ============ TEAM ============
 // TeamRole is still used by the PlatformRole nav-preview demo below (canAccessRoute/ROLE_ROUTES) —

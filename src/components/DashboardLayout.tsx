@@ -33,6 +33,7 @@ import {
   Lock,
   ShieldAlert,
   Loader2,
+  type LucideIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -76,64 +77,41 @@ import {
   ACTIVE_YOUTUBE_CHANNEL_KEY,
 } from "@/components/YoutubeChannelSwitcher";
 import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "@/lib/demo-youtube";
+import {
+  CREATOR_MOBILE_PRIMARY,
+  CREATOR_NAV,
+  activeCreatorNavRoute,
+  permissionRouteFor,
+  visibleCreatorNavGroups,
+} from "@/lib/creator-nav";
 
-// `keywords` back the smart search below with synonyms a literal label match would miss
-// (e.g. searching "money" or "sponsorship" should still surface Brand Deals).
-const nav = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    keywords: "home overview stats summary revenue",
-  },
-  { to: "/videos", label: "Videos", icon: Video, keywords: "clips uploads content youtube" },
-  { to: "/projects", label: "Projects", icon: FolderKanban, keywords: "campaigns work" },
-  { to: "/ai-lab", label: "AI Lab", icon: Sparkles, keywords: "ai tools generate assistant" },
-  { to: "/destinations", label: "Destinations", icon: MapPin, keywords: "bio link redirects" },
-  { to: "/link-tracking", label: "Link Tracking", icon: Link2, keywords: "links urls clicks utm" },
-  {
-    to: "/comments",
-    label: "Comment Automation",
-    icon: MessageSquare,
-    keywords: "auto reply bot comments",
-  },
-  { to: "/leads", label: "Lead Inbox", icon: Inbox, keywords: "leads contacts inbox dm messages" },
-  {
-    to: "/audience",
-    label: "Audience",
-    icon: Users,
-    keywords: "demographics viewers subscribers age gender location",
-  },
-  {
-    to: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-    keywords: "stats metrics performance revenue insights",
-  },
-  {
-    to: "/affiliate",
-    label: "Affiliate",
-    icon: Handshake,
-    keywords: "commission referral partner",
-  },
-  { to: "/freebie", label: "AI Freebie", icon: Gift, keywords: "lead magnet giveaway freebie" },
-  { to: "/email", label: "Email", icon: Mail, keywords: "campaigns newsletter" },
-  {
-    to: "/brand-deals",
-    label: "Brand Deals",
-    icon: TrendingUp,
-    keywords: "sponsorship partnership money income deals",
-  },
-  { to: "/team", label: "Team", icon: UserPlus, keywords: "members roles staff invite" },
-  { to: "/reports", label: "Reports", icon: FileText, keywords: "exports csv summary" },
-  { to: "/support", label: "Support", icon: LifeBuoy, keywords: "help contact faq" },
-  { to: "/settings", label: "Settings", icon: Settings, keywords: "preferences config account" },
-  { to: "/admin", label: "Admin Console", icon: Shield, keywords: "superadmin platform" },
-] as const;
+// What the navigation contains and how it is grouped lives in lib/creator-nav.ts (pure data,
+// unit-tested). This file adds the icons and decides what the signed-in user may see.
+const NAV_ICONS: Record<string, LucideIcon> = {
+  "/dashboard": LayoutDashboard,
+  "/videos": Video,
+  "/analytics": BarChart3,
+  "/audience": Users,
+  "/ai-lab": Sparkles,
+  "/destinations": MapPin,
+  "/link-tracking": Link2,
+  "/freebie": Gift,
+  "/brand-deals": TrendingUp,
+  "/comments": MessageSquare,
+  "/leads": Inbox,
+  "/email": Mail,
+  "/projects": FolderKanban,
+  "/reports": FileText,
+  "/team": UserPlus,
+  "/settings": Settings,
+  "/support": LifeBuoy,
+  "/affiliate": Handshake,
+  "/admin": Shield,
+};
 
-const primaryMobileNav = nav.filter((item) =>
-  (["/dashboard", "/videos", "/comments", "/analytics"] as string[]).includes(item.to),
-);
+const nav = CREATOR_NAV.map((item) => ({ ...item, icon: NAV_ICONS[item.to] ?? LayoutDashboard }));
+
+const primaryMobileNav = nav.filter((item) => CREATOR_MOBILE_PRIMARY.includes(item.to));
 
 // The active pill widens to show its label (see the mobile nav render below) — "Comment
 // Automation" at full length dwarfs the other icon-only tabs, so it gets a shorter stand-in here.
@@ -141,18 +119,6 @@ const primaryMobileNav = nav.filter((item) =>
 const MOBILE_NAV_SHORT_LABEL: Partial<Record<string, string>> = {
   "/comments": "Comments",
 };
-
-const navGroups: { label: string; items: (typeof nav)[number]["to"][] }[] = [
-  { label: "Overview", items: ["/dashboard"] },
-  { label: "Content", items: ["/videos", "/projects", "/ai-lab"] },
-  {
-    label: "Growth",
-    items: ["/destinations", "/link-tracking", "/comments", "/leads", "/audience", "/analytics"],
-  },
-  { label: "Revenue", items: ["/affiliate", "/freebie", "/email", "/brand-deals", "/team"] },
-  { label: "General", items: ["/reports", "/support", "/settings"] },
-  { label: "Platform", items: ["/admin"] },
-];
 
 const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
   (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(
@@ -397,12 +363,12 @@ export function DashboardLayout({
   const canReachRoute = (to: string) =>
     to === "/admin" ? isPlatformAdmin : canAccessRoute(viewerRole, to);
   const visibleNav = nav.filter((item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to));
-  const visibleNavGroups = navGroups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((to) => canReachRoute(to) && realFeatureEnabledFor(to)),
-    }))
-    .filter((g) => g.items.length > 0);
+  const visibleNavGroups = visibleCreatorNavGroups(
+    (to) => canReachRoute(to) && realFeatureEnabledFor(to),
+  );
+  // The entry to highlight: the page itself, or the entry a nested page belongs to (a single
+  // video, Analyze Video and Pre-Publish all sit under Videos).
+  const activeNavRoute = activeCreatorNavRoute(pathname);
   const visiblePrimaryMobileNav = primaryMobileNav.filter(
     (item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to),
   );
@@ -638,8 +604,14 @@ export function DashboardLayout({
   // Superadmin (WORKSPACE_PREVIEW_ROLES deliberately excludes it — it isn't a workspace role), so
   // a real platform-staff Superadmin/Owner would otherwise get "Access restricted" here before
   // admin.tsx's own real, server-verified profiles.role check ever runs.
-  const routeAllowed = pathname === "/admin" || canAccessRoute(viewerRole, pathname);
-  const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[pathname] : undefined;
+  //
+  // A nested or contextual page is checked against the entry it belongs to (permissionRouteFor):
+  // the role and feature rules are written per navigation entry, so checking the literal path of
+  // a single video, Analyze Video or Pre-Publish matched nothing — a Manager was refused pages
+  // their role is meant to reach, while the feature switch for those pages was never consulted.
+  const gateRoute = permissionRouteFor(pathname);
+  const routeAllowed = pathname === "/admin" || canAccessRoute(viewerRole, gateRoute);
+  const lockedFeatureOnPage = routeAllowed ? ROUTE_FEATURE[gateRoute] : undefined;
   // realFeatureEnabledFor is the real, server-backed, per-role check — this is the client-side UX
   // half of it (immediately hides page content on direct navigation); every API the page calls
   // enforces the same rule independently via requireFeatureEnabled, since a client check alone
@@ -647,7 +619,7 @@ export function DashboardLayout({
   const pageBlocked =
     !routeAllowed ||
     (!!lockedFeatureOnPage && !flags[lockedFeatureOnPage] && viewerRole !== "Superadmin") ||
-    !realFeatureEnabledFor(pathname);
+    !realFeatureEnabledFor(gateRoute);
 
   // Cmd/Ctrl+K search
   useEffect(() => {
@@ -746,7 +718,10 @@ export function DashboardLayout({
             <Logo collapsed={collapsed} />
             <button
               onClick={() => setCollapsed((c) => !c)}
-              className="flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!collapsed}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="flex h-6 w-6 items-center justify-center rounded-[var(--button-radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronLeft
                 className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}
@@ -754,9 +729,13 @@ export function DashboardLayout({
             </button>
           </div>
 
-          <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
-            {visibleNavGroups.map((group) => (
-              <div key={group.label}>
+          <nav aria-label="Main" className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
+            {visibleNavGroups.map((group, groupIndex) => (
+              <div key={group.label} role="group" aria-label={group.label}>
+                {/* Collapsed, the group names are hidden: a hairline keeps the groups apart. */}
+                {collapsed && groupIndex > 0 && (
+                  <div className="mx-auto mb-3 h-px w-8 bg-border/70" aria-hidden="true" />
+                )}
                 {!collapsed && (
                   <p
                     className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${group.label === "Platform" ? "text-brand-purple/70" : "text-muted-foreground/60"}`}
@@ -767,7 +746,7 @@ export function DashboardLayout({
                 <div className="space-y-1">
                   {group.items.map((to) => {
                     const item = nav.find((n) => n.to === to)!;
-                    const active = pathname === item.to;
+                    const active = activeNavRoute === item.to;
                     const locked = isLocked(item.to);
                     const Icon = item.icon;
                     return (
@@ -775,7 +754,9 @@ export function DashboardLayout({
                         key={item.to}
                         to={item.to}
                         title={collapsed ? item.label : locked ? "Disabled by admin" : undefined}
-                        className={`group relative flex items-center text-sm font-medium transition-all duration-200 ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
+                        aria-label={collapsed ? item.label : undefined}
+                        aria-current={active ? "page" : undefined}
+                        className={`group relative flex items-center text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
                       >
                         <Icon className="relative h-[18px] w-[18px] shrink-0" />
                         {!collapsed && (
@@ -1090,13 +1071,14 @@ export function DashboardLayout({
           >
             <div className="glass-pill flex items-center gap-1 px-2 py-1.5 backdrop-blur-2xl">
               {visiblePrimaryMobileNav.map((item) => {
-                const active = pathname === item.to;
+                const active = activeNavRoute === item.to;
                 const Icon = item.icon;
                 return (
                   <Link
                     key={item.to}
                     to={item.to}
                     aria-label={item.label}
+                    aria-current={active ? "page" : undefined}
                     title={item.label}
                     className={cn(
                       "group relative flex h-10 shrink-0 items-center justify-center rounded-full transition-all",
@@ -1116,12 +1098,14 @@ export function DashboardLayout({
               })}
               <button
                 onClick={() => setMoreOpen(true)}
-                aria-label="More"
+                aria-label="More pages"
+                aria-haspopup="dialog"
+                aria-expanded={moreOpen}
                 title="More"
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-                  !visiblePrimaryMobileNav.some((item) => item.to === pathname) &&
-                    visibleNav.some((item) => item.to === pathname)
+                  !visiblePrimaryMobileNav.some((item) => item.to === activeNavRoute) &&
+                    visibleNav.some((item) => item.to === activeNavRoute)
                     ? "glass-tab-active"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
@@ -1138,46 +1122,57 @@ export function DashboardLayout({
               className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden"
             >
               <SheetHeader>
-                <SheetTitle>All Features</SheetTitle>
+                <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
-              <div className="mt-2 grid grid-cols-4 gap-4">
-                {visibleNav.map((item) => {
-                  const active = pathname === item.to;
-                  const locked = isLocked(item.to);
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setMoreOpen(false)}
-                      className="relative flex flex-col items-center gap-1.5 text-center"
-                    >
-                      <span
-                        className={cn(
-                          "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground"
-                            : locked
-                              ? "bg-accent text-muted-foreground/40"
-                              : "bg-accent text-muted-foreground",
-                        )}
-                      >
-                        <Icon className="h-5 w-5" strokeWidth={2} />
-                      </span>
-                      {locked && (
-                        <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
-                      )}
-                      <span
-                        className={cn(
-                          "text-xs leading-tight",
-                          active ? "font-semibold text-primary" : "text-muted-foreground",
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
+              <div className="mt-2 space-y-5 pb-4">
+                {visibleNavGroups.map((group) => (
+                  <div key={group.label} role="group" aria-label={group.label}>
+                    <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      {group.label}
+                    </p>
+                    <div className="grid grid-cols-4 gap-4">
+                      {group.items.map((to) => {
+                        const item = nav.find((n) => n.to === to)!;
+                        const active = activeNavRoute === item.to;
+                        const locked = isLocked(item.to);
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to}
+                            onClick={() => setMoreOpen(false)}
+                            aria-current={active ? "page" : undefined}
+                            className="relative flex flex-col items-center gap-1.5 text-center"
+                          >
+                            <span
+                              className={cn(
+                                "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
+                                active
+                                  ? "bg-primary text-primary-foreground"
+                                  : locked
+                                    ? "bg-accent text-muted-foreground/40"
+                                    : "bg-accent text-muted-foreground",
+                              )}
+                            >
+                              <Icon className="h-5 w-5" strokeWidth={2} />
+                            </span>
+                            {locked && (
+                              <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span
+                              className={cn(
+                                "text-xs leading-tight",
+                                active ? "font-semibold text-primary" : "text-muted-foreground",
+                              )}
+                            >
+                              {item.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </SheetContent>
           </Sheet>
@@ -1194,7 +1189,16 @@ export function DashboardLayout({
         onSave={(deal) => setDeals((prev) => [deal, ...prev])}
       />
 
-      <OnboardingTour />
+      {/* The guide is offered only for steps this user can actually open — same rule as the nav. */}
+      <OnboardingTour
+        userId={user?.id ?? null}
+        accessReady={realFeatureAccess !== null}
+        canUseRoute={(to) => {
+          // A step on a contextual page (Analyze Video) is governed by its parent entry.
+          const route = permissionRouteFor(to);
+          return canReachRoute(route) && realFeatureEnabledFor(route) && !isLocked(route);
+        }}
+      />
     </div>
   );
 }

@@ -23,69 +23,40 @@ import {
 import { cn } from "@/lib/utils";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ADMIN_MOBILE_PRIMARY, ADMIN_NAV_GROUPS, type AdminSection } from "@/lib/admin-nav";
 
-export type AdminSection =
-  | "dashboard"
-  | "users"
-  | "roles"
-  | "organizations"
-  | "ai"
-  | "billing"
-  | "analytics"
-  | "communications"
-  | "content"
-  | "system"
-  | "security"
-  | "audit"
-  | "support"
-  | "infrastructure"
-  | "features"
-  | "releases"
-  | "roadmap"
-  | "changelog";
+// What the console contains and how it is grouped lives in lib/admin-nav.ts (pure data,
+// unit-tested). This file adds the icons.
+const SECTION_ICONS: Record<AdminSection, typeof LayoutDashboard> = {
+  dashboard: LayoutDashboard,
+  analytics: BarChart3,
+  users: Users,
+  roles: ShieldCheck,
+  organizations: Building2,
+  billing: CreditCard,
+  ai: Sparkles,
+  features: ToggleLeft,
+  security: Lock,
+  audit: ScrollText,
+  content: Palette,
+  communications: Megaphone,
+  releases: GitBranch,
+  roadmap: Rocket,
+  changelog: History,
+  system: Settings,
+  infrastructure: Server,
+  support: LifeBuoy,
+};
 
-export const ADMIN_NAV: {
-  label: string;
-  items: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[];
-}[] = [
-  { label: "Overview", items: [{ key: "dashboard", label: "Dashboard", icon: LayoutDashboard }] },
-  {
-    label: "User Management",
-    items: [
-      { key: "users", label: "Users", icon: Users },
-      { key: "roles", label: "Roles & Permissions", icon: ShieldCheck },
-      { key: "organizations", label: "Workspaces", icon: Building2 },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      { key: "ai", label: "AI Management", icon: Sparkles },
-      { key: "billing", label: "Billing", icon: CreditCard },
-      { key: "features", label: "Feature Management", icon: ToggleLeft },
-      { key: "releases", label: "Version Control", icon: GitBranch },
-      { key: "roadmap", label: "Roadmap", icon: Rocket },
-      { key: "changelog", label: "Changelog", icon: History },
-      { key: "analytics", label: "Analytics", icon: BarChart3 },
-      { key: "communications", label: "Communications", icon: Megaphone },
-    ],
-  },
-  { label: "Content", items: [{ key: "content", label: "Customization", icon: Palette }] },
-  {
-    label: "Operations",
-    items: [
-      { key: "system", label: "System", icon: Settings },
-      { key: "security", label: "Security", icon: Lock },
-      { key: "audit", label: "Audit Logs", icon: ScrollText },
-      { key: "support", label: "Support", icon: LifeBuoy },
-      { key: "infrastructure", label: "Infrastructure", icon: Server },
-    ],
-  },
-];
+export type { AdminSection };
+
+export const ADMIN_NAV = ADMIN_NAV_GROUPS.map((group) => ({
+  label: group.label,
+  items: group.items.map((item) => ({ ...item, icon: SECTION_ICONS[item.key] })),
+}));
 
 const ALL_ITEMS = ADMIN_NAV.flatMap((g) => g.items);
-const PRIMARY_KEYS: AdminSection[] = ["dashboard", "users", "billing", "support"];
-const primaryItems = ALL_ITEMS.filter((i) => PRIMARY_KEYS.includes(i.key));
+const primaryItems = ALL_ITEMS.filter((i) => ADMIN_MOBILE_PRIMARY.includes(i.key));
 
 export function AdminNav({
   active,
@@ -100,9 +71,12 @@ export function AdminNav({
   return (
     <>
       {/* Desktop rail — stays pinned in place while the page content scrolls beneath it */}
-      <nav className="sticky top-[84px] hidden max-h-[calc(100vh_-_100px)] w-56 shrink-0 space-y-4 self-start overflow-y-auto lg:block">
+      <nav
+        aria-label="Admin sections"
+        className="sticky top-[84px] hidden max-h-[calc(100vh_-_100px)] w-56 shrink-0 space-y-4 self-start overflow-y-auto lg:block"
+      >
         {ADMIN_NAV.map((group) => (
-          <div key={group.label}>
+          <div key={group.label} role="group" aria-label={group.label}>
             <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
               {group.label}
             </p>
@@ -111,8 +85,9 @@ export function AdminNav({
                 <button
                   key={item.key}
                   onClick={() => onSelect(item.key)}
+                  aria-current={active === item.key ? "page" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple",
                     active === item.key
                       ? "bg-brand-purple/10 text-brand-purple"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -142,6 +117,7 @@ export function AdminNav({
               key={item.key}
               onClick={() => onSelect(item.key)}
               aria-label={item.label}
+              aria-current={active === item.key ? "page" : undefined}
               title={item.label}
               className={cn(
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
@@ -155,7 +131,9 @@ export function AdminNav({
           ))}
           <button
             onClick={() => setMoreOpen(true)}
-            aria-label="More"
+            aria-label="More admin sections"
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
             title="More"
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
@@ -176,7 +154,7 @@ export function AdminNav({
           className="max-h-[75vh] overflow-y-auto rounded-t-2xl lg:hidden"
         >
           <SheetHeader>
-            <SheetTitle>All Admin Sections</SheetTitle>
+            <SheetTitle>Admin sections</SheetTitle>
           </SheetHeader>
           <div className="mt-2 space-y-4">
             {ADMIN_NAV.map((group) => (
