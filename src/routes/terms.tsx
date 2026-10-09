@@ -460,10 +460,6 @@ const SECTIONS: LegalSection[] = [
           limited, including liability for fraud, intentional misconduct, or other non-excludable
           obligations.
         </P>
-        <P>
-          Any additional liability cap should be specified in the final legally reviewed version of
-          these Terms.
-        </P>
       </>
     ),
   },
@@ -521,10 +517,6 @@ const SECTIONS: LegalSection[] = [
         <P>
           Before initiating formal legal proceedings, you may contact us to attempt to resolve a
           dispute informally.
-        </P>
-        <P>
-          The applicable governing-law jurisdiction and dispute-resolution venue should be specified
-          in the final legally reviewed version of these Terms.
         </P>
       </>
     ),

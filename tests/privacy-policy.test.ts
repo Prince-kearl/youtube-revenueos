@@ -171,3 +171,8 @@ test("Terms of Service: every reference to the Privacy Policy is a link to it", 
   const mentions = terms.match(/Privacy Policy/g) ?? [];
   assert.equal(mentions.length, links.length);
 });
+
+test("Terms of Service: no drafting notes are published", () => {
+  assert.doesNotMatch(flat(terms), /legally reviewed version|should be specified/i);
+  assert.doesNotMatch(flat(privacy), /legally reviewed version|should be specified/i);
+});
