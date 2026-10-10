@@ -844,7 +844,11 @@ function demoWorkspaceMembers() {
         member: null,
       },
     ],
-    meta: { role: "owner" },
+    meta: {
+      role: "owner",
+      memberId: "60000000-0000-4000-8000-000000000001",
+      teamManagement: { allowed: true, reason: "plan", requiredPlan: "scale" },
+    },
   };
 }
 

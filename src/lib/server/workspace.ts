@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { requireSessionUser } from "./supabase-ssr";
+import { canManageMembers, canManageRole, type WorkspaceRole } from "@/lib/team-policy";
 
 // Workspace membership role — a DIFFERENT axis from profiles.role / AppRole in roles.ts, even
 // though the label strings overlap. profiles.role is the platform-staff role (Superadmin console,
@@ -7,7 +8,7 @@ import { requireSessionUser } from "./supabase-ssr";
 // workspace." Never pass a WorkspaceRole into requirePermission/requireAdminUser/canAccessConsole
 // or vice versa — every signed-up user is "owner" of their own workspace by default, and
 // confusing the two would silently grant Superadmin-console permissions to every new signup.
-export type WorkspaceRole = "owner" | "manager" | "setter" | "editor";
+export type { WorkspaceRole };
 
 export interface WorkspaceContext {
   client: SupabaseClient;
@@ -82,20 +83,15 @@ export async function requireWorkspaceFeature(
   return ctx;
 }
 
-// Only owner/manager may invite, change roles, or remove members — mirrors canManageRole's
-// conservatism in roles.ts (setter/editor can't touch team composition at all).
+// The role rules themselves live in lib/team-policy.ts (pure, shared with the Team page and
+// unit-tested there). These names are kept because other workspace-settings routes gate on them.
 export function canManageWorkspaceMembers(role: WorkspaceRole): boolean {
-  return role === "owner" || role === "manager";
+  return canManageMembers(role);
 }
 
-// A manager can invite/edit/remove setters and editors, but never another owner or manager
-// (can't create a peer or superior) — only the owner can do that. Mirrors canManageRole's
-// "can't touch anyone at or above your own level" rule in roles.ts.
 export function canManageWorkspaceRole(
   actingRole: WorkspaceRole,
   targetRole: WorkspaceRole,
 ): boolean {
-  if (actingRole === "owner") return true;
-  if (actingRole !== "manager") return false;
-  return targetRole === "setter" || targetRole === "editor";
+  return canManageRole(actingRole, targetRole);
 }

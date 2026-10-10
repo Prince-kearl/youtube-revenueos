@@ -1,14 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import {
-  requireWorkspaceFeature,
-  canManageWorkspaceMembers,
-  canManageWorkspaceRole,
-  type WorkspaceRole,
-} from "@/lib/server/workspace";
+import { requireWorkspaceFeature, type WorkspaceRole } from "@/lib/server/workspace";
+import { resolveTeamManagementEntitlement } from "@/lib/server/workspace-entitlements";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { requireServerEnv, getServerEnv } from "@/lib/server/env";
 import { notifyWorkspace } from "@/lib/server/notify";
+import {
+  PLAN_REQUIRED_BODY,
+  authorizeInvite,
+  authorizeMemberRemoval,
+  authorizeMemberUpdate,
+  redactMember,
+  type TeamDenial,
+} from "@/lib/team-policy";
+
+// Team Management API. Every handler requires, in this order:
+//
+//   1. a signed-in user with an active membership  (requireWorkspaceFeature → getWorkspaceContext)
+//   2. the "team" feature enabled for their role   (requireWorkspaceFeature)
+//   3. a role that permits the specific action     (lib/team-policy.ts)
+//   4. for inviting and for changing a role only:  the workspace's team-management entitlement,
+//      resolved from the workspace OWNER's plan    (lib/server/workspace-entitlements.ts)
+//
+// Viewing and removing never need the entitlement, so a workspace that downgrades keeps its
+// members and can still shrink its team. The workspace is always the caller's own (taken from
+// their membership, never from the request), and every write is filtered by it.
+//
+// All authorisation happens before the first write or outgoing request: a refused request
+// creates no account, no membership and no email.
 
 const workspaceRoleEnum = z.enum(["owner", "manager", "setter", "editor"]);
 
@@ -21,6 +40,8 @@ const inviteSchema = z.object({
   costAmount: z.number().min(0).max(10_000_000).default(0),
 });
 
+// An explicit allowlist of what a PATCH may carry. Anything else in the body (a plan, a status,
+// a workspace id, a user id…) is dropped by the parser and can never reach the database.
 const updateSchema = z.object({
   role: workspaceRoleEnum.optional(),
   leadShare: z.number().int().min(0).max(100).optional(),
@@ -39,6 +60,14 @@ function json(body: unknown, init?: ResponseInit) {
       "Cache-Control": "private, no-store",
       ...init?.headers,
     },
+  });
+}
+
+/** The response for a refused action. A plan restriction carries what to upgrade to; a role
+ * restriction never does. */
+function denied(denial: TeamDenial) {
+  return json(denial.error === "PLAN_REQUIRED" ? PLAN_REQUIRED_BODY : { error: denial.error }, {
+    status: denial.status,
   });
 }
 
@@ -69,10 +98,17 @@ async function countActiveOwners(
 export const Route = createFileRoute("/api/workspace/members")({
   server: {
     handlers: {
+      // Lists the caller's own workspace. Available on every plan. Each row is returned as that
+      // caller may see it: lead share, commission and cost are blanked unless the caller's role
+      // permits (see canViewCompensation) — the page is never trusted to hide them.
       GET: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "team");
-          const { data, error } = await ctx.client
+          // Read with the service-role client, scoped to the caller's workspace. The roster's
+          // compensation columns are not readable through the member-facing database role, so
+          // this server-side read (followed by redaction) is the only way they are served.
+          const service = createServiceSupabaseClient();
+          const { data, error } = await service
             .from("workspace_members")
             .select(
               `${memberColumns}, member:profiles!workspace_members_user_id_fkey(name, email, avatar)`,
@@ -88,7 +124,6 @@ export const Route = createFileRoute("/api/workspace/members")({
           // but the list reports such a member as "invited" until they have signed in for the
           // first time, which is what accepting the invitation link does. Best-effort: if the
           // lookup fails the stored status is shown.
-          const service = createServiceSupabaseClient();
           const rows = await Promise.all(
             (data ?? []).map(async (row) => {
               if (row.status !== "active" || !row.user_id || row.user_id === ctx.user.id)
@@ -103,7 +138,21 @@ export const Route = createFileRoute("/api/workspace/members")({
               }
             }),
           );
-          return json({ data: rows, meta: { role: ctx.workspaceRole } });
+          const viewer = { userId: ctx.user.id, role: ctx.workspaceRole };
+          const teamManagement = await resolveTeamManagementEntitlement(service, {
+            workspaceId: ctx.workspaceId,
+            userId: ctx.user.id,
+          });
+          return json({
+            data: rows.map((row) => redactMember(row, viewer)),
+            // Only what the page needs to choose its controls: the caller's role and membership,
+            // and whether this workspace may expand its team. No plan or billing detail.
+            meta: {
+              role: ctx.workspaceRole,
+              memberId: rows.find((row) => row.user_id === ctx.user.id)?.id ?? null,
+              teamManagement,
+            },
+          });
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
@@ -119,15 +168,21 @@ export const Route = createFileRoute("/api/workspace/members")({
       POST: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "team");
-          if (!canManageWorkspaceMembers(ctx.workspaceRole)) {
-            return json({ error: "CANNOT_MANAGE_MEMBERS" }, { status: 403 });
-          }
           const input = inviteSchema.parse(await parseJson(request));
-          if (!canManageWorkspaceRole(ctx.workspaceRole, input.role)) {
-            return json({ error: "CANNOT_ASSIGN_ROLE" }, { status: 403 });
-          }
 
           const service = createServiceSupabaseClient();
+          const decision = authorizeInvite({
+            actorRole: ctx.workspaceRole,
+            inviteRole: input.role,
+            entitlement: await resolveTeamManagementEntitlement(service, {
+              workspaceId: ctx.workspaceId,
+              userId: ctx.user.id,
+            }),
+          });
+          // Nothing below this line runs for a refused request.
+          if (!decision.ok) return denied(decision);
+
+          const viewer = { userId: ctx.user.id, role: ctx.workspaceRole };
           const { data: existingProfile } = await service
             .from("profiles")
             .select("id")
@@ -182,7 +237,7 @@ export const Route = createFileRoute("/api/workspace/members")({
               title: "New teammate joined",
               message: `${input.email} joined as ${input.role}`,
             });
-            return json({ data }, { status: 201 });
+            return json({ data: redactMember(data, viewer) }, { status: 201 });
           }
 
           const { data: pending, error: insertError } = await service
@@ -234,7 +289,7 @@ export const Route = createFileRoute("/api/workspace/members")({
             );
           }
 
-          return json({ data: pending }, { status: 201 });
+          return json({ data: redactMember(pending, viewer) }, { status: 201 });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
@@ -242,6 +297,9 @@ export const Route = createFileRoute("/api/workspace/members")({
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
+      // Updates a member. Which fields the request carries decides what is required of the
+      // caller (see authorizeMemberUpdate): a role change needs the hierarchy AND the plan;
+      // compensation needs the hierarchy; a job title may be one's own.
       PATCH: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "team");
@@ -257,24 +315,33 @@ export const Route = createFileRoute("/api/workspace/members")({
             .maybeSingle();
           if (!existing) return json({ error: "MEMBER_NOT_FOUND" }, { status: 404 });
 
-          const isSelf = existing.user_id === ctx.user.id;
-          if (input.role !== undefined) {
-            if (isSelf) return json({ error: "CANNOT_CHANGE_OWN_ROLE" }, { status: 403 });
-            if (!canManageWorkspaceMembers(ctx.workspaceRole)) {
-              return json({ error: "CANNOT_MANAGE_MEMBERS" }, { status: 403 });
-            }
-            if (
-              !canManageWorkspaceRole(ctx.workspaceRole, existing.role as WorkspaceRole) ||
-              !canManageWorkspaceRole(ctx.workspaceRole, input.role)
-            ) {
-              return json({ error: "CANNOT_ASSIGN_ROLE" }, { status: 403 });
-            }
-            if (existing.role === "owner" && input.role !== "owner") {
-              const owners = await countActiveOwners(service, ctx.workspaceId);
-              if (owners <= 1) return json({ error: "LAST_OWNER" }, { status: 409 });
-            }
-          } else if (!isSelf && !canManageWorkspaceMembers(ctx.workspaceRole)) {
-            return json({ error: "CANNOT_MANAGE_MEMBERS" }, { status: 403 });
+          const decision = authorizeMemberUpdate({
+            actorRole: ctx.workspaceRole,
+            isSelf: existing.user_id === ctx.user.id,
+            targetRole: existing.role as WorkspaceRole,
+            changes: {
+              role: input.role,
+              compensation:
+                input.leadShare !== undefined ||
+                input.commission !== undefined ||
+                input.costAmount !== undefined,
+              jobTitle: input.jobTitle !== undefined,
+            },
+            // Only a role change consults the plan, so only then is it looked up.
+            entitlement:
+              input.role !== undefined
+                ? await resolveTeamManagementEntitlement(service, {
+                    workspaceId: ctx.workspaceId,
+                    userId: ctx.user.id,
+                  })
+                : { allowed: false, reason: "unavailable", requiredPlan: "scale" },
+          });
+          // Every requested field has been authorised by now; nothing is written otherwise.
+          if (!decision.ok) return denied(decision);
+
+          if (input.role !== undefined && existing.role === "owner" && input.role !== "owner") {
+            const owners = await countActiveOwners(service, ctx.workspaceId);
+            if (owners <= 1) return json({ error: "LAST_OWNER" }, { status: 409 });
           }
 
           const update: Record<string, unknown> = {};
@@ -288,10 +355,13 @@ export const Route = createFileRoute("/api/workspace/members")({
             .from("workspace_members")
             .update(update)
             .eq("id", id)
+            .eq("workspace_id", ctx.workspaceId)
             .select(memberColumns)
             .single();
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          return json({ data });
+          return json({
+            data: redactMember(data, { userId: ctx.user.id, role: ctx.workspaceRole }),
+          });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
@@ -299,6 +369,8 @@ export const Route = createFileRoute("/api/workspace/members")({
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
+      // Removes a member, or cancels a pending invite. Available on every plan. A manager may
+      // remove only setters and editors; anyone may leave; the last owner can never go.
       DELETE: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "team");
@@ -313,10 +385,13 @@ export const Route = createFileRoute("/api/workspace/members")({
             .maybeSingle();
           if (!existing) return json({ error: "MEMBER_NOT_FOUND" }, { status: 404 });
 
-          const isSelf = existing.user_id === ctx.user.id;
-          if (!isSelf && !canManageWorkspaceMembers(ctx.workspaceRole)) {
-            return json({ error: "CANNOT_MANAGE_MEMBERS" }, { status: 403 });
-          }
+          const decision = authorizeMemberRemoval({
+            actorRole: ctx.workspaceRole,
+            isSelf: existing.user_id === ctx.user.id,
+            targetRole: existing.role as WorkspaceRole,
+          });
+          if (!decision.ok) return denied(decision);
+
           if (existing.role === "owner") {
             const owners = await countActiveOwners(service, ctx.workspaceId);
             if (owners <= 1) return json({ error: "LAST_OWNER" }, { status: 409 });
@@ -325,7 +400,8 @@ export const Route = createFileRoute("/api/workspace/members")({
           const { error } = await service
             .from("workspace_members")
             .update({ status: "removed" })
-            .eq("id", id);
+            .eq("id", id)
+            .eq("workspace_id", ctx.workspaceId);
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           return json({ success: true });
         } catch (error) {
