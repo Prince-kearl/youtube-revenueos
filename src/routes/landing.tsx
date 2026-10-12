@@ -541,9 +541,13 @@ function FloatingStatCard() {
 }
 
 // ============ HERO ARTWORK ============
-// A single pre-rendered image (public/landing_asset.png, transparent background): the Tubify
-// phone surrounded by floating stat cards. Width/height are the file's intrinsic size, so the
-// browser reserves the right space before it loads and the hero copy beside it never shifts.
+// A single pre-rendered image (transparent background): the Tubify phone surrounded by floating
+// stat cards. Width/height are the artwork's intrinsic size, so the browser reserves the right
+// space before it loads and the hero copy beside it never shifts.
+//
+// It is served as WebP — about 160 KB at full size and 80 KB at 800px wide, against 1.8 MB for
+// the original PNG — and the browser picks the width that fits. The PNG (landing_asset.png) is
+// kept only as the fallback for a browser that cannot show WebP.
 //
 // The artwork is cropped flat across the wrist and down its right-hand edge. Left floating in
 // the middle of the hero that crop reads as a mistake, so two things hide it:
@@ -567,22 +571,29 @@ function HeroArtwork() {
             "radial-gradient(circle, color-mix(in srgb, var(--primary) 30%, transparent) 0%, transparent 70%)",
         }}
       />
-      <img
-        src="/landing_asset.png"
-        alt="The Tubify app on a phone, showing total revenue, views, watch time, subscribers and top videos"
-        width={1341}
-        height={1100}
-        fetchPriority="high"
-        decoding="async"
-        draggable={false}
-        className="pointer-events-none block h-auto w-full select-none"
-        style={{
-          maskImage: HERO_ARTWORK_MASK,
-          WebkitMaskImage: HERO_ARTWORK_MASK,
-          maskComposite: "intersect",
-          WebkitMaskComposite: "source-in",
-        }}
-      />
+      <picture>
+        <source
+          type="image/webp"
+          srcSet="/landing_asset-800.webp 800w, /landing_asset.webp 1341w"
+          sizes="(min-width: 1024px) 50vw, (min-width: 624px) 576px, 100vw"
+        />
+        <img
+          src="/landing_asset.png"
+          alt="The Tubify app on a phone, showing total revenue, views, watch time, subscribers and top videos"
+          width={1341}
+          height={1100}
+          fetchPriority="high"
+          decoding="async"
+          draggable={false}
+          className="pointer-events-none block h-auto w-full select-none"
+          style={{
+            maskImage: HERO_ARTWORK_MASK,
+            WebkitMaskImage: HERO_ARTWORK_MASK,
+            maskComposite: "intersect",
+            WebkitMaskComposite: "source-in",
+          }}
+        />
+      </picture>
     </div>
   );
 }
