@@ -16,6 +16,8 @@ import { ThemeInjector } from "@/components/ThemeInjector";
 import { ThemeModeApplier } from "@/components/ThemeModeApplier";
 import { NavGlowDriver } from "@/components/NavGlowDriver";
 import { installDemoApiInterceptor } from "@/lib/demo-api";
+import { brandThemeCss, type BrandTheme } from "@/lib/brand-theme";
+import { getBrandTheme } from "@/lib/brand-theme-fn";
 
 // Module-level (not inside a component) so it installs during evaluation of the route tree's own
 // root module — before any route component's useEffect has a chance to fire its first fetch. A
@@ -92,7 +94,19 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  // The saved brand colours and radii, read on the server so they are in the first HTML (see
+  // the <style> in head below) instead of arriving after the page has already painted in the
+  // built-in default colour. Loaded once per visit, and never allowed to fail the page.
+  loader: async (): Promise<{ brandTheme: Partial<BrandTheme> }> => {
+    try {
+      return { brandTheme: await getBrandTheme() };
+    } catch {
+      return { brandTheme: {} };
+    }
+  },
+  staleTime: Infinity,
+  head: ({ loaderData }) => ({
+    styles: [{ children: brandThemeCss(loaderData?.brandTheme) }].filter((s) => s.children),
     meta: [
       { charSet: "utf-8" },
       {
@@ -158,10 +172,11 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { brandTheme } = Route.useLoaderData();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeInjector />
+      <ThemeInjector serverTheme={brandTheme} />
       <ThemeModeApplier />
       <NavGlowDriver />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

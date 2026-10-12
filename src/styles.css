@@ -123,6 +123,51 @@
   --brand-amber: #fbbf24;
 }
 
+/* Fixed light palette for a subtree, whatever the visitor's colour scheme — used by the public
+   landing page (src/routes/landing.tsx).
+
+   The landing page has one fixed design: a hardcoded dark hero and dark feature bands, with
+   hardcoded white cards in between, and theme tokens for the text on top of them. In dark mode
+   the tokens flipped but the hardcoded surfaces did not, so text turned near-white on white cards
+   and near-black on the dark bands — whole blocks of copy disappeared. Pinning the neutral
+   tokens here keeps the page identical in both schemes.
+
+   These are the same values as :root above — keep the two in step. Brand tokens (--primary,
+   --primary-foreground, --brand-blue) and the radii are deliberately NOT repeated: they come
+   from the Superadmin's Customization settings on <html> and must keep flowing through.
+   Anything rendered in a portal (dropdown menus) sits outside the subtree and needs this class
+   on its own content element. */
+.theme-light {
+  --background: #f3faff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --secondary: #f4f4f6;
+  --secondary-foreground: #18181b;
+  --muted: #f5f5f7;
+  --muted-foreground: #71717a;
+  --accent: #eff8ff;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #f4f4f6;
+  --ring: rgba(2, 132, 199, 0.28);
+  --sidebar: #fafafa;
+  --sidebar-foreground: #3f3f46;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --brand-red: #ff0000;
+  --brand-purple: #8b5cf6;
+  --brand-green: #34d399;
+  --brand-amber: #f59e0b;
+  color: var(--foreground);
+  color-scheme: light;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -363,6 +408,18 @@
     transparent 45%,
     rgba(210, 210, 218, 0.06) 70%,
     rgba(255, 255, 255, 0.05) 100%
+  );
+}
+
+/* …except on a page pinned to the light palette (see .theme-light), which keeps the light wash. */
+.dark .theme-light.min-h-screen.bg-background {
+  background-image: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--primary) 5%, transparent) 0%,
+    color-mix(in srgb, var(--brand-purple) 5%, transparent) 25%,
+    transparent 45%,
+    color-mix(in srgb, var(--brand-amber) 5%, transparent) 70%,
+    color-mix(in srgb, var(--primary) 5%, transparent) 100%
   );
 }
 

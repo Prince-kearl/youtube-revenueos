@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { motion, useMotionValue, animate } from "motion/react";
+import { useEffect, useId, useState } from "react";
+import { motion } from "motion/react";
 import {
   ArrowRight,
   Play,
@@ -25,8 +25,6 @@ import {
   Settings,
   Search,
   User,
-  MousePointer2,
-  Bell,
   Menu,
   X,
 } from "lucide-react";
@@ -61,7 +59,9 @@ function Landing() {
   }, [content.siteName, content.tagline, content.seoDescription]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    // theme-light: this page has one fixed design, so it is pinned to the light palette and looks
+    // the same whatever the visitor's colour scheme (see .theme-light in styles.css).
+    <div className="theme-light min-h-screen bg-background text-foreground">
       {/* This panel used to be `relative z-0` — being positioned with an explicit (even zero)
           z-index opens its own stacking context, which trapped everything inside it, including
           NavBar's fixed z-30 pill: capped at this context, it could never outrank later top-level
@@ -188,7 +188,7 @@ function NavBar() {
               <DropdownMenuTrigger className="flex items-center gap-1 outline-none hover:text-white">
                 Features <ChevronDown className="h-3.5 w-3.5" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" className="theme-light">
                 <DropdownMenuItem asChild>
                   <a href="#how-it-works">How It Works</a>
                 </DropdownMenuItem>
@@ -201,7 +201,7 @@ function NavBar() {
               <DropdownMenuTrigger className="flex items-center gap-1 outline-none hover:text-white">
                 Resources <ChevronDown className="h-3.5 w-3.5" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" className="theme-light">
                 <DropdownMenuItem asChild>
                   <Link to="/support">Support</Link>
                 </DropdownMenuItem>
@@ -346,7 +346,7 @@ function Hero() {
           </div>
         </div>
 
-        <HeroDeviceShowcase />
+        <HeroArtwork />
       </div>
     </section>
   );
@@ -540,698 +540,49 @@ function FloatingStatCard() {
   );
 }
 
-// ============ HERO DASHBOARD DEMO (scripted cursor walkthrough) ============
-// Simulates a person actually using the product behind the hero copy: a cursor drifts between
-// sidebar sections, clicks trigger a content swap + chart redraw, and it settles back on Overview
-// before looping. Framer Motion values drive the cursor's x/y/scale/opacity directly (no React
-// state per frame) so the whole thing stays on the compositor at 60fps. Entirely separate from the
-// static <DashboardMockup />/<FloatingStatCard /> used by ProductShowcase further down the page,
-// which stay untouched.
+// ============ HERO ARTWORK ============
+// A single pre-rendered image (public/landing_asset.png, transparent background): the Tubify
+// phone surrounded by floating stat cards. Width/height are the file's intrinsic size, so the
+// browser reserves the right space before it loads and the hero copy beside it never shifts.
+//
+// The artwork is cropped flat across the wrist and down its right-hand edge. Left floating in
+// the middle of the hero that crop reads as a mistake, so two things hide it:
+//   * the image sits on the hero's bottom edge (self-end, and -mb-16 cancels the section's
+//     pb-16), so the arm rises out of the base of the section instead of ending in mid-air;
+//   * a mask fades the last stretch of the bottom and right edges into the background, so no
+//     hard line is left where the picture stops. The two gradients are intersected; the fades
+//     are short enough to leave the phone and every stat card untouched.
+const HERO_ARTWORK_MASK =
+  "linear-gradient(to bottom, #000 0%, #000 86%, transparent 100%), linear-gradient(to right, #000 0%, #000 93%, transparent 100%)";
 
-type DemoSection = "Overview" | "Analytics" | "Revenue" | "Audience" | "Content";
-
-const DEMO_SECTION_CONTENT: Record<
-  DemoSection,
-  { heading: string; stats: typeof MOCKUP_STATS; trend: typeof MOCKUP_REVENUE_TREND }
-> = {
-  Overview: { heading: "Dashboard Overview", stats: MOCKUP_STATS, trend: MOCKUP_REVENUE_TREND },
-  Analytics: {
-    heading: "Analytics Overview",
-    stats: [
-      { label: "Watch Time", value: "482K hrs", change: "9.4%" },
-      { label: "Avg. Duration", value: "6:42", change: "3.1%" },
-      { label: "CTR", value: "5.8%", change: "1.2%" },
-      { label: "Impressions", value: "9.2M", change: "14.7%" },
-    ],
-    trend: [
-      { day: "Jun 12", value: 600 },
-      { day: "Jun 19", value: 900 },
-      { day: "Jun 26", value: 1100 },
-      { day: "Jul 03", value: 850 },
-      { day: "Jul 10", value: 1300 },
-    ],
-  },
-  Revenue: {
-    heading: "Revenue Overview",
-    stats: [
-      { label: "Ad Revenue", value: "$8,120.40", change: "11.2%" },
-      { label: "Sponsorships", value: "$3,400.00", change: "22.0%" },
-      { label: "Affiliate", value: "$920.15", change: "4.6%" },
-      { label: "RPM", value: "$5.10", change: "6.8%" },
-    ],
-    trend: [
-      { day: "Jun 12", value: 1000 },
-      { day: "Jun 19", value: 1250 },
-      { day: "Jun 26", value: 1180 },
-      { day: "Jul 03", value: 1450 },
-      { day: "Jul 10", value: 1600 },
-    ],
-  },
-  Audience: {
-    heading: "Audience Overview",
-    stats: [
-      { label: "Subscribers", value: "+18.7K", change: "8.9%" },
-      { label: "Returning Viewers", value: "64%", change: "3.4%" },
-      { label: "New Viewers", value: "36%", change: "2.1%" },
-      { label: "Top Region", value: "US · 38%", change: "1.1%" },
-    ],
-    trend: [
-      { day: "Jun 12", value: 700 },
-      { day: "Jun 19", value: 820 },
-      { day: "Jun 26", value: 940 },
-      { day: "Jul 03", value: 880 },
-      { day: "Jul 10", value: 1020 },
-    ],
-  },
-  Content: {
-    heading: "Content Overview",
-    stats: [
-      { label: "Videos Published", value: "7", change: "2.4%" },
-      { label: "Total Views", value: "2.65M", change: "12.5%" },
-      { label: "Likes", value: "91.4K", change: "9.7%" },
-      { label: "Comments", value: "3.2K", change: "5.3%" },
-    ],
-    trend: [
-      { day: "Jun 12", value: 900 },
-      { day: "Jun 19", value: 1000 },
-      { day: "Jun 26", value: 850 },
-      { day: "Jul 03", value: 1150 },
-      { day: "Jul 10", value: 1050 },
-    ],
-  },
-};
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const jitterWait = () => wait(500 + Math.random() * 1000);
-
-const PHONE_TABS = MOCKUP_NAV.filter((n) => n.label in DEMO_SECTION_CONTENT) as {
-  label: DemoSection;
-  icon: typeof Youtube;
-}[];
-
-// Measures an element's rendered width reactively (ResizeObserver), so the SVG device frames'
-// screen-cutout regions below can be positioned in real pixels rather than CSS percentages. A
-// percentage `height` on an absolutely-positioned, `overflow-hidden` child of an auto-height
-// parent triggers a genuine Chromium layout bug (the parent inflates to an unrelated size) —
-// confirmed by isolated testing. Pixel values computed from a single observed width sidestep it
-// entirely, and sidestep the SVG's own (possibly slow, ~10MB) image-decode/load timing too, since
-// height is derived from the SVG's known intrinsic aspect ratio rather than measured post-load.
-function useElementWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setWidth(el.offsetWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width] as const;
-}
-
-// Screen-cutout regions as fractions of each SVG's own viewBox, measured directly from the
-// artwork's alpha channel (the transparent cutout where the live dashboard shows through) rather
-// than eyeballed — see the macbook-pro.svg / iphone-16-pro.svg viewBox vs. the embedded raster's
-// transparent region for how these were derived.
-const MACBOOK_VB = { w: 2170, h: 1430 };
-const MACBOOK_SCREEN = { left: 0.10161, top: 0.10909, width: 0.79654, height: 0.78147 };
-const IPHONE_VB = { w: 490, h: 992 };
-const IPHONE_SCREEN = { left: 0.08095, top: 0.01983, width: 0.87823, height: 0.93985 };
-
-// ============ HERO DEVICE SHOWCASE (laptop + phone, orchestrated together) ============
-// One shared `activeSection` state feeds both device screens so they always agree on what
-// they're displaying — realism comes from alternating WHICH device's pointer performs the
-// interaction that changes it (laptop cursor vs. phone tap), with a `focus` state gently
-// dimming/scaling whichever device isn't currently "in use". Everything pointer/tap-driven
-// runs off Framer Motion values (never React state per frame), so it stays compositor-only.
-function HeroDeviceShowcase() {
-  const gradientId = useId();
-  const mGradientId = useId();
-  const laptopScreenRef = useRef<HTMLDivElement>(null);
-  const phoneScreenRef = useRef<HTMLDivElement>(null);
-  const navRefs = useRef<Partial<Record<DemoSection, HTMLDivElement | null>>>({});
-  const tabRefs = useRef<Partial<Record<DemoSection, HTMLDivElement | null>>>({});
-  const statCardRef = useRef<HTMLDivElement>(null);
-  const [laptopWrapRef, laptopWidth] = useElementWidth<HTMLDivElement>();
-  const laptopHeight = laptopWidth * (MACBOOK_VB.h / MACBOOK_VB.w);
-  const [phoneWrapRef, phoneWidth] = useElementWidth<HTMLDivElement>();
-  const phoneHeight = phoneWidth * (IPHONE_VB.h / IPHONE_VB.w);
-
-  const cursorX = useMotionValue(190);
-  const cursorY = useMotionValue(20);
-  const cursorScale = useMotionValue(1);
-  const cursorOpacity = useMotionValue(0);
-  const phoneScrollY = useMotionValue(0);
-
-  const [activeSection, setActiveSection] = useState<DemoSection>("Overview");
-  const [hoveredNav, setHoveredNav] = useState<DemoSection | null>(null);
-  const [cardElevated, setCardElevated] = useState(false);
-  const [focus, setFocus] = useState<"laptop" | "phone">("laptop");
-  const [pressedTab, setPressedTab] = useState<DemoSection | null>(null);
-  const [laptopRipple, setLaptopRipple] = useState<{ x: number; y: number; id: number } | null>(
-    null,
-  );
-  const [phoneRipple, setPhoneRipple] = useState<{ x: number; y: number; id: number } | null>(null);
-
-  useEffect(() => {
-    if (!laptopRipple) return;
-    const t = setTimeout(() => setLaptopRipple(null), 550);
-    return () => clearTimeout(t);
-  }, [laptopRipple]);
-
-  useEffect(() => {
-    if (!phoneRipple) return;
-    const t = setTimeout(() => setPhoneRipple(null), 550);
-    return () => clearTimeout(t);
-  }, [phoneRipple]);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let cancelled = false;
-
-    const moveCursorTo = async (el: HTMLElement | null) => {
-      const container = laptopScreenRef.current;
-      if (!el || !container || cancelled) return;
-      const c = container.getBoundingClientRect();
-      const r = el.getBoundingClientRect();
-      const endX = r.left - c.left + r.width * 0.35;
-      const endY = r.top - c.top + r.height * 0.5;
-      const startX = cursorX.get();
-      const startY = cursorY.get();
-      const midX = (startX + endX) / 2 + (Math.random() - 0.5) * 50;
-      const midY = (startY + endY) / 2 + (Math.random() - 0.5) * 50;
-      const duration = 0.75 + Math.random() * 0.4;
-      await Promise.all([
-        animate(cursorX, [startX, midX, endX], {
-          duration,
-          times: [0, 0.5, 1],
-          ease: ["easeOut", "easeInOut"],
-        }),
-        animate(cursorY, [startY, midY, endY], {
-          duration,
-          times: [0, 0.5, 1],
-          ease: ["easeOut", "easeInOut"],
-        }),
-      ]);
-    };
-
-    const pressCursor = async (onActivate?: () => void) => {
-      if (cancelled) return;
-      await animate(cursorScale, 0.8, { duration: 0.09 });
-      setLaptopRipple({ x: cursorX.get(), y: cursorY.get(), id: Date.now() });
-      onActivate?.();
-      await animate(cursorScale, 1, { duration: 0.18, ease: "easeOut" });
-    };
-
-    const clickLaptopNav = async (section: DemoSection) => {
-      await moveCursorTo(navRefs.current[section] ?? null);
-      if (cancelled) return;
-      setHoveredNav(section);
-      await jitterWait();
-      if (cancelled) return;
-      await pressCursor(() => setActiveSection(section));
-      await jitterWait();
-    };
-
-    const tapPhoneTab = async (section: DemoSection) => {
-      const tabEl = tabRefs.current[section];
-      const container = phoneScreenRef.current;
-      if (!tabEl || !container || cancelled) return;
-      const c = container.getBoundingClientRect();
-      const r = tabEl.getBoundingClientRect();
-      const x = r.left - c.left + r.width / 2;
-      const y = r.top - c.top + r.height / 2;
-      setPressedTab(section);
-      setPhoneRipple({ x, y, id: Date.now() });
-      setActiveSection(section);
-      await wait(160);
-      if (cancelled) return;
-      setPressedTab(null);
-      await animate(phoneScrollY, -14, { duration: 0.35, ease: "easeOut" });
-      await wait(300);
-      if (cancelled) return;
-      await animate(phoneScrollY, 0, { duration: 0.35, ease: "easeIn" });
-      await jitterWait();
-    };
-
-    async function run() {
-      while (!cancelled) {
-        cursorOpacity.set(0);
-        cursorX.set(190);
-        cursorY.set(20);
-        setActiveSection("Overview");
-        setFocus("laptop");
-        await wait(600);
-        if (cancelled) return;
-        await animate(cursorOpacity, 1, { duration: 0.4 });
-
-        await clickLaptopNav("Analytics");
-        await clickLaptopNav("Revenue");
-
-        await moveCursorTo(statCardRef.current);
-        if (cancelled) return;
-        setCardElevated(true);
-        await wait(650);
-        setCardElevated(false);
-        await jitterWait();
-
-        if (cancelled) return;
-        await animate(cursorOpacity, 0, { duration: 0.4 });
-        setFocus("phone");
-        await wait(350);
-
-        await tapPhoneTab("Audience");
-        await tapPhoneTab("Content");
-
-        setFocus("laptop");
-        await wait(350);
-        if (cancelled) return;
-        cursorX.set(190);
-        cursorY.set(20);
-        await animate(cursorOpacity, 1, { duration: 0.4 });
-
-        await clickLaptopNav("Overview");
-        await wait(500);
-
-        if (cancelled) return;
-        await animate(cursorOpacity, 0, { duration: 0.5 });
-        setFocus("laptop");
-        await wait(500);
-      }
-    }
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const current = DEMO_SECTION_CONTENT[activeSection];
-
+function HeroArtwork() {
   return (
-    <div className="relative mx-auto max-w-[300px] pb-10 pr-6 sm:max-w-none sm:pb-20 sm:pr-16">
-      {/* Laptop — SVG hardware frame (decorative, pointer-events:none, z-20) sits above the live
-          dashboard; the dashboard renders in a plain absolutely-positioned div sized in real
-          pixels (not CSS %) to the SVG's screen cutout, computed from the wrapper's observed
-          width via useElementWidth (see comment above the hook for why not percentages). Sized
-          down on mobile (max-w-[300px] on the outer wrapper above) so the whole composition reads
-          as compact rather than dominating the first screen; scales back up to its full size from
-          sm: up. */}
+    <div className="relative mx-auto -mb-16 w-full max-w-xl self-end lg:max-w-none">
+      {/* A soft brand-coloured glow behind the phone, so the artwork sits in the scene. */}
       <div
-        ref={laptopWrapRef}
-        className="relative mx-auto w-full sm:max-w-[560px]"
-        style={{ perspective: "1800px" }}
-      >
-        <div style={{ transform: "rotateX(6deg) rotateY(-8deg)", transformStyle: "preserve-3d" }}>
-          <div
-            className={`transition-transform duration-500 ease-out ${focus === "phone" ? "scale-[0.98]" : "scale-100"}`}
-          >
-            <div
-              className="relative"
-              style={{
-                filter:
-                  "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))",
-              }}
-            >
-              <div
-                ref={laptopScreenRef}
-                className="absolute overflow-hidden bg-white"
-                style={{
-                  left: laptopWidth * MACBOOK_SCREEN.left,
-                  top: laptopHeight * MACBOOK_SCREEN.top,
-                  width: laptopWidth * MACBOOK_SCREEN.width,
-                  height: laptopHeight * MACBOOK_SCREEN.height,
-                }}
-              >
-                <div className="flex h-full text-left">
-                  <div className="hidden w-[86px] shrink-0 flex-col border-r border-border/70 bg-white p-2 sm:flex">
-                    <div className="flex items-center gap-1.5 px-0.5">
-                      <Youtube className="h-3 w-3 text-brand-red" />
-                      <span className="text-[9px] font-bold tracking-tight">Tubify</span>
-                    </div>
-                    <div className="mt-3 space-y-0.5">
-                      {MOCKUP_NAV.map((n) => {
-                        const section = n.label as DemoSection;
-                        const isDemoTarget = section in DEMO_SECTION_CONTENT;
-                        const isActive = isDemoTarget && section === activeSection;
-                        const isHovered = isDemoTarget && section === hoveredNav && !isActive;
-                        return (
-                          <div
-                            key={n.label}
-                            ref={
-                              isDemoTarget
-                                ? (el) => {
-                                    navRefs.current[section] = el;
-                                  }
-                                : undefined
-                            }
-                            className={`flex items-center gap-1.5 rounded-md border-l-2 px-1 py-1 text-[7px] font-medium transition-colors duration-200 ${
-                              isActive
-                                ? "border-primary bg-primary/10 text-primary"
-                                : isHovered
-                                  ? "border-transparent bg-accent text-foreground"
-                                  : "border-transparent text-muted-foreground"
-                            }`}
-                          >
-                            <n.icon className="h-2.5 w-2.5 shrink-0" />{" "}
-                            <span className="truncate">{n.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1 bg-muted p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <motion.p
-                        key={`heading-${activeSection}`}
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="min-w-0 truncate text-[11px] font-bold tracking-tight text-foreground"
-                      >
-                        {current.heading}
-                      </motion.p>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex">
-                          <Search className="h-2 w-2" />
-                        </span>
-                        <span className="hidden h-4 w-4 items-center justify-center rounded-md border border-border/70 bg-white text-muted-foreground sm:flex">
-                          <Bell className="h-2 w-2" />
-                        </span>
-                        <span className="whitespace-nowrap rounded-md border border-border/70 bg-white px-1.5 py-0.5 text-[6.5px] font-medium text-muted-foreground">
-                          Jun 12 – Jul 12
-                        </span>
-                      </div>
-                    </div>
-
-                    <motion.div
-                      key={`stats-${activeSection}`}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="mt-2 grid grid-cols-2 gap-2"
-                    >
-                      {current.stats.map((s, i) => (
-                        <div
-                          key={s.label}
-                          ref={i === 0 ? statCardRef : undefined}
-                          className={`overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm transition-all duration-300 ${i === 0 && cardElevated ? "-translate-y-0.5 border-primary/30 shadow-md" : ""}`}
-                        >
-                          <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                            {s.label}
-                          </p>
-                          <p className="mt-1 truncate text-[12px] font-bold leading-none text-foreground">
-                            {s.value}
-                          </p>
-                          <span className="mt-1 inline-flex items-center rounded-full bg-success/10 px-1 py-[1px] text-[5.5px] font-semibold text-success">
-                            ↗ {s.change}
-                          </span>
-                        </div>
-                      ))}
-                    </motion.div>
-
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                      <div className="col-span-2 overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                          Revenue Over Time
-                        </p>
-                        <div className="mt-1 h-9">
-                          <ResponsiveContainer
-                            key={`trend-${activeSection}`}
-                            width="100%"
-                            height="100%"
-                          >
-                            <AreaChart data={current.trend}>
-                              <defs>
-                                <linearGradient
-                                  id={`${gradientId}-revenue`}
-                                  x1="0"
-                                  y1="0"
-                                  x2="0"
-                                  y2="1"
-                                >
-                                  <stop
-                                    offset="0%"
-                                    stopColor="var(--color-primary)"
-                                    stopOpacity={0.35}
-                                  />
-                                  <stop
-                                    offset="100%"
-                                    stopColor="var(--color-primary)"
-                                    stopOpacity={0}
-                                  />
-                                </linearGradient>
-                              </defs>
-                              <Area
-                                type="monotone"
-                                dataKey="value"
-                                stroke="var(--color-primary)"
-                                strokeWidth={2}
-                                fill={`url(#${gradientId}-revenue)`}
-                                isAnimationActive
-                                animationDuration={450}
-                                animationEasing="ease-out"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                        <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                          Traffic Sources
-                        </p>
-                        <div className="mt-1 h-9">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={MOCKUP_TRAFFIC}
-                                dataKey="pct"
-                                nameKey="label"
-                                innerRadius="55%"
-                                outerRadius="100%"
-                                strokeWidth={1}
-                              >
-                                {MOCKUP_TRAFFIC.map((t) => (
-                                  <Cell key={t.label} fill={t.color} />
-                                ))}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 overflow-hidden rounded-lg border border-border/70 bg-white p-2 shadow-sm">
-                      <p className="truncate text-[6px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                        Top Performing Videos
-                      </p>
-                      <div className="mt-1 divide-y divide-border/60">
-                        {MOCKUP_VIDEOS.slice(0, 2).map((v) => (
-                          <div
-                            key={v.title}
-                            className="flex items-center justify-between gap-2 py-1 text-[7px] first:pt-0 last:pb-0"
-                          >
-                            <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                              {v.title}
-                            </span>
-                            <span className="shrink-0 text-muted-foreground">{v.views}</span>
-                            <span className="shrink-0 font-semibold text-success">{v.revenue}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Scripted laptop cursor + click ripple — invisible under prefers-reduced-motion since cursorOpacity never leaves 0 */}
-                <motion.div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-0 z-50"
-                  style={{ x: cursorX, y: cursorY, scale: cursorScale, opacity: cursorOpacity }}
-                >
-                  <MousePointer2 className="h-4 w-4 fill-white text-foreground drop-shadow-md" />
-                </motion.div>
-                {laptopRipple && (
-                  <motion.span
-                    key={laptopRipple.id}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-0 top-0 z-40 h-6 w-6 rounded-full bg-primary/40"
-                    style={{ x: laptopRipple.x - 12, y: laptopRipple.y - 12 }}
-                    initial={{ scale: 0.2, opacity: 0.6 }}
-                    animate={{ scale: 2.2, opacity: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  />
-                )}
-              </div>
-              <img
-                src="/devices/macbook-pro.webp"
-                alt=""
-                draggable={false}
-                className="pointer-events-none relative z-20 block w-full select-none"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Phone — upright beside the laptop, same SVG-frame-above-live-dashboard pattern */}
-      <div ref={phoneWrapRef} className="absolute -bottom-2 right-0 z-20 w-[86px] sm:w-32">
-        <div
-          className={`transition-transform duration-500 ease-out ${focus === "laptop" ? "scale-[0.98]" : "scale-100 drop-shadow-[0_0_28px_color-mix(in_srgb,var(--primary)_45%,transparent)]"}`}
-        >
-          <div
-            className="relative"
-            style={{
-              filter:
-                "drop-shadow(0 20px 60px rgba(0,0,0,.18)) drop-shadow(0 60px 120px rgba(0,0,0,.10))",
-            }}
-          >
-            <div
-              ref={phoneScreenRef}
-              className="absolute flex flex-col overflow-hidden bg-white"
-              style={{
-                left: phoneWidth * IPHONE_SCREEN.left,
-                top: phoneHeight * IPHONE_SCREEN.top,
-                width: phoneWidth * IPHONE_SCREEN.width,
-                height: phoneHeight * IPHONE_SCREEN.height,
-              }}
-            >
-              <div className="flex-1 overflow-hidden bg-muted">
-                <motion.div style={{ y: phoneScrollY }} className="flex flex-col">
-                  <div className="flex items-center justify-between px-2.5 pb-1.5 pt-6">
-                    <div className="flex items-center gap-1">
-                      <Youtube className="h-2.5 w-2.5 text-brand-red" />
-                      <span className="text-[7px] font-bold tracking-tight">Tubify</span>
-                    </div>
-                    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent">
-                      <User className="h-2 w-2" />
-                    </span>
-                  </div>
-                  <div className="px-2.5 pb-2">
-                    <motion.p
-                      key={`m-heading-${activeSection}`}
-                      initial={{ opacity: 0, y: -3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="text-[8px] font-bold tracking-tight text-foreground"
-                    >
-                      {current.heading}
-                    </motion.p>
-                    <motion.div
-                      key={`m-stats-${activeSection}`}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="mt-1.5 grid grid-cols-2 gap-1"
-                    >
-                      {current.stats.slice(0, 4).map((s) => (
-                        <div
-                          key={s.label}
-                          className="overflow-hidden rounded-lg border border-border/70 bg-white p-1.5 shadow-sm"
-                        >
-                          <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                            {s.label}
-                          </p>
-                          <p className="mt-0.5 truncate text-[9px] font-bold leading-none text-foreground">
-                            {s.value}
-                          </p>
-                        </div>
-                      ))}
-                    </motion.div>
-                    <div className="mt-1 overflow-hidden rounded-lg border border-border/70 bg-white p-1.5 shadow-sm">
-                      <p className="truncate text-[5px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                        Revenue Over Time
-                      </p>
-                      <div className="mt-0.5 h-8">
-                        <ResponsiveContainer
-                          key={`m-trend-${activeSection}`}
-                          width="100%"
-                          height="100%"
-                        >
-                          <AreaChart data={current.trend}>
-                            <defs>
-                              <linearGradient
-                                id={`${mGradientId}-revenue`}
-                                x1="0"
-                                y1="0"
-                                x2="0"
-                                y2="1"
-                              >
-                                <stop
-                                  offset="0%"
-                                  stopColor="var(--color-primary)"
-                                  stopOpacity={0.35}
-                                />
-                                <stop
-                                  offset="100%"
-                                  stopColor="var(--color-primary)"
-                                  stopOpacity={0}
-                                />
-                              </linearGradient>
-                            </defs>
-                            <Area
-                              type="monotone"
-                              dataKey="value"
-                              stroke="var(--color-primary)"
-                              strokeWidth={1.5}
-                              fill={`url(#${mGradientId}-revenue)`}
-                              isAnimationActive
-                              animationDuration={450}
-                              animationEasing="ease-out"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              <div className="flex items-center justify-around border-t border-border/70 bg-white py-1.5">
-                {PHONE_TABS.map((t) => {
-                  const isActive = t.label === activeSection;
-                  const isPressed = t.label === pressedTab;
-                  return (
-                    <div
-                      key={t.label}
-                      ref={(el) => {
-                        tabRefs.current[t.label] = el;
-                      }}
-                      className={`flex flex-col items-center justify-center gap-0.5 rounded-full p-1 transition-all duration-150 ${isActive ? "text-primary" : "text-muted-foreground"} ${isPressed ? "scale-90" : "scale-100"}`}
-                    >
-                      <t.icon className="h-2.5 w-2.5" />
-                      <span
-                        className={`h-[2px] w-[2px] rounded-full transition-colors duration-150 ${isActive ? "bg-primary" : "bg-transparent"}`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {phoneRipple && (
-                <motion.span
-                  key={phoneRipple.id}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-0 top-0 z-40 h-5 w-5 rounded-full bg-primary/40"
-                  style={{ x: phoneRipple.x - 10, y: phoneRipple.y - 10 }}
-                  initial={{ scale: 0.2, opacity: 0.6 }}
-                  animate={{ scale: 2, opacity: 0 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              )}
-            </div>
-            <img
-              src="/devices/iphone-16-pro.svg"
-              alt=""
-              draggable={false}
-              className="pointer-events-none relative z-20 block w-full select-none"
-            />
-          </div>
-        </div>
-      </div>
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, color-mix(in srgb, var(--primary) 30%, transparent) 0%, transparent 70%)",
+        }}
+      />
+      <img
+        src="/landing_asset.png"
+        alt="The Tubify app on a phone, showing total revenue, views, watch time, subscribers and top videos"
+        width={1341}
+        height={1100}
+        fetchPriority="high"
+        decoding="async"
+        draggable={false}
+        className="pointer-events-none block h-auto w-full select-none"
+        style={{
+          maskImage: HERO_ARTWORK_MASK,
+          WebkitMaskImage: HERO_ARTWORK_MASK,
+          maskComposite: "intersect",
+          WebkitMaskComposite: "source-in",
+        }}
+      />
     </div>
   );
 }

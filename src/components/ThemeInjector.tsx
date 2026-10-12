@@ -1,13 +1,25 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
+import type { BrandTheme } from "@/lib/brand-theme";
 import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
 import { useIos26Design, useIos26Wallpaper } from "@/lib/theme";
 
 // Applies the Superadmin's Visual Style choices (Customization → General) app-wide by
 // overriding the CSS custom properties defined in styles.css, rather than only affecting the
 // landing page — matches the "Global Primary Color" framing in the Design Studio UI.
-export function ThemeInjector() {
+export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandTheme> }) {
   const [content] = useSiteContent();
   const [, setLocal] = useSiteContentLocal();
+
+  // The page was rendered with the saved brand theme already applied (see __root.tsx). Adopt
+  // those same values into the local store before the first paint after hydration — otherwise
+  // the effect below would briefly re-apply this browser's copy of the settings, which for a
+  // first-time visitor is the built-in default colour and for a returning one may be out of
+  // date. Layout effects (here and below) so no frame is painted in between.
+  useLayoutEffect(() => {
+    if (serverTheme && Object.keys(serverTheme).length > 0)
+      setLocal((prev) => ({ ...prev, ...serverTheme }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [ios26Design] = useIos26Design();
   const [ios26Wallpaper] = useIos26Wallpaper();
 
@@ -30,7 +42,7 @@ export function ThemeInjector() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement.style;
     root.setProperty("--primary", content.primaryColor);
     root.setProperty("--primary-foreground", content.buttonTextColor);
