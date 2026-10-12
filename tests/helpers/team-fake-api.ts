@@ -32,6 +32,11 @@ export interface World {
   youtube_sync_state?: Row[];
   channel_daily_stats?: Row[];
   video_daily_stats?: Row[];
+  // Tables the click-attribution tests add.
+  destinations?: Row[];
+  tracking_links?: Row[];
+  link_click_events?: Row[];
+  tracking_link_stats?: Row[];
   /** Tables whose reads fail with a database error. */
   failingReads?: string[];
   /**
@@ -165,6 +170,10 @@ const OPTIONAL_TABLES = [
   "youtube_sync_state",
   "channel_daily_stats",
   "video_daily_stats",
+  "destinations",
+  "tracking_links",
+  "link_click_events",
+  "tracking_link_stats",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */

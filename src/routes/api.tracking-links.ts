@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { resolveLinkOrigin, buildShortUrl } from "@/lib/server/short-links";
+import { PagedReadError, readAllRows } from "@/lib/server/paged-read";
 
 const createLinkSchema = z.object({
   destinationId: z.string().uuid(),
@@ -80,14 +81,44 @@ async function assertOwnedVideo(client: SupabaseClientLike, videoId: string) {
 const linkColumns =
   "id, slug, status, clicks, created_at, updated_at, destination:destinations(id,name,url), video:videos(id,title)";
 
-async function withStats(client: SupabaseClientLike, links: Record<string, unknown>[]) {
+// Link ids per stats request: keeps the request URL short however many links there are.
+const STATS_CHUNK = 100;
+
+/**
+ * Adds each link's unique-visitor count (distinct visitors, from tracking_link_stats — not the
+ * same thing as `clicks`, the total).
+ *
+ * `strict`: a failed stats read throws PagedReadError instead of being shown as 0 unique
+ * visitors. The list uses it; the response to a single edit keeps the earlier lenient behaviour,
+ * because the edit itself has already succeeded by then.
+ */
+async function withStats(
+  client: SupabaseClientLike,
+  links: Record<string, unknown>[],
+  options: { strict?: boolean } = {},
+) {
   const ids = links.map((link) => link.id as string);
   if (ids.length === 0) return links;
-  const { data: stats } = await client
-    .from("tracking_link_stats")
-    .select("link_id, total_clicks, unique_clicks")
-    .in("link_id", ids);
-  const byId = new Map((stats ?? []).map((row) => [row.link_id as string, row]));
+  const stats: Record<string, unknown>[] = [];
+  try {
+    for (let start = 0; start < ids.length; start += STATS_CHUNK) {
+      const chunk = ids.slice(start, start + STATS_CHUNK);
+      stats.push(
+        ...(await readAllRows<Record<string, unknown>>((from, to) =>
+          client
+            .from("tracking_link_stats")
+            .select("link_id, total_clicks, unique_clicks")
+            .in("link_id", chunk)
+            .order("link_id", { ascending: true })
+            .range(from, to),
+        )),
+      );
+    }
+  } catch (error) {
+    if (options.strict || !(error instanceof PagedReadError)) throw error;
+    stats.length = 0;
+  }
+  const byId = new Map(stats.map((row) => [row.link_id as string, row]));
   return links.map((link) => ({
     ...link,
     uniqueClicks: (byId.get(link.id as string)?.unique_clicks as number | undefined) ?? 0,
@@ -107,17 +138,29 @@ export const Route = createFileRoute("/api/tracking-links")({
             request,
             "link_tracking",
           );
-          const { data, error } = await client
-            .from("tracking_links")
-            .select(linkColumns)
-            .eq("workspace_id", workspaceId)
-            .order("created_at", { ascending: false });
-          if (error)
+          // Every link and every link's stats are read, page by page: a single read stops at
+          // the API's row cap, which would drop links — and their clicks — from the totals. A
+          // failed page fails the request rather than showing partial or zeroed counts.
+          let withStatsData: Record<string, unknown>[];
+          try {
+            const links = await readAllRows<Record<string, unknown>>((from, to) =>
+              client
+                .from("tracking_links")
+                .select(linkColumns)
+                .eq("workspace_id", workspaceId)
+                .order("created_at", { ascending: false })
+                // Unique tie-breaker, so pages never overlap or skip.
+                .order("id", { ascending: true })
+                .range(from, to),
+            );
+            withStatsData = await withStats(client, links, { strict: true });
+          } catch (error) {
+            if (!(error instanceof PagedReadError)) throw error;
             return withCookies(
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
-          const withStatsData = await withStats(client, data ?? []);
+          }
           const origin = await resolveLinkOrigin(client, workspaceId, new URL(request.url).origin);
           return withCookies(
             json({ data: withShortUrls(withStatsData, origin) }),
