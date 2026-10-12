@@ -664,6 +664,10 @@ function VideoRow({
       <td className="px-3 py-3.5 font-medium">
         {pending ? (
           <span className="text-muted-foreground">…</span>
+        ) : revenue?.revenue.hidden ? (
+          <span className="text-muted-foreground" title="Revenue hidden by workspace settings">
+            Hidden
+          </span>
         ) : !revenue?.revenue.available ? (
           <span className="text-muted-foreground">—</span>
         ) : (

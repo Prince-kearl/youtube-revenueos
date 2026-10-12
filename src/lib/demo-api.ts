@@ -1570,6 +1570,9 @@ const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/destinations/top-videos": demoDestinationTopVideos,
   "/api/deals": demoDeals,
   "/api/workspace/members": demoWorkspaceMembers,
+  "/api/workspace/revenue-visibility": () => ({
+    data: { editor: false, setter: false, canView: true, canManage: true, available: true },
+  }),
   "/api/campaigns": demoCampaigns,
   "/api/email/audience": demoEmailAudience,
   "/api/leads": demoLeads,

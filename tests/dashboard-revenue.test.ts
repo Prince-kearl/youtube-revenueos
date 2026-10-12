@@ -522,6 +522,13 @@ test("the mapping module calculates no revenue of its own and calls nothing", ()
   const source = readFileSync("src/lib/dashboard-revenue.ts", "utf8");
   assert.ok(!/fetch\(|googleapis|youtubeanalytics|supabase/i.test(source));
   // Only type imports from the server modules: nothing server-side is bundled into the page.
+  // The one value import is the revenue-visibility rules, which are themselves pure (checked
+  // below): the mapper needs them to tell "hidden" from "unavailable".
+  const PURE = "@/lib/revenue-visibility";
   for (const match of source.matchAll(/import\s+(type\s+)?[^;]*?from\s+"([^"]+)"/g))
-    assert.ok(match[1], `${match[2]} is imported as a type only`);
+    assert.ok(match[1] || match[2] === PURE, `${match[2]} is imported as a type only`);
+  const rules = readFileSync("src/lib/revenue-visibility.ts", "utf8");
+  assert.ok(!/fetch\(|googleapis|supabase|lib\/server/i.test(rules.replace(/^\s*\/\/.*$/gm, "")));
+  for (const match of rules.matchAll(/import\s+(type\s+)?[^;]*?from\s+"([^"]+)"/g))
+    assert.ok(match[1], `${match[2]} is imported as a type only by the rules`);
 });

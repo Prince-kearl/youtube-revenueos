@@ -41,6 +41,7 @@ import {
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { ErrorState, ListLoadingState } from "@/components/ui-bits";
+import { RevenueVisibilitySettings } from "@/components/RevenueVisibilitySettings";
 import {
   canManageMembers,
   canManageRole,
@@ -82,7 +83,12 @@ type Deal = {
   created_at: string;
   assigned_member_id: string | null;
 };
-type DealsResponse = { data?: Deal[]; error?: string };
+type DealsResponse = {
+  data?: Deal[];
+  /** "hidden": deal values were withheld from this viewer by the workspace's revenue visibility. */
+  visibility?: { revenue: "visible" | "hidden" };
+  error?: string;
+};
 
 type WorkspaceMember = {
   id: string;
@@ -311,6 +317,9 @@ function Team() {
   const [editing, setEditing] = useState<WorkspaceMember | null>(null);
   const [removing, setRemoving] = useState<WorkspaceMember | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
+  // True when this viewer may not see deal values: nothing on this page is then derived from
+  // them (no performance chart, no revenue or profit figures).
+  const [dealValuesHidden, setDealValuesHidden] = useState(false);
   const [profitableOnly, setProfitableOnly] = useState(false);
 
   const load = () => {
@@ -336,7 +345,11 @@ function Team() {
     fetch("/api/deals", { cache: "no-store" })
       .then(async (response) => {
         const body = (await response.json()) as DealsResponse;
-        if (response.ok && body.data) setDeals(body.data);
+        if (!response.ok || !body.data) return;
+        const hidden = body.visibility?.revenue === "hidden";
+        setDealValuesHidden(hidden);
+        // Withheld values are not kept at all, so no figure can be computed from them.
+        setDeals(hidden ? [] : body.data);
       })
       .catch(() => {});
   }, []);
@@ -406,7 +419,7 @@ function Team() {
   const inviteState =
     status === "ready" ? teamInviteState({ role: myRole, entitlement }) : ("hidden" as const);
   // A profit figure needs the member's cost, which this viewer may not be shown for everyone.
-  const canFilterByProfit = members.every((m) => m.compensation_visible);
+  const canFilterByProfit = !dealValuesHidden && members.every((m) => m.compensation_visible);
   const visibleMembers =
     profitableOnly && canFilterByProfit
       ? members.filter((m) => (memberPerformance.byId.get(m.id)?.profit ?? 0) >= 0)
@@ -473,6 +486,11 @@ function Team() {
         <p className="mt-6 rounded-xl border border-border bg-accent/30 px-4 py-3 text-sm text-muted-foreground">
           You don't have permission to manage team members.
         </p>
+      )}
+
+      {/* Owners and managers only; the card hides itself for everyone else. */}
+      {status === "ready" && canManageMembers(myRole) && (
+        <RevenueVisibilitySettings className="mt-6" />
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
@@ -739,14 +757,16 @@ function Team() {
                         </div>
                         <div>
                           <p className="text-muted-foreground">Revenue (6mo)</p>
-                          <p className="mt-0.5 font-semibold">{fmtK(perf?.revenue ?? 0)}</p>
+                          <p className="mt-0.5 font-semibold">
+                            {dealValuesHidden ? "Hidden" : fmtK(perf?.revenue ?? 0)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Profit (6mo)</p>
                           <p
                             className={`mt-0.5 font-semibold ${(perf?.profit ?? 0) >= 0 ? "text-success" : "text-destructive"}`}
                           >
-                            {fmtK(perf?.profit ?? 0)}
+                            {dealValuesHidden ? "Hidden" : fmtK(perf?.profit ?? 0)}
                           </p>
                         </div>
                       </div>

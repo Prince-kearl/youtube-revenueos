@@ -32,11 +32,18 @@ import {
 } from "./revenue-metrics";
 import {
   loadRevenueData,
+  moneyReader,
   nullableNumber,
+  revenueWithheld,
   type RevenueChannel,
   type RevenueDataset,
   type RevenueReadContext,
 } from "./revenue-store";
+import {
+  REVENUE_HIDDEN,
+  REVENUE_VISIBLE,
+  type RevenueVisibilityMarker,
+} from "@/lib/revenue-visibility";
 import { addDays, isoDay } from "./youtube-stats-sync";
 
 // ============================================================================================
@@ -309,6 +316,10 @@ export function summarizeDeals(deals: DealRow[], period: RevenuePeriod): DealCur
 
 export interface RevenueSummaryResponse {
   status: "connected" | "not_connected";
+  /** "hidden": this caller may not see amounts, so every revenue figure below is null because it
+   * was WITHHELD — not because it is unavailable, and not zero. Activity (views, watch time) is
+   * unaffected. See lib/revenue-visibility.ts. */
+  visibility: RevenueVisibilityMarker;
   /** Currency of every figure under `earned` and `videos`. Deals carry their own currency. */
   currency: "USD";
   /** How to read every date in this response. */
@@ -402,7 +413,7 @@ export interface RevenueSummaryResponse {
   /** Brand deals. Separate money states in each deal's own currency; never part of `earned`. */
   deals:
     | { available: true; byCurrency: DealCurrencySummary[] }
-    | { available: false; reason: "FEATURE_UNAVAILABLE" };
+    | { available: false; reason: "FEATURE_UNAVAILABLE" | "REVENUE_HIDDEN" };
 }
 
 // ============================================================================================
@@ -484,6 +495,8 @@ export async function readSyncFacts(
   );
 }
 
+/** Deal values for the caller's workspace on the caller's own client. Used only when no revenue
+ * mode was stated (unit tests and scripts); a route reads them through the MoneyReader. */
 async function readDeals(ctx: RevenueReadContext): Promise<DealRow[]> {
   const rows: DealRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -603,12 +616,22 @@ export async function buildRevenueSummary(
     : new Map<string, ChannelSyncFacts>();
   const videoById = new Map(videos.map((video) => [video.id, video]));
 
-  const deals: RevenueSummaryResponse["deals"] = options.includeDeals
-    ? { available: true, byCurrency: summarizeDeals(await readDeals(ctx), query.period) }
-    : { available: false, reason: "FEATURE_UNAVAILABLE" };
+  // Deal values are money: a caller who may not see revenue gets none, whatever the feature gate
+  // says. For that caller there is no client to read them with at all.
+  const money = moneyReader(ctx);
+  const dealRows = async (): Promise<DealRow[]> => {
+    if (money) return (await money.dealSummaryRows()) as unknown as DealRow[];
+    return readDeals(ctx);
+  };
+  const deals: RevenueSummaryResponse["deals"] = revenueWithheld(ctx)
+    ? { available: false, reason: "REVENUE_HIDDEN" }
+    : options.includeDeals
+      ? { available: true, byCurrency: summarizeDeals(await dealRows(), query.period) }
+      : { available: false, reason: "FEATURE_UNAVAILABLE" };
 
   return {
     status: channelIds.length ? "connected" : "not_connected",
+    visibility: revenueWithheld(ctx) ? REVENUE_HIDDEN : REVENUE_VISIBLE,
     currency: summary.currency,
     dateBasis: "youtube_reporting_day",
     period: {

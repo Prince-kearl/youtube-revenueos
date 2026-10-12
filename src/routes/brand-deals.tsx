@@ -21,6 +21,7 @@ import {
   Tooltip,
 } from "recharts";
 import { toast } from "sonner";
+import { dealStageChangeNeedsRevenueAccess } from "@/lib/revenue-visibility";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { EmptyState, ErrorState, ListLoadingState, Tag } from "@/components/ui-bits";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
@@ -89,7 +90,22 @@ type Deal = {
   created_at: string;
   updated_at: string;
 };
-type DealsResponse = { data?: Deal[]; error?: string };
+type DealsResponse = {
+  data?: Array<Omit<Deal, "value"> & { value: number | null }>;
+  /** "hidden": deal values were withheld from this viewer by the workspace's revenue visibility. */
+  visibility?: { revenue: "visible" | "hidden" };
+  error?: string;
+};
+const HIDDEN = "Hidden";
+/** Shown where a stage cannot be chosen by a viewer who may not see deal values. */
+const STAGE_LOCKED_NOTE =
+  "Moving a deal into or out of Contracted or Completed needs revenue access. Ask an owner or manager.";
+/** A withheld value arrives as null. It is kept as 0 internally only so the arithmetic below
+ * stays total-safe; nothing computed from it is ever shown while values are hidden. */
+const withNumericValue = (deal: Omit<Deal, "value"> & { value: number | null }): Deal => ({
+  ...deal,
+  value: deal.value ?? 0,
+});
 type TeamMemberOption = { id: string; name: string };
 type TeamMembersResponse = {
   data?: {
@@ -174,6 +190,9 @@ const MAX_SPONSOR_LINES = 5;
 
 function BrandDeals() {
   const [deals, setDeals] = useState<Deal[]>([]);
+  // True when this viewer may not see amounts: every value on the page then reads "Hidden".
+  const [valuesHidden, setValuesHidden] = useState(false);
+  const money = (n: number) => (valuesHidden ? HIDDEN : fmtK(n));
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retryNonce, setRetryNonce] = useState(0);
   const [editing, setEditing] = useState<Deal | null>(null);
@@ -187,7 +206,8 @@ function BrandDeals() {
       .then(async (response) => {
         const body = (await response.json()) as DealsResponse;
         if (!response.ok || !body.data) throw new Error();
-        setDeals(body.data);
+        setValuesHidden(body.visibility?.revenue === "hidden");
+        setDeals(body.data.map(withNumericValue));
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
@@ -304,7 +324,7 @@ function BrandDeals() {
       label: stageLabel[stage],
       color: stageColor[stage],
       count: items.length,
-      total: `$${items.reduce((a, d) => a + d.value, 0).toLocaleString()}`,
+      total: valuesHidden ? HIDDEN : `$${items.reduce((a, d) => a + d.value, 0).toLocaleString()}`,
       deals: items,
     };
   });
@@ -325,7 +345,8 @@ function BrandDeals() {
       body: JSON.stringify({
         name: input.name,
         contactName: input.contactName || null,
-        value: input.value,
+        // A viewer who may not see values cannot set one; someone who can will add it later.
+        value: valuesHidden ? undefined : input.value,
         tag: input.tag || null,
         stage: input.stage,
         nextAction: input.nextAction || null,
@@ -335,7 +356,7 @@ function BrandDeals() {
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "CREATE_FAILED");
-    setDeals((prev) => [body.data, ...prev]);
+    setDeals((prev) => [withNumericValue(body.data), ...prev]);
     toast.success("Deal created");
   };
 
@@ -358,7 +379,8 @@ function BrandDeals() {
       body: JSON.stringify({
         name: input.name,
         contactName: input.contactName || null,
-        value: input.value,
+        // A value this viewer cannot see is never sent: the server would refuse the change.
+        value: valuesHidden ? undefined : input.value,
         tag: input.tag || null,
         stage: input.stage,
         nextAction: input.nextAction || null,
@@ -368,7 +390,7 @@ function BrandDeals() {
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "UPDATE_FAILED");
-    setDeals((prev) => prev.map((d) => (d.id === id ? body.data : d)));
+    setDeals((prev) => prev.map((d) => (d.id === id ? withNumericValue(body.data) : d)));
     toast.success("Deal updated");
   };
 
@@ -397,17 +419,27 @@ function BrandDeals() {
         </button>
       </div>
 
+      {valuesHidden && (
+        <p
+          role="status"
+          className="mt-6 rounded-xl border border-border bg-accent/30 px-4 py-3 text-sm text-muted-foreground"
+        >
+          Revenue hidden by workspace settings. You can still work with deals; their values are not
+          shown.
+        </p>
+      )}
+
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTrendCard
           title="Pipeline Value"
           accent="var(--brand-blue)"
-          value={fmtK(stats.pipeline)}
-          deltaLabel={fmtK(stats.pipelineSeries.at(-1) ?? 0)}
+          value={money(stats.pipeline)}
+          deltaLabel={money(stats.pipelineSeries.at(-1) ?? 0)}
           deltaSuffix="all time"
-          changePercent={stats.pipelineChangePct}
+          changePercent={valuesHidden ? null : stats.pipelineChangePct}
           periodLabel={stats.periodLabel}
-          series={stats.pipelineSeries}
-          markerTitle={fmtK(stats.pipelineSeries.at(-1) ?? 0)}
+          series={valuesHidden ? [] : stats.pipelineSeries}
+          markerTitle={money(stats.pipelineSeries.at(-1) ?? 0)}
           markerSubtitle={stats.latestMonthLabel}
           positive={(stats.pipelineChangePct ?? 0) >= 0}
         />
@@ -427,32 +459,32 @@ function BrandDeals() {
         <KpiTrendCard
           title="Closed Revenue"
           accent="var(--brand-green)"
-          value={fmtK(stats.closed)}
-          deltaLabel={fmtK(stats.closedSeries.at(-1) ?? 0)}
+          value={money(stats.closed)}
+          deltaLabel={money(stats.closedSeries.at(-1) ?? 0)}
           deltaSuffix="all time"
-          changePercent={stats.closedChangePct}
+          changePercent={valuesHidden ? null : stats.closedChangePct}
           periodLabel={stats.periodLabel}
-          series={stats.closedSeries}
-          markerTitle={fmtK(stats.closedSeries.at(-1) ?? 0)}
+          series={valuesHidden ? [] : stats.closedSeries}
+          markerTitle={money(stats.closedSeries.at(-1) ?? 0)}
           markerSubtitle={stats.latestMonthLabel}
           positive={(stats.closedChangePct ?? 0) >= 0}
         />
         <KpiTrendCard
           title="Avg Deal Size"
           accent="var(--brand-amber)"
-          value={fmtK(stats.avg)}
-          deltaLabel={fmtK(stats.avgSeries.at(-1) ?? 0)}
+          value={money(stats.avg)}
+          deltaLabel={money(stats.avgSeries.at(-1) ?? 0)}
           deltaSuffix="this month"
-          changePercent={stats.avgChangePct}
+          changePercent={valuesHidden ? null : stats.avgChangePct}
           periodLabel={stats.periodLabel}
-          series={stats.avgSeries}
-          markerTitle={fmtK(stats.avgSeries.at(-1) ?? 0)}
+          series={valuesHidden ? [] : stats.avgSeries}
+          markerTitle={money(stats.avgSeries.at(-1) ?? 0)}
           markerSubtitle={stats.latestMonthLabel}
           positive={(stats.avgChangePct ?? 0) >= 0}
         />
       </div>
 
-      {status === "ready" && deals.length > 0 && (
+      {status === "ready" && deals.length > 0 && !valuesHidden && (
         <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -597,19 +629,23 @@ function BrandDeals() {
                           <DropdownMenuItem onSelect={() => setEditing(d)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => setDeleting(d)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
+                          {/* Deleting a deal removes its value, so it is not offered to a
+                              viewer who may not see values (the server refuses it too). */}
+                          {!valuesHidden && (
+                            <DropdownMenuItem
+                              onSelect={() => setDeleting(d)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
                       <span className="flex items-center gap-1 font-bold text-brand-green">
                         <DollarSign className="h-4 w-4" />
-                        {d.value.toLocaleString()}
+                        {valuesHidden ? HIDDEN : d.value.toLocaleString()}
                       </span>
                       {d.tag && <Tag label={d.tag} />}
                     </div>
@@ -648,12 +684,16 @@ function BrandDeals() {
                   </div>
                 ))}
 
-                <button
-                  onClick={() => setCreating({ open: true, stage: s.stage })}
-                  className="flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] border border-dashed border-border py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
-                >
-                  <Plus className="h-4 w-4" /> Add deal
-                </button>
+                {/* A viewer who may not see deal values cannot create a deal straight into a
+                    stage that counts as contracted or earned (the server refuses it too). */}
+                {!(valuesHidden && dealStageChangeNeedsRevenueAccess(null, s.stage)) && (
+                  <button
+                    onClick={() => setCreating({ open: true, stage: s.stage })}
+                    className="flex w-full items-center justify-center gap-2 rounded-[var(--button-radius)] border border-dashed border-border py-2.5 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+                  >
+                    <Plus className="h-4 w-4" /> Add deal
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -662,6 +702,7 @@ function BrandDeals() {
 
       <DealFormDialog
         open={creating.open}
+        hideValue={valuesHidden}
         defaultStage={creating.stage}
         teamMembers={teamMembers}
         onOpenChange={(v) => setCreating({ open: v })}
@@ -670,6 +711,7 @@ function BrandDeals() {
       <DealFormDialog
         open={!!editing}
         deal={editing}
+        hideValue={valuesHidden}
         teamMembers={teamMembers}
         onOpenChange={(v) => !v && setEditing(null)}
         onSubmit={(input) => (editing ? updateDeal(editing.id, input) : Promise.resolve())}
@@ -700,6 +742,7 @@ function Legend({ color, label }: { color: string; label: string }) {
 function DealFormDialog({
   open,
   deal,
+  hideValue = false,
   defaultStage,
   teamMembers,
   onOpenChange,
@@ -707,6 +750,9 @@ function DealFormDialog({
 }: {
   open: boolean;
   deal?: Deal | null;
+  /** True when this viewer may not see deal values: the field is left out and no value is
+   * sent, whether creating or editing. */
+  hideValue?: boolean;
   defaultStage?: DealStage;
   teamMembers: TeamMemberOption[];
   onOpenChange: (v: boolean) => void;
@@ -746,8 +792,8 @@ function DealFormDialog({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Company / deal name is required");
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue) || numericValue < 0)
+    const numericValue = hideValue ? 0 : Number(value);
+    if (!hideValue && (!Number.isFinite(numericValue) || numericValue < 0))
       return toast.error("Enter a valid deal value");
     setSubmitting(true);
     try {
@@ -794,18 +840,27 @@ function DealFormDialog({
                 placeholder="Jane Doe"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Value (USD)</label>
-              <Input
-                type="number"
-                min={0}
-                step="1"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder="5000"
-                required
-              />
-            </div>
+            {hideValue ? (
+              <div className="space-y-1.5">
+                <span className="text-sm font-medium">Value (USD)</span>
+                <p className="rounded-md border border-border bg-accent/30 px-3 py-2 text-sm text-muted-foreground">
+                  Hidden by workspace settings
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Value (USD)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="5000"
+                  required
+                />
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Tag (optional)</label>
@@ -814,21 +869,35 @@ function DealFormDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Stage</label>
             <div className="flex flex-wrap gap-2">
-              {DEAL_STAGES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStage(s)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    stage === s
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {stageLabel[s]}
-                </button>
-              ))}
+              {DEAL_STAGES.map((s) => {
+                // For a viewer who may not see deal values, a stage that would move the deal
+                // into or out of Contracted / Completed cannot be picked. The deal's current
+                // stage is always shown as it is, selected.
+                const locked =
+                  hideValue && dealStageChangeNeedsRevenueAccess(deal?.stage ?? null, s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={locked}
+                    aria-disabled={locked}
+                    title={locked ? STAGE_LOCKED_NOTE : undefined}
+                    onClick={() => setStage(s)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      stage === s
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {stageLabel[s]}
+                  </button>
+                );
+              })}
             </div>
+            {hideValue &&
+              DEAL_STAGES.some((s) =>
+                dealStageChangeNeedsRevenueAccess(deal?.stage ?? null, s),
+              ) && <p className="text-[11px] text-muted-foreground">{STAGE_LOCKED_NOTE}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolvePlanTier } from "./ai-usage";
+import { isPlatformSuperadmin } from "./platform-staff";
 import { TEAM_MANAGEMENT_PLAN, TEAM_NOT_ENTITLED, type TeamEntitlement } from "@/lib/team-policy";
 
 // What a WORKSPACE's subscription entitles it to.
@@ -50,20 +51,6 @@ const UNAVAILABLE: TeamEntitlement = {
   reason: "unavailable",
   requiredPlan: TEAM_MANAGEMENT_PLAN,
 };
-
-/** Whether `userId` is platform staff, from the trusted profiles table. False on any doubt. */
-async function isPlatformSuperadmin(service: SupabaseClient, userId: string): Promise<boolean> {
-  try {
-    const { data, error } = await service
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .maybeSingle();
-    return !error && data?.role === "superadmin";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * The team-management entitlement of `workspaceId`, as it applies to the member `userId`.

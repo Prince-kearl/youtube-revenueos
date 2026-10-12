@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
+import { REVENUE_HIDDEN, REVENUE_VISIBLE } from "@/lib/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
@@ -122,8 +124,12 @@ async function queryWithRevenueFallback(
   dimensions: string[] | undefined,
   filters: string,
   metrics: string[],
+  // False for a caller who may not see revenue: the revenue metrics (estimated revenue, CPM,
+  // playback CPM) are then never requested from YouTube at all.
+  includeRevenue: boolean,
 ): Promise<ReportResult> {
   try {
+    if (!includeRevenue) throw new Error("revenue not requested");
     const payload = (await queryYoutubeAnalytics(accessToken, {
       channelId,
       startDate,
@@ -136,7 +142,8 @@ async function queryWithRevenueFallback(
     })) as YoutubeAnalyticsPayload;
     return { payload, revenueAvailable: hasMetric(payload, "estimatedRevenue") };
   } catch (error) {
-    console.warn("YouTube video revenue report unavailable", { reason: safeReason(error) });
+    if (includeRevenue)
+      console.warn("YouTube video revenue report unavailable", { reason: safeReason(error) });
     try {
       const payload = (await queryYoutubeAnalytics(accessToken, {
         channelId,
@@ -164,6 +171,10 @@ export const Route = createFileRoute("/api/youtube/video")({
       GET: async ({ request }) => {
         try {
           const { client, user } = await requireSessionUser(request);
+          // Estimated revenue and CPM follow the workspace's revenue visibility. Everything else
+          // on this page (views, watch time, retention, audience) does not.
+          const revenueAccess = await resolveRevenueAccessForRequest(request);
+          const includeRevenue = revenueAccess.canView;
           const url = new URL(request.url);
           const videoId = videoIdSchema.parse(url.searchParams.get("videoId"));
           const rawChannelId = url.searchParams.get("channelId");
@@ -207,6 +218,7 @@ export const Route = createFileRoute("/api/youtube/video")({
               ["day"],
               `video==${videoId}`,
               activityMetrics,
+              includeRevenue,
             ),
             queryWithRevenueFallback(
               accessToken,
@@ -216,6 +228,7 @@ export const Route = createFileRoute("/api/youtube/video")({
               undefined,
               `video==${videoId}`,
               activityMetrics,
+              includeRevenue,
             ),
             queryWithRevenueFallback(
               accessToken,
@@ -225,6 +238,7 @@ export const Route = createFileRoute("/api/youtube/video")({
               ["insightTrafficSourceType"],
               `video==${videoId}`,
               ["views", "estimatedMinutesWatched"],
+              includeRevenue,
             ),
             queryOptionalReport(
               accessToken,
@@ -305,6 +319,9 @@ export const Route = createFileRoute("/api/youtube/video")({
           return json(
             {
               data: {
+                // "hidden": revenue and CPM below are null because they were withheld from this
+                // viewer, not because YouTube did not report them.
+                visibility: includeRevenue ? REVENUE_VISIBLE : REVENUE_HIDDEN,
                 range,
                 startDate,
                 endDate,

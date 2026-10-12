@@ -98,6 +98,8 @@ type Tab = "video" | "traffic";
 type BreakdownRow = Record<string, string | number | null>;
 
 type BreakdownData = {
+  /** "hidden": revenue was withheld from this viewer by the workspace's revenue visibility. */
+  visibility?: { revenue: "visible" | "hidden" };
   range: Range;
   startDate: string;
   endDate: string;
@@ -804,20 +806,28 @@ function Analytics() {
                               {formatCount(numericValue(row.views))} views
                             </span>
                             <span className="block text-xs text-muted-foreground">
-                              {formatRevenue(
-                                row.estimatedRevenue,
-                                result.data?.trafficSources.revenueAvailable ?? false,
-                              )}
+                              {result.data?.visibility?.revenue === "hidden"
+                                ? "Hidden"
+                                : formatRevenue(
+                                    row.estimatedRevenue,
+                                    result.data?.trafficSources.revenueAvailable ?? false,
+                                  )}
                             </span>
                           </span>
                         </div>
                       ))}
                     </div>
-                    {!result.data?.trafficSources.revenueAvailable && (
+                    {result.data?.visibility?.revenue === "hidden" ? (
                       <p className="mt-4 text-xs text-muted-foreground">
-                        Traffic-source activity is available, but YouTube returned no estimated
-                        revenue rows for this period.
+                        Revenue hidden by workspace settings.
                       </p>
+                    ) : (
+                      !result.data?.trafficSources.revenueAvailable && (
+                        <p className="mt-4 text-xs text-muted-foreground">
+                          Traffic-source activity is available, but YouTube returned no estimated
+                          revenue rows for this period.
+                        </p>
+                      )
                     )}
                   </>
                 )}

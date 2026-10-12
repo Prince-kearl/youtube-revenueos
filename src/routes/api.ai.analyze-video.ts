@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
 import { fetchPublicYoutubeVideoById, queryYoutubeAnalytics } from "@/lib/server/google-oauth";
@@ -80,10 +81,14 @@ const EMPTY_PERFORMANCE: Omit<PerformanceSummary, "views" | "likes" | "comments"
 // the AI without duplicating api.youtube.video.ts's full multi-report dashboard logic. Revenue is
 // requested alongside the activity metrics first, and only kept if YouTube actually returned it —
 // same "never fabricate a metric YouTube didn't grant" fallback pattern as api.youtube.video.ts.
+//
+// `includeRevenue` is false for a caller who may not see revenue in this workspace: the revenue
+// metric is then never requested, so it cannot reach the prompt, the result or the cache.
 async function fetchPerformanceSummary(
   accessToken: string,
   channelYoutubeId: string,
   videoId: string,
+  includeRevenue: boolean,
 ): Promise<Omit<PerformanceSummary, "views" | "likes" | "comments">> {
   const endDate = new Date();
   const startDate = new Date(endDate);
@@ -99,6 +104,7 @@ async function fetchPerformanceSummary(
   ];
 
   try {
+    if (!includeRevenue) throw new Error("revenue not requested");
     const payload = (await queryYoutubeAnalytics(accessToken, {
       channelId: channelYoutubeId,
       ...range,
@@ -212,8 +218,19 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             input.transcript?.trim() || savedTranscript?.transcript?.trim() || null;
           const description = input.description?.trim() || video.description?.trim() || null;
 
+          // Revenue is part of the AI's context only for a caller who may see it (see
+          // lib/server/revenue-visibility.ts). The cache key below includes the performance
+          // figures, so an analysis written with revenue is never served to someone without it.
+          const revenueAccess = isConnectedChannelVideo
+            ? await resolveRevenueAccessForRequest(request)
+            : null;
           const performanceSummary = isConnectedChannelVideo
-            ? await fetchPerformanceSummary(accessToken, channel.youtube_channel_id, input.videoId)
+            ? await fetchPerformanceSummary(
+                accessToken,
+                channel.youtube_channel_id,
+                input.videoId,
+                revenueAccess?.canView === true,
+              )
             : EMPTY_PERFORMANCE;
 
           const aiInput: AnalyzeVideoInput = {

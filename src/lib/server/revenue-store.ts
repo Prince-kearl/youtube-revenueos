@@ -2,10 +2,30 @@
 //
 //   UI / API  →  revenue-store (this file)  →  revenue-metrics  →  stored P0 data
 //
-// Everything here runs on the CALLER's Supabase client, so row-level security decides what is
-// visible: channel_daily_stats and video_daily_stats are readable only through a channel whose
-// workspace the caller is an active member of. The service-role client is never used, and
-// nothing in this file calls YouTube.
+// Which channels a caller may read is always decided by row-level security: the channel list is
+// read on the CALLER's client, so it holds only channels of a workspace they are an active member
+// of. Stats rows are then read for exactly those channel ids and no others.
+//
+// The stats tables hold two kinds of column:
+//
+//   activity  (views, watch_minutes)                       readable by any member
+//   money     (estimated / ad / premium revenue, in USD)   NOT readable through the member-facing
+//                                                          database role (see the
+//                                                          revenue-column-privacy migration)
+//
+// So how the rows are read depends on `ctx.revenue` (see lib/server/revenue-visibility.ts):
+//
+//   { visible: true, money }        the caller may see revenue: all columns are read through
+//                                   the MoneyReader, which is bound to the caller's workspace
+//                                   and re-checks every channel id against it
+//   { visible: false }              the caller may not: only the activity columns are requested,
+//                                   on the caller's own client. No amount ever enters this
+//                                   process, so nothing downstream can leak one — every revenue
+//                                   figure simply comes out as "not available"
+//   (absent)                        all columns on the caller's client. Unit tests and scripts
+//                                   only; a route always states which of the two above applies
+//
+// Nothing in this file calls YouTube.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -21,9 +41,64 @@ import {
 import { isoDay } from "./youtube-stats-sync";
 import type { WorkspaceContext } from "./workspace";
 
+/** One stored stats row including its money columns, as the MoneyReader returns it. */
+export interface MoneyStatsRow {
+  channel_id: string;
+  video_id?: string;
+  day: string;
+  views: unknown;
+  watch_minutes: unknown;
+  estimated_revenue_usd: unknown;
+  ad_revenue_usd: unknown;
+  premium_revenue_usd: unknown;
+}
+
+/**
+ * The only way this module — or any other — reads amounts. A MoneyReader is created by
+ * lib/server/revenue-visibility.ts for a caller it has authorised, and is bound to that caller's
+ * workspace: it exposes these fixed queries and nothing else (no table, column or workspace can
+ * be chosen by whoever holds it).
+ */
+export interface MoneyReader {
+  /** Stats rows with revenue, for those of `channelIds` that belong to the reader's workspace. */
+  readStats(
+    table: "channel_daily_stats" | "video_daily_stats",
+    channelIds: string[],
+    range: RevenuePeriod,
+  ): Promise<MoneyStatsRow[]>;
+  /** Deal values of the reader's workspace, by deal id (all deals, or only those listed). */
+  dealValues(dealIds?: string[]): Promise<Map<string, number | null>>;
+  /** What the revenue summary needs of the reader's workspace's deals. */
+  dealSummaryRows(): Promise<
+    Array<{
+      id: string;
+      value: unknown;
+      currency: string | null;
+      stage: string;
+      closed_at: string | null;
+    }>
+  >;
+}
+
+/** How the caller may read the money columns — decided by resolveRevenueAccess, never here. */
+export type RevenueReadMode = { visible: true; money: MoneyReader } | { visible: false };
+
 /** What a caller needs to read revenue: its own client and workspace (from getWorkspaceContext
- * or requireWorkspaceFeature). */
-export type RevenueReadContext = Pick<WorkspaceContext, "client" | "workspaceId">;
+ * or requireWorkspaceFeature), and whether it may see amounts. */
+export type RevenueReadContext = Pick<WorkspaceContext, "client" | "workspaceId"> & {
+  revenue?: RevenueReadMode;
+};
+
+/** True when the caller's amounts were withheld (the rows carry activity only). */
+export function revenueWithheld(ctx: RevenueReadContext): boolean {
+  return ctx.revenue?.visible === false;
+}
+
+/** The reader of amounts for this caller, or null when they may not see them (or when no mode
+ * was stated: see the file header). */
+export function moneyReader(ctx: RevenueReadContext): MoneyReader | null {
+  return ctx.revenue?.visible ? ctx.revenue.money : null;
+}
 
 export interface RevenueChannel {
   id: string;
@@ -48,8 +123,8 @@ export interface RevenueDataset {
 }
 
 const PAGE_SIZE = 1000;
-const STATS_COLUMNS =
-  "channel_id, day, views, watch_minutes, estimated_revenue_usd, ad_revenue_usd, premium_revenue_usd";
+const ACTIVITY_COLUMNS = "channel_id, day, views, watch_minutes";
+const STATS_COLUMNS = `${ACTIVITY_COLUMNS}, estimated_revenue_usd, ad_revenue_usd, premium_revenue_usd`;
 
 function fail(operation: string, error: { message?: string; code?: string } | null): never {
   // Logged without row contents; the caller gets a stable code, not a database message.
@@ -70,9 +145,10 @@ interface StoredStatsRow {
   day: string;
   views: unknown;
   watch_minutes: unknown;
-  estimated_revenue_usd: unknown;
-  ad_revenue_usd: unknown;
-  premium_revenue_usd: unknown;
+  // Absent when the caller may not see revenue: the columns were never requested.
+  estimated_revenue_usd?: unknown;
+  ad_revenue_usd?: unknown;
+  premium_revenue_usd?: unknown;
 }
 
 export function toChannelRevenueDay(row: StoredStatsRow): ChannelRevenueDay {
@@ -154,11 +230,32 @@ export async function loadRevenueData(
   const channels = await listRevenueChannels(ctx, filter);
   if (!channels.length) return { channels, range, channelRows: [], videoRows: [] };
   const channelIds = channels.map((channel) => channel.id);
+  // A caller who may see revenue: every column, through the reader bound to their workspace.
+  const money = moneyReader(ctx);
+  if (money) {
+    const [channelRows, videoRows] = await Promise.all([
+      money.readStats("channel_daily_stats", channelIds, range),
+      money.readStats("video_daily_stats", channelIds, range),
+    ]);
+    return {
+      channels,
+      range,
+      channelRows: channelRows.map(toChannelRevenueDay),
+      videoRows: videoRows.flatMap((row) =>
+        typeof row.video_id === "string"
+          ? [toVideoRevenueDay({ ...row, video_id: row.video_id })]
+          : [],
+      ),
+    };
+  }
+  // A caller who may not: activity columns only, on their own client — no amount is requested.
+  // (With no mode stated at all — unit tests and scripts — every column on the caller's client.)
+  const columns = ctx.revenue ? ACTIVITY_COLUMNS : STATS_COLUMNS;
   const [channelRows, videoRows] = await Promise.all([
     readStatsRows(
       ctx.client,
       "channel_daily_stats",
-      STATS_COLUMNS,
+      columns,
       channelIds,
       range,
       "channel_id",
@@ -167,7 +264,7 @@ export async function loadRevenueData(
     readStatsRows(
       ctx.client,
       "video_daily_stats",
-      `video_id, ${STATS_COLUMNS}`,
+      `video_id, ${columns}`,
       channelIds,
       range,
       "video_id",

@@ -15,6 +15,11 @@
 
 import type { RevenueAmountView, RevenueSummaryResponse } from "@/lib/server/revenue-summary";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
+import {
+  HIDDEN_AMOUNT_TEXT,
+  REVENUE_HIDDEN_MESSAGE,
+  isRevenueHidden,
+} from "@/lib/revenue-visibility";
 
 /** The Dashboard shows a trailing year, by month — the same window it has always shown. */
 export const DASHBOARD_REVENUE_DAYS = 365;
@@ -50,6 +55,10 @@ const withCents = new Intl.NumberFormat("en-US", {
 });
 
 export const UNAVAILABLE = "—";
+
+/** True when the response's amounts were withheld from this viewer (workspace revenue
+ * visibility). Hidden is its own state: not "—" (unavailable) and never "$0". */
+export { isRevenueHidden };
 
 /** "$1,234" for larger amounts, cents kept below $100 so a small channel's revenue is not
  * rounded away to "$0". A null amount is "—": unavailable is never shown as zero. */
@@ -146,7 +155,18 @@ export interface RevenueFigure {
   partial: boolean;
   /** False when there is nothing to show at all (text is "—"). */
   available: boolean;
+  /** True when the amount exists but was withheld from this viewer; `text` is then "Hidden". */
+  hidden?: boolean;
 }
+
+/** What every amount becomes for a viewer who may not see revenue. */
+export const HIDDEN_FIGURE: RevenueFigure = {
+  text: HIDDEN_AMOUNT_TEXT,
+  usd: null,
+  partial: false,
+  available: false,
+  hidden: true,
+};
 
 export interface DashboardRevenueTrendPoint {
   monthKey: string;
@@ -172,6 +192,8 @@ export interface DashboardRevenueView {
   /** ready: figures below are real. empty: connected, but nothing has been stored yet.
    * not_connected: no channel. */
   state: "ready" | "empty" | "not_connected";
+  /** True when amounts were withheld from this viewer by the workspace's revenue visibility. */
+  hidden: boolean;
   /** Earned YouTube revenue over the whole period. */
   total: RevenueFigure;
   /** Canonical change against the equal-length period before; null when it cannot be stated. */
@@ -213,6 +235,7 @@ const EMPTY_FIGURE: RevenueFigure = {
 
 export const EMPTY_DASHBOARD_REVENUE: DashboardRevenueView = {
   state: "empty",
+  hidden: false,
   total: EMPTY_FIGURE,
   changePercent: null,
   changeText: UNAVAILABLE,
@@ -291,8 +314,29 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
       notice === "sync_error"
       ? revenueDataNoticeText(notice, { sentence: true }).slice(0, -1)
       : "";
+  const state =
+    summary.status === "not_connected" ? "not_connected" : hasStoredData ? "ready" : "empty";
+  // Withheld: say so, in every place an amount would have been. The trend keeps its months (with
+  // no values) so the chart's axis is unchanged.
+  if (isRevenueHidden(summary))
+    return {
+      state,
+      hidden: true,
+      total: HIDDEN_FIGURE,
+      changePercent: null,
+      changeText: HIDDEN_AMOUNT_TEXT,
+      comparisonLabel: `vs previous ${period.days} days`,
+      periodLabel: `Last ${period.days} days`,
+      positive: true,
+      series: [],
+      latest: null,
+      trend: trend.map((point) => ({ ...point, revenueUsd: null })),
+      split: [],
+      freshnessNote: REVENUE_HIDDEN_MESSAGE,
+    };
   return {
-    state: summary.status === "not_connected" ? "not_connected" : hasStoredData ? "ready" : "empty",
+    state,
+    hidden: false,
     total: figure(earned.revenue),
     changePercent,
     changeText: change.absolute === null ? UNAVAILABLE : signedUsd(change.absolute),
@@ -345,7 +389,7 @@ export function mapTopRevenueVideos(response: RevenueVideosResponse): DashboardT
           : null,
       publishedAt: video.publishedAt,
       views: video.views,
-      revenue: figure(video.revenue),
+      revenue: isRevenueHidden(response) ? HIDDEN_FIGURE : figure(video.revenue),
       changePercent: video.change.views.percent,
       currentlyListed: listed,
     };
@@ -407,6 +451,7 @@ export function demoDashboardRevenue(demo: DemoDashboard): {
   return {
     revenue: {
       state: "ready",
+      hidden: false,
       total: amount(total),
       changePercent: null,
       changeText: `Past ${months.length} months`,

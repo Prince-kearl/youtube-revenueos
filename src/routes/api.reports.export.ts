@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
+import { resolveRevenueAccess } from "@/lib/server/revenue-visibility";
+import { HIDDEN_AMOUNT_TEXT } from "@/lib/revenue-visibility";
 
 type ReportType = "deals" | "leads" | "videos";
 
@@ -41,7 +43,8 @@ export const Route = createFileRoute("/api/reports/export")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await requireWorkspaceFeature(request, "reports");
+          const ctx = await requireWorkspaceFeature(request, "reports");
+          const { client, workspaceId } = ctx;
           const url = new URL(request.url);
           const type = url.searchParams.get("type") as ReportType | null;
           const startParam = url.searchParams.get("startDate");
@@ -51,14 +54,26 @@ export const Route = createFileRoute("/api/reports/export")({
           const stamp = new Date().toISOString().slice(0, 10);
 
           if (type === "deals") {
+            // The Value column follows the workspace's revenue visibility: a member who may not
+            // see amounts still gets the export, with every value written as "Hidden" (never
+            // blank and never 0, either of which would be read as a real figure).
+            const access = await resolveRevenueAccess(ctx);
             const { data, error } = await client
               .from("deals")
               .select(
-                "name, contact_name, value, currency, stage, tag, next_action, expected_close_date, closed_at, created_at",
+                "id, name, contact_name, currency, stage, tag, next_action, expected_close_date, closed_at, created_at",
               )
               .eq("workspace_id", workspaceId)
               .order("created_at", { ascending: false });
             if (error) return new Response("Database error", { status: 500 });
+            let valueById = new Map<string, number | null>();
+            if (access.money) {
+              try {
+                valueById = await access.money.dealValues();
+              } catch {
+                return new Response("Database error", { status: 500 });
+              }
+            }
             const rows = (data ?? []).filter((d) => inRange(d.created_at, start, end));
             const csv = toCsv(
               [
@@ -76,7 +91,7 @@ export const Route = createFileRoute("/api/reports/export")({
               rows.map((d) => [
                 d.name,
                 d.contact_name,
-                d.value,
+                access.canView ? (valueById.get(d.id as string) ?? null) : HIDDEN_AMOUNT_TEXT,
                 d.currency,
                 d.stage,
                 d.tag,

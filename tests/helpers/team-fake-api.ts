@@ -24,8 +24,24 @@ export interface World {
   features: Row[];
   role_feature_access: Row[];
   notifications: Row[];
+  // Tables the revenue-visibility tests add. Created empty on first use.
+  deals?: Row[];
+  leads?: Row[];
+  videos?: Row[];
+  youtube_channels?: Row[];
+  youtube_sync_state?: Row[];
+  channel_daily_stats?: Row[];
+  video_daily_stats?: Row[];
   /** Tables whose reads fail with a database error. */
   failingReads?: string[];
+  /**
+   * Behave like the database AFTER the column-privacy migrations: a request made with a member's
+   * session that names a money column (in its select, a filter or an order — or selects
+   * everything), or that writes to a table members may no longer write, is refused with a
+   * permission error, exactly as Postgres does. The service role is unaffected. Lets a test
+   * prove the application never reads money, or writes deals, on a member's session.
+   */
+  protectMoney?: boolean;
   /** How the invite email endpoint answers (default 200). */
   inviteStatus?: number;
 }
@@ -49,6 +65,8 @@ export interface CallResult {
   reads: Recorded[];
   /** Addresses an invitation email was requested for. */
   invitesSent: string[];
+  /** Member-session requests the database refused for naming a money column (protectMoney). */
+  refusedMoneyReads: string[];
 }
 
 let nextId = 1;
@@ -132,9 +150,69 @@ export const member = (world: World, id: string): Row =>
 
 // ---------- a small PostgREST ----------
 
+const OPTIONAL_TABLES = [
+  "deals",
+  "leads",
+  "videos",
+  "youtube_channels",
+  "youtube_sync_state",
+  "channel_daily_stats",
+  "video_daily_stats",
+];
+
+/** The columns the migrations withhold from the member-facing database role. */
+export const MONEY_COLUMNS: Record<string, string[]> = {
+  channel_daily_stats: ["estimated_revenue_usd", "ad_revenue_usd", "premium_revenue_usd"],
+  video_daily_stats: ["estimated_revenue_usd", "ad_revenue_usd", "premium_revenue_usd"],
+  deals: ["value"],
+  workspace_members: ["lead_share", "commission", "cost_amount"],
+};
+
+const RESERVED_PARAMS = ["select", "order", "limit", "offset", "on_conflict", "columns"];
+
+/** Tables the migrations leave no member-facing write privilege on. */
+export const MEMBER_READ_ONLY_TABLES = [
+  "deals",
+  "channel_daily_stats",
+  "video_daily_stats",
+  "workspaces",
+  "workspace_members",
+];
+
+/** Whether a request names a withheld column of `table` anywhere Postgres would check it. */
+function touchesMoney(table: string, params: URLSearchParams, returnsRows: boolean): boolean {
+  const money = MONEY_COLUMNS[table];
+  if (!money) return false;
+  const select = params.get("select");
+  // No column list (or *) on a request that returns rows means every column.
+  if (returnsRows && (!select || select.split(",").some((c) => c.trim() === "*"))) return true;
+  const named = [
+    ...(select ?? "").split(/[,()]/).map((c) => c.trim().split(":").pop() ?? ""),
+    ...(params.get("order") ?? "").split(",").map((c) => c.split(".")[0]),
+    ...[...params.keys()].filter((key) => !RESERVED_PARAMS.includes(key)),
+  ];
+  return named.some((column) => money.includes(column));
+}
+
+/** Only the requested columns, as PostgREST returns them. A select with an embed is left whole. */
+function project(rows: Row[], params: URLSearchParams): Row[] {
+  const select = params.get("select");
+  if (!select || /[*(]/.test(select)) return rows;
+  const columns = select.split(",").map((c) => c.trim());
+  return rows.map((row) => Object.fromEntries(columns.map((c) => [c, row[c] ?? null])));
+}
+
 function matches(row: Row, params: URLSearchParams): boolean {
   for (const [column, expression] of params) {
-    if (["select", "order", "limit", "offset", "on_conflict", "columns"].includes(column)) continue;
+    if (RESERVED_PARAMS.includes(column)) continue;
+    if (expression === "not.is.null") {
+      if (row[column] === null || row[column] === undefined) return false;
+      continue;
+    }
+    if (expression === "is.null") {
+      if (row[column] !== null && row[column] !== undefined) return false;
+      continue;
+    }
     const dot = expression.indexOf(".");
     const operator = expression.slice(0, dot);
     const operand = expression.slice(dot + 1);
@@ -143,6 +221,10 @@ function matches(row: Row, params: URLSearchParams): boolean {
       if (actual !== operand) return false;
     } else if (operator === "neq") {
       if (actual === operand) return false;
+    } else if (operator === "gte") {
+      if (actual === null || actual < operand) return false;
+    } else if (operator === "lte") {
+      if (actual === null || actual > operand) return false;
     } else if (operator === "in") {
       const options = operand
         .replace(/^\(|\)$/g, "")
@@ -160,9 +242,14 @@ function ordered(rows: Row[], params: URLSearchParams): Row[] {
   const order = params.get("order");
   let result = [...rows];
   if (order) {
-    const [column, direction] = order.split(".");
-    result.sort((a, b) => String(a[column] ?? "").localeCompare(String(b[column] ?? "")));
-    if (direction === "desc") result.reverse();
+    const keys = order.split(",").map((part) => part.split("."));
+    result.sort((a, b) => {
+      for (const [column, direction] of keys) {
+        const diff = String(a[column] ?? "").localeCompare(String(b[column] ?? ""));
+        if (diff !== 0) return direction === "desc" ? -diff : diff;
+      }
+      return 0;
+    });
   }
   const limit = params.get("limit");
   if (limit) result = result.slice(0, Number(limit));
@@ -188,12 +275,15 @@ export async function callTeamApi(
     as: string | null;
     method: "GET" | "POST" | "PATCH" | "DELETE";
     query?: string;
+    /** The API path the route is mounted at (default: the Team members API). */
+    path?: string;
     body?: unknown;
   },
 ): Promise<CallResult> {
   const writes: Recorded[] = [];
   const reads: Recorded[] = [];
   const invitesSent: string[] = [];
+  const refusedMoneyReads: string[] = [];
   const actor = world.profiles.find((p) => p.id === options.as) ?? null;
   const authUser = (p: Row) => ({
     id: p.id,
@@ -228,11 +318,24 @@ export async function callTeamApi(
     if (!url.pathname.startsWith("/rest/v1/"))
       throw new Error(`unexpected request in test: ${method} ${url.pathname}`);
     const table = url.pathname.slice("/rest/v1/".length) as keyof World;
+    if (OPTIONAL_TABLES.includes(table)) (world as unknown as Record<string, Row[]>)[table] ??= [];
     const rows = world[table] as Row[] | undefined;
     if (!Array.isArray(rows)) throw new Error(`team-fake-api: unknown table ${String(table)}`);
     const as = headers.get("apikey") === SERVICE_KEY ? "service" : "user";
     const wantsObject = (headers.get("Accept") ?? "").includes("vnd.pgrst.object");
     const prefer = headers.get("Prefer") ?? "";
+    const returnsRows =
+      method === "GET" || method === "HEAD" || prefer.includes("return=representation");
+    const memberWrite =
+      method !== "GET" && method !== "HEAD" && MEMBER_READ_ONLY_TABLES.includes(String(table));
+    if (
+      world.protectMoney &&
+      as === "user" &&
+      (memberWrite || touchesMoney(String(table), url.searchParams, returnsRows))
+    ) {
+      refusedMoneyReads.push(`${method} ${String(table)}${url.search}`);
+      return json({ code: "42501", message: `permission denied for table ${String(table)}` }, 403);
+    }
     const shape = (result: Row[], status = 200) => {
       if (!wantsObject) return json(result, status);
       if (result.length === 1) return json(result[0], status);
@@ -264,7 +367,7 @@ export async function callTeamApi(
           status: 200,
           headers: { "Content-Range": `*/${found.length}` },
         });
-      return shape(found);
+      return shape(project(found, url.searchParams));
     }
 
     writes.push({ method, table, as, body });
@@ -293,12 +396,16 @@ export async function callTeamApi(
         rows.push(created);
         saved.push(created);
       }
-      return prefer.includes("return=representation") ? shape(saved, 201) : json(null, 201);
+      return prefer.includes("return=representation")
+        ? shape(project(saved, url.searchParams), 201)
+        : json(null, 201);
     }
     const targets = rows.filter((row) => matches(row, url.searchParams));
     if (method === "PATCH") {
       for (const row of targets) Object.assign(row, body as Row);
-      return prefer.includes("return=representation") ? shape(targets) : json(null, 204);
+      return prefer.includes("return=representation")
+        ? shape(project(targets, url.searchParams))
+        : json(null, 204);
     }
     if (method === "DELETE") {
       for (const row of targets) rows.splice(rows.indexOf(row), 1);
@@ -329,11 +436,14 @@ export async function callTeamApi(
     const handlers = (route.Route as { options: { server: { handlers: Record<string, Handler> } } })
       .options.server.handlers;
     const response = await handlers[options.method]({
-      request: new Request(`https://app.test/api/workspace/members${options.query ?? ""}`, {
-        method: options.method,
-        headers,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      }),
+      request: new Request(
+        `https://app.test${options.path ?? "/api/workspace/members"}${options.query ?? ""}`,
+        {
+          method: options.method,
+          headers,
+          body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        },
+      ),
     });
     const text = await response.text();
     let body: Record<string, unknown> = {};
@@ -344,7 +454,7 @@ export async function callTeamApi(
     }
     // Let fire-and-forget work (the "teammate joined" notification) land before the test reads.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    return { status: response.status, body, text, writes, reads, invitesSent };
+    return { status: response.status, body, text, writes, reads, invitesSent, refusedMoneyReads };
   } finally {
     globalThis.fetch = realFetch;
     console.error = consoles.error;

@@ -422,19 +422,23 @@ function Dashboard() {
   const topRevenueVideosEmptyMessage =
     revenueState.status === "error"
       ? "Revenue data couldn't be loaded. Try refreshing."
-      : revenue.state === "not_connected"
-        ? "Connect YouTube to view top revenue videos."
-        : revenue.state === "empty"
-          ? "Your video revenue history is still being imported."
-          : "No video revenue has been recorded for this period.";
+      : revenue.hidden
+        ? "Revenue hidden by workspace settings."
+        : revenue.state === "not_connected"
+          ? "Connect YouTube to view top revenue videos."
+          : revenue.state === "empty"
+            ? "Your video revenue history is still being imported."
+            : "No video revenue has been recorded for this period.";
   const revenueEmptyContent =
     revenueState.status === "error"
       ? "Revenue data couldn't be loaded. Try refreshing."
-      : revenue.state === "not_connected"
-        ? "Connect YouTube to view revenue trends."
-        : revenue.state === "empty"
-          ? "Your revenue history is still being imported. Check back shortly."
-          : "No estimated revenue was reported for this period.";
+      : revenue.hidden
+        ? "Revenue hidden by workspace settings."
+        : revenue.state === "not_connected"
+          ? "Connect YouTube to view revenue trends."
+          : revenue.state === "empty"
+            ? "Your revenue history is still being imported. Check back shortly."
+            : "No estimated revenue was reported for this period.";
   const revenueValue = (text: string) => (revenueLoading ? "…" : text);
   const totalWatchTime =
     dashboardData?.watchTimeStatus === "available"
@@ -890,7 +894,9 @@ function Dashboard() {
         <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Top Revenue Videos</h3>
+            <h3 className="text-lg font-semibold">
+              {revenue.hidden ? "Top Videos by Views" : "Top Revenue Videos"}
+            </h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">
               View all
             </Link>

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
+import { resolveRevenueAccess } from "@/lib/server/revenue-visibility";
+import { REVENUE_HIDDEN, REVENUE_VISIBLE } from "@/lib/revenue-visibility";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -25,28 +27,48 @@ export const Route = createFileRoute("/api/reports/summary")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await requireWorkspaceFeature(request, "reports");
-
+          const ctx = await requireWorkspaceFeature(request, "reports");
+          const { client, workspaceId } = ctx;
+          // Deal values are money (see lib/server/revenue-visibility.ts). Counts, stages and
+          // dates are read on the caller's own client; values only through the client that may
+          // read them, and only for a caller who may see revenue.
+          const access = await resolveRevenueAccess(ctx);
           const now = new Date();
           const periodStart = new Date(now);
           periodStart.setUTCDate(periodStart.getUTCDate() - 30);
           const priorStart = new Date(periodStart);
           priorStart.setUTCDate(priorStart.getUTCDate() - 30);
 
-          const [dealsRes, leadsRes, videosRes, channelsRes] = await Promise.all([
+          const [dealsRes, valuesRes, leadsRes, videosRes, channelsRes] = await Promise.all([
             client
               .from("deals")
-              .select("value, stage, closed_at, created_at")
+              .select("id, stage, closed_at, created_at")
               .eq("workspace_id", workspaceId),
+            // Through the reader bound to this caller's workspace; not read at all otherwise.
+            access.money
+              ? access.money.dealValues().then(
+                  (values) => ({ values, error: null }),
+                  () => ({ values: null, error: true }),
+                )
+              : Promise.resolve({ values: new Map<string, number | null>(), error: null }),
             client.from("leads").select("created_at").eq("workspace_id", workspaceId),
             client.from("videos").select("id, published_at, channel_id"),
             client.from("youtube_channels").select("id").eq("workspace_id", workspaceId),
           ]);
-          if (dealsRes.error || leadsRes.error || videosRes.error || channelsRes.error) {
+          if (
+            dealsRes.error ||
+            valuesRes.error ||
+            leadsRes.error ||
+            videosRes.error ||
+            channelsRes.error
+          ) {
             return json({ error: "DATABASE_ERROR" }, { status: 500 });
           }
-
-          const deals = dealsRes.data ?? [];
+          const valueById = valuesRes.values ?? new Map<string, number | null>();
+          const deals = (dealsRes.data ?? []).map((deal) => ({
+            ...deal,
+            value: valueById.get(deal.id as string) ?? 0,
+          }));
           const leads = leadsRes.data ?? [];
           const channelIds = new Set((channelsRes.data ?? []).map((c) => c.id as string));
           const videos = (videosRes.data ?? []).filter((v) =>
@@ -92,9 +114,14 @@ export const Route = createFileRoute("/api/reports/summary")({
           return json({
             data: {
               periodLabel: "Past 30 days",
-              revenueThisPeriod,
-              revenueChangePct: pctChange(revenueThisPeriod, revenuePriorPeriod),
-              activePipeline,
+              // Withheld amounts are null and marked by `visibility` — never 0, which would
+              // read as "no deals closed".
+              revenueThisPeriod: access.canView ? revenueThisPeriod : null,
+              revenueChangePct: access.canView
+                ? pctChange(revenueThisPeriod, revenuePriorPeriod)
+                : null,
+              activePipeline: access.canView ? activePipeline : null,
+              visibility: access.canView ? REVENUE_VISIBLE : REVENUE_HIDDEN,
               leadsThisPeriod,
               leadsChangePct: pctChange(leadsThisPeriod, leadsPriorPeriod),
               videosThisPeriod,

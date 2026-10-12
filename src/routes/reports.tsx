@@ -15,9 +15,11 @@ type ReportType = "deals" | "leads" | "videos";
 
 type Summary = {
   periodLabel: string;
-  revenueThisPeriod: number;
+  /** Null when withheld from this viewer (see `visibility`). */
+  revenueThisPeriod: number | null;
   revenueChangePct: number | null;
-  activePipeline: number;
+  activePipeline: number | null;
+  visibility?: { revenue: "visible" | "hidden" };
   leadsThisPeriod: number;
   leadsChangePct: number | null;
   videosThisPeriod: number;
@@ -95,17 +97,25 @@ function Reports() {
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <FlatKpiCard
               title="Brand Deal Revenue Closed"
-              value={fmtMoney(summary.revenueThisPeriod)}
+              value={
+                summary.revenueThisPeriod === null ? "Hidden" : fmtMoney(summary.revenueThisPeriod)
+              }
               caption={
-                summary.revenueChangePct !== null
-                  ? `${summary.revenueChangePct >= 0 ? "+" : ""}${summary.revenueChangePct.toFixed(1)}% vs prior 30 days`
-                  : "From closed brand deals"
+                summary.visibility?.revenue === "hidden"
+                  ? "Revenue hidden by workspace settings"
+                  : summary.revenueChangePct !== null
+                    ? `${summary.revenueChangePct >= 0 ? "+" : ""}${summary.revenueChangePct.toFixed(1)}% vs prior 30 days`
+                    : "From closed brand deals"
               }
             />
             <FlatKpiCard
               title="Active Pipeline"
-              value={fmtMoney(summary.activePipeline)}
-              caption="Deals not yet closed"
+              value={summary.activePipeline === null ? "Hidden" : fmtMoney(summary.activePipeline)}
+              caption={
+                summary.visibility?.revenue === "hidden"
+                  ? "Revenue hidden by workspace settings"
+                  : "Deals not yet closed"
+              }
             />
             <FlatKpiCard
               title="Leads Captured"

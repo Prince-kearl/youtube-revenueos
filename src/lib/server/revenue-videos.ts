@@ -26,7 +26,17 @@ import {
   type RevenuePeriod,
   type VideoRevenuePerformance,
 } from "./revenue-metrics";
-import { loadRevenueData, type RevenueChannel, type RevenueReadContext } from "./revenue-store";
+import {
+  loadRevenueData,
+  revenueWithheld,
+  type RevenueChannel,
+  type RevenueReadContext,
+} from "./revenue-store";
+import {
+  REVENUE_HIDDEN,
+  REVENUE_VISIBLE,
+  type RevenueVisibilityMarker,
+} from "@/lib/revenue-visibility";
 import {
   amountView,
   describeAttribution,
@@ -59,6 +69,8 @@ const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export const VIDEO_SORT_KEYS = ["revenue", "views", "rpm", "watchMinutes", "revenueShare"] as const;
 export type VideoSortKey = (typeof VIDEO_SORT_KEYS)[number];
+/** Orderings that would reveal relative earnings. */
+const MONEY_SORT_KEYS: VideoSortKey[] = ["revenue", "rpm", "revenueShare"];
 
 const querySchema = z.object({
   ...revenuePeriodParams,
@@ -170,6 +182,10 @@ export interface RevenueVideoItem extends VideoPeriodFigures {
 
 export interface RevenueVideosResponse {
   status: "connected" | "not_connected";
+  /** "hidden": this caller may not see amounts. Revenue, RPM and revenue shares are then null
+   * because they were WITHHELD (not unavailable, not zero) and the list cannot be ordered by
+   * them; views and watch time are unaffected. See lib/revenue-visibility.ts. */
+  visibility: RevenueVisibilityMarker;
   currency: "USD";
   dateBasis: "youtube_reporting_day";
   period: RevenuePeriod & { days: number; defaulted: boolean };
@@ -336,16 +352,21 @@ export async function buildRevenueVideos(
   const matching = wanted
     ? all.filter((item) => item.youtubeVideoId !== null && wanted.has(item.youtubeVideoId))
     : all;
-  const sorted = sortRevenueVideos(matching, query.sort, query.direction);
+  // A viewer who may not see amounts gets nothing ordered by them. The list is then ordered by
+  // views, and the response reports that — it never claims an ordering it did not apply.
+  const sortKey: VideoSortKey =
+    revenueWithheld(ctx) && MONEY_SORT_KEYS.includes(query.sort) ? "views" : query.sort;
+  const sorted = sortRevenueVideos(matching, sortKey, query.direction);
   const page = sorted.slice(query.offset, query.offset + query.limit);
   return {
     status: channelIds.length ? "connected" : "not_connected",
+    visibility: revenueWithheld(ctx) ? REVENUE_HIDDEN : REVENUE_VISIBLE,
     currency: "USD",
     dateBasis: "youtube_reporting_day",
     period: { ...period, days: periodLengthDays(period), defaulted: query.defaulted },
     previousPeriod: prior,
     channels: dataset.channels,
-    sort: { by: query.sort, direction: query.direction },
+    sort: { by: sortKey, direction: query.direction },
     videos: page,
     pagination: {
       limit: query.limit,

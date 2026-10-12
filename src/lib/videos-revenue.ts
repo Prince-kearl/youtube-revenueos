@@ -16,6 +16,7 @@
 // are "—" and never "$0". CPM is deliberately absent, and RPM is not offered in its place.
 
 import {
+  HIDDEN_FIGURE,
   UNAVAILABLE,
   formatUsd,
   revenueDataNotice,
@@ -25,6 +26,7 @@ import {
   type RevenueFigure,
 } from "@/lib/dashboard-revenue";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
+import { REVENUE_HIDDEN_MESSAGE, isRevenueHidden } from "@/lib/revenue-visibility";
 
 /** Revenue is shown for a trailing year — the window this column has always covered. */
 export const VIDEOS_REVENUE_DAYS = 365;
@@ -110,6 +112,8 @@ export interface VideosRevenuePage {
   dataThrough: string | null;
   /** A known problem with the stored data for this channel (see revenueDataNotice). */
   notice: RevenueDataNotice;
+  /** True when revenue was withheld from this viewer; the Change column is unaffected. */
+  hidden?: boolean;
 }
 
 function changeOf(video: RevenueVideosResponse["videos"][number] | undefined): VideoChange {
@@ -143,8 +147,10 @@ export function mapVideosRevenuePage(
       video.youtubeVideoId ? [[video.youtubeVideoId, video] as const] : [],
     ),
   );
+  const hidden = isRevenueHidden(revenue);
   const listed = revenue.videos.filter((video) => video.youtubeVideoId);
-  const earning = listed.some((video) => (video.revenue.usd ?? 0) > 0);
+  // With revenue withheld nothing is ranked by it (there are no amounts here to rank by anyway).
+  const earning = !hidden && listed.some((video) => (video.revenue.usd ?? 0) > 0);
   const ranked = [...listed].sort(
     (a, b) =>
       (earning ? (b.revenue.usd ?? 0) - (a.revenue.usd ?? 0) : 0) ||
@@ -169,12 +175,14 @@ export function mapVideosRevenuePage(
               ? "Declining"
               : "Steady";
     cells.set(video.youtubeVideoId!, {
-      revenue: {
-        text: formatUsd(video.revenue.usd),
-        usd: video.revenue.usd,
-        partial: video.revenue.availability === "partial",
-        available: video.revenue.usd !== null,
-      },
+      revenue: hidden
+        ? HIDDEN_FIGURE
+        : {
+            text: formatUsd(video.revenue.usd),
+            usd: video.revenue.usd,
+            partial: video.revenue.availability === "partial",
+            available: video.revenue.usd !== null,
+          },
       knownDays: video.revenue.knownDays,
       unknownDays: video.revenue.unknownDays,
       change: trend,
@@ -188,6 +196,7 @@ export function mapVideosRevenuePage(
     cells,
     dataThrough: revenue.dataQuality.freshness.latestStoredDay,
     notice: revenueDataNotice(revenue.dataQuality),
+    hidden,
   };
 }
 
@@ -205,6 +214,7 @@ export function mergeVideosRevenue(
           : next.dataThrough
         : (current.dataThrough ?? next.dataThrough),
     notice: strongerRevenueDataNotice(current.notice, next.notice),
+    hidden: current.hidden === true || next.hidden === true,
   };
 }
 
@@ -229,6 +239,11 @@ export function describeVideosRevenue(page: VideosRevenuePage): string {
         timeZone: "UTC",
       })}`
     : "";
+  if (page.hidden)
+    return (
+      `${REVENUE_HIDDEN_MESSAGE}. ` +
+      `Change compares views in the last ${VIDEOS_CHANGE_DAYS} days with the ${VIDEOS_CHANGE_DAYS} before.`
+    );
   return (
     `Revenue is estimated YouTube revenue for the last ${VIDEOS_REVENUE_DAYS} days${through}. ` +
     `Change compares views in the last ${VIDEOS_CHANGE_DAYS} days with the ${VIDEOS_CHANGE_DAYS} before. ` +

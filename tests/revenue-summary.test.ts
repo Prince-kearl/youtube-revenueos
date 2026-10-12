@@ -721,16 +721,31 @@ test("no network request of any kind is made while building the summary", async 
   }
 });
 
-test("the endpoint's code cannot reach the YouTube client or the service-role client", () => {
+test("the endpoint's code cannot reach the YouTube client, and reaches the service role in one place only", () => {
   // Follow every relative import from the route file and check none of them is the Google/
-  // YouTube API module, the token module, or the service-role Supabase client.
+  // YouTube API module or the token module.
+  //
+  // The service-role client used to be unreachable from here. It no longer is, on purpose: the
+  // money columns are not readable through a member's own session any more, so amounts are read
+  // with the service role AFTER the caller's revenue access has been decided. What is enforced
+  // instead is that exactly one module can obtain that client — revenue-visibility.ts, which is
+  // also the module that makes the decision — and that none of the modules that read or
+  // calculate revenue can create one themselves.
+  const SERVICE_ROLE_GATE = "src/lib/server/revenue-visibility.ts";
+  const SERVICE_ROLE_SOURCE = "src/lib/server/supabase.ts";
   const seen = new Set<string>();
   const forbidden = ["google-oauth", "youtube-tokens", "youtube-stats-store", "youtube-reporting"];
   const visit = (file: string) => {
     if (seen.has(file)) return;
     seen.add(file);
     const source = readFileSync(file, "utf8");
-    assert.ok(!/createServiceSupabaseClient/.test(source) || file.endsWith("workspace.ts"), file);
+    assert.ok(
+      !/createServiceSupabaseClient/.test(source) ||
+        file.endsWith("workspace.ts") ||
+        file === SERVICE_ROLE_GATE ||
+        file === SERVICE_ROLE_SOURCE,
+      file,
+    );
     // `import type` is erased when the code is built, so it loads nothing at run time; only
     // real imports are followed.
     for (const match of source.matchAll(/import\s+(type\s+)?[^;]*?from\s+"([^"]+)"/g)) {
@@ -745,6 +760,18 @@ test("the endpoint's code cannot reach the YouTube client or the service-role cl
   const reached = [...seen].map((file) => file.split("/").pop()!.replace(".ts", ""));
   for (const name of forbidden) assert.ok(!reached.includes(name), `${name} is not reachable`);
   assert.ok(reached.includes("revenue-store") && reached.includes("revenue-metrics"));
+  assert.ok(reached.includes("revenue-visibility"), "the access decision is on the path");
+  // The readers and the calculator take the client they are handed; they cannot make their own.
+  for (const name of ["revenue-store", "revenue-summary", "revenue-metrics"])
+    assert.ok(
+      !/createServiceSupabaseClient|from "\.\/supabase"/.test(
+        readFileSync(`src/lib/server/${name}.ts`, "utf8"),
+      ),
+      `${name} cannot create a service-role client`,
+    );
+  // …and AI, billing and plan code stay off this path entirely.
+  for (const name of ["ai-usage", "ai-generation", "workspace-entitlements", "stripe"])
+    assert.ok(!reached.includes(name), `${name} is not reachable`);
   for (const file of seen)
     assert.ok(!/googleapis\.com|youtubeanalytics/.test(readFileSync(file, "utf8")), file);
 });
@@ -1002,6 +1029,7 @@ test("trend split: the rest of the summary contract is unchanged", async () => {
   ]);
   assert.deepEqual(Object.keys(data), [
     "status",
+    "visibility",
     "currency",
     "dateBasis",
     "period",

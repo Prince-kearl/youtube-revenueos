@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
+import { resolveRevenueAccess } from "@/lib/server/revenue-visibility";
+import { REVENUE_HIDDEN, REVENUE_VISIBLE } from "@/lib/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
@@ -118,7 +120,11 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireWorkspaceFeature(request, "analytics");
+          const ctx = await requireWorkspaceFeature(request, "analytics");
+          const { client, user } = ctx;
+          // Revenue per traffic source follows the workspace's revenue visibility; for a caller
+          // who may not see it the metric is not requested from YouTube at all.
+          const revenueAccess = await resolveRevenueAccess(ctx);
           const requestUrl = new URL(request.url);
           const requestedChannelId = requestUrl.searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
@@ -155,6 +161,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
               startDate,
               endDate,
               "insightTrafficSourceType",
+              revenueAccess.canView,
             ),
             channel.uploads_playlist_id
               ? fetchRecentYoutubeVideos(accessToken, channel.uploads_playlist_id).catch(() => [])
@@ -199,6 +206,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
 
           return json({
             data: {
+              visibility: revenueAccess.canView ? REVENUE_VISIBLE : REVENUE_HIDDEN,
               range: input.range,
               startDate,
               endDate,

@@ -14,6 +14,7 @@
 
 import {
   DASHBOARD_REVENUE_DAYS,
+  HIDDEN_FIGURE,
   UNAVAILABLE,
   formatUsd,
   mapDashboardRevenue,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/dashboard-revenue";
 import type { RevenueAmountView, RevenueSummaryResponse } from "@/lib/server/revenue-summary";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
+import { HIDDEN_AMOUNT_TEXT, isRevenueHidden } from "@/lib/revenue-visibility";
 
 /** The Analytics KPI row and Revenue by Source chart show a trailing year by month — the window
  * they have always shown. */
@@ -159,6 +161,21 @@ const SOURCES = [
 export function mapAnalyticsRevenue(summary: RevenueSummaryResponse): AnalyticsRevenueView {
   const { earned } = summary;
   const kpi = mapDashboardRevenue(summary);
+  // Withheld from this viewer: every amount says "Hidden" and no chart is drawn from them.
+  if (kpi.hidden)
+    return {
+      kpi,
+      perView: {
+        text: HIDDEN_AMOUNT_TEXT,
+        available: false,
+        changePercent: null,
+        changeText: HIDDEN_AMOUNT_TEXT,
+        series: [],
+        latestText: HIDDEN_AMOUNT_TEXT,
+        positive: true,
+      },
+      sources: { series: [], shares: [], hasData: false, partial: false },
+    };
 
   const perViewNow = perViewUsd(earned.rpm);
   const perViewChange = earned.change.rpm;
@@ -228,8 +245,13 @@ export function mapAnalyticsRevenue(summary: RevenueSummaryResponse): AnalyticsR
  * is not in the map has no stored revenue for the period: it is shown as "—", never as $0. */
 export function mapVideoEarnings(response: RevenueVideosResponse): Map<string, RevenueFigure> {
   const earnings = new Map<string, RevenueFigure>();
+  const hidden = isRevenueHidden(response);
   for (const video of response.videos) {
     if (!video.youtubeVideoId) continue;
+    if (hidden) {
+      earnings.set(video.youtubeVideoId, HIDDEN_FIGURE);
+      continue;
+    }
     earnings.set(video.youtubeVideoId, {
       text: formatUsd(video.revenue.usd),
       usd: video.revenue.usd,

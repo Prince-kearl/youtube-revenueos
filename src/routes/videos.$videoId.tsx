@@ -98,6 +98,8 @@ type RetentionRow = {
   relativeRetentionPerformance: number | null;
 };
 type DetailData = {
+  /** "hidden": revenue was withheld from this viewer by the workspace's revenue visibility. */
+  visibility?: { revenue: "visible" | "hidden" };
   range: Range;
   startDate: string;
   endDate: string;
@@ -486,22 +488,33 @@ function VideoDetail() {
               positive={(kpiTrends.avgPercentageChangePct ?? 0) >= 0}
             />
             <KpiTrendCard
-              title={data.summary.revenueAvailable ? "Estimated revenue" : "Revenue unavailable"}
+              title={
+                data.visibility?.revenue === "hidden" || data.summary.revenueAvailable
+                  ? "Estimated revenue"
+                  : "Revenue unavailable"
+              }
               accent="var(--success)"
-              value={formatCurrency(data.summary.estimatedRevenue, data.summary.revenueAvailable)}
+              value={
+                data.visibility?.revenue === "hidden"
+                  ? "Hidden"
+                  : formatCurrency(data.summary.estimatedRevenue, data.summary.revenueAvailable)
+              }
               deltaLabel={
-                data.summary.revenueAvailable
-                  ? "YouTube-reported estimated revenue"
-                  : "Not provided by YouTube for this period"
+                data.visibility?.revenue === "hidden"
+                  ? "Revenue hidden by workspace settings"
+                  : data.summary.revenueAvailable
+                    ? "YouTube-reported estimated revenue"
+                    : "Not provided by YouTube for this period"
               }
               deltaSuffix=""
               changePercent={data.summary.revenueAvailable ? kpiTrends.revenueChangePct : null}
               periodLabel="vs. first half"
               series={kpiTrends.revenue}
-              markerTitle={formatCurrency(
-                kpiTrends.revenue.at(-1) ?? null,
-                data.summary.revenueAvailable,
-              )}
+              markerTitle={
+                data.visibility?.revenue === "hidden"
+                  ? "Hidden"
+                  : formatCurrency(kpiTrends.revenue.at(-1) ?? null, data.summary.revenueAvailable)
+              }
               markerSubtitle="Latest day"
               positive={(kpiTrends.revenueChangePct ?? 0) >= 0}
             />

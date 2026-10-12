@@ -163,6 +163,7 @@ test("a signed-in member gets their videos in the documented shape", async () =>
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   assert.deepEqual(Object.keys(data), [
     "status",
+    "visibility",
     "currency",
     "dateBasis",
     "period",
@@ -806,20 +807,43 @@ test("the endpoint's code cannot reach the YouTube client or the service-role cl
   };
   visit("src/routes/api.revenue.videos.ts");
   const reached = [...seen].map((file) => file.split("/").pop()!.replace(".ts", ""));
+  // The service-role client used to be unreachable from this endpoint. It is now reachable in
+  // exactly one place, on purpose — see the same test in revenue-summary.test.ts: amounts are no
+  // longer readable on a member's session, so they are read with the service role after the
+  // caller's revenue access has been decided, by the one module that decides it.
   for (const name of [
     "google-oauth",
     "youtube-tokens",
     "youtube-stats-store",
     "youtube-reporting",
-    "supabase",
+    "ai-usage",
+    "ai-generation",
+    "workspace-entitlements",
+    "stripe",
   ])
     assert.ok(!reached.includes(name), `${name} is not reachable`);
   assert.ok(reached.includes("revenue-store") && reached.includes("revenue-metrics"));
+  assert.ok(reached.includes("revenue-visibility"), "the access decision is on the path");
+  const MAY_HOLD_SERVICE_ROLE = [
+    "src/lib/server/revenue-visibility.ts",
+    "src/lib/server/supabase.ts",
+    "src/lib/server/workspace.ts",
+  ];
   for (const file of seen) {
     const source = readFileSync(file, "utf8");
     assert.ok(!/googleapis\.com|youtubeanalytics/.test(source), file);
-    assert.ok(!/createServiceSupabaseClient/.test(source), `${file} has no service-role client`);
+    assert.ok(
+      !/createServiceSupabaseClient/.test(source) || MAY_HOLD_SERVICE_ROLE.includes(file),
+      `${file} has no service-role client`,
+    );
   }
+  for (const name of ["revenue-store", "revenue-videos", "revenue-summary", "revenue-metrics"])
+    assert.ok(
+      !/createServiceSupabaseClient|from "\.\/supabase"/.test(
+        readFileSync(`src/lib/server/${name}.ts`, "utf8"),
+      ),
+      `${name} cannot create a service-role client`,
+    );
 });
 
 // ---------- 23. no deal revenue contamination ----------
