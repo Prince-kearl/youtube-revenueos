@@ -356,6 +356,7 @@ for (const { who, flags, sees, label } of CASES) {
         rpm: number | null;
         revenueShare: number | null;
         revenue: { usd: number | null };
+        split: Record<"ad" | "premium" | "other", { usd: number | null }>;
       }>;
     };
     assertNeverAskedForMoney(result, label);
@@ -369,8 +370,63 @@ for (const { who, flags, sees, label } of CASES) {
       assert.equal(data.videos[0].revenue.usd, null);
       assert.equal(data.videos[0].rpm, null);
       assert.equal(data.videos[0].revenueShare, null);
+      assert.deepEqual(
+        Object.values(data.videos[0].split).map((part) => part.usd),
+        [null, null, null],
+        "no source amounts either",
+      );
       assertNoAmounts(result.text, label);
       assert.deepEqual(moneyReads(result), []);
+    }
+  });
+
+  test(`revenue for one video — ${label}: ${sees ? "total and sources returned" : "nothing about its money"}`, async () => {
+    const f = workspace(flags);
+    const result = await get(
+      f,
+      who,
+      routes.videos,
+      "/api/revenue/videos",
+      "?videoIds=vidAAAAAAA1,vidBBBBBBB2",
+    );
+    assert.equal(result.status, 200);
+    const data = result.body.data as {
+      visibility: { revenue: string };
+      videos: Array<{
+        youtubeVideoId: string;
+        revenue: { usd: number | null };
+        split: Record<"ad" | "premium" | "other", { usd: number | null }>;
+      }>;
+      requested: Array<{ youtubeVideoId: string; status: string; hasStoredActivity: boolean }>;
+    };
+    assertNeverAskedForMoney(result, label);
+    // What is known about each id is not financial, and is the same for every role: the
+    // workspace's own video is known, another workspace's is not.
+    assert.deepEqual(
+      data.requested.map((entry) => [entry.youtubeVideoId, entry.status, entry.hasStoredActivity]),
+      [
+        ["vidAAAAAAA1", "known", true],
+        ["vidBBBBBBB2", "unknown", false],
+      ],
+    );
+    assert.deepEqual(
+      data.videos.map((video) => video.youtubeVideoId),
+      ["vidAAAAAAA1"],
+    );
+    assert.ok(!result.text.includes(MONEY.otherWorkspace), "another workspace's revenue");
+    if (sees) {
+      assert.equal(data.videos[0].revenue.usd, Number(MONEY.video));
+      assert.equal(data.videos[0].split.ad.usd, Number(MONEY.video));
+      assert.ok(moneyReads(result).every((read) => read.as === "service"));
+    } else {
+      assert.equal(data.visibility.revenue, "hidden");
+      assert.equal(data.videos[0].revenue.usd, null);
+      assert.deepEqual(
+        Object.values(data.videos[0].split).map((part) => part.usd),
+        [null, null, null],
+      );
+      assertNoAmounts(result.text, label);
+      assert.deepEqual(moneyReads(result), [], "no amount was read at all, by any client");
     }
   });
 }
@@ -1017,16 +1073,18 @@ test("the two rule sets are separate functions with separate inputs", () => {
 
 const flat = (path: string) => readFileSync(path, "utf8").replace(/\s+/g, " ");
 
-test("live video analytics: revenue metrics are not requested for a viewer who may not see them", () => {
-  const route = flat("src/routes/api.youtube.video.ts");
-  assert.match(route, /const revenueAccess = await resolveRevenueAccessForRequest\(request\);/);
-  assert.match(route, /const includeRevenue = revenueAccess\.canView;/);
-  assert.match(route, /if \(!includeRevenue\) throw new Error\("revenue not requested"\);/);
-  assert.equal(route.match(/activityMetrics, includeRevenue, \)/g)?.length, 2);
-  assert.match(route, /\["views", "estimatedMinutesWatched"\], includeRevenue, \)/);
-  assert.match(route, /visibility: includeRevenue \? REVENUE_VISIBLE : REVENUE_HIDDEN/);
-  // The revenue metrics appear in exactly one request, and it is the guarded one.
-  assert.equal(route.match(/\.\.\.revenueMetrics/g)?.length, 1);
+test("live video analytics: no revenue metric is requested for anyone, so there is nothing to withhold", () => {
+  // The video page's revenue is the stored figure from /api/revenue/videos (which applies the
+  // visibility rule). The live route asks YouTube for activity only, whoever is asking.
+  const route = readFileSync("src/routes/api.youtube.video.ts", "utf8").replace(
+    /^\s*\/\/.*$/gm,
+    "",
+  );
+  assert.doesNotMatch(
+    route,
+    /estimatedRevenue|estimatedAdRevenue|estimatedRedPartnerRevenue|grossRevenue|playbackBasedCpm|["'`]cpm["'`]/,
+  );
+  assert.doesNotMatch(route, /revenueMetrics|includeRevenue|revenueAvailable|revenue-visibility/);
 });
 
 test("live breakdowns: revenue per traffic source follows the same rule", () => {
@@ -1149,9 +1207,15 @@ test("pages: each money-showing screen has an explicit hidden state", () => {
     ],
     [
       "src/routes/videos.$videoId.tsx",
+      // The page shows revenue only through the Revenue overview section.
+      [/<VideoRevenueOverview /],
+    ],
+    [
+      "src/lib/video-revenue-overview.ts",
       [
-        /data\.visibility\?\.revenue === "hidden" \? "Hidden"/,
-        /"Revenue hidden by workspace settings"/,
+        /if \(isRevenueHidden\(response\)\) return \{/,
+        /state: "hidden", headline: HIDDEN_AMOUNT_TEXT, hasAmount: false,/,
+        /note: `\$\{REVENUE_HIDDEN_MESSAGE\}\.`/,
       ],
     ],
     [
@@ -1678,4 +1742,134 @@ test("stages: the rule lives in one policy function, used by the server and the 
     /"contracted"\) \|\| .*valuesHidden|stage === "completed" && valuesHidden/,
     "no second copy of the rule",
   );
+});
+
+// ---------- the privileged reader reads every row, whatever the API's row cap ----------
+
+test("an owner's revenue and deal totals are complete when the API caps a response below the page size", async () => {
+  const f = workspace();
+  // Twenty more days of revenue for the workspace's channel and video, and ten more deals.
+  for (let offset = 11; offset <= 30; offset++) {
+    const row = {
+      channel_id: f.channel,
+      day: day(offset),
+      views: 100,
+      watch_minutes: 50,
+      estimated_revenue_usd: "1.5",
+      ad_revenue_usd: "1",
+      premium_revenue_usd: "0.25",
+    };
+    f.world.channel_daily_stats!.push(row);
+    f.world.video_daily_stats!.push({ ...row, video_id: f.video });
+  }
+  for (let n = 0; n < 10; n++)
+    f.world.deals!.push({ ...f.world.deals![0], id: crypto.randomUUID(), name: `Extra ${n}` });
+  const period = `?start=${day(30)}&end=${day(10)}`;
+  const read = async () => ({
+    videos: await get(f, "owner", routes.videos, "/api/revenue/videos", period),
+    summary: await get(f, "owner", routes.summary, "/api/revenue/summary", period),
+    reports: await get(f, "owner", routes.reportsSummary, "/api/reports/summary"),
+  });
+  const uncapped = await read();
+  const video = (uncapped.videos.body.data as { videos: Array<{ revenue: { usd: number } }> })
+    .videos[0];
+  assert.equal(video.revenue.usd, Number(MONEY.video) + 20 * 1.5, "all twenty-one days");
+
+  // Every read the privileged reader makes — stats, deal values, the deals summary — capped at
+  // four rows a response.
+  f.world.maxRows = 4;
+  f.world.maxRowsServiceOnly = true;
+  const capped = await read();
+  for (const key of ["videos", "summary", "reports"] as const) {
+    assert.equal(capped[key].status, 200, key);
+    assert.deepEqual(capped[key].body, uncapped[key].body, `${key}: nothing truncated`);
+    // The cap was really in force: the same amounts took more requests to read.
+    assert.ok(moneyReads(capped[key]).length > moneyReads(uncapped[key]).length, key);
+    assert.ok(moneyReads(capped[key]).every((entry) => entry.as === "service"));
+  }
+  // And with the cap on every request, as the real setting is: the revenue endpoints' other
+  // reads are one row per channel or paged themselves, so they are complete too.
+  f.world.maxRowsServiceOnly = false;
+  const everywhere = await read();
+  for (const key of ["videos", "summary"] as const)
+    assert.deepEqual(everywhere[key].body, uncapped[key].body, `${key}: capped everywhere`);
+});
+
+test("the privileged reader: a failed intermediate page fails the request, with no partial amounts", async () => {
+  const build = () => {
+    const f = workspace();
+    for (let offset = 11; offset <= 30; offset++) {
+      const row = {
+        channel_id: f.channel,
+        day: day(offset),
+        views: 100,
+        watch_minutes: 50,
+        estimated_revenue_usd: "1.5",
+        ad_revenue_usd: "1",
+        premium_revenue_usd: "0.25",
+      };
+      f.world.channel_daily_stats!.push(row);
+      f.world.video_daily_stats!.push({ ...row, video_id: f.video });
+    }
+    for (let n = 0; n < 10; n++)
+      f.world.deals!.push({ ...f.world.deals![0], id: crypto.randomUUID(), name: `Extra ${n}` });
+    f.world.maxRows = 4;
+    f.world.maxRowsServiceOnly = true;
+    return f;
+  };
+  const period = `?start=${day(30)}&end=${day(10)}`;
+  for (const [table, route, path, query] of [
+    ["video_daily_stats", routes.videos, "/api/revenue/videos", period],
+    ["channel_daily_stats", routes.summary, "/api/revenue/summary", period],
+    ["deals", routes.summary, "/api/revenue/summary", period],
+  ] as const) {
+    const f = build();
+    // Two pages succeed, the third request for the table fails.
+    f.world.failReadsAfter = { [table]: 2 };
+    const result = await get(f, "owner", route, path, query);
+    assert.equal(result.status, 500, table);
+    assert.equal(result.body.data, undefined, `${table}: no partial response`);
+    assertNoAmounts(result.text, table);
+  }
+});
+
+test("hidden viewers under a row cap: still no amount read, and still only their own workspace", async () => {
+  const f = workspace();
+  for (let offset = 11; offset <= 30; offset++) {
+    const row = {
+      channel_id: f.channel,
+      day: day(offset),
+      views: 100,
+      watch_minutes: 50,
+      estimated_revenue_usd: "1.5",
+      ad_revenue_usd: "1",
+      premium_revenue_usd: "0.25",
+    };
+    f.world.channel_daily_stats!.push(row);
+    f.world.video_daily_stats!.push({ ...row, video_id: f.video });
+  }
+  const period = `?start=${day(30)}&end=${day(10)}`;
+  for (const who of ["editor", "setter"] as const) {
+    f.world.maxRows = undefined;
+    const uncapped = await get(f, who, routes.videos, "/api/revenue/videos", period);
+    f.world.maxRows = 4;
+    const capped = await get(f, who, routes.videos, "/api/revenue/videos", period);
+    assert.equal(capped.status, 200);
+    assert.deepEqual(capped.body, uncapped.body, `${who}: activity complete under the cap`);
+    const data = capped.body.data as {
+      visibility: { revenue: string };
+      videos: Array<{ views: number; revenue: { usd: number | null } }>;
+    };
+    assert.equal(data.visibility.revenue, "hidden");
+    assert.equal(data.videos.length, 1, "own workspace's video only");
+    assert.equal(data.videos[0].views, VIEWS + 20 * 100, "every page of activity was read");
+    assert.equal(data.videos[0].revenue.usd, null);
+    assertNeverAskedForMoney(capped, who);
+    assert.deepEqual(moneyReads(capped), [], "no amount read on any page, by any client");
+    assertNoAmounts(capped.text, who);
+    assert.ok(!capped.text.includes(MONEY.otherWorkspace));
+    // Paged, and every page on the member's own session.
+    const pages = capped.reads.filter((read) => read.table === "video_daily_stats");
+    assert.ok(pages.length > 2 && pages.every((read) => read.as === "user"), who);
+  }
 });

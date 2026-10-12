@@ -422,6 +422,10 @@ export interface VideoRevenuePerformance {
   views: number;
   watchMinutes: number;
   rpm: number | null;
+  /** Ads / Premium / other for this video's own rows — the same split totalsFor computes for
+   * any set of rows. Parts that were not reported stay unavailable; they need not add up to
+   * `earned` when the rows are incomplete. */
+  split: RevenueSplit;
   /** This video's share of the CHANNEL-level earned revenue for the period (0–1). The shares of
    * all videos add up to less than 1 whenever some revenue belongs to videos no longer
    * available. Null when either side is unknown or the channel earned nothing. */
@@ -460,6 +464,7 @@ export function videoPerformance(
         views: totals.views,
         watchMinutes: totals.watchMinutes,
         rpm: totals.rpm,
+        split: totals.split,
         revenueShare:
           totals.earned.availability === "available"
             ? share(totals.earned.usd, channelRevenue)

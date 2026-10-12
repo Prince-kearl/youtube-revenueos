@@ -190,6 +190,7 @@ test("a signed-in member gets their videos in the documented shape", async () =>
     "revenue",
     "revenueShare",
     "rpm",
+    "split",
     "thumbnail",
     "title",
     "videoId",
@@ -784,7 +785,8 @@ test("no network request is made and only stored tables are read", async () => {
       "youtube_sync_state",
     ]);
     // Not one query per video: the number of reads does not grow with the number of videos.
-    assert.equal(db.reads.length, 5);
+    // (Five tables; the three paged ones each end with the empty page that proves the end.)
+    assert.equal(db.reads.length, 8);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -916,6 +918,7 @@ function seedWithYoutubeIds() {
 }
 
 const idsParam = (...keys: string[]) => `videoIds=${keys.map((key) => YT[key]).join(",")}`;
+const withoutRequested = ({ requested: _requested, ...rest }: RevenueVideosResponse) => rest;
 
 test("videoIds: a single id returns that video, with exactly the figures it has unfiltered", async () => {
   const db = seedWithYoutubeIds();
@@ -939,7 +942,12 @@ test("videoIds: several ids return those videos and nothing else", async () => {
   assert.equal(data.pagination.total, 3);
   // Order in the request does not matter, and a repeated id is harmless.
   const shuffled = await call(db, `${SEPT}&${idsParam("v-second", "v-big", "v-zero", "v-big")}`);
-  assert.deepEqual(shuffled.data, data);
+  assert.deepEqual(withoutRequested(shuffled.data), withoutRequested(data));
+  // The requested entries follow the request: its order, each id once.
+  assert.deepEqual(
+    shuffled.data.requested?.map((entry) => entry.youtubeVideoId),
+    [YT["v-second"], YT["v-big"], YT["v-zero"]],
+  );
 });
 
 test("videoIds: an id that does not exist, or has no stored activity, is simply absent", async () => {
@@ -965,7 +973,10 @@ test("videoIds: another workspace's video id returns nothing, alone or mixed wit
   assert.ok(!JSON.stringify(foreign.data).includes("999"));
   // Indistinguishable from an id that does not exist at all.
   const missing = await call(db, `${SEPT}&videoIds=NOSUCHVID01`);
-  assert.deepEqual(foreign.data, missing.data);
+  assert.deepEqual(withoutRequested(foreign.data), withoutRequested(missing.data));
+  const anonymous = (data: RevenueVideosResponse) =>
+    data.requested?.map(({ youtubeVideoId: _id, ...rest }) => rest);
+  assert.deepEqual(anonymous(foreign.data), anonymous(missing.data));
 
   const mixed = await call(db, `${SEPT}&${idsParam("v-bravo", "v-small")}`);
   assert.deepEqual(ids(mixed.data), ["v-small"]);
@@ -1095,13 +1106,17 @@ test("videoIds: authentication still comes first, and the filter changes nothing
   assert.deepEqual(filtered.attribution, all.attribution);
   assert.deepEqual(filtered.dataQuality, all.dataQuality);
   assert.deepEqual(filtered.channels, all.channels);
-  assert.deepEqual(Object.keys(filtered), Object.keys(all), "no new top-level fields");
+  assert.deepEqual(
+    Object.keys(filtered).filter((key) => key !== "requested"),
+    Object.keys(all),
+    "the only field the filter adds is the requested entries",
+  );
   // A spoofed workspace id alongside the filter is still ignored.
   const spoofed = await call(db, `${SEPT}&${idsParam("v-big")}&workspaceId=${WS_B}`);
   assert.deepEqual(spoofed.data, filtered);
 });
 
-test("videoIds: still a stored-data read — same five reads, no network, no deals", async () => {
+test("videoIds: still a stored-data read — the same reads, no network, no deals", async () => {
   const realFetch = globalThis.fetch;
   const calls: string[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -1115,7 +1130,7 @@ test("videoIds: still a stored-data read — same five reads, no network, no dea
     assert.equal(status, 200);
     assert.equal(data.pagination.total, 2);
     assert.deepEqual(calls, []);
-    assert.equal(db.reads.length, 5);
+    assert.equal(db.reads.length, 8);
     assert.ok(!db.reads.includes("deals"));
   } finally {
     globalThis.fetch = realFetch;
@@ -1135,4 +1150,263 @@ test("without videoIds the response is exactly what it was before the filter exi
     "v-unknown",
   ]);
   assert.equal(data.pagination.total, 7);
+});
+
+// ============================================================
+// Per-video split by source, and what is known about each requested id
+// ============================================================
+
+test("each video carries its split by source, from the same calculation as the summary's", async () => {
+  const { data } = await call(seedWithYoutubeIds(), `${SEPT}&${idsParam("v-big")}`);
+  const [big] = data.videos;
+  // 30 days at $6.00, of which $1.60 ads and $0.20 Premium a day.
+  assert.equal(big.revenue.usd, 180);
+  assert.deepEqual(
+    [big.split.ad, big.split.premium, big.split.other],
+    [
+      { usd: 48, availability: "available", knownDays: 30, unknownDays: 0 },
+      { usd: 6, availability: "available", knownDays: 30, unknownDays: 0 },
+      { usd: 126, availability: "available", knownDays: 30, unknownDays: 0 },
+    ],
+  );
+  // A part YouTube did not report is unknown, not zero.
+  const db = seedWithYoutubeIds();
+  for (const row of db.tables.video_daily_stats)
+    if (row.video_id === "v-small") row.premium_revenue_usd = null;
+  const small = (await call(db, `${SEPT}&${idsParam("v-small")}`)).data.videos[0];
+  assert.equal(small.split.ad.usd, 48);
+  assert.deepEqual(small.split.premium, {
+    usd: null,
+    availability: "unavailable",
+    knownDays: 0,
+    unknownDays: 30,
+  });
+  assert.equal(small.split.other.usd, null, "no residual without both parts");
+});
+
+test("requested: one entry per id asked for, saying what is known about it", async () => {
+  const db = seedWithYoutubeIds();
+  video(db, "v-pending", A1, { youtube_video_id: "PENDINGPEN1", analytics_updated_at: null });
+  const query = `videoIds=${YT["v-idle"]},NOSUCHVID01,${YT["v-big"]},${YT["v-gone"]},PENDINGPEN1,${YT["v-bravo"]},${YT["v-off"]}`;
+  const { data } = await call(db, `${SEPT}&${query}`);
+  assert.deepEqual(data.requested, [
+    // Known and imported, with nothing stored in this period: not the same as "no revenue".
+    {
+      youtubeVideoId: YT["v-idle"],
+      status: "known",
+      historyLoaded: true,
+      currentlyListed: true,
+      hasStoredActivity: false,
+    },
+    {
+      youtubeVideoId: "NOSUCHVID01",
+      status: "unknown",
+      historyLoaded: null,
+      currentlyListed: null,
+      hasStoredActivity: false,
+    },
+    {
+      youtubeVideoId: YT["v-big"],
+      status: "known",
+      historyLoaded: true,
+      currentlyListed: true,
+      hasStoredActivity: true,
+    },
+    {
+      youtubeVideoId: YT["v-gone"],
+      status: "known",
+      historyLoaded: true,
+      currentlyListed: false,
+      hasStoredActivity: true,
+    },
+    {
+      youtubeVideoId: "PENDINGPEN1",
+      status: "known",
+      historyLoaded: false,
+      currentlyListed: true,
+      hasStoredActivity: false,
+    },
+    // Another workspace's video and a disconnected channel's video: exactly like an id that
+    // does not exist.
+    {
+      youtubeVideoId: YT["v-bravo"],
+      status: "unknown",
+      historyLoaded: null,
+      currentlyListed: null,
+      hasStoredActivity: false,
+    },
+    {
+      youtubeVideoId: YT["v-off"],
+      status: "unknown",
+      historyLoaded: null,
+      currentlyListed: null,
+      hasStoredActivity: false,
+    },
+  ]);
+  assert.deepEqual(ids(data), ["v-big", "v-gone"], "the entries add no video rows");
+});
+
+test("requested: absent without videoIds, and bound by the channel scope", async () => {
+  const db = seedWithYoutubeIds();
+  assert.equal("requested" in (await call(db, SEPT)).data, false);
+  assert.equal("requested" in (await call(db, `${SEPT}&channelId=${A1}`)).data, false);
+  // A video on the workspace's other channel is not known to a request scoped to this one.
+  const scoped = await call(db, `${SEPT}&channelId=${A1}&${idsParam("v-second", "v-big")}`);
+  assert.deepEqual(
+    scoped.data.requested?.map((entry) => entry.status),
+    ["unknown", "known"],
+  );
+  // No connected channel: the entries are still there, and say nothing is known.
+  const empty = await call(new FakeDb(), `${SEPT}&${idsParam("v-big")}`);
+  assert.equal(empty.data.status, "not_connected");
+  assert.deepEqual(
+    empty.data.requested?.map((entry) => entry.status),
+    ["unknown"],
+  );
+});
+
+// ============================================================
+// Reading every row, whatever the API's row cap
+// ============================================================
+
+test("a row cap below the page size truncates nothing", async () => {
+  const uncapped = (await call(seedWithYoutubeIds(), `${SEPT}&${idsParam("v-big", "v-idle")}`))
+    .data;
+  // (Not below 2: the channel list and the sync state are single reads of one row per channel,
+  // bounded by the workspace's number of channels rather than paged.)
+  for (const cap of [2, 7, 250]) {
+    const db = seedWithYoutubeIds();
+    db.maxRows = cap;
+    const capped = await call(db, `${SEPT}&${idsParam("v-big", "v-idle")}`);
+    assert.deepEqual(capped.data, uncapped, `capped at ${cap} rows a response`);
+  }
+});
+
+test("more rows than one page are all read, with and without a row cap", async () => {
+  // 120 videos × 30 days = 3,600 video rows: several pages of 1,000.
+  const build = () => {
+    const db = new FakeDb();
+    channel(db, A1, WS_A, "Alpha");
+    synced(db, A1);
+    for (let v = 0; v < 120; v++) video(db, `v-${String(v).padStart(3, "0")}`, A1);
+    for (let d = 1; d <= 30; d++) {
+      channelDay(db, A1, sept(d), { estimated_revenue_usd: 120, views: 1200 });
+      for (let v = 0; v < 120; v++)
+        videoDay(db, `v-${String(v).padStart(3, "0")}`, A1, sept(d), {
+          estimated_revenue_usd: 1,
+          views: 10,
+        });
+    }
+    return db;
+  };
+  const full = (await call(build(), `${SEPT}&limit=100`)).data;
+  assert.equal(full.pagination.total, 120);
+  assert.ok(
+    full.videos.every((item) => item.revenue.usd === 30 && item.views === 300),
+    "each video has all thirty of its days",
+  );
+  assert.equal(full.attribution.attributedRevenue.usd, 3600);
+  assert.equal(full.attribution.channelRevenue.usd, 3600);
+  for (const cap of [400, 50]) {
+    const db = build();
+    db.maxRows = cap;
+    assert.deepEqual((await call(db, `${SEPT}&limit=100`)).data, full, `capped at ${cap}`);
+  }
+});
+
+// One channel, `rows` video-day rows in September at $1 and 10 views each (25 a video).
+function seedRows(rows: number) {
+  const db = new FakeDb();
+  channel(db, A1, WS_A, "Alpha");
+  synced(db, A1);
+  const name = (v: number) => `v-${String(v).padStart(3, "0")}`;
+  // The channel earned, each day, exactly what its videos did.
+  for (let d = 1; d <= 25; d++) {
+    const count = Math.floor(rows / 25) + (rows % 25 >= d ? 1 : 0);
+    channelDay(db, A1, sept(d), { estimated_revenue_usd: count, views: count * 10 });
+  }
+  for (let n = 0; n < rows; n++) {
+    const v = Math.floor(n / 25);
+    if (n % 25 === 0) video(db, name(v), A1);
+    videoDay(db, name(v), A1, sept((n % 25) + 1), { estimated_revenue_usd: 1, views: 10 });
+  }
+  return db;
+}
+const readsOf = (db: FakeDb, table: string) => db.reads.filter((name) => name === table).length;
+const attributed = (data: RevenueVideosResponse) => [
+  data.attribution.attributedRevenue.usd,
+  data.attribution.attributedViews,
+];
+
+test("page boundaries: exactly one page, one row more, exactly two pages — every row once, then one empty page", async () => {
+  // [rows stored, requests it takes at 1,000 rows a page]
+  for (const [rows, requests] of [
+    [999, 2], // a short page, then the empty page that ends the read
+    [1000, 2], // exactly one full page
+    [1001, 3], // a full page, a page of one
+    [2000, 3], // exactly two full pages
+  ]) {
+    const db = seedRows(rows);
+    const { status, data } = await call(db, `${SEPT}&limit=100`);
+    assert.equal(status, 200);
+    // $1 and 10 views a row: a skipped or repeated row would show in either total.
+    assert.deepEqual(attributed(data), [rows, rows * 10], `${rows} rows`);
+    assert.equal(readsOf(db, "video_daily_stats"), requests, `${rows} rows: requests`);
+  }
+});
+
+test("page boundaries under a row cap: full capped pages, a short last page, and none left over", async () => {
+  for (const [rows, cap, requests] of [
+    [1000, 250, 5], // four full capped pages
+    [1000, 300, 5], // three full, one short
+    [1001, 250, 6],
+    [50, 50, 2], // the cap is exactly the row count
+    [50, 49, 3],
+  ]) {
+    const db = seedRows(rows);
+    db.maxRows = cap;
+    const { data } = await call(db, `${SEPT}&limit=100`);
+    assert.deepEqual(attributed(data), [rows, rows * 10], `${rows} rows capped at ${cap}`);
+    assert.equal(readsOf(db, "video_daily_stats"), requests, `${rows}/${cap}: requests`);
+  }
+});
+
+test("an empty table is one request, and a video's rows are never duplicated across pages", async () => {
+  const empty = seedRows(0);
+  assert.equal((await call(empty, SEPT)).data.videos.length, 0);
+  assert.equal(readsOf(empty, "video_daily_stats"), 1);
+  // Every video has exactly its 25 rows' worth, at any cap that splits a video across pages.
+  for (const cap of [7, 26, 999]) {
+    const db = seedRows(1500);
+    db.maxRows = cap;
+    const { data } = await call(db, `${SEPT}&limit=100`);
+    assert.equal(data.pagination.total, 60);
+    assert.ok(
+      data.videos.every((item) => item.revenue.usd === 25 && item.views === 250),
+      `cap ${cap}`,
+    );
+  }
+});
+
+test("a failed page — first, intermediate or the closing one — fails the request; it is never an empty page", async () => {
+  for (const table of ["video_daily_stats", "channel_daily_stats", "videos"]) {
+    for (const onCall of [1, 2, 3]) {
+      const db = seedRows(1500);
+      db.maxRows = 700; // video rows: 700, 700, 100, then the empty page
+      db.failRead = { table, onCall };
+      const { status, body } = await call(db, `${SEPT}&limit=100`);
+      // The read fails only if that request is actually made.
+      const made = readsOf(db, table) >= onCall;
+      assert.deepEqual(
+        [table, onCall, status, body],
+        made ? [table, onCall, 500, { error: "DATABASE_ERROR" }] : [table, onCall, 200, body],
+      );
+      if (made) assert.equal(body.data, undefined, "no partial figures");
+    }
+  }
+  // The intermediate page of the video rows specifically was among them.
+  const db = seedRows(1500);
+  db.maxRows = 700;
+  db.failRead = { table: "video_daily_stats", onCall: 2 };
+  assert.equal((await call(db, SEPT)).status, 500);
 });

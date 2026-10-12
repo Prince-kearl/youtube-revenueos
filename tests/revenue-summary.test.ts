@@ -1058,3 +1058,14 @@ test("trend split: the rest of the summary contract is unchanged", async () => {
   );
   assert.deepEqual(usd(first.split), [7, 0.5, 2.5]);
 });
+
+// ---------- reading every row, whatever the API's row cap ----------
+
+test("a row cap below the page size changes nothing in the summary", async () => {
+  const uncapped = (await call(seed(), SEPT)).data;
+  for (const cap of [1, 7]) {
+    const db = seed();
+    db.maxRows = cap;
+    assert.deepEqual((await call(db, SEPT)).data, uncapped, `capped at ${cap} rows a response`);
+  }
+});

@@ -53,11 +53,19 @@ test("the /api/youtube/analytics route is gone and nothing refers to it", () => 
   assert.doesNotMatch(read("src/lib/server/google-oauth.ts"), /aggregateYoutubeAnalyticsByMonth/);
 });
 
-test("no live route names a CPM metric except the video detail page's, which is not migrated yet", () => {
+test("no live route names a CPM metric, and the video detail route asks YouTube for no revenue", () => {
   const withCpm = sourceFiles("src/routes")
     .filter((file) => /\/api\.[^/]+\.ts$/.test(file))
     .filter((file) => /["'`]cpm["'`]|playbackBasedCpm/.test(read(file)));
-  assert.deepEqual(withCpm, ["src/routes/api.youtube.video.ts"]);
+  assert.deepEqual(withCpm, []);
+  // Phase 2A: the video page's revenue is the stored figure, from /api/revenue/videos.
+  const route = read("src/routes/api.youtube.video.ts").replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(
+    route,
+    /estimatedRevenue|estimatedAdRevenue|estimatedRedPartnerRevenue|grossRevenue|revenueAvailable/,
+  );
+  assert.match(read("src/lib/video-revenue-overview.ts"), /\/api\/revenue\/videos\?/);
+  assert.doesNotMatch(read("src/routes/videos.$videoId.tsx"), /estimatedRevenue|\bCPM\b/);
 });
 
 // ---------- kept on purpose ----------
@@ -66,7 +74,7 @@ test("live Analytics is still used where there is no stored equivalent", () => {
   const stillLive: Record<string, RegExp> = {
     // AI Analyze Video: one video's performance, including its revenue, for the prompt.
     "src/routes/api.ai.analyze-video.ts": /queryYoutubeAnalytics[\s\S]*estimatedRevenue/,
-    // The video detail page (its own later migration).
+    // The video detail page's activity: views, watch time, retention, audience, traffic.
     "src/routes/api.youtube.video.ts": /queryYoutubeAnalytics/,
     // Audience demographics.
     "src/routes/api.youtube.audience.ts": /queryYoutubeAnalytics/,

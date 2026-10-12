@@ -42,6 +42,13 @@ export interface World {
    * prove the application never reads money, or writes deals, on a member's session.
    */
   protectMoney?: boolean;
+  /** The API's own cap on rows per response (Supabase's "max rows"). A read that asks for more
+   * gets this many and no indication that more exist. */
+  maxRows?: number;
+  /** Apply `maxRows` only to requests made with the service role. */
+  maxRowsServiceOnly?: boolean;
+  /** Per table: reads of it fail with a database error once this many have succeeded. */
+  failReadsAfter?: Record<string, number>;
   /** How the invite email endpoint answers (default 200). */
   inviteStatus?: number;
 }
@@ -251,6 +258,8 @@ function ordered(rows: Row[], params: URLSearchParams): Row[] {
       return 0;
     });
   }
+  const offset = params.get("offset");
+  if (offset) result = result.slice(Number(offset));
   const limit = params.get("limit");
   if (limit) result = result.slice(0, Number(limit));
   return result;
@@ -350,6 +359,9 @@ export async function callTeamApi(
       reads.push({ method, table, as, body: url.search });
       if (world.failingReads?.includes(table))
         return json({ code: "XX000", message: "database unavailable" }, 500);
+      const allowed = world.failReadsAfter?.[table];
+      if (allowed !== undefined && reads.filter((read) => read.table === table).length > allowed)
+        return json({ code: "XX000", message: "database unavailable" }, 500);
       let found = ordered(
         rows.filter((row) => matches(row, url.searchParams)),
         url.searchParams,
@@ -367,6 +379,8 @@ export async function callTeamApi(
           status: 200,
           headers: { "Content-Range": `*/${found.length}` },
         });
+      if (world.maxRows && (!world.maxRowsServiceOnly || as === "service"))
+        found = found.slice(0, world.maxRows);
       return shape(project(found, url.searchParams));
     }
 

@@ -176,7 +176,9 @@ export function amountView(amount: RevenueAmount): RevenueAmountView {
   };
 }
 
-function splitView(split: RevenueSplit) {
+export type RevenueSplitView = ReturnType<typeof splitView>;
+
+export function splitView(split: RevenueSplit) {
   return {
     ad: amountView(split.ad),
     premium: amountView(split.premium),
@@ -443,7 +445,7 @@ export async function readVideos(
   channelIds: string[],
 ): Promise<VideoMeta[]> {
   const rows: VideoMeta[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     const { data, error } = await ctx.client
       .from("videos")
       .select(
@@ -454,7 +456,9 @@ export async function readVideos(
       .range(from, from + PAGE_SIZE - 1);
     if (error) fail("READ_VIDEOS", error);
     rows.push(...((data ?? []) as VideoMeta[]));
-    if ((data ?? []).length < PAGE_SIZE) return rows;
+    // (A short page is not the end: see readStatsRows in revenue-store.)
+    if ((data ?? []).length === 0) return rows;
+    from += (data ?? []).length;
   }
 }
 
@@ -499,7 +503,7 @@ export async function readSyncFacts(
  * mode was stated (unit tests and scripts); a route reads them through the MoneyReader. */
 async function readDeals(ctx: RevenueReadContext): Promise<DealRow[]> {
   const rows: DealRow[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     const { data, error } = await ctx.client
       .from("deals")
       .select("id, value, currency, stage, closed_at")
@@ -508,7 +512,9 @@ async function readDeals(ctx: RevenueReadContext): Promise<DealRow[]> {
       .range(from, from + PAGE_SIZE - 1);
     if (error) fail("READ_DEALS", error);
     rows.push(...((data ?? []) as unknown as DealRow[]));
-    if ((data ?? []).length < PAGE_SIZE) return rows;
+    // (A short page is not the end: see readStatsRows in revenue-store.)
+    if ((data ?? []).length === 0) return rows;
+    from += (data ?? []).length;
   }
 }
 

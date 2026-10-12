@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
-import { REVENUE_HIDDEN, REVENUE_VISIBLE } from "@/lib/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
@@ -30,13 +28,14 @@ const activityMetrics = [
   "subscribersGained",
   "subscribersLost",
 ];
-const revenueMetrics = ["estimatedRevenue", "cpm", "playbackBasedCpm"];
-
 type AnalyticsRow = Record<string, string | number | null>;
 
+// Activity only. This route does not request revenue from YouTube: a video's revenue is shown
+// from stored data, by the canonical /api/revenue/videos endpoint (see
+// components/VideoRevenueOverview.tsx), so there is one revenue figure per video and it does
+// not depend on a live call succeeding.
 type ReportResult = {
   payload: YoutubeAnalyticsPayload | null;
-  revenueAvailable: boolean;
 };
 
 type OptionalReport = YoutubeAnalyticsPayload | null;
@@ -76,12 +75,6 @@ function numberOrNull(value: string | number | null | undefined): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function hasMetric(payload: YoutubeAnalyticsPayload | null, metric: string): boolean {
-  return Boolean(
-    payload?.columnHeaders?.some((header) => header.name === metric) && payload.rows?.length,
-  );
-}
-
 function safeReason(error: unknown): string {
   if (!(error instanceof Error)) return "unknown";
   return error.message.match(/:(\d{3})(?::|$)/)?.[1] ?? error.message.split(":")[0].slice(0, 80);
@@ -116,7 +109,7 @@ async function queryOptionalReport(
   }
 }
 
-async function queryWithRevenueFallback(
+async function queryActivityReport(
   accessToken: string,
   channelId: string,
   startDate: string,
@@ -124,44 +117,22 @@ async function queryWithRevenueFallback(
   dimensions: string[] | undefined,
   filters: string,
   metrics: string[],
-  // False for a caller who may not see revenue: the revenue metrics (estimated revenue, CPM,
-  // playback CPM) are then never requested from YouTube at all.
-  includeRevenue: boolean,
 ): Promise<ReportResult> {
   try {
-    if (!includeRevenue) throw new Error("revenue not requested");
     const payload = (await queryYoutubeAnalytics(accessToken, {
       channelId,
       startDate,
       endDate,
-      metrics: [...metrics, ...revenueMetrics],
+      metrics,
       dimensions,
       filters,
       sort: dimensions?.includes("day") ? "day" : undefined,
       maxResults: dimensions?.includes("day") ? 400 : undefined,
     })) as YoutubeAnalyticsPayload;
-    return { payload, revenueAvailable: hasMetric(payload, "estimatedRevenue") };
+    return { payload };
   } catch (error) {
-    if (includeRevenue)
-      console.warn("YouTube video revenue report unavailable", { reason: safeReason(error) });
-    try {
-      const payload = (await queryYoutubeAnalytics(accessToken, {
-        channelId,
-        startDate,
-        endDate,
-        metrics,
-        dimensions,
-        filters,
-        sort: dimensions?.includes("day") ? "day" : undefined,
-        maxResults: dimensions?.includes("day") ? 400 : undefined,
-      })) as YoutubeAnalyticsPayload;
-      return { payload, revenueAvailable: false };
-    } catch (activityError) {
-      console.warn("YouTube video activity report unavailable", {
-        reason: safeReason(activityError),
-      });
-      return { payload: null, revenueAvailable: false };
-    }
+    console.warn("YouTube video activity report unavailable", { reason: safeReason(error) });
+    return { payload: null };
   }
 }
 
@@ -171,10 +142,6 @@ export const Route = createFileRoute("/api/youtube/video")({
       GET: async ({ request }) => {
         try {
           const { client, user } = await requireSessionUser(request);
-          // Estimated revenue and CPM follow the workspace's revenue visibility. Everything else
-          // on this page (views, watch time, retention, audience) does not.
-          const revenueAccess = await resolveRevenueAccessForRequest(request);
-          const includeRevenue = revenueAccess.canView;
           const url = new URL(request.url);
           const videoId = videoIdSchema.parse(url.searchParams.get("videoId"));
           const rawChannelId = url.searchParams.get("channelId");
@@ -210,7 +177,7 @@ export const Route = createFileRoute("/api/youtube/video")({
             channel.youtube_channel_id,
           );
           const [timeline, summary, traffic, demographics, retention] = await Promise.all([
-            queryWithRevenueFallback(
+            queryActivityReport(
               accessToken,
               channel.youtube_channel_id,
               startDate,
@@ -218,9 +185,8 @@ export const Route = createFileRoute("/api/youtube/video")({
               ["day"],
               `video==${videoId}`,
               activityMetrics,
-              includeRevenue,
             ),
-            queryWithRevenueFallback(
+            queryActivityReport(
               accessToken,
               channel.youtube_channel_id,
               startDate,
@@ -228,9 +194,8 @@ export const Route = createFileRoute("/api/youtube/video")({
               undefined,
               `video==${videoId}`,
               activityMetrics,
-              includeRevenue,
             ),
-            queryWithRevenueFallback(
+            queryActivityReport(
               accessToken,
               channel.youtube_channel_id,
               startDate,
@@ -238,7 +203,6 @@ export const Route = createFileRoute("/api/youtube/video")({
               ["insightTrafficSourceType"],
               `video==${videoId}`,
               ["views", "estimatedMinutesWatched"],
-              includeRevenue,
             ),
             queryOptionalReport(
               accessToken,
@@ -272,16 +236,12 @@ export const Route = createFileRoute("/api/youtube/video")({
             shares: numberOrNull(row.shares),
             subscribersGained: numberOrNull(row.subscribersGained),
             subscribersLost: numberOrNull(row.subscribersLost),
-            estimatedRevenue: timeline.revenueAvailable ? numberOrNull(row.estimatedRevenue) : null,
           }));
           const trafficRows = rowsFromPayload(traffic.payload)
             .map((row) => ({
               source: String(row.insightTrafficSourceType ?? "UNSPECIFIED"),
               views: numberOrNull(row.views),
               watchTimeMinutes: numberOrNull(row.estimatedMinutesWatched),
-              estimatedRevenue: traffic.revenueAvailable
-                ? numberOrNull(row.estimatedRevenue)
-                : null,
             }))
             .sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
           const demographicRows = rowsFromPayload(demographics).map((row) => ({
@@ -301,9 +261,6 @@ export const Route = createFileRoute("/api/youtube/video")({
           const summaryAvailable = Boolean(summary.payload && Object.keys(summaryRow).length);
 
           const timelineAvailable = timelineRows.length > 0;
-          const revenueAvailable = Boolean(
-            summary.revenueAvailable || timeline.revenueAvailable || traffic.revenueAvailable,
-          );
           const reportSucceeded = Boolean(
             summary.payload || timeline.payload || traffic.payload || demographics || retention,
           );
@@ -319,9 +276,6 @@ export const Route = createFileRoute("/api/youtube/video")({
           return json(
             {
               data: {
-                // "hidden": revenue and CPM below are null because they were withheld from this
-                // viewer, not because YouTube did not report them.
-                visibility: includeRevenue ? REVENUE_VISIBLE : REVENUE_HIDDEN,
                 range,
                 startDate,
                 endDate,
@@ -342,24 +296,14 @@ export const Route = createFileRoute("/api/youtube/video")({
                   shares: numberOrNull(summaryRow.shares),
                   subscribersGained: numberOrNull(summaryRow.subscribersGained),
                   subscribersLost: numberOrNull(summaryRow.subscribersLost),
-                  estimatedRevenue: summary.revenueAvailable
-                    ? numberOrNull(summaryRow.estimatedRevenue)
-                    : null,
-                  cpm: summary.revenueAvailable ? numberOrNull(summaryRow.cpm) : null,
-                  playbackBasedCpm: summary.revenueAvailable
-                    ? numberOrNull(summaryRow.playbackBasedCpm)
-                    : null,
-                  revenueAvailable,
                 },
                 timeline: {
                   available: timelineAvailable,
                   rows: timelineRows,
-                  revenueAvailable: timeline.revenueAvailable,
                 },
                 trafficSources: {
                   available: trafficRows.length > 0,
                   rows: trafficRows,
-                  revenueAvailable: traffic.revenueAvailable,
                 },
                 demographics: {
                   available: demographicRows.length > 0,
@@ -373,7 +317,6 @@ export const Route = createFileRoute("/api/youtube/video")({
               meta: {
                 source: "youtube_analytics_api",
                 available: reportSucceeded,
-                revenueAvailable,
                 fetchedAt: new Date().toISOString(),
               },
             },

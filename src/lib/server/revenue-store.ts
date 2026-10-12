@@ -203,7 +203,7 @@ async function readStatsRows<T>(
   map: (row: never) => T,
 ): Promise<T[]> {
   const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     // Ordered by the primary key so pages never overlap or skip.
     const { data, error } = await client
       .from(table)
@@ -217,7 +217,10 @@ async function readStatsRows<T>(
     if (error) fail(`READ_${table.toUpperCase()}`, error);
     const page = (data ?? []) as unknown as never[];
     for (const row of page) rows.push(map(row));
-    if (page.length < PAGE_SIZE) return rows;
+    // A short page is not the end of the data — the API can cap a response below the size
+    // asked for — so reading goes on from the rows actually received until a page is empty.
+    if (page.length === 0) return rows;
+    from += page.length;
   }
 }
 

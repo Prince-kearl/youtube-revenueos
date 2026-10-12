@@ -28,6 +28,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
@@ -63,10 +64,6 @@ type Summary = {
   shares: number | null;
   subscribersGained: number | null;
   subscribersLost: number | null;
-  estimatedRevenue: number | null;
-  cpm: number | null;
-  playbackBasedCpm: number | null;
-  revenueAvailable: boolean;
 };
 type TimelineRow = {
   date: string;
@@ -79,13 +76,11 @@ type TimelineRow = {
   shares: number | null;
   subscribersGained: number | null;
   subscribersLost: number | null;
-  estimatedRevenue: number | null;
 };
 type TrafficRow = {
   source: string;
   views: number | null;
   watchTimeMinutes: number | null;
-  estimatedRevenue: number | null;
 };
 type DemographicRow = {
   ageGroup: string;
@@ -97,17 +92,17 @@ type RetentionRow = {
   audienceWatchRatio: number | null;
   relativeRetentionPerformance: number | null;
 };
+// Live activity only. This video's revenue is not part of this response: it comes from stored
+// data, through the Revenue overview section's own request.
 type DetailData = {
-  /** "hidden": revenue was withheld from this viewer by the workspace's revenue visibility. */
-  visibility?: { revenue: "visible" | "hidden" };
   range: Range;
   startDate: string;
   endDate: string;
   channel: { id: string; title: string | null; handle: string | null };
   video: Video;
   summary: Summary;
-  timeline: { available: boolean; rows: TimelineRow[]; revenueAvailable: boolean };
-  trafficSources: { available: boolean; rows: TrafficRow[]; revenueAvailable: boolean };
+  timeline: { available: boolean; rows: TimelineRow[] };
+  trafficSources: { available: boolean; rows: TrafficRow[] };
   demographics: { available: boolean; rows: DemographicRow[] };
   retention: { available: boolean; rows: RetentionRow[] };
 };
@@ -141,11 +136,6 @@ function formatDuration(value: number | null | undefined): string {
 function formatPercentage(value: number | null | undefined): string {
   if (value === null || value === undefined) return "Unavailable";
   return `${value.toFixed(1)}%`;
-}
-
-function formatCurrency(value: number | null | undefined, available: boolean): string {
-  if (!available || value === null || value === undefined) return "Unavailable";
-  return `$${value.toFixed(2)}`;
 }
 
 function formatUpdatedAt(value: string | null): string {
@@ -318,7 +308,6 @@ function VideoDetail() {
     const watchTime = seriesFor((r) => r.watchTimeMinutes);
     const avgDuration = seriesFor((r) => r.averageViewDurationSeconds);
     const avgPercentage = seriesFor((r) => r.averageViewPercentage);
-    const revenue = seriesFor((r) => r.estimatedRevenue);
     return {
       views,
       viewsChangePct: changePercent(views),
@@ -328,8 +317,6 @@ function VideoDetail() {
       avgDurationChangePct: changePercent(avgDuration),
       avgPercentage,
       avgPercentageChangePct: changePercent(avgPercentage),
-      revenue,
-      revenueChangePct: changePercent(revenue),
     };
   }, [result.data?.timeline.rows]);
 
@@ -376,7 +363,9 @@ function VideoDetail() {
         </div>
       )}
 
-      {result.status === "loading" && <DetailLoading />}
+      {/* While the live request loads, placeholders hold the places its parts will take: the
+          identity header here, the activity cards and charts below the Revenue overview. */}
+      {result.status === "loading" && <IdentityLoading />}
       {result.status === "reauth" && (
         <div className="mt-6">
           <YoutubeReauthNotice onRetry={() => setRetryNonce((value) => value + 1)} />
@@ -397,44 +386,55 @@ function VideoDetail() {
       )}
 
       {data && result.status === "connected" && (
-        <>
-          <div className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center">
-            {data.video.thumbnail ? (
-              <img
-                referrerPolicy="no-referrer"
-                src={data.video.thumbnail}
-                alt=""
-                className="aspect-video w-full rounded-lg object-cover sm:h-28 sm:w-48"
-              />
-            ) : (
-              <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-accent sm:h-28 sm:w-48">
-                <Youtube className="h-7 w-7" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold tracking-tight">{data.video.title}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatDate(data.video.publishedAt)} ·{" "}
-                {data.video.duration ?? "Duration unavailable"} ·{" "}
-                {data.video.privacyStatus ?? "Status unavailable"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {data.channel.title ?? "Connected channel"}
-                {data.channel.handle ? ` · ${data.channel.handle}` : ""}
-              </p>
+        <div className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center">
+          {data.video.thumbnail ? (
+            <img
+              referrerPolicy="no-referrer"
+              src={data.video.thumbnail}
+              alt=""
+              className="aspect-video w-full rounded-lg object-cover sm:h-28 sm:w-48"
+            />
+          ) : (
+            <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-accent sm:h-28 sm:w-48">
+              <Youtube className="h-7 w-7" />
             </div>
-            <a
-              href={data.video.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`YouTube video ID: ${data.video.id}`}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              Open on YouTube <ExternalLink className="h-3.5 w-3.5" />
-            </a>
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold tracking-tight">{data.video.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatDate(data.video.publishedAt)} · {data.video.duration ?? "Duration unavailable"}{" "}
+              · {data.video.privacyStatus ?? "Status unavailable"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {data.channel.title ?? "Connected channel"}
+              {data.channel.handle ? ` · ${data.channel.handle}` : ""}
+            </p>
           </div>
+          <a
+            href={data.video.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`YouTube video ID: ${data.video.id}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open on YouTube <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      )}
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      {/* Stored revenue, on its own request: it is shown whatever the live request above is doing. */}
+      <VideoRevenueOverview
+        className="mt-5"
+        youtubeVideoId={videoId}
+        range={range}
+        refreshNonce={retryNonce}
+      />
+
+      {result.status === "loading" && <ActivityLoading />}
+
+      {data && result.status === "connected" && (
+        <>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KpiTrendCard
               title="Views in period"
               accent="var(--brand-blue)"
@@ -486,37 +486,6 @@ function VideoDetail() {
               markerTitle={formatPercentage(kpiTrends.avgPercentage.at(-1))}
               markerSubtitle="Latest day"
               positive={(kpiTrends.avgPercentageChangePct ?? 0) >= 0}
-            />
-            <KpiTrendCard
-              title={
-                data.visibility?.revenue === "hidden" || data.summary.revenueAvailable
-                  ? "Estimated revenue"
-                  : "Revenue unavailable"
-              }
-              accent="var(--success)"
-              value={
-                data.visibility?.revenue === "hidden"
-                  ? "Hidden"
-                  : formatCurrency(data.summary.estimatedRevenue, data.summary.revenueAvailable)
-              }
-              deltaLabel={
-                data.visibility?.revenue === "hidden"
-                  ? "Revenue hidden by workspace settings"
-                  : data.summary.revenueAvailable
-                    ? "YouTube-reported estimated revenue"
-                    : "Not provided by YouTube for this period"
-              }
-              deltaSuffix=""
-              changePercent={data.summary.revenueAvailable ? kpiTrends.revenueChangePct : null}
-              periodLabel="vs. first half"
-              series={kpiTrends.revenue}
-              markerTitle={
-                data.visibility?.revenue === "hidden"
-                  ? "Hidden"
-                  : formatCurrency(kpiTrends.revenue.at(-1) ?? null, data.summary.revenueAvailable)
-              }
-              markerSubtitle="Latest day"
-              positive={(kpiTrends.revenueChangePct ?? 0) >= 0}
             />
           </div>
 
@@ -826,16 +795,38 @@ function UnavailablePanel({ text }: { text: string }) {
   );
 }
 
-function DetailLoading() {
+/** The identity header's own box and proportions, so nothing below it moves when it arrives. */
+function IdentityLoading() {
   return (
-    <div className="mt-6 space-y-4" aria-busy="true" aria-label="Loading video analytics">
-      <Skeleton className="h-32 w-full rounded-xl" />
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div
+      className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center"
+      aria-busy="true"
+      aria-label="Loading video"
+    >
+      <Skeleton className="aspect-video w-full rounded-lg sm:h-28 sm:w-48" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-6 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+    </div>
+  );
+}
+
+/** The four activity cards and the first chart, as the same top-level boxes the real ones are. */
+function ActivityLoading() {
+  return (
+    <>
+      <div
+        className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        aria-busy="true"
+        aria-label="Loading video analytics"
+      >
         {[1, 2, 3, 4].map((item) => (
-          <Skeleton key={item} className="h-28 w-full rounded-xl" />
+          <Skeleton key={item} className="h-[178px] w-full rounded-xl" />
         ))}
       </div>
-      <ChartSkeleton className="h-80" />
-    </div>
+      <ChartSkeleton className="mt-5 h-80" />
+    </>
   );
 }

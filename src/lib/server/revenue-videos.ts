@@ -47,11 +47,13 @@ import {
   resolveRevenuePeriod,
   revenueErrorResponse,
   revenueJson,
+  splitView,
   revenuePeriodParams,
   RevenueSummaryError,
   type AttributionView,
   type ChannelSyncFacts,
   type RevenueAmountView,
+  type RevenueSplitView,
   type SyncView,
 } from "./revenue-summary";
 import { isoDay } from "./youtube-stats-sync";
@@ -157,6 +159,11 @@ export interface RevenueVideoItem extends VideoPeriodFigures {
   revenueShare: number | null;
   /** Share of channel-level views (0–1). */
   viewShare: number | null;
+  /** Where this video's revenue came from in the period, as YouTube reports it: ads, YouTube
+   * Premium, and whatever is neither. Each part is its own amount with its own availability —
+   * a part YouTube did not report is unavailable (null), never 0, and the parts are not forced
+   * to add up to `revenue`. Withheld (null) for a viewer who may not see revenue. */
+  split: RevenueSplitView;
   /** The same video over the immediately preceding period of equal length. A video with no
    * stored days there has unavailable revenue and zero activity. */
   previous: VideoPeriodFigures;
@@ -180,6 +187,29 @@ export interface RevenueVideoItem extends VideoPeriodFigures {
   };
 }
 
+/**
+ * What is known about one video the request asked for by id — so a page about a single video can
+ * tell "nothing stored yet" from "nothing happened", instead of reading an absent video as zero.
+ *
+ * Carries no amounts. "unknown" covers an id that does not exist, one that belongs to another
+ * workspace, and one on a channel outside the request's scope (disconnected, or not the channel
+ * asked for): the three are indistinguishable on purpose, so the endpoint cannot be used to find
+ * out which ids exist elsewhere.
+ */
+export interface RequestedVideoStatus {
+  youtubeVideoId: string;
+  status: "known" | "unknown";
+  /** Whether the sync has ever loaded this video's daily history. Null when unknown. */
+  historyLoaded: boolean | null;
+  /** False when YouTube no longer returns the video (its stored history is kept). Null when
+   * unknown. */
+  currentlyListed: boolean | null;
+  /** True when the video has at least one stored day in the period — i.e. it is in `videos`
+   * (possibly on another page). False says only that nothing is stored for the period; it does
+   * not say the video had no views. */
+  hasStoredActivity: boolean;
+}
+
 export interface RevenueVideosResponse {
   status: "connected" | "not_connected";
   /** "hidden": this caller may not see amounts. Revenue, RPM and revenue shares are then null
@@ -196,6 +226,9 @@ export interface RevenueVideosResponse {
    * of the requested videos that have stored activity; an id that is unknown, has no activity,
    * or belongs to a channel outside the request's scope is simply absent. */
   videos: RevenueVideoItem[];
+  /** Present only when the request filtered by `videoIds`: one entry per requested id, in the
+   * order asked. Absent on an unfiltered request. */
+  requested?: RequestedVideoStatus[];
   /** `total` counts the videos that match the request, including any `videoIds` filter. */
   pagination: { limit: number; offset: number; total: number; hasMore: boolean };
   /** The channel-level picture the videos sit inside. The videos above explain
@@ -327,6 +360,7 @@ export async function buildRevenueVideos(
       ...now,
       revenueShare: video.revenueShare,
       viewShare: video.viewShare,
+      split: splitView(video.split),
       previous: before,
       change: {
         revenue: compareValues(now.revenue.usd, before.revenue.usd),
@@ -358,6 +392,38 @@ export async function buildRevenueVideos(
     revenueWithheld(ctx) && MONEY_SORT_KEYS.includes(query.sort) ? "views" : query.sort;
   const sorted = sortRevenueVideos(matching, sortKey, query.direction);
   const page = sorted.slice(query.offset, query.offset + query.limit);
+
+  // For a request about specific videos: what the catalogue says about each id asked for. The
+  // catalogue was read on the caller's own client for the channels in scope, so an id that is
+  // not in it is "unknown" whatever the reason.
+  const requested: RequestedVideoStatus[] | undefined = query.videoIds
+    ? (() => {
+        const byYoutubeId = new Map(
+          catalogue.flatMap((video) =>
+            video.youtube_video_id ? [[video.youtube_video_id, video] as const] : [],
+          ),
+        );
+        const withActivity = new Set(matching.map((item) => item.youtubeVideoId));
+        return query.videoIds.map((youtubeVideoId) => {
+          const info = byYoutubeId.get(youtubeVideoId);
+          return info
+            ? {
+                youtubeVideoId,
+                status: "known" as const,
+                historyLoaded: Boolean(info.analytics_updated_at),
+                currentlyListed: info.status !== "deleted",
+                hasStoredActivity: withActivity.has(youtubeVideoId),
+              }
+            : {
+                youtubeVideoId,
+                status: "unknown" as const,
+                historyLoaded: null,
+                currentlyListed: null,
+                hasStoredActivity: false,
+              };
+        });
+      })()
+    : undefined;
   return {
     status: channelIds.length ? "connected" : "not_connected",
     visibility: revenueWithheld(ctx) ? REVENUE_HIDDEN : REVENUE_VISIBLE,
@@ -368,6 +434,7 @@ export async function buildRevenueVideos(
     channels: dataset.channels,
     sort: { by: sortKey, direction: query.direction },
     videos: page,
+    ...(requested ? { requested } : {}),
     pagination: {
       limit: query.limit,
       offset: query.offset,

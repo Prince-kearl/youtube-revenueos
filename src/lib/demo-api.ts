@@ -1,3 +1,4 @@
+import { demoRevenuePeriod, demoRpm } from "./demo-revenue";
 import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "./demo-youtube";
 
 /**
@@ -186,9 +187,25 @@ function demoRevenueSummary() {
 
 function demoRevenueVideos(url: URL) {
   const wanted = url.searchParams.get("videoIds")?.split(",") ?? null;
-  const rows = demoBreakdowns().data.video.rows.filter(
-    (row) => !wanted || wanted.includes(row.video),
-  );
+  const all = demoBreakdowns().data.video.rows;
+  const rows = all.filter((row) => !wanted || wanted.includes(row.video));
+  const round = (value: number) => Number(value.toFixed(2));
+  // The same sample proportions as the demo summary; "other" is whatever is left.
+  const splitOf = (total: number) => {
+    const ad = round(total * 0.77);
+    const premium = round(total * 0.17);
+    return {
+      ad: demoAmount(ad),
+      premium: demoAmount(premium),
+      other: demoAmount(round(Math.max(0, total - ad - premium))),
+    };
+  };
+  // The period is the one the request asked for (3M, 6M and 12M on a video's page are 90, 180
+  // and 365 days). The sample videos were all published within the 90 days before the sample
+  // data ends, so every one of those ranges holds the whole of their sample activity — which is
+  // why the amounts are the same in each.
+  const { period, previousPeriod } = demoRevenuePeriod(url.searchParams);
+  const quality = demoRevenueSummary().data.dataQuality;
   const none = demoAmount(null);
   const unknown = { current: null, previous: null, absolute: null, percent: null };
   // The same sample trend the demo video list has always shown; the last video is new.
@@ -203,8 +220,8 @@ function demoRevenueVideos(url: URL) {
       status: "connected",
       currency: "USD",
       dateBasis: "youtube_reporting_day",
-      period: { startDate: "2025-09-19", endDate: "2026-09-19", days: 366, defaulted: false },
-      previousPeriod: { startDate: "2024-09-18", endDate: "2025-09-18" },
+      period,
+      previousPeriod,
       channels: [
         {
           id: CHANNEL_ROW_ID,
@@ -225,9 +242,11 @@ function demoRevenueVideos(url: URL) {
         channelTitle: CHANNEL.title,
         currentlyListed: true,
         revenue: demoAmount(row.estimatedRevenue),
+        split: splitOf(row.estimatedRevenue),
         views: row.views,
         watchMinutes: row.estimatedMinutesWatched,
-        rpm: null,
+        // Derived from the sample revenue and views, by the canonical definition.
+        rpm: demoRpm(row.estimatedRevenue, row.views),
         revenueShare: null,
         viewShare: null,
         previous: { revenue: none, views: 0, watchMinutes: 0, rpm: null },
@@ -248,8 +267,32 @@ function demoRevenueVideos(url: URL) {
         },
       })),
       pagination: { limit: 100, offset: 0, total: rows.length, hasMore: false },
+      // Only a request that names videos is told what is known about each of them.
+      ...(wanted
+        ? {
+            requested: wanted.map((id) => {
+              const known = all.some((row) => row.video === id);
+              return {
+                youtubeVideoId: id,
+                status: known ? "known" : "unknown",
+                historyLoaded: known ? true : null,
+                currentlyListed: known ? true : null,
+                hasStoredActivity: known,
+              };
+            }),
+          }
+        : {}),
       attribution: demoRevenueSummary().data.videos.attribution,
-      dataQuality: demoRevenueSummary().data.dataQuality,
+      // The sample is stored through the day the period ends.
+      dataQuality: {
+        ...quality,
+        freshness: {
+          ...quality.freshness,
+          asOf: period.endDate,
+          expectedThrough: period.endDate,
+          latestStoredDay: period.endDate,
+        },
+      },
     },
   };
 }
@@ -372,7 +415,6 @@ function demoVideoDetail(url: URL) {
       shares: Math.round(wave * 2),
       subscribersGained: i % 4 === 0 ? 1 : 0,
       subscribersLost: 0,
-      estimatedRevenue: Number(((v.views / days) * wave * 0.088).toFixed(2)),
     };
   });
   const sum = (key: keyof (typeof rows)[number]) =>
@@ -409,12 +451,8 @@ function demoVideoDetail(url: URL) {
         shares: Math.round(sum("shares")),
         subscribersGained: Math.round(sum("subscribersGained")),
         subscribersLost: 0,
-        estimatedRevenue: Number(sum("estimatedRevenue").toFixed(2)),
-        cpm: 3.8,
-        playbackBasedCpm: 2.4,
-        revenueAvailable: true,
       },
-      timeline: { available: true, rows, revenueAvailable: true },
+      timeline: { available: true, rows },
       trafficSources: {
         available: true,
         rows: [
@@ -422,34 +460,28 @@ function demoVideoDetail(url: URL) {
             source: "YT_SEARCH",
             views: Math.round(v.views * 0.38),
             watchTimeMinutes: Math.round(v.views * 0.8),
-            estimatedRevenue: Number((v.views * 0.033).toFixed(2)),
           },
           {
             source: "SUGGESTED_VIDEO",
             views: Math.round(v.views * 0.28),
             watchTimeMinutes: Math.round(v.views * 0.58),
-            estimatedRevenue: Number((v.views * 0.024).toFixed(2)),
           },
           {
             source: "BROWSE",
             views: Math.round(v.views * 0.19),
             watchTimeMinutes: Math.round(v.views * 0.39),
-            estimatedRevenue: Number((v.views * 0.017).toFixed(2)),
           },
           {
             source: "EXT_URL",
             views: Math.round(v.views * 0.09),
             watchTimeMinutes: Math.round(v.views * 0.17),
-            estimatedRevenue: Number((v.views * 0.008).toFixed(2)),
           },
           {
             source: "NOTIFICATION",
             views: Math.round(v.views * 0.06),
             watchTimeMinutes: Math.round(v.views * 0.11),
-            estimatedRevenue: Number((v.views * 0.005).toFixed(2)),
           },
         ],
-        revenueAvailable: true,
       },
       demographics: {
         available: true,
@@ -483,7 +515,6 @@ function demoVideoDetail(url: URL) {
     meta: {
       source: "youtube_analytics_api",
       available: true,
-      revenueAvailable: true,
       fetchedAt: new Date().toISOString(),
     },
   };

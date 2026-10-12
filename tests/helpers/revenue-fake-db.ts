@@ -21,6 +21,11 @@ export class FakeDb {
   };
   /** Every table read through any client, in order. */
   reads: string[] = [];
+  /** The API's own cap on rows per response (Supabase's "max rows"); null = no cap. A request
+   * that asks for more gets this many and no indication that more exist. */
+  maxRows: number | null = null;
+  /** Make the n-th read (1-based) of a table fail with a database error. */
+  failRead: { table: string; onCall: number } | null = null;
 
   private visible(table: string, workspaceId: string | null): Row[] {
     if (!workspaceId) return [];
@@ -37,11 +42,20 @@ export class FakeDb {
     return {
       from: (table: string) => {
         this.reads.push(table);
+        const failing =
+          this.failRead?.table === table &&
+          this.reads.filter((name) => name === table).length === this.failRead.onCall;
         let rows = [...this.visible(table, workspaceId)];
         const orders: Array<[string, boolean]> = [];
         let window: [number, number] | null = null;
+        // Like the real API, a read returns only the columns it names.
+        let columns: string[] | null = null;
         const builder = {
-          select: () => builder,
+          select: (list?: string) => {
+            const named = (list ?? "*").split(",").map((column) => column.trim());
+            columns = named.includes("*") ? null : named;
+            return builder;
+          },
           eq: (column: string, value: unknown) => {
             rows = rows.filter((row) => row[column] === value);
             return builder;
@@ -71,7 +85,11 @@ export class FakeDb {
             window = [from, to];
             return builder;
           },
-          then: (resolve: (result: { data: Row[]; error: null }) => unknown) => {
+          then: (
+            resolve: (result: { data: Row[] | null; error: { code: string } | null }) => unknown,
+          ) => {
+            if (failing)
+              return Promise.resolve({ data: null, error: { code: "XX000" } }).then(resolve);
             const sorted = [...rows].sort((a, b) => {
               for (const [column, ascending] of orders) {
                 const cmp = String(a[column] ?? "").localeCompare(String(b[column] ?? ""));
@@ -79,7 +97,12 @@ export class FakeDb {
               }
               return 0;
             });
-            const data = window ? sorted.slice(window[0], window[1] + 1) : sorted;
+            const asked = window ? sorted.slice(window[0], window[1] + 1) : sorted;
+            const page = this.maxRows ? asked.slice(0, this.maxRows) : asked;
+            const named = columns;
+            const data = named
+              ? page.map((row) => Object.fromEntries(named.map((column) => [column, row[column]])))
+              : page;
             return Promise.resolve({ data, error: null }).then(resolve);
           },
         };

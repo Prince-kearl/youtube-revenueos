@@ -136,7 +136,7 @@ function createMoneyReader(service: SupabaseClient, workspaceId: string): MoneyR
       const columns =
         table === "video_daily_stats" ? `video_id, ${STATS_MONEY_COLUMNS}` : STATS_MONEY_COLUMNS;
       const rows: MoneyStatsRow[] = [];
-      for (let from = 0; ; from += PAGE_SIZE) {
+      for (let from = 0; ;) {
         // Ordered by the primary key so pages never overlap or skip.
         const { data, error } = await service
           .from(table)
@@ -150,14 +150,17 @@ function createMoneyReader(service: SupabaseClient, workspaceId: string): MoneyR
         if (error) moneyReadFailed(`READ_${table.toUpperCase()}`, error);
         const page = (data ?? []) as unknown as MoneyStatsRow[];
         rows.push(...page);
-        if (page.length < PAGE_SIZE) return rows;
+        // A short page is not the end of the data — the API can cap a response below the size
+        // asked for — so reading goes on from the rows actually received until a page is empty.
+        if (page.length === 0) return rows;
+        from += page.length;
       }
     },
 
     async dealValues(dealIds) {
       const values = new Map<string, number | null>();
       if (dealIds && dealIds.length === 0) return values;
-      for (let from = 0; ; from += PAGE_SIZE) {
+      for (let from = 0; ;) {
         let query = service.from("deals").select("id, value").eq("workspace_id", workspaceId);
         if (dealIds) query = query.in("id", dealIds);
         const { data, error } = await query
@@ -168,13 +171,14 @@ function createMoneyReader(service: SupabaseClient, workspaceId: string): MoneyR
           const value = row.value === null || row.value === undefined ? null : Number(row.value);
           values.set(row.id as string, value !== null && Number.isFinite(value) ? value : null);
         }
-        if ((data ?? []).length < PAGE_SIZE) return values;
+        if ((data ?? []).length === 0) return values;
+        from += (data ?? []).length;
       }
     },
 
     async dealSummaryRows() {
       const rows: Awaited<ReturnType<MoneyReader["dealSummaryRows"]>> = [];
-      for (let from = 0; ; from += PAGE_SIZE) {
+      for (let from = 0; ;) {
         const { data, error } = await service
           .from("deals")
           .select("id, value, currency, stage, closed_at")
@@ -183,7 +187,8 @@ function createMoneyReader(service: SupabaseClient, workspaceId: string): MoneyR
           .range(from, from + PAGE_SIZE - 1);
         if (error) moneyReadFailed("READ_DEALS", error);
         rows.push(...((data ?? []) as unknown as typeof rows));
-        if ((data ?? []).length < PAGE_SIZE) return rows;
+        if ((data ?? []).length === 0) return rows;
+        from += (data ?? []).length;
       }
     },
   };
