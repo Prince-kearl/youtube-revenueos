@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { KpiTrendCardSkeleton } from "@/components/skeletons";
 
@@ -109,11 +110,11 @@ const GENDER_COLORS: Record<string, string> = {
 function LoadingState() {
   return (
     <div className="mt-6 space-y-5" aria-label="Loading audience data" aria-busy="true">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiCarousel gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4" loading>
         {[1, 2, 3, 4].map((i) => (
           <KpiTrendCardSkeleton key={i} />
         ))}
-      </div>
+      </KpiCarousel>
       <Skeleton className="h-80 rounded-xl" />
     </div>
   );
@@ -331,7 +332,7 @@ function Audience() {
 
       {status === "ready" && data && data.availability === "available" && (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiTrendCard
               title="Top Age Group"
               accent="var(--brand-blue)"
@@ -414,7 +415,7 @@ function Audience() {
               markerSubtitle="this period"
               positive={(countriesChangePct ?? 0) >= 0}
             />
-          </div>
+          </KpiCarousel>
 
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">

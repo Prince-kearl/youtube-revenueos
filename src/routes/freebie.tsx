@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import {
@@ -350,7 +351,7 @@ function Freebie() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <KpiCarousel className="mt-6" gridClassName="gap-4 sm:grid-cols-3">
         <KpiTrendCard
           title="Total Freebies"
           accent="var(--brand-purple)"
@@ -390,7 +391,7 @@ function Freebie() {
           markerSubtitle={stats.latestMonthLabel}
           positive={(stats.topFormatChangePct ?? 0) >= 0}
         />
-      </div>
+      </KpiCarousel>
 
       <div className="mt-6 flex gap-1.5 border-b border-border">
         {(

@@ -26,6 +26,7 @@ import {
   YAxis,
 } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
@@ -434,7 +435,7 @@ function VideoDetail() {
 
       {data && result.status === "connected" && (
         <>
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCarousel className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KpiTrendCard
               title="Views in period"
               accent="var(--brand-blue)"
@@ -487,7 +488,7 @@ function VideoDetail() {
               markerSubtitle="Latest day"
               positive={(kpiTrends.avgPercentageChangePct ?? 0) >= 0}
             />
-          </div>
+          </KpiCarousel>
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <MetricCard
@@ -817,15 +818,16 @@ function IdentityLoading() {
 function ActivityLoading() {
   return (
     <>
-      <div
-        className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
-        aria-busy="true"
+      <KpiCarousel
+        className="mt-5"
+        gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        loading
         aria-label="Loading video analytics"
       >
         {[1, 2, 3, 4].map((item) => (
           <Skeleton key={item} className="h-[178px] w-full rounded-xl" />
         ))}
-      </div>
+      </KpiCarousel>
       <ChartSkeleton className="mt-5 h-80" />
     </>
   );

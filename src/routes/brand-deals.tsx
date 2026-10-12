@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { dealStageChangeNeedsRevenueAccess } from "@/lib/revenue-visibility";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { EmptyState, ErrorState, ListLoadingState, Tag } from "@/components/ui-bits";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import {
   DropdownMenu,
@@ -429,7 +430,7 @@ function BrandDeals() {
         </p>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiCarousel className="mt-6" gridClassName="gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTrendCard
           title="Pipeline Value"
           accent="var(--brand-blue)"
@@ -482,7 +483,7 @@ function BrandDeals() {
           markerSubtitle={stats.latestMonthLabel}
           positive={(stats.avgChangePct ?? 0) >= 0}
         />
-      </div>
+      </KpiCarousel>
 
       {status === "ready" && deals.length > 0 && !valuesHidden && (
         <div className="relative mt-5 rounded-xl card-gradient-outline p-5">

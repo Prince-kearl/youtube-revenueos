@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { KpiTrendCardSkeleton } from "@/components/skeletons";
 import { Switch } from "@/components/ui/switch";
@@ -447,9 +448,10 @@ function Comments() {
         </div>
       )}
 
-      <div
-        className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
-        aria-busy={rulesStatus === "loading" || commentsStatus === "loading"}
+      <KpiCarousel
+        className="mt-6"
+        gridClassName="gap-3 sm:grid-cols-3"
+        loading={rulesStatus === "loading" || commentsStatus === "loading"}
         aria-label={
           rulesStatus === "loading" || commentsStatus === "loading"
             ? "Loading key metrics"
@@ -519,7 +521,7 @@ function Comments() {
             />
           </>
         )}
-      </div>
+      </KpiCarousel>
 
       {quota && (
         <div className="relative mt-5 rounded-xl card-gradient-outline p-5">

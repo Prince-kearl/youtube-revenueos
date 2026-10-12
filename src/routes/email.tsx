@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Input } from "@/components/ui/input";
@@ -218,7 +219,7 @@ function EmailSender() {
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <KpiCarousel className="mt-6" gridClassName="gap-4 sm:grid-cols-3">
         <KpiTrendCard
           title="Total Campaigns"
           accent="var(--brand-blue)"
@@ -258,7 +259,7 @@ function EmailSender() {
           markerSubtitle={campaignStats.latestMonthLabel}
           positive={(audienceStats.changePct ?? 0) >= 0}
         />
-      </div>
+      </KpiCarousel>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">

@@ -19,6 +19,7 @@ import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { TableRowSkeleton, KpiTrendCardSkeleton } from "@/components/skeletons";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import {
   analyticsSummaryUrl,
@@ -388,9 +389,10 @@ function Analytics() {
             </div>
           )}
 
-          <div
-            className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            aria-busy={trend.status === "loading"}
+          <KpiCarousel
+            className="mt-6"
+            gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            loading={trend.status === "loading"}
             aria-label={trend.status === "loading" ? "Loading key metrics" : undefined}
           >
             {trend.status === "loading" ? (
@@ -472,12 +474,12 @@ function Analytics() {
                 />
               </>
             )}
-            {isRefreshing && (
-              <p className="col-span-full -mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <RefreshCw className="h-3 w-3 animate-spin" /> Refreshing…
-              </p>
-            )}
-          </div>
+          </KpiCarousel>
+          {isRefreshing && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RefreshCw className="h-3 w-3 animate-spin" /> Refreshing…
+            </p>
+          )}
 
           <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />

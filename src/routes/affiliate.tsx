@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Copy, Check, RefreshCw } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { KpiTrendCardSkeleton } from "@/components/skeletons";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
@@ -138,9 +139,10 @@ function Affiliate() {
         </div>
       ) : (
         <>
-          <div
-            className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            aria-busy={status === "loading"}
+          <KpiCarousel
+            className="mt-6"
+            gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            loading={status === "loading"}
             aria-label={status === "loading" ? "Loading affiliate metrics" : undefined}
           >
             {status === "loading" ? (
@@ -218,7 +220,7 @@ function Affiliate() {
                 />
               </>
             )}
-          </div>
+          </KpiCarousel>
 
           {/* Link builder */}
           <div className="relative mt-5 rounded-xl card-gradient-outline p-5">

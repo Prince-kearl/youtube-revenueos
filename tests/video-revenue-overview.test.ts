@@ -644,7 +644,7 @@ test("while the live request loads, placeholders hold the header's and the cards
   const box =
     'className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center"';
   assert.equal(page.split(box).length - 1, 2, "header and its placeholder share one box");
-  const grid = 'className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"';
+  const grid = 'className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4"';
   assert.equal(page.split(grid).length - 1, 2, "cards and their placeholder share one grid");
 });
 
