@@ -37,6 +37,11 @@ export interface World {
   tracking_links?: Row[];
   link_click_events?: Row[];
   tracking_link_stats?: Row[];
+  // Tables the admin and lead opt-in tests add.
+  admin_audit_log?: Row[];
+  lead_magnets?: Row[];
+  lead_messages?: Row[];
+  lead_magnet_optins?: Row[];
   /** Tables whose reads fail with a database error. */
   failingReads?: string[];
   /**
@@ -52,6 +57,9 @@ export interface World {
   maxRows?: number;
   /** Apply `maxRows` only to requests made with the service role. */
   maxRowsServiceOnly?: boolean;
+  /** Treat ILIKE escapes as if they were not there, so `\_` matches any character again. Only
+   * for proving that code does not depend on escaping alone. */
+  looseIlike?: boolean;
   /** Per table: reads of it fail with a database error once this many have succeeded. */
   failReadsAfter?: Record<string, number>;
   /** How the invite email endpoint answers (default 200). */
@@ -79,6 +87,9 @@ export interface CallResult {
   invitesSent: string[];
   /** Member-session requests the database refused for naming a money column (protectMoney). */
   refusedMoneyReads: string[];
+  /** Account-level actions requested of the auth service: sign-in links, password resets and
+   * user updates (bans), as "<METHOD> <path>". */
+  authActions: string[];
 }
 
 let nextId = 1;
@@ -174,6 +185,10 @@ const OPTIONAL_TABLES = [
   "tracking_links",
   "link_click_events",
   "tracking_link_stats",
+  "admin_audit_log",
+  "lead_magnets",
+  "lead_messages",
+  "lead_magnet_optins",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -218,6 +233,8 @@ function project(rows: Row[], params: URLSearchParams): Row[] {
   return rows.map((row) => Object.fromEntries(columns.map((c) => [c, row[c] ?? null])));
 }
 
+let looseIlikeEscapes = false;
+
 function matches(row: Row, params: URLSearchParams): boolean {
   for (const [column, expression] of params) {
     if (RESERVED_PARAMS.includes(column)) continue;
@@ -241,6 +258,9 @@ function matches(row: Row, params: URLSearchParams): boolean {
       if (actual === null || actual < operand) return false;
     } else if (operator === "lte") {
       if (actual === null || actual > operand) return false;
+    } else if (operator === "ilike") {
+      const pattern = looseIlikeEscapes ? operand.replace(/\\/g, "") : operand;
+      if (actual === null || !ilike(actual, pattern)) return false;
     } else if (operator === "in") {
       const options = operand
         .replace(/^\(|\)$/g, "")
@@ -252,6 +272,21 @@ function matches(row: Row, params: URLSearchParams): boolean {
     }
   }
   return true;
+}
+
+/** ILIKE as the real API evaluates it: `%` (or `*`) is any run of characters, `_` any single
+ * character, a backslash makes the next character literal, and letter case is ignored. */
+function ilike(value: string, pattern: string): boolean {
+  let source = "";
+  for (let index = 0; index < pattern.length; index++) {
+    const character = pattern[index];
+    if (character === "\\" && index + 1 < pattern.length) {
+      source += pattern[++index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    } else if (character === "%" || character === "*") source += ".*";
+    else if (character === "_") source += ".";
+    else source += character.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${source}$`, "is").test(value);
 }
 
 function ordered(rows: Row[], params: URLSearchParams): Row[] {
@@ -302,6 +337,8 @@ export async function callTeamApi(
   const reads: Recorded[] = [];
   const invitesSent: string[] = [];
   const refusedMoneyReads: string[] = [];
+  looseIlikeEscapes = world.looseIlike === true;
+  const authActions: string[] = [];
   const actor = world.profiles.find((p) => p.id === options.as) ?? null;
   const authUser = (p: Row) => ({
     id: p.id,
@@ -321,7 +358,22 @@ export async function callTeamApi(
 
     if (url.pathname === "/auth/v1/user")
       return actor ? json(authUser(actor)) : json({ message: "invalid JWT" }, 401);
+    if (url.pathname === "/auth/v1/admin/generate_link" || url.pathname === "/auth/v1/recover") {
+      authActions.push(`${method} ${url.pathname}`);
+      return url.pathname === "/auth/v1/recover"
+        ? json({})
+        : json({
+            id: uuid(),
+            email: "target@example.com",
+            action_link: "https://supabase.test/auth/v1/verify?token=test-token",
+            email_otp: "000000",
+            hashed_token: "hashed",
+            redirect_to: "",
+            verification_type: "magiclink",
+          });
+    }
     if (url.pathname.startsWith("/auth/v1/admin/users/")) {
+      if (method !== "GET") authActions.push(`${method} ${url.pathname}`);
       const profile = world.profiles.find((p) => p.id === url.pathname.split("/").pop());
       return profile ? json(authUser(profile)) : json({ message: "not found" }, 404);
     }
@@ -477,7 +529,16 @@ export async function callTeamApi(
     }
     // Let fire-and-forget work (the "teammate joined" notification) land before the test reads.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    return { status: response.status, body, text, writes, reads, invitesSent, refusedMoneyReads };
+    return {
+      status: response.status,
+      body,
+      text,
+      writes,
+      reads,
+      invitesSent,
+      refusedMoneyReads,
+      authActions,
+    };
   } finally {
     globalThis.fetch = realFetch;
     console.error = consoles.error;

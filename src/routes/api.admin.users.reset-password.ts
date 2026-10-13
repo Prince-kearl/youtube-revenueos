@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requirePermission } from "@/lib/server/roles";
+import { canActOnUser, requirePermission, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient, createAnonSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
 import { getServerEnv } from "@/lib/server/env";
@@ -26,16 +26,19 @@ export const Route = createFileRoute("/api/admin/users/reset-password")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { user } = await requirePermission(request, "manage_users");
+          const { user, role: actingRole } = await requirePermission(request, "manage_users");
           const { id } = bodySchema.parse(await request.json().catch(() => ({})));
 
           const service = createServiceSupabaseClient();
           const { data: target } = await service
             .from("profiles")
-            .select("email")
+            .select("email, role")
             .eq("id", id)
             .maybeSingle();
           if (!target?.email) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
+          // Refused before any email is sent unless the caller outranks the target.
+          if (!canActOnUser(actingRole, toAppRole(target.role as string | null)))
+            return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
 
           const anon = createAnonSupabaseClient();
           const appUrl = getServerEnv("APP_URL") ?? new URL(request.url).origin;

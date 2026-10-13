@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { exactIlikePattern, sameTextIgnoringCase } from "@/lib/server/exact-match";
 import { signedWorkspaceFileUrl } from "@/lib/server/storage";
 
 // Trading an email for the freebie — the real point of a lead magnet. Runs entirely on the
@@ -8,6 +9,9 @@ import { signedWorkspaceFileUrl } from "@/lib/server/storage";
 // enough for this app's scale: records the opt-in, AND upserts a real "Email" lead into the same
 // Lead Inbox every other channel feeds, so a launched freebie actually feeds the CRM instead of
 // just logging a download.
+/** Rows per request when looking for the lead an address already belongs to. */
+const LEAD_LOOKUP_PAGE = 100;
+
 const optinSchema = z.object({
   slug: z
     .string()
@@ -68,13 +72,33 @@ export const Route = createFileRoute("/api/freebies/optin")({
           const instagram = input.instagram?.trim() || null;
           const noteText = `Opted in for "${magnet.title}"`;
 
-          const { data: existingLead } = await service
-            .from("leads")
-            .select("id, username")
-            .eq("workspace_id", magnet.workspace_id)
-            .eq("platform", "Email")
-            .ilike("email", email)
-            .maybeSingle();
+          // The lead this address already belongs to, in THIS workspace: the same address apart
+          // from letter case, and nothing else. The address is escaped before it is used as a
+          // pattern, and each row that comes back is compared again here — a different address
+          // is never accepted (see lib/server/exact-match.ts).
+          //
+          // Read a page at a time, oldest first, until the address is found or the rows run out.
+          // No fixed cut-off decides the answer: however many rows the lookup returns, a lead
+          // with this address is found if there is one (so no duplicate is created), and when
+          // several share it the oldest is the one reused. A failed page fails the request.
+          let existingLead: { id: string; username: string | null } | null = null;
+          for (let from = 0; existingLead === null;) {
+            const { data: page, error: lookupError } = await service
+              .from("leads")
+              .select("id, username, email")
+              .eq("workspace_id", magnet.workspace_id)
+              .eq("platform", "Email")
+              .ilike("email", exactIlikePattern(email))
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .range(from, from + LEAD_LOOKUP_PAGE - 1);
+            if (lookupError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            const rows = page ?? [];
+            if (rows.length === 0) break;
+            const match = rows.find((lead) => sameTextIgnoringCase(lead.email, email));
+            if (match) existingLead = { id: match.id, username: match.username };
+            from += rows.length;
+          }
 
           let leadId: string;
           if (existingLead) {

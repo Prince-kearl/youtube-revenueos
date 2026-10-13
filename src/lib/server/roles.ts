@@ -56,6 +56,18 @@ export function canManageRole(
   return belowOwner(targetCurrentRole) && belowOwner(targetNewRole);
 }
 
+// Whether `actingRole` may take over or lock out an account currently at `targetRole`: sign in
+// as them (impersonation), trigger their password reset, or ban them. The same hierarchy as
+// canManageRole, for actions that are not a role change: a Superadmin may act on anyone; an Owner
+// only on accounts below Owner — never on a Superadmin or another Owner, which would otherwise
+// be a way to become one (impersonating a Superadmin is being a Superadmin). No other role may
+// do any of this. Acting on oneself is blocked by the callers where it applies.
+export function canActOnUser(actingRole: AppRole, targetRole: AppRole): boolean {
+  if (actingRole === "superadmin") return true;
+  if (actingRole !== "owner") return false;
+  return ROLE_LEVEL[targetRole] < ROLE_LEVEL["owner"];
+}
+
 // ============ PERMISSIONS ============
 // A permission layer alongside (not instead of) the role hierarchy and per-role feature access —
 // only permissions that correspond to real, already-built Tubify admin capabilities.

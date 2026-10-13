@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requirePermission, canManageRole, toAppRole } from "@/lib/server/roles";
+import { requirePermission, canActOnUser, canManageRole, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
 import { listAllAuthUsers } from "@/lib/server/auth-users";
@@ -154,6 +154,24 @@ export const Route = createFileRoute("/api/admin/users")({
           if (!target) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
           const targetCurrentRole = toAppRole(target.role as string);
 
+          // Banning or unbanning, marking the email verified and setting the creator badge all
+          // change someone's account, so each needs the caller to outrank the target (see
+          // canActOnUser). Decided on the target's CURRENT role, once, before anything in this
+          // request is applied — so a request that also changes the role cannot first demote the
+          // target and then act on it. (A caller's own email flag and badge are their own
+          // account, as before; a ban or role change on oneself is refused above.)
+          const changesAccount =
+            input.banDuration !== undefined ||
+            input.emailConfirm !== undefined ||
+            input.creatorVerified !== undefined;
+          if (
+            changesAccount &&
+            targetId !== user.id &&
+            !canActOnUser(actingRole, targetCurrentRole)
+          ) {
+            return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
+          }
+
           if (input.role !== undefined) {
             if (!canManageRole(actingRole, targetCurrentRole, input.role)) {
               return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
@@ -245,7 +263,7 @@ export const Route = createFileRoute("/api/admin/users")({
       // to clean up here.
       DELETE: async ({ request }) => {
         try {
-          const { user } = await requirePermission(request, "manage_users");
+          const { user, role: actingRole } = await requirePermission(request, "manage_users");
           const targetId = idSchema.parse(new URL(request.url).searchParams.get("id"));
           if (targetId === user.id) return json({ error: "CANNOT_DELETE_SELF" }, { status: 409 });
 
@@ -256,6 +274,11 @@ export const Route = createFileRoute("/api/admin/users")({
             .eq("id", targetId)
             .maybeSingle();
           if (!target) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
+          // Deleting an account needs the caller to outrank it: an Owner can never delete a
+          // Superadmin or another Owner.
+          if (!canActOnUser(actingRole, toAppRole(target.role as string))) {
+            return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
+          }
 
           if (toAppRole(target.role as string) === "superadmin") {
             const { count } = await service

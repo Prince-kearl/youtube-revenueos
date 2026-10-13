@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requirePermission } from "@/lib/server/roles";
+import { canActOnUser, requirePermission, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
 import { getServerEnv } from "@/lib/server/env";
@@ -27,17 +27,21 @@ export const Route = createFileRoute("/api/admin/users/impersonate")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { user } = await requirePermission(request, "manage_users");
+          const { user, role: actingRole } = await requirePermission(request, "manage_users");
           const { id } = bodySchema.parse(await request.json().catch(() => ({})));
           if (id === user.id) return json({ error: "CANNOT_IMPERSONATE_SELF" }, { status: 409 });
 
           const service = createServiceSupabaseClient();
           const { data: target } = await service
             .from("profiles")
-            .select("email")
+            .select("email, role")
             .eq("id", id)
             .maybeSingle();
           if (!target?.email) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
+          // Signing in as someone is holding their role: refused before any link exists unless
+          // the caller already outranks the target (see canActOnUser).
+          if (!canActOnUser(actingRole, toAppRole(target.role as string | null)))
+            return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
 
           const appUrl = getServerEnv("APP_URL") ?? new URL(request.url).origin;
           const { data, error } = await service.auth.admin.generateLink({
