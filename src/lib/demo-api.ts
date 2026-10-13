@@ -1113,6 +1113,54 @@ function demoWorkspaceDomain() {
 }
 
 // ============ tracking-links ============
+// ============ videos/link-activity ============
+// Sample link activity for one sample video, built from the same sample links the Link Tracking
+// page shows (so the two pages agree). The sample links were all created inside every range the
+// video page offers, which is why their clicks do not change with the range. Nothing here is
+// read from, or written to, a real database.
+function demoVideoLinkActivity(url: URL) {
+  const videoId = url.searchParams.get("videoId");
+  const { period } = demoRevenuePeriod(url.searchParams);
+  const links = demoTrackingLinks().data.filter((link) => link.video?.id === videoId);
+  // One sample video also shows clicks from a link that has since been moved to another video.
+  const formerLinks =
+    videoId === VIDEOS[0].id && links.length > 0
+      ? { links: 1, clicks: 9, uniqueVisitors: 8 }
+      : null;
+  const sum = (pick: (link: (typeof links)[number]) => number) =>
+    links.reduce((total, link) => total + pick(link), 0);
+  return {
+    data: {
+      period: {
+        days: period.days,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        from: `${period.startDate}T00:00:00.000Z`,
+        to: `${period.endDate}T23:59:59.999Z`,
+        timezone: "UTC",
+      },
+      breakdown: "complete",
+      totals: {
+        clicks: sum((link) => link.clicks) + (formerLinks?.clicks ?? 0),
+        // The sample visitors of each link are different people.
+        uniqueVisitors: sum((link) => link.uniqueClicks) + (formerLinks?.uniqueVisitors ?? 0),
+        clicksWithoutVisitorId: 0,
+      },
+      links: links.map((link) => ({
+        id: link.id,
+        slug: link.slug,
+        status: link.status,
+        destination: { name: link.destination.name, url: link.destination.url },
+        clicks: link.clicks,
+        uniqueVisitors: link.uniqueClicks,
+        shortUrl: link.shortUrl,
+      })),
+      formerLinks,
+      limits: { maxClickEvents: 50_000 },
+    },
+  };
+}
+
 function demoTrackingLinks() {
   return {
     data: [
@@ -1610,6 +1658,7 @@ const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/leads/messages": demoLeadMessages,
   "/api/workspace/domain": demoWorkspaceDomain,
   "/api/tracking-links": demoTrackingLinks,
+  "/api/videos/link-activity": demoVideoLinkActivity,
   "/api/projects": demoProjects,
   "/api/reports/summary": demoReportsSummary,
   "/api/notifications": demoNotifications,

@@ -30,6 +30,7 @@ import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
+import { VideoRevenueSources } from "@/components/VideoRevenueSources";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
@@ -425,6 +426,15 @@ function VideoDetail() {
 
       {/* Stored revenue, on its own request: it is shown whatever the live request above is doing. */}
       <VideoRevenueOverview
+        className="mt-5"
+        youtubeVideoId={videoId}
+        range={range}
+        refreshNonce={retryNonce}
+      />
+
+      {/* What else is connected to this video: tracked-link activity (never money), on its own
+          request as well. */}
+      <VideoRevenueSources
         className="mt-5"
         youtubeVideoId={videoId}
         range={range}
