@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getCookie, buildSetCookie } from "@/lib/server/cookies";
 import { clickAttributionFromLink } from "@/lib/server/click-attribution";
+import { RATE_LIMIT_POLICY, shouldCountEvent, validVisitorId } from "@/lib/server/rate-limit";
 
 const PRIVACY_ID_COOKIE = "tubify_pid";
 const PRIVACY_ID_MAX_AGE = 60 * 60 * 24 * 365; // 1 year — long enough for real "unique visitor" counting
@@ -39,7 +40,9 @@ export const Route = createFileRoute("/r/$slug")({
         const destinationUrl = (link.destination as unknown as { url?: string } | null)?.url;
         if (!destinationUrl) return notFoundResponse();
 
-        const existingPrivacyId = getCookie(request, PRIVACY_ID_COOKIE);
+        // The cookie is client-controlled: only a value this app could have issued (a UUID) is
+        // kept, so nothing arbitrary is ever stored as a visitor id.
+        const existingPrivacyId = validVisitorId(getCookie(request, PRIVACY_ID_COOKIE));
         const privacyId = existingPrivacyId ?? crypto.randomUUID();
         const setCookieHeader = existingPrivacyId
           ? undefined
@@ -49,14 +52,26 @@ export const Route = createFileRoute("/r/$slug")({
         // at the moment of the click — so the attribution stays correct even if the link is later
         // pointed at a different video. These columns always existed but were never written,
         // which left every click unattributable.
-        await service.from("link_click_events").insert({
-          ...clickAttributionFromLink(link),
-          referrer: request.headers.get("referer"),
-          user_agent: request.headers.get("user-agent"),
-          device_type: deviceTypeFromUserAgent(request.headers.get("user-agent")),
-          privacy_id: privacyId,
+        //
+        // Whether this click is RECORDED is an analytics rule (with enforcement on, at most a
+        // fixed number per link and client address per hour). The redirect itself never depends
+        // on it: a valid link always redirects, and if the limiter cannot answer the click is
+        // recorded as before.
+        const record = await shouldCountEvent(service, request, {
+          endpoint: "link_click",
+          rule: RATE_LIMIT_POLICY.linkClick,
+          resourceId: link.id as string,
         });
-        await service.rpc("increment_link_clicks", { p_link_id: link.id });
+        if (record) {
+          await service.from("link_click_events").insert({
+            ...clickAttributionFromLink(link),
+            referrer: request.headers.get("referer"),
+            user_agent: request.headers.get("user-agent"),
+            device_type: deviceTypeFromUserAgent(request.headers.get("user-agent")),
+            privacy_id: privacyId,
+          });
+          await service.rpc("increment_link_clicks", { p_link_id: link.id });
+        }
 
         const headers = new Headers({ Location: destinationUrl });
         if (setCookieHeader) headers.append("Set-Cookie", setCookieHeader);

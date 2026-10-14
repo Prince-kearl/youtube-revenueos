@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { validVisitorId } from "@/lib/server/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getCookie, buildSetCookie } from "@/lib/server/cookies";
 
@@ -33,7 +34,8 @@ export const Route = createFileRoute("/api/referrals/click")({
             .maybeSingle();
           if (!referrer) return json({ ok: false }, { status: 404 });
 
-          const existingPrivacyId = getCookie(request, PRIVACY_ID_COOKIE);
+          // The cookie is client-controlled: only a value this app could have issued is kept.
+          const existingPrivacyId = validVisitorId(getCookie(request, PRIVACY_ID_COOKIE));
           const privacyId = existingPrivacyId ?? crypto.randomUUID();
           const setCookieHeader = existingPrivacyId
             ? undefined

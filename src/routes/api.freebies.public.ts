@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { RATE_LIMIT_POLICY, shouldCountEvent } from "@/lib/server/rate-limit";
 import { signedWorkspaceFileUrl } from "@/lib/server/storage";
 import { ALLOWED_FONTS } from "@/routes/api.workspace.branding";
 
@@ -45,7 +46,16 @@ export const Route = createFileRoute("/api/freebies/public")({
             .maybeSingle(),
         ]);
 
-        await service.rpc("increment_lead_magnet_views", { p_lead_magnet_id: magnet.id });
+        // Whether this view is COUNTED is an analytics rule (with enforcement on, one per lead
+        // magnet and client address per hour). The page is served either way, and a limiter that
+        // cannot answer counts the view as before.
+        const counted = await shouldCountEvent(service, request, {
+          endpoint: "lead_magnet_view",
+          rule: RATE_LIMIT_POLICY.leadMagnetView,
+          resourceId: magnet.id as string,
+        });
+        if (counted)
+          await service.rpc("increment_lead_magnet_views", { p_lead_magnet_id: magnet.id });
 
         return json({
           data: {

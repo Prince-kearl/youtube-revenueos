@@ -42,6 +42,16 @@ export interface World {
   lead_magnets?: Row[];
   lead_messages?: Row[];
   lead_magnet_optins?: Row[];
+  // Tables the public-endpoint rate-limit tests add.
+  support_tickets?: Row[];
+  referral_clicks?: Row[];
+  workspace_branding?: Row[];
+  /** The rate-limit counters, as public.consume_rate_limit keeps them. */
+  rate_limit_buckets?: Row[];
+  /** The database clock for the rate-limit functions (ms); defaults to the real one. */
+  nowMs?: number;
+  /** The rate-limit functions fail with a database error. */
+  failRateLimit?: boolean;
   /** Tables whose reads fail with a database error. */
   failingReads?: string[];
   /**
@@ -90,6 +100,12 @@ export interface CallResult {
   /** Account-level actions requested of the auth service: sign-in links, password resets and
    * user updates (bans), as "<METHOD> <path>". */
   authActions: string[];
+  /** Database functions called, in order, as "<name>" (rate-limit counters, click counters). */
+  rpcCalls: string[];
+  /** The response's own headers (Location, Set-Cookie, Retry-After…). */
+  headers: Headers;
+  /** What the route logged with console.warn / console.error, one entry per call. */
+  logs: unknown[][];
 }
 
 let nextId = 1;
@@ -189,6 +205,9 @@ const OPTIONAL_TABLES = [
   "lead_magnets",
   "lead_messages",
   "lead_magnet_optins",
+  "support_tickets",
+  "referral_clicks",
+  "workspace_branding",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -315,7 +334,7 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
     headers: { "Content-Type": "application/json", ...headers },
   });
 
-type Handler = (ctx: { request: Request }) => Promise<Response>;
+type Handler = (ctx: { request: Request; params: Record<string, string> }) => Promise<Response>;
 
 /**
  * Calls one Team API handler as `as` (a user id, or null for a signed-out request).
@@ -331,6 +350,10 @@ export async function callTeamApi(
     /** The API path the route is mounted at (default: the Team members API). */
     path?: string;
     body?: unknown;
+    /** Extra request headers (client address headers, cookies…). */
+    headers?: Record<string, string>;
+    /** Route params, for routes like /r/$slug. */
+    params?: Record<string, string>;
   },
 ): Promise<CallResult> {
   const writes: Recorded[] = [];
@@ -339,6 +362,8 @@ export async function callTeamApi(
   const refusedMoneyReads: string[] = [];
   looseIlikeEscapes = world.looseIlike === true;
   const authActions: string[] = [];
+  const rpcCalls: string[] = [];
+  const logs: unknown[][] = [];
   const actor = world.profiles.find((p) => p.id === options.as) ?? null;
   const authUser = (p: Row) => ({
     id: p.id,
@@ -383,6 +408,65 @@ export async function callTeamApi(
       if ((world.inviteStatus ?? 200) !== 200) return json({ msg: "nope" }, world.inviteStatus);
       invitesSent.push(email);
       return json({ id: uuid(), email });
+    }
+
+    if (url.pathname.startsWith("/rest/v1/rpc/")) {
+      const name = url.pathname.slice("/rest/v1/rpc/".length);
+      const rawArgs = init?.body ?? (request ? await request.clone().text() : "{}");
+      const args = JSON.parse(String(rawArgs || "{}")) as Record<string, unknown>;
+      rpcCalls.push(name);
+      // Every function here is executable by the service role only, as the migrations leave it.
+      if (headers.get("apikey") !== SERVICE_KEY)
+        return json({ code: "42501", message: `permission denied for function ${name}` }, 403);
+      const now = world.nowMs ?? Date.now();
+      if (name === "consume_rate_limit") {
+        if (world.failRateLimit) return json({ code: "XX000", message: "unavailable" }, 500);
+        const windowSeconds = Number(args.p_window_seconds);
+        const limit = Number(args.p_limit);
+        const key = args.p_key;
+        if (
+          typeof key !== "string" ||
+          key.length < 1 ||
+          key.length > 200 ||
+          !(windowSeconds >= 1 && windowSeconds <= 86400) ||
+          !(limit >= 1 && limit <= 1_000_000)
+        )
+          return json({ code: "22023", message: "invalid rate limit parameter" }, 400);
+        const buckets = (world.rate_limit_buckets ??= []);
+        const windowStart = Math.floor(now / 1000 / windowSeconds) * windowSeconds;
+        let bucket = buckets.find((b) => b.bucket_key === key && b.window_start === windowStart);
+        if (!bucket) {
+          bucket = {
+            bucket_key: key,
+            window_start: windowStart,
+            hits: 0,
+            expires_at: (windowStart + windowSeconds * 2) * 1000,
+          };
+          buckets.push(bucket);
+        }
+        bucket.hits = (bucket.hits as number) + 1;
+        return json((bucket.hits as number) <= limit);
+      }
+      if (name === "purge_rate_limit_buckets") {
+        if (world.failRateLimit) return json({ code: "XX000", message: "unavailable" }, 500);
+        const buckets = (world.rate_limit_buckets ??= []);
+        const expired = buckets
+          .filter((b) => (b.expires_at as number) < now)
+          .slice(0, Number(args.p_max_rows ?? 5000));
+        for (const b of expired) buckets.splice(buckets.indexOf(b), 1);
+        return json(expired.length);
+      }
+      if (name === "increment_link_clicks") {
+        const link = (world.tracking_links ?? []).find((l) => l.id === args.p_link_id);
+        if (link) link.clicks = Number(link.clicks ?? 0) + 1;
+        return json(null, 204);
+      }
+      if (name === "increment_lead_magnet_views") {
+        const magnet = (world.lead_magnets ?? []).find((m) => m.id === args.p_lead_magnet_id);
+        if (magnet) magnet.views = Number(magnet.views ?? 0) + 1;
+        return json(null, 204);
+      }
+      throw new Error(`team-fake-api: unknown function ${name}`);
     }
 
     if (!url.pathname.startsWith("/rest/v1/"))
@@ -440,6 +524,22 @@ export async function callTeamApi(
           status: 200,
           headers: { "Content-Range": `*/${found.length}` },
         });
+      const embeds = [
+        ...(url.searchParams.get("select") ?? "").matchAll(/(\w+):(\w+)\(([^)]*)\)/g),
+      ].filter(([, alias]) => alias !== "member");
+      if (embeds.length > 0)
+        found = found.map((row) => {
+          const withEmbeds = { ...row };
+          for (const [, alias, embedded] of embeds) {
+            const foreignKey = row[`${alias}_id`];
+            const target = (world as unknown as Record<string, Row[] | undefined>)[embedded];
+            withEmbeds[alias] =
+              foreignKey === null || foreignKey === undefined
+                ? null
+                : (target?.find((candidate) => candidate.id === foreignKey) ?? null);
+          }
+          return withEmbeds;
+        });
       if (world.maxRows && (!world.maxRowsServiceOnly || as === "service"))
         found = found.slice(0, world.maxRows);
       return shape(project(found, url.searchParams));
@@ -467,6 +567,12 @@ export async function callTeamApi(
           )
         )
           return json({ code: "23505", message: "duplicate key" }, 409);
+        if (
+          table === "referral_clicks" &&
+          prefer.includes("resolution=ignore-duplicates") &&
+          rows.some((r) => r.referrer_id === row.referrer_id && r.privacy_id === row.privacy_id)
+        )
+          continue;
         const created = { ...row, id: row.id ?? uuid(), created_at: new Date().toISOString() };
         rows.push(created);
         saved.push(created);
@@ -490,8 +596,8 @@ export async function callTeamApi(
   }) as typeof fetch;
 
   const consoles = { error: console.error, warn: console.warn };
-  console.error = () => {};
-  console.warn = () => {};
+  console.error = (...entry: unknown[]) => void logs.push(entry);
+  console.warn = (...entry: unknown[]) => void logs.push(entry);
   try {
     const headers: Record<string, string> = {};
     if (actor) {
@@ -508,6 +614,11 @@ export async function callTeamApi(
       )}`;
     }
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
+    for (const [name, value] of Object.entries(options.headers ?? {})) {
+      // A test cookie is added to the session cookie, not put in its place.
+      if (name.toLowerCase() === "cookie" && headers.Cookie) headers.Cookie += `; ${value}`;
+      else headers[name.toLowerCase() === "cookie" ? "Cookie" : name] = value;
+    }
     const handlers = (route.Route as { options: { server: { handlers: Record<string, Handler> } } })
       .options.server.handlers;
     const response = await handlers[options.method]({
@@ -519,6 +630,7 @@ export async function callTeamApi(
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
         },
       ),
+      params: options.params ?? {},
     });
     const text = await response.text();
     let body: Record<string, unknown> = {};
@@ -538,6 +650,9 @@ export async function callTeamApi(
       invitesSent,
       refusedMoneyReads,
       authActions,
+      rpcCalls,
+      headers: response.headers,
+      logs,
     };
   } finally {
     globalThis.fetch = realFetch;

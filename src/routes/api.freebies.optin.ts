@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { exactIlikePattern, sameTextIgnoringCase } from "@/lib/server/exact-match";
+import { HONEYPOT_FIELD, honeypotTriggered } from "@/lib/honeypot";
+import { RATE_LIMIT_POLICY, checkAbuseLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { signedWorkspaceFileUrl } from "@/lib/server/storage";
 
 // Trading an email for the freebie — the real point of a lead magnet. Runs entirely on the
@@ -20,6 +22,8 @@ const optinSchema = z.object({
     .regex(/^[a-z0-9-]+$/i)
     .max(60),
   email: z.string().trim().email().max(200),
+  // The hidden field real visitors never fill (see lib/honeypot.ts).
+  [HONEYPOT_FIELD]: z.string().max(500).nullable().optional(),
   name: z.string().trim().max(120).nullable().optional(),
   instagram: z.string().trim().max(60).nullable().optional(),
 });
@@ -51,6 +55,10 @@ export const Route = createFileRoute("/api/freebies/optin")({
           const input = optinSchema.parse(await parseJson(request));
           const service = createServiceSupabaseClient();
 
+          // Abuse limit, before anything is looked up or written (see lib/server/rate-limit.ts).
+          const limit = await checkAbuseLimit(service, request, "optin", RATE_LIMIT_POLICY.optin);
+          if (limit.refuse) return rateLimitedResponse(limit.retryAfterSeconds);
+
           const { data: magnet, error: magnetError } = await service
             .from("lead_magnets")
             .select("id, workspace_id, title, source, content, file_path, file_name")
@@ -66,6 +74,25 @@ export const Route = createFileRoute("/api/freebies/optin")({
             .eq("id", magnet.workspace_id)
             .maybeSingle();
           if (!workspace) return json({ error: "NOT_FOUND" }, { status: 404 });
+
+          // What a successful opt-in answers with: the freebie itself.
+          const unlocked = async () => {
+            if (magnet.source === "uploaded") {
+              const downloadUrl = magnet.file_path
+                ? await signedWorkspaceFileUrl(magnet.file_path, 60 * 60 * 24)
+                : null;
+              if (!downloadUrl) return json({ error: "FILE_UNAVAILABLE" }, { status: 500 });
+              return json({ data: { kind: "file", downloadUrl, fileName: magnet.file_name } });
+            }
+            if (!magnet.content) return json({ error: "CONTENT_UNAVAILABLE" }, { status: 500 });
+            return json({
+              data: { kind: "content", content: magnet.content, title: magnet.title },
+            });
+          };
+
+          // An automated submission filled the hidden field: it gets the same answer a person
+          // would, and no lead, message or opt-in is recorded.
+          if (honeypotTriggered(input[HONEYPOT_FIELD])) return unlocked();
 
           const email = input.email.toLowerCase();
           const displayName = input.name?.trim() || email.split("@")[0];
@@ -152,16 +179,7 @@ export const Route = createFileRoute("/api/freebies/optin")({
             lead_id: leadId,
           });
 
-          if (magnet.source === "uploaded") {
-            const downloadUrl = magnet.file_path
-              ? await signedWorkspaceFileUrl(magnet.file_path, 60 * 60 * 24)
-              : null;
-            if (!downloadUrl) return json({ error: "FILE_UNAVAILABLE" }, { status: 500 });
-            return json({ data: { kind: "file", downloadUrl, fileName: magnet.file_name } });
-          }
-
-          if (!magnet.content) return json({ error: "CONTENT_UNAVAILABLE" }, { status: 500 });
-          return json({ data: { kind: "content", content: magnet.content, title: magnet.title } });
+          return unlocked();
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)

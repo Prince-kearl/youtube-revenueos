@@ -29,6 +29,8 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { HONEYPOT_FIELD } from "@/lib/honeypot";
+import { HoneypotField } from "@/components/HoneypotField";
 import {
   Accordion,
   AccordionItem,
@@ -755,6 +757,7 @@ function ContactSection() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [trap, setTrap] = useState("");
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -767,8 +770,12 @@ function ContactSection() {
       const res = await fetch("/api/support/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message }),
+        body: JSON.stringify({ name, email, message, [HONEYPOT_FIELD]: trap }),
       });
+      if (res.status === 429) {
+        toast.error("Too many messages from this network — please try again later");
+        return;
+      }
       if (!res.ok) {
         toast.error("Couldn't send your message — please try again");
         return;
@@ -812,7 +819,8 @@ function ContactSection() {
             </button>
           </div>
         ) : (
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit} className="relative space-y-4">
+            <HoneypotField value={trap} onChange={setTrap} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">

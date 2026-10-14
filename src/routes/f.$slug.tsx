@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Download, Gift, Loader2, Printer, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { renderMarkdown } from "@/lib/markdown";
+import { HONEYPOT_FIELD } from "@/lib/honeypot";
+import { HoneypotField } from "@/components/HoneypotField";
 import { freebieFormatLabel } from "@/lib/freebie-formats";
 
 export const Route = createFileRoute("/f/$slug")({
@@ -28,6 +30,7 @@ type Unlocked =
 function optinErrorMessage(error: string | undefined): string {
   const messages: Record<string, string> = {
     VALIDATION_ERROR: "Enter a real email address.",
+    RATE_LIMITED: "Too many requests from this network. Please try again in a few minutes.",
     NOT_FOUND: "This freebie isn't available anymore.",
     FILE_UNAVAILABLE: "We couldn't prepare your download. Please try again.",
     CONTENT_UNAVAILABLE: "We couldn't load this freebie. Please try again.",
@@ -42,6 +45,7 @@ function PublicFreebie() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [instagram, setInstagram] = useState("");
+  const [trap, setTrap] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [unlocked, setUnlocked] = useState<Unlocked | null>(null);
 
@@ -79,6 +83,7 @@ function PublicFreebie() {
           email: email.trim(),
           name: name.trim() || null,
           instagram: instagram.trim() || null,
+          [HONEYPOT_FIELD]: trap,
         }),
       });
       const body = (await response.json()) as { data?: Unlocked; error?: string };
@@ -168,7 +173,11 @@ function PublicFreebie() {
               <div className="freebie-chrome px-8 pb-10 pt-4 text-center">
                 <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{meta.title}</h1>
                 {meta.teaser && <p className="mt-2 text-sm text-neutral-600">{meta.teaser}</p>}
-                <form onSubmit={submit} className="mx-auto mt-6 max-w-sm space-y-2.5 text-left">
+                <form
+                  onSubmit={submit}
+                  className="relative mx-auto mt-6 max-w-sm space-y-2.5 text-left"
+                >
+                  <HoneypotField value={trap} onChange={setTrap} />
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}

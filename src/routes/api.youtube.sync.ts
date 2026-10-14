@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { purgeExpiredRateLimitBuckets } from "@/lib/server/rate-limit";
 import { getServerEnv } from "@/lib/server/env";
 import {
   getValidAccessToken,
@@ -307,6 +308,10 @@ export const Route = createFileRoute("/api/youtube/sync")({
         if (!cronSecret || request.headers.get("Authorization") !== `Bearer ${cronSecret}`)
           return json({ error: "AUTH_REQUIRED" }, { status: 401 });
         const service = createServiceSupabaseClient();
+        // Housekeeping for the public rate-limit counters: a bounded delete of expired buckets.
+        // Best effort — it never throws, gives up after a few seconds and does nothing when the
+        // limiter is off — so it cannot hold up or fail the sync below.
+        await purgeExpiredRateLimitBuckets(service);
         const { data: channels } = await service
           .from("youtube_channels")
           .select(
