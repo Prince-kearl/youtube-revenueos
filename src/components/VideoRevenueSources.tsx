@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Info, Layers, Link2, MousePointerClick, Plus, Youtube } from "lucide-react";
 import { ErrorState } from "@/components/ui-bits";
+import { VideoBrandDeals } from "@/components/VideoBrandDeals";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import type { VideoRevenueRange } from "@/lib/video-revenue-overview";
@@ -19,8 +20,9 @@ import {
 import type { VideoLinkActivityResponse } from "@/lib/server/video-link-activity";
 
 // The Revenue sources section on a video's page: what is connected to this video besides the
-// YouTube revenue shown in the Revenue overview above it. Today that is tracked-link ACTIVITY —
-// clicks and visitors, never money — and a plain statement of what is not connected yet.
+// YouTube revenue shown in the Revenue overview above it: tracked-link ACTIVITY — clicks and
+// visitors, never money — the brand deals linked to the video (components/VideoBrandDeals.tsx,
+// with its own request, states and wording), and a plain statement of what is not connected yet.
 //
 // It has its own request, loading and error states, so neither the Revenue overview nor the
 // page's live YouTube request waits for it or is taken down by it. A member whose role does not
@@ -162,6 +164,11 @@ export function VideoRevenueSources({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Brand deals: agreed sponsorship value attributed to this video, on its own request. */}
+      <div className="mt-4 border-t border-border pt-4">
+        <VideoBrandDeals youtubeVideoId={youtubeVideoId} refreshNonce={refreshNonce} />
       </div>
 
       <div className="mt-4 flex items-start gap-3 border-t border-border pt-4">

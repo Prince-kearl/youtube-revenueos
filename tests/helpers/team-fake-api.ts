@@ -46,6 +46,11 @@ export interface World {
   support_tickets?: Row[];
   referral_clicks?: Row[];
   workspace_branding?: Row[];
+  // The brand-deal attribution tests add.
+  deal_videos?: Row[];
+  /** Per table: inserts into it are refused by the database with this SQLSTATE (a trigger's
+   * 23514, a foreign key's 23503…), as PostgREST reports it. */
+  refuseWrites?: Record<string, string>;
   /** The rate-limit counters, as public.consume_rate_limit keeps them. */
   rate_limit_buckets?: Row[];
   /** The database clock for the rate-limit functions (ms); defaults to the real one. */
@@ -208,6 +213,7 @@ const OPTIONAL_TABLES = [
   "support_tickets",
   "referral_clicks",
   "workspace_branding",
+  "deal_videos",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -227,6 +233,7 @@ export const MEMBER_READ_ONLY_TABLES = [
   "video_daily_stats",
   "workspaces",
   "workspace_members",
+  "deal_videos",
 ];
 
 /** Whether a request names a withheld column of `table` anywhere Postgres would check it. */
@@ -546,6 +553,8 @@ export async function callTeamApi(
     }
 
     writes.push({ method, table, as, body });
+    if (method === "POST" && world.refuseWrites?.[table])
+      return json({ code: world.refuseWrites[table], message: "refused by the database" }, 400);
     if (method === "POST") {
       const incoming = (Array.isArray(body) ? body : [body]) as Row[];
       const saved: Row[] = [];
@@ -573,6 +582,23 @@ export async function callTeamApi(
           rows.some((r) => r.referrer_id === row.referrer_id && r.privacy_id === row.privacy_id)
         )
           continue;
+        // deal_videos: primary key (deal_id, video_id); a repeat is skipped when the request
+        // asks to ignore duplicates, and is a unique violation otherwise.
+        if (
+          table === "deal_videos" &&
+          rows.some((r) => r.deal_id === row.deal_id && r.video_id === row.video_id)
+        ) {
+          if (prefer.includes("resolution=ignore-duplicates")) continue;
+          return json({ code: "23505", message: "duplicate key" }, 409);
+        }
+        if (table === "deal_videos") {
+          // No id column; created_at as the database default would set it, with microseconds.
+          const now = new Date().toISOString().replace("Z", "000+00:00");
+          const created = { ...row, created_at: now };
+          rows.push(created);
+          saved.push(created);
+          continue;
+        }
         const created = { ...row, id: row.id ?? uuid(), created_at: new Date().toISOString() };
         rows.push(created);
         saved.push(created);
@@ -590,7 +616,10 @@ export async function callTeamApi(
     }
     if (method === "DELETE") {
       for (const row of targets) rows.splice(rows.indexOf(row), 1);
-      return json(null, 204);
+      // Like PostgREST: the deleted rows come back only when they were asked for.
+      return prefer.includes("return=representation")
+        ? shape(project(targets, url.searchParams))
+        : json(null, 204);
     }
     throw new Error(`team-fake-api: unsupported method ${method}`);
   }) as typeof fetch;

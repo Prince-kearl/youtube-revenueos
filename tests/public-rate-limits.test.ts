@@ -1392,11 +1392,8 @@ test("the two public forms carry the hidden field, out of sight, out of the tab 
 
 test("the migration: counters only, service role only, and nothing else in the database is touched", () => {
   const dir = "supabase/migrations";
-  const file = readdirSync(dir)
-    .filter((name) => name.endsWith(".sql"))
-    .sort()
-    .at(-1)!;
-  assert.equal(file, "202610130001_public_rate_limits.sql");
+  const file = "202610130001_public_rate_limits.sql";
+  assert.ok(readdirSync(dir).includes(file));
   const sql = readFileSync(`${dir}/${file}`, "utf8").replace(/--.*$/gm, "").replace(/\s+/g, " ");
   assert.match(sql, /^ ?begin; /);
   assert.match(sql, / commit; ?$/);

@@ -43,7 +43,7 @@ export const SOURCES_CLICKS_NOTE =
   "Clicks show interest, not income. Tubify has not verified sales or commissions from these links.";
 
 export const SOURCES_NOT_CONNECTED_NOTE =
-  "Sponsorships, affiliate commissions, sales and leads are not yet linked to individual videos in Tubify.";
+  "Affiliate commissions, sales and leads are not yet linked to individual videos in Tubify.";
 
 export const SOURCES_EMPTY_NOTE =
   "No tracked links for this video yet. Add one to see how many viewers click through from its description.";

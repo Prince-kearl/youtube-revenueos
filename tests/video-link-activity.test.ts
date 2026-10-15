@@ -742,7 +742,7 @@ test("wording: clicks are activity, and what is not connected is said plainly", 
   );
   assert.match(
     SOURCES_NOT_CONNECTED_NOTE,
-    /Sponsorships, affiliate commissions, sales and leads are not yet linked/,
+    /^Affiliate commissions, sales and leads are not yet linked/,
   );
   // Nothing the mapper produces calls a click money.
   const view = mapVideoRevenueSources(

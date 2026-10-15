@@ -1161,6 +1161,95 @@ function demoVideoLinkActivity(url: URL) {
   };
 }
 
+// ============ videos/deals ============
+// Sample brand deals linked to the sample videos, from the same sample deals the Brand Deals page
+// shows. Linking and unlinking in the preview change only this in-memory list (it resets on
+// reload); nothing is read from, or written to, a real database. The split is the API's: equal
+// shares in whole cents, the remainder to the earliest-linked videos.
+const demoDealLinks: Array<{ dealId: string; videoId: string; at: number }> = [
+  { dealId: "50000000-0000-4000-8000-000000000002", videoId: VIDEOS[0].id, at: 1 },
+  { dealId: "50000000-0000-4000-8000-000000000002", videoId: VIDEOS[1].id, at: 2 },
+  { dealId: "50000000-0000-4000-8000-000000000003", videoId: VIDEOS[0].id, at: 3 },
+  { dealId: "50000000-0000-4000-8000-000000000001", videoId: VIDEOS[0].id, at: 4 },
+];
+let demoDealLinkClock = 10;
+
+function demoVideoDeals(url: URL) {
+  const videoId = url.searchParams.get("videoId") ?? "";
+  const deals = demoDeals().data;
+  const linked = demoDealLinks
+    .filter((link) => link.videoId === videoId)
+    .sort((a, b) => a.at - b.at);
+  const totals = new Map<string, { cents: number; dealCount: number }>();
+  const rows = linked.flatMap((link) => {
+    const deal = deals.find((d) => d.id === link.dealId);
+    if (!deal) return [];
+    const currency = deal.currency.toUpperCase();
+    const all = demoDealLinks
+      .filter((l) => l.dealId === deal.id)
+      .sort((a, b) => a.at - b.at || a.videoId.localeCompare(b.videoId));
+    const cents = Math.round(deal.value * 100);
+    const index = all.findIndex((l) => l.videoId === videoId);
+    const share = Math.floor(cents / all.length) + (index < cents % all.length ? 1 : 0);
+    const contracted = deal.stage === "contracted" || deal.stage === "completed";
+    if (contracted) {
+      const total = totals.get(currency) ?? { cents: 0, dealCount: 0 };
+      total.cents += share;
+      total.dealCount += 1;
+      totals.set(currency, total);
+    }
+    return [
+      {
+        id: deal.id,
+        name: deal.name,
+        stage: deal.stage,
+        currency,
+        linkedVideoCount: all.length,
+        linkedAt: new Date(Date.UTC(2026, 8, link.at)).toISOString(),
+        dealValue: deal.value,
+        attribution: contracted
+          ? { status: "contracted", amount: share / 100 }
+          : { status: "not_contracted" },
+      },
+    ];
+  });
+  return {
+    data: {
+      deals: rows,
+      contractedByCurrency: [...totals.entries()].map(([currency, total]) => ({
+        currency,
+        amount: total.cents / 100,
+        dealCount: total.dealCount,
+      })),
+      payments: { tracked: false },
+      period: { filtered: false },
+    },
+    visibility: { revenue: "visible" },
+    permissions: { canLink: true },
+  };
+}
+
+/** Link (POST) or unlink (DELETE) in the preview's in-memory list; answers like the API. */
+async function demoVideoDealsWrite(url: URL, method: string, init?: RequestInit) {
+  let videoId = url.searchParams.get("videoId") ?? "";
+  let dealId = url.searchParams.get("dealId") ?? "";
+  if (method === "POST") {
+    const body = JSON.parse(String(init?.body ?? "{}")) as { videoId?: string; dealId?: string };
+    videoId = body.videoId ?? "";
+    dealId = body.dealId ?? "";
+  }
+  const index = demoDealLinks.findIndex((l) => l.dealId === dealId && l.videoId === videoId);
+  let removed = false;
+  if (method === "POST" && index === -1)
+    demoDealLinks.push({ dealId, videoId, at: demoDealLinkClock++ });
+  if (method === "DELETE" && index !== -1) {
+    demoDealLinks.splice(index, 1);
+    removed = true;
+  }
+  const refreshed = demoVideoDeals(new URL(`/api/videos/deals?videoId=${videoId}`, url.origin));
+  return method === "DELETE" ? { ...refreshed, removed } : refreshed;
+}
+
 function demoTrackingLinks() {
   return {
     data: [
@@ -1659,6 +1748,7 @@ const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/workspace/domain": demoWorkspaceDomain,
   "/api/tracking-links": demoTrackingLinks,
   "/api/videos/link-activity": demoVideoLinkActivity,
+  "/api/videos/deals": demoVideoDeals,
   "/api/projects": demoProjects,
   "/api/reports/summary": demoReportsSummary,
   "/api/notifications": demoNotifications,
@@ -1700,6 +1790,14 @@ export function installDemoApiInterceptor() {
   const realFetch = window.fetch.bind(window);
   window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const { url, method } = requestUrlAndMethod(input, init);
+    // The one write the preview answers itself: linking a sample deal to a sample video.
+    if (url.pathname === "/api/videos/deals" && (method === "POST" || method === "DELETE")) {
+      const body = await demoVideoDealsWrite(url, method, init);
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const handler = GET_HANDLERS[url.pathname];
     if (method === "GET" && handler) {
       const body = handler(url);
