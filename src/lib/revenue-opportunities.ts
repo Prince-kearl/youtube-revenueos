@@ -1,5 +1,12 @@
 // Revenue opportunities for ONE video (Phase 2C, V1): a few specific, evidence-backed next steps,
-// worked out by fixed rules from data Tubify already holds. Pure: no I/O, no AI — the same facts
+// worked out by fixed rules from data Tubify already holds. Two kinds, never mixed:
+//
+//   * PERFORMANCE opportunities — findings from this video's own data (the rules below), with
+//     evidence and a priority;
+//   * GETTING STARTED recommendations (Phase 2C-1) — setup steps for a creator who does not yet
+//     have the data those findings need. They state no finding, carry no evidence and no
+//     priority, and are never presented as something the data revealed.
+// Pure: no I/O, no AI — the same facts
 // always give the same opportunities, and every rule below is unit-tested.
 //
 // What the rules may use, and what they may not:
@@ -108,9 +115,10 @@ export interface OpportunityInputs {
   }>;
   /** Whether the caller may see revenue. */
   revenueVisible: boolean;
+  /** "insufficient_data": nothing is stored for the video, so its links were not looked at. */
   links:
     | { status: "checked"; currentLinks: number; clicks: number }
-    | { status: "restricted" | "unavailable" };
+    | { status: "restricted" | "unavailable" | "insufficient_data" };
   deals:
     | {
         status: "checked";
@@ -123,12 +131,123 @@ export interface OpportunityInputs {
         /** The caller may link deals. */
         canLink: boolean;
       }
-    | { status: "restricted" | "unavailable" };
+    | { status: "restricted" | "unavailable" | "insufficient_data" };
+  /**
+   * What the caller's role may set up — from the role's features and the WORKSPACE, never from
+   * this video, so it is the same for any video id (Getting Started recommendations for a video
+   * with nothing stored therefore look the same as for an unknown one).
+   */
+  setup: {
+    /** The role has link tracking (which both lists and creates tracked links). */
+    linkTracking: boolean;
+    /** The role has the lead-magnet feature; and whether the workspace has any lead magnet yet
+     * (null when that could not be read — then nothing is said). */
+    leadCapture: { enabled: boolean; workspaceHasLeadMagnet: boolean | null };
+    /** The role has brand deals (which lets it record deals). */
+    brandDeals: boolean;
+  };
 }
 
+export type GettingStartedType =
+  "track_viewer_interest" | "explore_lead_capture" | "prepare_sponsorship_attribution";
+
+/** A setup step. Not a finding: no evidence, no priority, no claim about the video's results. */
+export interface GettingStartedRecommendation {
+  type: GettingStartedType;
+  title: string;
+  explanation: string;
+  nextStep: string;
+  action: { label: string; href: string };
+}
+
+/** Whether performance opportunities could be looked for at all:
+ *   found              at least one was found
+ *   none               the video has enough data and nothing stood out
+ *   insufficient_data  nothing is stored for the video, or it has too few views for the rules
+ *                      (most of them need OPPORTUNITY_RULES.MIN_VIEWS views, and some need
+ *                      tracked links, linked deals or comparable videos as well) */
+export type PerformanceStatus = "found" | "none" | "insufficient_data";
+
 export interface OpportunityResult {
+  /** Performance opportunities (unchanged since V1). */
   opportunities: Opportunity[];
+  /** At most MAX_GETTING_STARTED setup steps, never repeating a performance opportunity. */
+  gettingStarted: GettingStartedRecommendation[];
+  performance: PerformanceStatus;
   checks: OpportunityChecks;
+}
+
+export const MAX_GETTING_STARTED = 3;
+
+/**
+ * The Getting Started steps (pure). Each needs the role to have the feature its action leads to,
+ * and is left out when it is already done, when a performance opportunity covers the same action,
+ * or when it cannot be known whether it is done.
+ *
+ *   track_viewer_interest            link tracking; the video has no tracked link and no clicks
+ *                                    (or nothing is stored for it); no link opportunity found
+ *   explore_lead_capture             the lead-magnet feature; the workspace has no lead magnet
+ *   prepare_sponsorship_attribution  brand deals; no deal is linked to the video (or nothing is
+ *                                    stored for it); "link a sponsorship" was not found
+ */
+export function gettingStartedFor(
+  input: Pick<OpportunityInputs, "links" | "deals" | "setup">,
+  performanceTypes: ReadonlySet<OpportunityType>,
+): GettingStartedRecommendation[] {
+  const steps: GettingStartedRecommendation[] = [];
+  const { links, deals, setup } = input;
+  const videoKnown = links.status === "checked";
+
+  const linkCovered = (
+    ["add_tracked_link", "links_without_clicks", "review_link_offer"] as const
+  ).some((type) => performanceTypes.has(type));
+  const linksDone = links.status === "checked" && (links.currentLinks > 0 || links.clicks > 0);
+  if (
+    setup.linkTracking &&
+    !linkCovered &&
+    !linksDone &&
+    links.status !== "unavailable" &&
+    links.status !== "restricted"
+  )
+    steps.push({
+      type: "track_viewer_interest",
+      title: "Start measuring viewer interest",
+      explanation: videoKnown
+        ? "This video has no tracked link yet. A tracked link in its description shows how many viewers click through to your offer — interest you can't see in YouTube's own numbers."
+        : "A tracked link in a video's description shows how many viewers click through to your offer — interest you can't see in YouTube's own numbers.",
+      nextStep:
+        "Create a tracked link for something you mention in this video and put it in the description.",
+      action: { label: "Create a tracked link", href: "/link-tracking" },
+    });
+
+  if (setup.leadCapture.enabled && setup.leadCapture.workspaceHasLeadMagnet === false)
+    steps.push({
+      type: "explore_lead_capture",
+      title: "Offer viewers something to sign up for",
+      explanation:
+        "A free resource — a checklist, template or guide — lets interested viewers leave their email, so you can reach them again outside YouTube.",
+      nextStep: "Create a lead magnet, then share it from your videos with a tracked link.",
+      action: { label: "Create a lead magnet", href: "/freebie" },
+    });
+
+  const dealsDone = deals.status === "checked" && deals.linkedAny > 0;
+  if (
+    setup.brandDeals &&
+    !performanceTypes.has("link_sponsorship") &&
+    !dealsDone &&
+    deals.status !== "unavailable" &&
+    deals.status !== "restricted"
+  )
+    steps.push({
+      type: "prepare_sponsorship_attribution",
+      title: "Get ready to attribute sponsorships",
+      explanation:
+        "When a video is part of a sponsorship, record the deal in Brand Deals and link it to the video, so its agreed value is shown here. This doesn't mean a sponsorship exists — only that it would be counted.",
+      nextStep: "Record your sponsorships in Brand Deals as you agree them.",
+      action: { label: "Open Brand Deals", href: "/brand-deals" },
+    });
+
+  return steps.slice(0, MAX_GETTING_STARTED);
 }
 
 // ---------- small, exact helpers ----------
@@ -182,9 +301,12 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
   };
   const video = input.video;
   if (!video) {
-    // Nothing is stored for this video: no rule can run, and nothing about it is said.
+    // Nothing is stored for this video: no rule can run, and nothing about it is said. Only
+    // setup steps that depend on the role and the workspace — never on the video — are offered.
     return {
       opportunities: [],
+      gettingStarted: gettingStartedFor(input, new Set()),
+      performance: "insufficient_data",
       checks: {
         audience: "insufficient_data",
         links: checks.links === "checked" ? "insufficient_data" : checks.links,
@@ -369,5 +491,11 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
       PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
       TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type),
   );
-  return { opportunities: found, checks };
+  return {
+    opportunities: found,
+    gettingStarted: gettingStartedFor(input, new Set(found.map((o) => o.type))),
+    performance:
+      found.length > 0 ? "found" : video.views < MIN_VIEWS ? "insufficient_data" : "none",
+    checks,
+  };
 }

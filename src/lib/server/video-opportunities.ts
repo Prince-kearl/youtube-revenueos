@@ -38,6 +38,20 @@ export interface VideoOpportunitiesResponse {
 
 const FINANCIAL_STAGES = new Set(["contracted", "completed"]);
 
+/** Whether the workspace has any lead magnet (id only). */
+async function workspaceHasLeadMagnet(
+  client: WorkspaceContext["client"],
+  workspaceId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("lead_magnets")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .limit(1);
+  if (error) throw new Error("READ_LEAD_MAGNETS");
+  return (data ?? []).length > 0;
+}
+
 /** Contracted or completed deals of the workspace that are linked to no video. Stages and ids
  * only — no value. */
 async function unlinkedContractedDeals(
@@ -111,17 +125,35 @@ export async function loadVideoOpportunities(
       availability: video.dataQuality.availability,
     })),
     revenueVisible: visible,
-    links: { status: "unavailable" },
-    deals: { status: "unavailable" },
+    links: { status: "insufficient_data" },
+    deals: { status: "insufficient_data" },
+    setup: {
+      linkTracking: false,
+      leadCapture: { enabled: false, workspaceHasLeadMagnet: null },
+      brandDeals: false,
+    },
   };
 
-  // Only for a video of this workspace: an unknown or foreign id reads nothing else.
-  if (item) {
-    const [linksFeature, dealsFeature] = await Promise.all([
-      workspaceFeatureStatus(ctx, "link_tracking"),
-      workspaceFeatureStatus(ctx, "brand_deals"),
-    ]);
+  // What the caller's role may use, and whether the workspace has a lead magnet: facts about the
+  // role and the workspace, read the same way for any video id.
+  const [linksFeature, dealsFeature, leadFeature] = await Promise.all([
+    workspaceFeatureStatus(ctx, "link_tracking"),
+    workspaceFeatureStatus(ctx, "brand_deals"),
+    workspaceFeatureStatus(ctx, "freebie"),
+  ]);
+  let hasLeadMagnet: boolean | null = null;
+  if (leadFeature === "enabled")
+    hasLeadMagnet = await workspaceHasLeadMagnet(ctx.client, ctx.workspaceId).catch(() => null);
+  inputs.setup = {
+    linkTracking: linksFeature === "enabled",
+    leadCapture: { enabled: leadFeature === "enabled", workspaceHasLeadMagnet: hasLeadMagnet },
+    brandDeals: dealsFeature === "enabled",
+  };
+  if (linksFeature !== "enabled") inputs.links = { status: "restricted" };
+  if (dealsFeature !== "enabled") inputs.deals = { status: "restricted" };
 
+  // Only for a video of this workspace: an unknown or foreign id reads nothing about any video.
+  if (item) {
     if (linksFeature !== "enabled") inputs.links = { status: "restricted" };
     else {
       try {

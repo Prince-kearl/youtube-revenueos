@@ -73,6 +73,13 @@ function inputs(
       unlinkedContracted: 0,
       canLink: true,
     },
+    // Every feature on, and the workspace already has a lead magnet: no setup step unless a test
+    // says otherwise.
+    setup: {
+      linkTracking: true,
+      leadCapture: { enabled: true, workspaceHasLeadMagnet: true },
+      brandDeals: true,
+    },
     ...overrides,
   };
 }
@@ -324,8 +331,8 @@ test("missing data is never read as zero: no stored video, restricted and unavai
   assert.equal(restricted.checks.sponsorships, "unavailable");
   assert.ok(!types(restricted).some((t) => /link|sponsor/.test(t)));
   assert.deepEqual(uncheckedAreas(restricted.checks), [
-    "Tracked links: not available for your role",
-    "Brand deals: couldn't be checked just now",
+    "Tracked links: not included for your role or plan",
+    "Brand deals: couldn't be loaded — try refreshing",
   ]);
 });
 
@@ -719,7 +726,7 @@ test("section: loading, error, restricted, empty and insufficient states say wha
   const hidden = render(
     ready(evaluateOpportunities(inputs({ revenueVisible: false }, { rpm: null }))),
   );
-  assert.match(hidden, /Revenue per view: hidden by your workspace&#x27;s settings/);
+  assert.match(hidden, /Revenue per view: hidden by your workspace&#x27;s revenue settings/);
   for (const html of [empty, insufficient, hidden]) assert.doesNotMatch(html, /\$\d/);
 });
 
@@ -776,4 +783,405 @@ test("endpoint: a low-RPM video is flagged for the owner from stored data, and n
   );
   const allowed = await ask(g, "editor", "?videoId=vidMINE0000&days=90");
   assert.ok(dataOf(allowed).opportunities.some((o) => o.type === "investigate_low_rpm"));
+});
+
+// ============================================================
+// Phase 2C-1: Getting Started
+// ============================================================
+
+const steps = (result: OpportunityResult) => result.gettingStarted.map((s) => s.type);
+/** A small creator: every video under 1,000 views, nothing measured, no deals, every feature on,
+ * no lead magnet yet. */
+const smallCreator = (overrides: Partial<OpportunityInputs> = {}) =>
+  inputs(
+    {
+      workspace: [120, 300, 80, 640, 15, 900].map((views, i) => ({
+        isThisVideo: i === 0,
+        views,
+        rpm: 2,
+        availability: "provisional" as const,
+      })),
+      links: { status: "checked", currentLinks: 0, clicks: 0 },
+      deals: {
+        status: "checked",
+        linkedContracted: 0,
+        linkedAny: 0,
+        unlinkedContracted: 0,
+        canLink: true,
+      },
+      setup: {
+        linkTracking: true,
+        leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+        brandDeals: true,
+      },
+      ...overrides,
+    },
+    { views: 120, rpm: 2, availability: "provisional" },
+  );
+
+test("small creator: no performance findings, but three setup steps — and performance says 'insufficient data'", () => {
+  const result = evaluateOpportunities(smallCreator());
+  assert.deepEqual(result.opportunities, []);
+  assert.equal(result.performance, "insufficient_data");
+  assert.deepEqual(steps(result), [
+    "track_viewer_interest",
+    "explore_lead_capture",
+    "prepare_sponsorship_attribution",
+  ]);
+  assert.deepEqual(
+    result.gettingStarted.map((s) => s.action),
+    [
+      { label: "Create a tracked link", href: "/link-tracking" },
+      { label: "Create a lead magnet", href: "/freebie" },
+      { label: "Open Brand Deals", href: "/brand-deals" },
+    ],
+  );
+  // Setup steps carry no priority and no evidence, and claim nothing about results.
+  for (const step of result.gettingStarted) {
+    assert.deepEqual(Object.keys(step).sort(), [
+      "action",
+      "explanation",
+      "nextStep",
+      "title",
+      "type",
+    ]);
+    assert.doesNotMatch(
+      step.explanation + step.title,
+      /\$|viewers (are|have) click|clicked|leads? (came|from this)|converted|earned|paid|is sponsored/i,
+    );
+  }
+  assert.match(result.gettingStarted[0].explanation, /This video has no tracked link yet/);
+  assert.match(result.gettingStarted[2].explanation, /doesn't mean a sponsorship exists/);
+});
+
+test("setup steps already done are left out; one that cannot be known to be done is left out too", () => {
+  // The video has a tracked link, or clicks from a link since moved: no "start measuring".
+  for (const links of [
+    { status: "checked" as const, currentLinks: 1, clicks: 0 },
+    { status: "checked" as const, currentLinks: 0, clicks: 3 },
+    { status: "unavailable" as const },
+  ])
+    assert.ok(
+      !steps(evaluateOpportunities(smallCreator({ links }))).includes("track_viewer_interest"),
+      JSON.stringify(links),
+    );
+  // The workspace already has a lead magnet, or it could not be read.
+  for (const workspaceHasLeadMagnet of [true, null])
+    assert.ok(
+      !steps(
+        evaluateOpportunities(
+          smallCreator({
+            setup: {
+              linkTracking: true,
+              leadCapture: { enabled: true, workspaceHasLeadMagnet },
+              brandDeals: true,
+            },
+          }),
+        ),
+      ).includes("explore_lead_capture"),
+    );
+  // A deal is already linked to the video (any stage), or the deals could not be read.
+  for (const deals of [
+    {
+      status: "checked" as const,
+      linkedContracted: 0,
+      linkedAny: 1,
+      unlinkedContracted: 0,
+      canLink: true,
+    },
+    { status: "unavailable" as const },
+  ])
+    assert.ok(
+      !steps(evaluateOpportunities(smallCreator({ deals }))).includes(
+        "prepare_sponsorship_attribution",
+      ),
+    );
+});
+
+test("a role without the feature gets no step that leads to it", () => {
+  const none = evaluateOpportunities(
+    smallCreator({
+      links: { status: "restricted" },
+      deals: { status: "restricted" },
+      setup: {
+        linkTracking: false,
+        leadCapture: { enabled: false, workspaceHasLeadMagnet: null },
+        brandDeals: false,
+      },
+    }),
+  );
+  assert.deepEqual(none.gettingStarted, []);
+  const cases = [
+    [
+      {
+        linkTracking: false,
+        leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+        brandDeals: true,
+      },
+      "track_viewer_interest",
+    ],
+    [
+      {
+        linkTracking: true,
+        leadCapture: { enabled: false, workspaceHasLeadMagnet: false },
+        brandDeals: true,
+      },
+      "explore_lead_capture",
+    ],
+    [
+      {
+        linkTracking: true,
+        leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+        brandDeals: false,
+      },
+      "prepare_sponsorship_attribution",
+    ],
+  ] as const;
+  for (const [setup, missing] of cases) {
+    const list = steps(evaluateOpportunities(smallCreator({ setup })));
+    assert.ok(!list.includes(missing), missing);
+    assert.equal(list.length, 2);
+  }
+});
+
+test("a setup step never repeats a performance opportunity for the same action", () => {
+  // A strong video with no link gets the performance "add a tracked link" — not the setup step.
+  const strong = evaluateOpportunities(
+    inputs({
+      links: { status: "checked", currentLinks: 0, clicks: 0 },
+      setup: {
+        linkTracking: true,
+        leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+        brandDeals: true,
+      },
+    }),
+  );
+  assert.ok(strong.opportunities.some((o) => o.type === "add_tracked_link"));
+  assert.ok(!steps(strong).includes("track_viewer_interest"));
+  // An unlinked contracted deal gives "link a sponsorship" — not "get ready to attribute".
+  const bigLinkable = evaluateOpportunities(
+    inputs({
+      deals: {
+        status: "checked",
+        linkedContracted: 0,
+        linkedAny: 0,
+        unlinkedContracted: 1,
+        canLink: true,
+      },
+    }),
+  );
+  assert.ok(bigLinkable.opportunities.some((o) => o.type === "link_sponsorship"));
+  assert.ok(!steps(bigLinkable).includes("prepare_sponsorship_attribution"));
+  // Over many combinations: at most three steps, each at most once, never overlapping.
+  const overlap: Record<string, string[]> = {
+    track_viewer_interest: ["add_tracked_link", "links_without_clicks", "review_link_offer"],
+    prepare_sponsorship_attribution: ["link_sponsorship"],
+  };
+  for (const views of [100, 1_500, 100_000])
+    for (const [currentLinks, clicks] of [
+      [0, 0],
+      [1, 0],
+      [0, 30],
+    ])
+      for (const unlinkedContracted of [0, 1])
+        for (const linkedAny of [0, 1]) {
+          const result = evaluateOpportunities(
+            inputs(
+              {
+                links: { status: "checked", currentLinks, clicks },
+                deals: {
+                  status: "checked",
+                  linkedContracted: 0,
+                  linkedAny,
+                  unlinkedContracted,
+                  canLink: true,
+                },
+                setup: {
+                  linkTracking: true,
+                  leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+                  brandDeals: true,
+                },
+              },
+              { views },
+            ),
+          );
+          const list = steps(result);
+          assert.ok(list.length <= 3 && new Set(list).size === list.length);
+          for (const step of list)
+            for (const covered of overlap[step] ?? [])
+              assert.ok(
+                !result.opportunities.some((o) => o.type === covered),
+                `${step} with ${covered}`,
+              );
+        }
+});
+
+test("performance opportunities are unchanged by the setup steps", () => {
+  for (const rpm of [1, 5, 9]) {
+    const base = inputs({}, { rpm });
+    const withSetup = evaluateOpportunities({
+      ...base,
+      setup: {
+        linkTracking: true,
+        leadCapture: { enabled: true, workspaceHasLeadMagnet: false },
+        brandDeals: true,
+      },
+    });
+    const without = evaluateOpportunities({
+      ...base,
+      setup: {
+        linkTracking: false,
+        leadCapture: { enabled: false, workspaceHasLeadMagnet: null },
+        brandDeals: false,
+      },
+    });
+    assert.deepEqual(withSetup.opportunities, without.opportunities);
+    assert.deepEqual(withSetup.checks, without.checks);
+  }
+  // performance: "none" only with enough data and nothing found.
+  assert.equal(evaluateOpportunities(inputs({}, { rpm: 5 })).performance, "none");
+  assert.equal(evaluateOpportunities(inputs({}, { rpm: 1 })).performance, "found");
+});
+
+test("nothing stored for the video: setup steps from the role and workspace only, worded without claims about the video", () => {
+  const result = evaluateOpportunities(
+    smallCreator({
+      video: null,
+      workspace: [],
+      links: { status: "insufficient_data" },
+      deals: { status: "insufficient_data" },
+    }),
+  );
+  assert.equal(result.performance, "insufficient_data");
+  assert.deepEqual(result.checks, {
+    audience: "insufficient_data",
+    links: "insufficient_data",
+    sponsorships: "insufficient_data",
+    revenue: "insufficient_data",
+  });
+  assert.deepEqual(steps(result), [
+    "track_viewer_interest",
+    "explore_lead_capture",
+    "prepare_sponsorship_attribution",
+  ]);
+  assert.doesNotMatch(result.gettingStarted[0].explanation, /This video has no tracked link/);
+});
+
+test("endpoint: a small creator's video gets setup steps; unknown and other-workspace ids get the identical answer", async () => {
+  const f = world();
+  f.w.features.push({ id: "feature-freebie", key: "freebie", is_active: true });
+  f.w.lead_magnets = [];
+  // A small video: a seventh video with 300 views.
+  const small = {
+    id: uuid(),
+    channel_id: f.channel,
+    youtube_video_id: "vidSMALL001",
+    title: "Small",
+    thumbnail: null,
+    published_at: "2026-01-01T00:00:00Z",
+    status: "active",
+  };
+  f.w.videos!.push(small);
+  f.w.video_daily_stats!.push({
+    channel_id: f.channel,
+    video_id: small.id,
+    day: day(10),
+    views: 300,
+    watch_minutes: 100,
+    estimated_revenue_usd: "1",
+    ad_revenue_usd: "1",
+    premium_revenue_usd: "0",
+  });
+  const result = await ask(f, "owner", "?videoId=vidSMALL001&days=90");
+  assert.equal(result.status, 200);
+  const data = dataOf(result);
+  assert.deepEqual(data.opportunities, []);
+  assert.equal(data.performance, "insufficient_data");
+  assert.deepEqual(
+    data.gettingStarted.map((s) => s.type),
+    ["track_viewer_interest", "explore_lead_capture", "prepare_sponsorship_attribution"],
+  );
+  // A lead magnet in the workspace completes that step.
+  f.w.lead_magnets.push({ id: uuid(), workspace_id: f.ws, user_id: f.users.owner, title: "Guide" });
+  assert.ok(
+    !dataOf(await ask(f, "owner", "?videoId=vidSMALL001&days=90")).gettingStarted.some(
+      (s) => s.type === "explore_lead_capture",
+    ),
+  );
+  // Another workspace's lead magnet does not.
+  const g = world();
+  g.w.features.push({ id: "feature-freebie", key: "freebie", is_active: true });
+  g.w.lead_magnets = [
+    { id: uuid(), workspace_id: g.other, user_id: g.users.stranger, title: "Theirs" },
+  ];
+  assert.ok(
+    dataOf(await ask(g, "owner", "?videoId=vidMINE0005&days=90")).gettingStarted.some(
+      (s) => s.type === "explore_lead_capture",
+    ),
+  );
+  // Isolation: unknown and other-workspace ids are indistinguishable, steps included.
+  const theirs = await ask(g, "owner", "?videoId=vidTHEIRS01&days=90");
+  const unknown = await ask(g, "owner", "?videoId=vidUNKNOWN1&days=90");
+  assert.equal(theirs.text, unknown.text);
+  assert.ok(dataOf(unknown).gettingStarted.length > 0);
+  assert.equal(dataOf(unknown).checks.links, "insufficient_data", "not 'couldn't be loaded'");
+  assert.ok(!theirs.reads.some((r) => ["tracking_links", "deal_videos"].includes(String(r.table))));
+});
+
+test("endpoint: setup steps follow the role's features, and say nothing about money", async () => {
+  const f = world();
+  f.w.features.push({ id: "feature-freebie", key: "freebie", is_active: true });
+  f.w.lead_magnets = [];
+  f.w.role_feature_access.push(
+    { role: "editor", feature_id: "feature-links", enabled: false },
+    { role: "editor", feature_id: "feature-freebie", enabled: false },
+    { role: "editor", feature_id: "feature-deals", enabled: false },
+  );
+  const editor = await ask(f, "editor", "?videoId=vidMINE0005&days=90");
+  assert.deepEqual(dataOf(editor).gettingStarted, []);
+  assert.doesNotMatch(editor.text, /\/link-tracking|\/freebie|\/brand-deals/);
+  assert.equal(dataOf(editor).checks.links, "restricted");
+  // Revenue hidden from the editor: the deal step is offered, with no amount anywhere.
+  const g = world();
+  const hidden = await ask(g, "editor", "?videoId=vidMINE0005&days=90");
+  assert.ok(
+    dataOf(hidden).gettingStarted.some((s) => s.type === "prepare_sponsorship_attribution"),
+  );
+  assert.doesNotMatch(hidden.text, /\$/);
+});
+
+test("section: Performance and Getting Started are shown apart; setup steps have no priority", () => {
+  const html = render(ready(evaluateOpportunities(smallCreator())));
+  assert.match(html, /Performance opportunities/);
+  assert.match(html, /data-testid="opportunities-insufficient"/);
+  assert.match(html, /Performance insights need more data than this video has/);
+  assert.doesNotMatch(html, /at 1,000 views|once it reaches/, "no promise of when");
+  assert.match(html, /Getting started/);
+  assert.equal(html.split('data-testid="getting-started-step"').length - 1, 3);
+  assert.doesNotMatch(html.slice(html.indexOf('data-testid="getting-started"')), /priority/i);
+  assert.match(html, /href="\/freebie"/);
+  // Nothing at all to suggest: one clear message.
+  const nothing = render(
+    ready(
+      evaluateOpportunities(
+        smallCreator({
+          setup: {
+            linkTracking: false,
+            leadCapture: { enabled: false, workspaceHasLeadMagnet: null },
+            brandDeals: false,
+          },
+        }),
+      ),
+    ),
+  );
+  assert.match(nothing, /data-testid="opportunities-nothing"/);
+  assert.match(nothing, /There&#x27;s nothing to suggest for this video right now\./);
+  // An older response without the new fields still renders.
+  const legacy = response(evaluateOpportunities(inputs({}, { rpm: 1 })));
+  delete (legacy.data as Partial<typeof legacy.data>).gettingStarted;
+  delete (legacy.data as Partial<typeof legacy.data>).performance;
+  assert.match(
+    render({ status: "ready", response: legacy, refreshing: false }),
+    /This video earns less per view/,
+  );
 });

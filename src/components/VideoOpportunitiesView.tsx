@@ -1,13 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Lightbulb } from "lucide-react";
+import { ArrowRight, Lightbulb, ListChecks } from "lucide-react";
 import { ErrorState } from "@/components/ui-bits";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Opportunity } from "@/lib/revenue-opportunities";
+import type { GettingStartedRecommendation, Opportunity } from "@/lib/revenue-opportunities";
 import type { VideoOpportunitiesResponse } from "@/lib/server/video-opportunities";
 import {
+  GETTING_STARTED_INTRO,
   OPPORTUNITIES_EMPTY,
   OPPORTUNITIES_INSUFFICIENT,
   OPPORTUNITIES_INTRO,
+  OPPORTUNITIES_NOTHING,
   PRIORITY_LABEL,
   uncheckedAreas,
 } from "@/lib/video-opportunities-view";
@@ -95,20 +97,46 @@ export function VideoOpportunitiesContent({
 
 function OpportunityList({ response }: { response: VideoOpportunitiesResponse }) {
   const { opportunities, checks } = response.data;
+  // Older responses (before Phase 2C-1) carry neither field.
+  const gettingStarted = response.data.gettingStarted ?? [];
+  const performance =
+    response.data.performance ??
+    (opportunities.length
+      ? "found"
+      : checks.audience === "insufficient_data"
+        ? "insufficient_data"
+        : "none");
   const unchecked = uncheckedAreas(checks);
-  const insufficient = checks.audience === "insufficient_data";
+
+  if (opportunities.length === 0 && gettingStarted.length === 0)
+    return (
+      <>
+        <p className="mt-4 text-sm text-muted-foreground" data-testid="opportunities-nothing">
+          {OPPORTUNITIES_NOTHING}{" "}
+          {performance === "insufficient_data" ? OPPORTUNITIES_INSUFFICIENT : OPPORTUNITIES_EMPTY}
+        </p>
+        <Footer unchecked={unchecked} days={response.data.period.days} />
+      </>
+    );
 
   return (
     <>
+      <h3 className="mt-4 text-sm font-semibold" data-testid="opportunities-performance-heading">
+        Performance opportunities
+      </h3>
       {opportunities.length === 0 ? (
         <p
-          className="mt-4 text-sm text-muted-foreground"
-          data-testid={insufficient ? "opportunities-insufficient" : "opportunities-empty"}
+          className="mt-1 text-sm text-muted-foreground"
+          data-testid={
+            performance === "insufficient_data"
+              ? "opportunities-insufficient"
+              : "opportunities-empty"
+          }
         >
-          {insufficient ? OPPORTUNITIES_INSUFFICIENT : OPPORTUNITIES_EMPTY}
+          {performance === "insufficient_data" ? OPPORTUNITIES_INSUFFICIENT : OPPORTUNITIES_EMPTY}
         </p>
       ) : (
-        <ol className="mt-4 space-y-3">
+        <ol className="mt-2 space-y-3">
           {opportunities.map((opportunity) => (
             <li
               key={opportunity.type}
@@ -151,6 +179,52 @@ function OpportunityList({ response }: { response: VideoOpportunitiesResponse })
         </ol>
       )}
 
+      {gettingStarted.length > 0 && <GettingStarted steps={gettingStarted} />}
+      <Footer unchecked={unchecked} days={response.data.period.days} />
+    </>
+  );
+}
+
+/** Setup steps: deliberately plainer than the findings above — no priority, no evidence. */
+function GettingStarted({ steps }: { steps: GettingStartedRecommendation[] }) {
+  return (
+    <div className="mt-5" data-testid="getting-started">
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+        <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Getting started
+      </h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">{GETTING_STARTED_INTRO}</p>
+      <ul className="mt-2 divide-y divide-border rounded-lg border border-dashed border-border">
+        {steps.map((step) => (
+          <li
+            key={step.type}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+            data-testid="getting-started-step"
+            data-type={step.type}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {step.title}
+                <span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  Setup
+                </span>
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{step.explanation}</p>
+              <p className="mt-1 text-xs">
+                <span className="font-medium">Next step: </span>
+                {step.nextStep}
+              </p>
+            </div>
+            <OpportunityAction action={step.action} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Footer({ unchecked, days }: { unchecked: string[]; days: number }) {
+  return (
+    <>
       {unchecked.length > 0 && (
         <ul
           className="mt-3 space-y-0.5 text-xs text-muted-foreground"
@@ -163,8 +237,8 @@ function OpportunityList({ response }: { response: VideoOpportunitiesResponse })
         </ul>
       )}
       <p className="mt-2 text-xs text-muted-foreground">
-        Based on the last {response.data.period.days} days. Comparisons use only this workspace's
-        videos (all its connected channels) over the same days; they show where to look, not why.
+        Based on the last {days} days. Comparisons use only this workspace's videos (all its
+        connected channels) over the same days; they show where to look, not why.
       </p>
     </>
   );

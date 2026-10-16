@@ -1331,10 +1331,36 @@ function demoVideoOpportunities(url: URL) {
             dataStatus: "complete",
           },
         ];
+  // The other sample videos stand for a small creator: too few views for any finding, so only
+  // setup steps are shown.
+  const small = videoId !== VIDEOS[0].id && videoId !== VIDEOS[1].id;
+  const gettingStarted = small
+    ? [
+        {
+          type: "track_viewer_interest",
+          title: "Start measuring viewer interest",
+          explanation:
+            "This video has no tracked link yet. A tracked link in its description shows how many viewers click through to your offer — interest you can't see in YouTube's own numbers.",
+          nextStep:
+            "Create a tracked link for something you mention in this video and put it in the description.",
+          action: { label: "Create a tracked link", href: "/link-tracking" },
+        },
+        {
+          type: "prepare_sponsorship_attribution",
+          title: "Get ready to attribute sponsorships",
+          explanation:
+            "When a video is part of a sponsorship, record the deal in Brand Deals and link it to the video, so its agreed value is shown here. This doesn't mean a sponsorship exists — only that it would be counted.",
+          nextStep: "Record your sponsorships in Brand Deals as you agree them.",
+          action: { label: "Open Brand Deals", href: "/brand-deals" },
+        },
+      ]
+    : [];
   return {
     data: {
-      opportunities,
-      checks,
+      opportunities: small ? [] : opportunities,
+      gettingStarted,
+      performance: small ? "insufficient_data" : "found",
+      checks: small ? { ...checks, revenue: "insufficient_data" } : checks,
       period: { days, startDate: period.startDate, endDate: period.endDate },
     },
     visibility: { revenue: "visible" },

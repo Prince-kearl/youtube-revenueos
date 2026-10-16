@@ -32,11 +32,18 @@ export const PRIORITY_LABEL: Record<OpportunityPriority, string> = {
 export const OPPORTUNITIES_INTRO =
   "Suggestions worked out from this video's stored YouTube data, tracked links and linked deals — never from estimates.";
 
-export const OPPORTUNITIES_EMPTY =
-  "Nothing stands out for this video right now. We'll suggest something when its data points to a clear next step.";
+/** Performance opportunities were looked for and none stood out. */
+export const OPPORTUNITIES_EMPTY = "Nothing stands out in this video's data right now.";
 
+/** Performance opportunities could not be looked for: too little data. No promise of when. */
 export const OPPORTUNITIES_INSUFFICIENT =
-  "There isn't enough stored data for this video in this period to suggest anything yet.";
+  "Performance insights need more data than this video has in this period. They compare it with this workspace's other videos once it has enough views and reported revenue, and some also need tracked links or linked deals.";
+
+export const GETTING_STARTED_INTRO =
+  "Setup steps, not findings: they help Tubify measure what this video earns beyond YouTube.";
+
+/** Neither performance opportunities nor setup steps. */
+export const OPPORTUNITIES_NOTHING = "There's nothing to suggest for this video right now.";
 
 const AREA_LABEL: Record<keyof OpportunityChecks, string> = {
   audience: "Views",
@@ -46,10 +53,14 @@ const AREA_LABEL: Record<keyof OpportunityChecks, string> = {
 };
 
 const STATUS_NOTE: Record<Exclude<CheckStatus, "checked">, string> = {
+  /** Too little stored data (also what an unknown video gets — on purpose). */
   insufficient_data: "not enough data yet",
-  restricted: "not available for your role",
-  hidden: "hidden by your workspace's settings",
-  unavailable: "couldn't be checked just now",
+  /** The feature is switched off for the caller's role, or for everyone. */
+  restricted: "not included for your role or plan",
+  /** The caller may not see revenue. */
+  hidden: "hidden by your workspace's revenue settings",
+  /** A read failed just now. */
+  unavailable: "couldn't be loaded — try refreshing",
 };
 
 /** One line per area that was NOT checked, saying why — so an empty list is never mistaken for
