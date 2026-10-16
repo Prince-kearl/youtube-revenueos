@@ -48,6 +48,11 @@ export interface World {
   workspace_branding?: Row[];
   // The brand-deal attribution tests add.
   deal_videos?: Row[];
+  // The video-detail channel tests add.
+  youtube_connections?: Row[];
+  /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
+   * fail the test with "unexpected request". */
+  external?: (url: URL, init: { method: string; headers: Headers }) => Response | undefined;
   /** Per table: inserts into it are refused by the database with this SQLSTATE (a trigger's
    * 23514, a foreign key's 23503…), as PostgREST reports it. */
   refuseWrites?: Record<string, string>;
@@ -214,6 +219,7 @@ const OPTIONAL_TABLES = [
   "referral_clicks",
   "workspace_branding",
   "deal_videos",
+  "youtube_connections",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -386,7 +392,11 @@ export async function callTeamApi(
     const url = new URL(request ? request.url : String(input));
     const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
     const headers = new Headers(init?.headers ?? request?.headers);
-    if (url.origin !== SUPABASE) throw new Error(`unexpected request in test: ${method} ${url}`);
+    if (url.origin !== SUPABASE) {
+      const answer = world.external?.(url, { method, headers });
+      if (answer) return answer;
+      throw new Error(`unexpected request in test: ${method} ${url}`);
+    }
 
     if (url.pathname === "/auth/v1/user")
       return actor ? json(authUser(actor)) : json({ message: "invalid JWT" }, 401);
@@ -531,14 +541,15 @@ export async function callTeamApi(
           status: 200,
           headers: { "Content-Range": `*/${found.length}` },
         });
+      // alias:table(columns), or alias:table!foreign_key(columns).
       const embeds = [
-        ...(url.searchParams.get("select") ?? "").matchAll(/(\w+):(\w+)\(([^)]*)\)/g),
+        ...(url.searchParams.get("select") ?? "").matchAll(/(\w+):(\w+)(?:!(\w+))?\(([^)]*)\)/g),
       ].filter(([, alias]) => alias !== "member");
       if (embeds.length > 0)
         found = found.map((row) => {
           const withEmbeds = { ...row };
-          for (const [, alias, embedded] of embeds) {
-            const foreignKey = row[`${alias}_id`];
+          for (const [, alias, embedded, foreignKeyColumn] of embeds) {
+            const foreignKey = row[foreignKeyColumn ?? `${alias}_id`];
             const target = (world as unknown as Record<string, Row[] | undefined>)[embedded];
             withEmbeds[alias] =
               foreignKey === null || foreignKey === undefined

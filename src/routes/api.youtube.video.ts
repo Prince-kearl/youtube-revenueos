@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { getWorkspaceContext } from "@/lib/server/workspace";
+import { readAllRows } from "@/lib/server/paged-read";
+import {
+  firstVerifiedChannel,
+  orderVideoChannelCandidates,
+  type VideoChannelCandidate,
+} from "@/lib/server/youtube-video-channel";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
@@ -141,7 +147,7 @@ export const Route = createFileRoute("/api/youtube/video")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user, workspaceId } = await getWorkspaceContext(request);
           const url = new URL(request.url);
           const videoId = videoIdSchema.parse(url.searchParams.get("videoId"));
           const rawChannelId = url.searchParams.get("channelId");
@@ -150,32 +156,77 @@ export const Route = createFileRoute("/api/youtube/video")({
           const forceFresh = url.searchParams.get("fresh") === "1";
           const { startDate, endDate } = dateRange(range);
 
-          let channelQuery = client
-            .from("youtube_channels")
-            .select("id, youtube_channel_id, channel_name, channel_handle")
-            .not("connection_id", "is", null)
-            .order("connected_at", { ascending: false });
-          if (channelId) channelQuery = channelQuery.eq("id", channelId);
-          const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();
-          if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
+          // The channel is the VIDEO's channel (lib/server/youtube-video-channel.ts): only this
+          // workspace's connected channels are considered, the one the video is stored under
+          // first, and `channelId` is at most a suggestion among them. YouTube still confirms
+          // the video is on whichever channel is used.
+          let channels: VideoChannelCandidate[];
+          let storedOwners: Array<{ channel_id: string }>;
+          try {
+            channels = await readAllRows<VideoChannelCandidate>((from, to) =>
+              client
+                .from("youtube_channels")
+                .select("id, youtube_channel_id, channel_name, channel_handle")
+                .eq("workspace_id", workspaceId)
+                .not("connection_id", "is", null)
+                .order("connected_at", { ascending: false })
+                .order("id", { ascending: true })
+                .range(from, to),
+            );
+            storedOwners = channels.length
+              ? await readAllRows<{ channel_id: string }>((from, to) =>
+                  client
+                    .from("videos")
+                    .select("channel_id")
+                    .eq("youtube_video_id", videoId)
+                    .in(
+                      "channel_id",
+                      channels.map((candidate) => candidate.id),
+                    )
+                    .order("channel_id", { ascending: true })
+                    .range(from, to),
+                )
+              : [];
+          } catch {
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
+          if (channels.length === 0) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
+          // A suggested channel that is not one of this workspace's connected channels is refused,
+          // as before — it is never used, and never reveals anything about another workspace.
+          if (channelId && !channels.some((candidate) => candidate.id === channelId))
+            return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
+          const candidates = orderVideoChannelCandidates(
+            channels,
+            storedOwners.map((row) => row.channel_id),
+            channelId,
+          );
 
           const service = createServiceSupabaseClient();
-          const { data: secretRow, error: secretError } = await service
-            .from("youtube_channels")
-            .select(
-              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
-            )
-            .eq("id", channel.id)
-            .single();
-          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
-          if (secretError || !connection) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          const accessToken = await getValidAccessToken(service, connection);
-          const video = await fetchYoutubeVideoById(
-            accessToken,
-            videoId,
-            channel.youtube_channel_id,
+          const {
+            channel,
+            result: { accessToken, video },
+          } = await firstVerifiedChannel(
+            candidates,
+            async (candidate) => {
+              const { data: secretRow, error: secretError } = await service
+                .from("youtube_channels")
+                .select(
+                  "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+                )
+                .eq("id", candidate.id)
+                .eq("workspace_id", workspaceId)
+                .single();
+              const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+              if (secretError || !connection) throw new Error("CHANNEL_CONNECTION_UNAVAILABLE");
+              const token = await getValidAccessToken(service, connection);
+              return {
+                accessToken: token,
+                video: await fetchYoutubeVideoById(token, videoId, candidate.youtube_channel_id),
+              };
+            },
+            isYoutubeTokenRefreshReauthError,
           );
+
           const [timeline, summary, traffic, demographics, retention] = await Promise.all([
             queryActivityReport(
               accessToken,
@@ -337,6 +388,8 @@ export const Route = createFileRoute("/api/youtube/video")({
           if (error instanceof Error && error.message === "YOUTUBE_VIDEO_NOT_FOUND") {
             return json({ error: "YOUTUBE_VIDEO_NOT_FOUND" }, { status: 404 });
           }
+          if (error instanceof Error && error.message === "CHANNEL_CONNECTION_UNAVAILABLE")
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (error instanceof Error && error.message === "YOUTUBE_VIDEO_CHANNEL_MISMATCH") {
             return json({ error: "YOUTUBE_VIDEO_CHANNEL_MISMATCH" }, { status: 422 });
           }

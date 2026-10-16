@@ -32,8 +32,6 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
 import { VideoRevenueSources } from "@/components/VideoRevenueSources";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
-import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
-import { useLocalStore } from "@/lib/local-store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartSkeleton } from "@/components/skeletons";
 
@@ -172,11 +170,10 @@ function formatSource(value: string): string {
 function friendlyError(code: string): string {
   const messages: Record<string, string> = {
     VALIDATION_ERROR: "This video link or date range is not valid.",
-    CHANNEL_NOT_FOUND:
-      "We couldn’t find the selected YouTube channel. Choose another channel and try again.",
+    CHANNEL_NOT_FOUND: "Connect a YouTube channel to this workspace to see this video’s analytics.",
     YOUTUBE_VIDEO_NOT_FOUND: "We couldn’t find that video. Check that the link is correct.",
     YOUTUBE_VIDEO_CHANNEL_MISMATCH:
-      "That video belongs to a different YouTube channel. Switch channels and try again.",
+      "That video belongs to a YouTube channel that isn’t connected to this workspace.",
     YOUTUBE_ANALYTICS_ERROR:
       "We couldn’t load the analytics for this video. Please try again in a moment.",
     SERVER_ERROR: "Something went wrong. Please try again in a moment.",
@@ -186,7 +183,6 @@ function friendlyError(code: string): string {
 
 function VideoDetail() {
   const { videoId } = Route.useParams();
-  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [range, setRange] = useState<Range>("12M");
   const [retryNonce, setRetryNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -208,7 +204,9 @@ function VideoDetail() {
       error: null,
     }));
     const params = new URLSearchParams({ videoId, range });
-    if (activeChannelId) params.set("channelId", activeChannelId);
+    // No channel is sent: the server works out which of the workspace's connected channels the
+    // video belongs to (lib/server/youtube-video-channel.ts). The channel selected elsewhere in
+    // the app says nothing about this video, and could be stale.
     if (retryNonce > 0) params.set("fresh", "1");
     fetch(`/api/youtube/video?${params.toString()}`, {
       cache: retryNonce > 0 ? "no-store" : "default",
@@ -243,7 +241,7 @@ function VideoDetail() {
       })
       .finally(() => setIsRefreshing(false));
     return () => controller.abort();
-  }, [activeChannelId, range, retryNonce, videoId]);
+  }, [range, retryNonce, videoId]);
 
   const timelineChart = useMemo(
     () =>
