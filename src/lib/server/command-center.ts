@@ -324,6 +324,46 @@ async function readDeals(client: Client, workspaceId: string) {
 
 // ---------- the whole answer ----------
 
+/** The two revenue readers (replaceable in tests, to show they run side by side). */
+export interface CommandCenterRevenueReaders {
+  buildRevenueSummary: typeof buildRevenueSummary;
+  buildRevenueVideos: typeof buildRevenueVideos;
+}
+
+const REVENUE_READERS: CommandCenterRevenueReaders = { buildRevenueSummary, buildRevenueVideos };
+
+/**
+ * YouTube: the channel-level total and every video, over the same period as the video pages.
+ * The two reads are independent (same caller, same period, same day; neither changes anything the
+ * other reads), so they run side by side. A failure of either fails the whole answer, as when they
+ * ran one after the other: without them nothing else in the command center means anything.
+ */
+export async function readYoutubeRevenue(
+  readCtx: Parameters<typeof buildRevenueSummary>[0],
+  days: LinkActivityDays,
+  today: string,
+  readers: CommandCenterRevenueReaders = REVENUE_READERS,
+) {
+  const query: RevenueVideosQuery = {
+    ...resolveRevenuePeriod({ days }, today),
+    channelId: null,
+    limit: Number.MAX_SAFE_INTEGER,
+    offset: 0,
+    sort: "views",
+    direction: "desc",
+    videoIds: null,
+  };
+  const [summary, revenue] = await Promise.all([
+    readers.buildRevenueSummary(
+      readCtx,
+      parseRevenueSummaryQuery(new URL(`https://local.invalid/?days=${days}`), today),
+      { today, includeDeals: false },
+    ),
+    readers.buildRevenueVideos(readCtx, query, { today }),
+  ]);
+  return { summary, revenue };
+}
+
 export async function loadCommandCenter(
   ctx: WorkspaceContext,
   days: LinkActivityDays,
@@ -344,23 +384,7 @@ export async function loadCommandCenter(
     workspaceFeatureStatus(ctx, "freebie"),
   ]);
 
-  // YouTube: the channel-level total and every video, over the same period as the video pages.
-  // (A failure here fails the request: without it nothing below means anything.)
-  const summary = await buildRevenueSummary(
-    readCtx,
-    parseRevenueSummaryQuery(new URL(`https://local.invalid/?days=${days}`), today),
-    { today, includeDeals: false },
-  );
-  const query: RevenueVideosQuery = {
-    ...resolveRevenuePeriod({ days }, today),
-    channelId: null,
-    limit: Number.MAX_SAFE_INTEGER,
-    offset: 0,
-    sort: "views",
-    direction: "desc",
-    videoIds: null,
-  };
-  const revenue = await buildRevenueVideos(readCtx, query, { today });
+  const { summary, revenue } = await readYoutubeRevenue(readCtx, days, today);
   const period = { days, startDate: revenue.period.startDate, endDate: revenue.period.endDate };
   const youtubeRevenue = summary.earned.revenue;
   const youtube: CommandCenterResponse["data"]["youtube"] = {

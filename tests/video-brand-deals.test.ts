@@ -367,7 +367,9 @@ test("wiring: inside Revenue sources, after tracked links; the overview and YouT
   assert.ok(links > 0 && links < deals && deals < notConnected);
   assert.match(
     sources,
-    /<VideoBrandDeals youtubeVideoId=\{youtubeVideoId\} refreshNonce=\{refreshNonce\} \/>/,
+    // (Phase 3B-1: a saved link or unlink is reported up, so the page's suggestions are asked
+    // for again.)
+    /<VideoBrandDeals youtubeVideoId=\{youtubeVideoId\} refreshNonce=\{refreshNonce\} onChanged=\{onDealsChanged\} \/>/,
   );
   // The link-activity part still has no money in it (its own rule).
   assert.doesNotMatch(sources, /\$\{?\d|toFixed|reduce\(|usd|formatVideoRevenue/);

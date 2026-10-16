@@ -14,6 +14,7 @@ import {
   HIDDEN_AMOUNT,
   type BrandDealsView,
 } from "@/lib/video-brand-deals";
+import { BRAND_DEALS_ANCHOR } from "@/lib/revenue-actions";
 
 // The Brand deals block of Revenue sources, for one state: rendering only, no requests. Every
 // decision — who sees amounts, who may link, what counts — was made by the API and by
@@ -49,7 +50,7 @@ export function BrandDealsContent({
   return (
     // id: the target of the "Link a deal" revenue opportunity.
     <div
-      id="brand-deals"
+      id={BRAND_DEALS_ANCHOR}
       className="flex scroll-mt-24 items-start gap-3"
       data-testid="sources-deals"
     >

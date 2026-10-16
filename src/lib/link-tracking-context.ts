@@ -6,6 +6,8 @@
 // answers with the video — or with nothing, for an unknown id and for another workspace's video
 // alike. Nothing is shown about a video until the server has confirmed it.
 
+import { VIDEO_REVENUE_RANGE_DAYS, type VideoRevenueRange } from "@/lib/video-revenue-overview";
+
 const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export interface LinkTrackingSearch {
@@ -13,6 +15,9 @@ export interface LinkTrackingSearch {
   video?: string;
   /** "1": open the creation dialog for that video. */
   create?: "1";
+  /** The period the video was being looked at over ("Back to video" returns to it). Only with a
+   * video; anything but 3M, 6M or 12M is dropped. Navigation only — it selects no data here. */
+  range?: VideoRevenueRange;
 }
 
 /** The page's search parameters, keeping only well-formed ones. */
@@ -22,7 +27,13 @@ export function linkTrackingSearch(search: Record<string, unknown>): LinkTrackin
       ? search.video
       : undefined;
   if (!video) return {};
-  return search.create === "1" || search.create === 1 ? { video, create: "1" } : { video };
+  const range =
+    typeof search.range === "string" && Object.keys(VIDEO_REVENUE_RANGE_DAYS).includes(search.range)
+      ? { range: search.range as VideoRevenueRange }
+      : {};
+  return search.create === "1" || search.create === 1
+    ? { video, create: "1", ...range }
+    : { video, ...range };
 }
 
 /** The list request for a context (or for the whole workspace). */

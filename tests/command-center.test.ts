@@ -692,8 +692,9 @@ test("section: three sources each with its own unit and caveat, then what to do 
   assert.match(html, /they are never added together/);
   assert.doesNotMatch(html, /\$1,(535|835)|\$1,535/, "no combined total");
   assert.match(html, /What to do next/);
-  assert.match(html, /href="\/link-tracking\?video=vidMINE0001"/);
-  assert.match(html, /href="\/videos\/vidMINE0000"/);
+  assert.match(html, /href="\/link-tracking\?video=vidMINE0001&amp;range=3M"/);
+  // (Over the command center's own period: the video opens at the same days.)
+  assert.match(html, /href="\/videos\/vidMINE0000\?range=3M"/);
   assert.equal(html.split('data-testid="command-center-video"').length - 1, 6);
 });
 
@@ -780,4 +781,475 @@ test("rules: the shared, sorted-once comparisons give exactly the per-call resul
       );
     }
   }
+});
+
+// ============================================================
+// Phase 3B-1: actions, their completion and what came of them
+// ============================================================
+
+const actions = await import("../src/lib/revenue-actions");
+const linkTrackingContext = await import("../src/lib/link-tracking-context");
+const { readYoutubeRevenue } = await import("../src/lib/server/command-center");
+const { LinkVideoContextBanner } = await import("../src/components/LinkVideoContextBanner");
+const workflow = {
+  links: await import("../src/routes/api.tracking-links"),
+  deals: await import("../src/routes/api.videos.deals"),
+  opportunities: await import("../src/routes/api.videos.opportunities"),
+};
+const userOf = (f: F, who: keyof F["users"]) => f.users[who];
+const createTrackedLink = (f: F, who: keyof F["users"], body: Record<string, unknown>) =>
+  callTeamApi(workflow.links, f.w, {
+    as: userOf(f, who),
+    method: "POST",
+    path: "/api/tracking-links",
+    body,
+  });
+const linkDeal = (f: F, who: keyof F["users"], body: Record<string, unknown>) =>
+  callTeamApi(workflow.deals, f.w, {
+    as: userOf(f, who),
+    method: "POST",
+    path: "/api/videos/deals",
+    body,
+  });
+const videoOpportunities = (f: F, who: keyof F["users"], yt: string, days = 90) =>
+  callTeamApi(workflow.opportunities, f.w, {
+    as: userOf(f, who),
+    method: "GET",
+    path: "/api/videos/opportunities",
+    query: `?videoId=${yt}&days=${days}`,
+  });
+const keysOf = (d: CommandCenterResponse["data"]) =>
+  d.opportunities.map((o) => `${o.type}@${o.video.youtubeVideoId}`);
+const rowOf = (d: CommandCenterResponse["data"], yt: string) =>
+  d.videos.find((v) => v.youtubeVideoId === yt)!;
+const myDestination = (f: F) =>
+  f.w.destinations!.find((d) => d.workspace_id === f.ws)!.id as string;
+const theirDestination = (f: F) =>
+  f.w.destinations!.find((d) => d.workspace_id === f.other)!.id as string;
+const dealId = (f: F, stage: string, currency = "USD") =>
+  f.w.deals!.find((d) => d.workspace_id === f.ws && d.stage === stage && d.currency === currency)!
+    .id as string;
+
+/** The command center and each video's own page give the same suggestions for the same days. */
+async function assertConsistent(f: F, who: keyof F["users"], days = 90) {
+  const d = dataOf(await ask(f, who, `?days=${days}`));
+  for (const row of d.videos) {
+    const own = await videoOpportunities(f, who, row.youtubeVideoId, days);
+    assert.equal(own.status, 200, own.text);
+    const types = (own.body.data.opportunities as Array<{ type: string }>).map((o) => o.type);
+    assert.equal(types.length, row.opportunities, `${row.youtubeVideoId}: suggestion count`);
+    for (const o of d.opportunities.filter((x) => x.video.youtubeVideoId === row.youtubeVideoId))
+      assert.ok(types.includes(o.type), `${o.type} is on ${row.youtubeVideoId}'s own page too`);
+    const step = d.gettingStarted.find((s) => s.video?.youtubeVideoId === row.youtubeVideoId);
+    if (step)
+      assert.ok(
+        (own.body.data.gettingStarted as Array<{ type: string; action: { href: string } }>).some(
+          (s) => s.type === step.type && s.action.href === step.action.href,
+        ),
+      );
+  }
+  return d;
+}
+
+test("actions (pure): where an action leads, and how setup and activity are worded apart", () => {
+  // The video page's period from the URL: only the three known ones.
+  assert.deepEqual(actions.videoPageSearch({ range: "6M" }), { range: "6M" });
+  for (const range of ["7M", "", 6, null, "constructor", "__proto__"])
+    assert.deepEqual(actions.videoPageSearch({ range }), {}, String(range));
+  assert.equal(actions.rangeForDays(90), "3M");
+  assert.equal(actions.rangeForDays(365), "12M");
+  assert.equal(actions.rangeForDays(30), undefined);
+  // An in-page action ("#brand-deals") from outside the video's page: that video, that block,
+  // the same period. A page action stays the page, with its own search.
+  assert.deepEqual(actions.actionTarget("#brand-deals", "vidMINE0003", "6M"), {
+    kind: "video",
+    videoId: "vidMINE0003",
+    search: { range: "6M" },
+    hash: "brand-deals",
+  });
+  // A video's links carry the period, so "Back to video" returns to it; other pages do not.
+  assert.deepEqual(actions.actionTarget("/link-tracking?video=vidMINE0003&create=1", "x", "3M"), {
+    kind: "page",
+    to: "/link-tracking",
+    search: { video: "vidMINE0003", create: "1", range: "3M" },
+  });
+  assert.deepEqual(actions.actionTarget("/link-tracking?video=vidMINE0003", "x", undefined), {
+    kind: "page",
+    to: "/link-tracking",
+    search: { video: "vidMINE0003" },
+  });
+  assert.deepEqual(actions.actionTarget("/brand-deals", "x", "6M"), {
+    kind: "page",
+    to: "/brand-deals",
+    search: undefined,
+  });
+  // The Link Tracking page keeps a well-formed period only next to a well-formed video.
+  const { linkTrackingSearch } = linkTrackingContext;
+  assert.deepEqual(linkTrackingSearch({ video: "vidMINE0003", range: "6M" }), {
+    video: "vidMINE0003",
+    range: "6M",
+  });
+  assert.deepEqual(linkTrackingSearch({ video: "vidMINE0003", create: "1", range: "12M" }), {
+    video: "vidMINE0003",
+    create: "1",
+    range: "12M",
+  });
+  for (const range of ["1Y", "", 90, "__proto__", "toString", ["3M"]])
+    assert.deepEqual(linkTrackingSearch({ video: "vidMINE0003", range }), { video: "vidMINE0003" });
+  assert.deepEqual(linkTrackingSearch({ video: "bad", range: "3M" }), {}, "no video, no period");
+  // Completed (exists), none, and unknown (restricted or unreadable) are three different things.
+  const p = actions.videoProgress({ trackedLinks: 2, clicks: 0, linkedDeals: null });
+  assert.deepEqual(
+    [p.trackedLinks.state, p.clicks.state, p.deals.state],
+    ["completed", "none", "unknown"],
+  );
+  assert.equal(p.deals.text, "—", "a part the caller may not use is never 'none'");
+  const q = actions.videoProgress({ trackedLinks: 0, clicks: 31, linkedDeals: 1 });
+  assert.deepEqual(
+    [q.trackedLinks.state, q.clicks.state, q.deals.state],
+    ["none", "observed", "completed"],
+  );
+  assert.match(actions.PROGRESS_NOTE, /interest, not income/);
+  assert.match(actions.PROGRESS_NOTE, /agreed, not confirmed as paid/);
+  // The Link Tracking page: completion from the links that exist; clicks as activity only.
+  assert.deepEqual(actions.linkContextProgress([]), {
+    completed: false,
+    text: "This video has no tracked link yet.",
+    activity: null,
+  });
+  assert.deepEqual(actions.linkContextProgress([{ clicks: 0 }]), {
+    completed: true,
+    text: "This video has 1 tracked link.",
+    activity: "No clicks recorded yet.",
+  });
+  const busy = actions.linkContextProgress([{ clicks: 30 }, { clicks: 1 }]);
+  assert.equal(busy.text, "This video has 2 tracked links.");
+  assert.equal(busy.activity, "31 clicks recorded on them so far — interest, not income.");
+  for (const text of [actions.PROGRESS_NOTE, busy.text, busy.activity ?? ""])
+    assert.doesNotMatch(text, /\$|earned|revenue from|ROI|uplift|conversion/i);
+});
+
+test("workflow: creating a tracked link completes 'add a tracked link' for that video — in the command center and on its page", async () => {
+  const f = world();
+  const before = await assertConsistent(f, "owner");
+  assert.ok(keysOf(before).includes("add_tracked_link@vidMINE0000"));
+  assert.deepEqual(
+    [rowOf(before, "vidMINE0000").trackedLinks, rowOf(before, "vidMINE0000").clicks],
+    [0, 0],
+  );
+  const created = await createTrackedLink(f, "owner", {
+    destinationId: myDestination(f),
+    videoId: f.vids[0].id,
+  });
+  assert.ok(created.status === 200 || created.status === 201, created.text);
+  // The suggestion is gone because the link now exists — asked again, from persisted data.
+  const after = await assertConsistent(f, "owner");
+  assert.ok(!keysOf(after).includes("add_tracked_link@vidMINE0000"));
+  assert.deepEqual(
+    [rowOf(after, "vidMINE0000").trackedLinks, rowOf(after, "vidMINE0000").clicks],
+    [1, 0],
+    "completed (a link exists), but no activity yet: zero clicks is not an outcome",
+  );
+  const own = await videoOpportunities(f, "owner", "vidMINE0000");
+  assert.ok(
+    !(own.body.data.opportunities as Array<{ type: string }>).some(
+      (o) => o.type === "add_tracked_link",
+    ),
+  );
+  // The same suggestion for another video is untouched: completion is per video.
+  assert.ok(keysOf(after).includes("add_tracked_link@vidMINE0002"));
+  // The other workspace sees nothing of it.
+  const theirs = dataOf(await ask(f, "stranger"));
+  assert.doesNotMatch(JSON.stringify(theirs), /vidMINE/);
+});
+
+test("workflow: a refused or failed save completes nothing, and a cancelled one sends nothing", async () => {
+  const f = world();
+  const before = dataOf(await ask(f, "owner"));
+  const linksBefore = f.w.tracking_links!.length;
+  // Another workspace's destination, another workspace's video, an unknown video: each answers
+  // as if it did not exist, and nothing is written.
+  for (const body of [
+    { destinationId: theirDestination(f), videoId: f.vids[0].id },
+    { destinationId: myDestination(f), videoId: f.theirs.id },
+    { destinationId: myDestination(f), videoId: uuid() },
+  ]) {
+    const refused = await createTrackedLink(f, "owner", body);
+    assert.ok(refused.status >= 400, refused.text);
+    assert.equal(refused.writes.length, 0, JSON.stringify(body));
+  }
+  // A save the database refuses.
+  f.w.refuseWrites = { tracking_links: "23514" };
+  const failed = await createTrackedLink(f, "owner", {
+    destinationId: myDestination(f),
+    videoId: f.vids[0].id,
+  });
+  assert.ok(failed.status >= 400, failed.text);
+  f.w.refuseWrites = {};
+  assert.equal(f.w.tracking_links!.length, linksBefore);
+  const after = dataOf(await ask(f, "owner"));
+  assert.deepEqual(keysOf(after), keysOf(before));
+  assert.deepEqual(after.videos, before.videos);
+  // Opening and closing the creation dialog is not a state anywhere: the Link Tracking banner's
+  // completion comes from the links the server listed, and nothing else.
+  const banner = (links: Array<{ clicks: number }> | null, justCreated = false) =>
+    renderToStaticMarkup(
+      createElement(
+        RouterContextProvider,
+        { router },
+        createElement(LinkVideoContextBanner, {
+          context: {
+            status: "valid",
+            video: { id: f.vids[0].id, youtubeVideoId: "vidMINE0000", title: "T" },
+          },
+          justCreated,
+          onCreate: () => {},
+          links,
+        }),
+      ),
+    );
+  assert.match(banner([]), /data-state="available"/);
+  assert.match(banner([]), /no tracked link yet/);
+  assert.doesNotMatch(banner(null), /link-context-progress/, "not known yet: nothing is claimed");
+  assert.match(banner([{ clicks: 0 }]), /data-state="completed"/);
+  assert.match(banner([{ clicks: 12 }]), /12 clicks recorded on it so far — interest, not income/);
+  // "Back to video" returns to the period it came from, or to the page's default without one.
+  const back = (range?: "3M" | "6M" | "12M") =>
+    renderToStaticMarkup(
+      createElement(
+        RouterContextProvider,
+        { router },
+        createElement(LinkVideoContextBanner, {
+          context: {
+            status: "valid",
+            video: { id: f.vids[0].id, youtubeVideoId: "vidMINE0000", title: "T" },
+          },
+          justCreated: false,
+          onCreate: () => {},
+          links: [],
+          range,
+        }),
+      ),
+    );
+  assert.match(
+    back("6M"),
+    /data-testid="link-context-back" href="\/videos\/vidMINE0000\?range=6M"/,
+  );
+  assert.match(back(), /data-testid="link-context-back" href="\/videos\/vidMINE0000"/);
+});
+
+test("workflow: linking a deal attributes it to the video — each deal once, currencies apart, agreed not paid", async () => {
+  const f = world();
+  const before = await assertConsistent(f, "owner");
+  const usd = (d: CommandCenterResponse["data"]) =>
+    d.sponsorships.status === "checked"
+      ? d.sponsorships.byCurrency.find((r) => r.currency === "USD")
+      : undefined;
+  const eur = (d: CommandCenterResponse["data"]) =>
+    d.sponsorships.status === "checked"
+      ? d.sponsorships.byCurrency.find((r) => r.currency === "EUR")
+      : undefined;
+  assert.deepEqual(usd(before), {
+    currency: "USD",
+    attributed: 1000,
+    unattributed: 500,
+    attributedDeals: 1,
+    unattributedDeals: 1,
+  });
+  const beforeOwn = await videoOpportunities(f, "owner", "vidMINE0003");
+  assert.ok(
+    (beforeOwn.body.data.opportunities as Array<{ type: string; action: { href: string } }>).some(
+      (o) => o.type === "link_sponsorship" && o.action.href === "#brand-deals",
+    ),
+    "the video's page offers to link the unlinked contracted deal, at its Brand deals block",
+  );
+  // The existing association workflow, on the video's own page.
+  const linked = await linkDeal(f, "owner", {
+    videoId: "vidMINE0003",
+    dealId: dealId(f, "completed"),
+  });
+  assert.equal(linked.status, 201, linked.text);
+  const after = await assertConsistent(f, "owner");
+  assert.deepEqual(usd(after), {
+    currency: "USD",
+    attributed: 1500,
+    unattributed: 0,
+    attributedDeals: 2,
+    unattributedDeals: 0,
+  });
+  assert.deepEqual(eur(after), eur(before), "another currency is never touched or merged");
+  assert.equal(rowOf(after, "vidMINE0003").linkedDeals, 1);
+  assert.deepEqual(after.sponsorships.status === "checked" && after.sponsorships.payments, {
+    tracked: false,
+  });
+  const afterOwn = await videoOpportunities(f, "owner", "vidMINE0003");
+  assert.ok(
+    !(afterOwn.body.data.opportunities as Array<{ type: string }>).some(
+      (o) => o.type === "link_sponsorship",
+    ),
+    "no deal is left unlinked: the suggestion is gone everywhere",
+  );
+  assert.ok(!keysOf(after).some((k) => k.startsWith("link_sponsorship@")));
+  // Linking the same deal to a second video splits it — the deal is still counted once.
+  await linkDeal(f, "owner", { videoId: "vidMINE0004", dealId: dealId(f, "completed") });
+  assert.deepEqual(usd(dataOf(await ask(f, "owner"))), usd(after));
+  // A member who may not see revenue still sees no amount after the change.
+  const hidden = await ask(f, "editor");
+  assert.doesNotMatch(hidden.text, /1500|"attributed":\d|"unattributed":\d|\$/);
+});
+
+test("workflow: a role without the feature gets no action into it and cannot complete it there", async () => {
+  const f = world();
+  f.w.role_feature_access.push(
+    { role: "editor", feature_id: "feature-links", enabled: false },
+    { role: "editor", feature_id: "feature-deals", enabled: false },
+  );
+  const d = await ask(f, "editor");
+  assert.doesNotMatch(d.text, /link-tracking|brand-deals/);
+  const link = await createTrackedLink(f, "editor", {
+    destinationId: myDestination(f),
+    videoId: f.vids[0].id,
+  });
+  assert.equal(link.status, 403);
+  assert.equal(link.writes.length, 0);
+  const deal = await linkDeal(f, "editor", {
+    videoId: "vidMINE0003",
+    dealId: dealId(f, "completed"),
+  });
+  assert.equal(deal.status, 403);
+  assert.equal(deal.writes.length, 0);
+  // With the features but without the right to see revenue: no "link a deal" suggestion — it
+  // would rest on contracted deals the member may not act on — and linking is refused.
+  const g = world();
+  assert.ok(!keysOf(dataOf(await ask(g, "editor"))).some((k) => k.startsWith("link_sponsorship")));
+  const refused = await linkDeal(g, "editor", {
+    videoId: "vidMINE0003",
+    dealId: dealId(g, "completed"),
+  });
+  assert.ok(refused.status >= 400, refused.text);
+  assert.equal(refused.writes.length, 0);
+  // Another workspace's deal on my video, my deal on their video: refused, nothing written.
+  for (const body of [
+    { videoId: "vidMINE0003", dealId: g.w.deals!.find((x) => x.workspace_id === g.other)!.id },
+    { videoId: "vidTHEIRS01", dealId: dealId(g, "completed") },
+  ]) {
+    const r = await linkDeal(g, "owner", body);
+    assert.ok(r.status >= 400, r.text);
+    assert.equal(r.writes.length, 0);
+  }
+});
+
+test("section: the 'link a deal' action leads to the video's own Brand deals block, over the same days", () => {
+  const response: CommandCenterResponse = {
+    data: {
+      status: "connected",
+      period: { days: 180, startDate: "2026-04-01", endDate: "2026-09-27" },
+      youtube: { revenue: 10, availability: "available", views: 100 },
+      sponsorships: { status: "checked", byCurrency: [], payments: { tracked: false } },
+      links: {
+        status: "checked",
+        links: 1,
+        linksOnVideos: 1,
+        videosWithLinks: 1,
+        clicks: 3,
+        period: { startDate: "2026-04-01", endDate: "2026-09-28" },
+      },
+      opportunities: [
+        {
+          type: "link_sponsorship",
+          title: "Link a sponsorship",
+          explanation: "x",
+          nextStep: "y",
+          priority: "medium",
+          dataStatus: "complete",
+          evidence: [],
+          action: { label: "Link a deal", href: "#brand-deals" },
+          video: { youtubeVideoId: "vidMINE0003", title: "T3" },
+        } as unknown as CommandCenterResponse["data"]["opportunities"][number],
+      ],
+      gettingStarted: [],
+      videos: [
+        {
+          youtubeVideoId: "vidMINE0003",
+          title: "T3",
+          views: 100,
+          revenue: 10,
+          revenueAvailability: "complete",
+          trackedLinks: 1,
+          clicks: 3,
+          linkedDeals: 0,
+          opportunities: 1,
+        },
+      ],
+      videoCount: 1,
+    },
+    visibility: { revenue: "visible" },
+  };
+  const html = render(ready(response));
+  assert.match(html, /href="\/videos\/vidMINE0003\?range=6M#brand-deals"[^>]*>Link a deal/);
+  assert.match(html, /href="\/videos\/vidMINE0003\?range=6M"/, "video links keep the period");
+  assert.match(html, /data-state="completed"[^>]*><span[^>]*>Tracked links/);
+  assert.match(html, /data-state="observed"[^>]*><span[^>]*>Link clicks/);
+  assert.match(html, /data-state="none"[^>]*><span[^>]*>Deals linked<\/span><span[^>]*>None yet/);
+  assert.match(html, /data-testid="command-center-progress-note"/);
+});
+
+test("performance: the two revenue reads run side by side, and either failing fails the answer", async () => {
+  const started: string[] = [];
+  const release: Array<() => void> = [];
+  const gate = <T>(name: string, value: T) =>
+    new Promise<T>((resolve) => {
+      started.push(name);
+      release.push(() => resolve(value));
+    });
+  const summary = { earned: {} } as never;
+  const videos = { videos: [] } as never;
+  const pending = readYoutubeRevenue({} as never, 90, "2026-10-16", {
+    buildRevenueSummary: () => gate("summary", summary),
+    buildRevenueVideos: () => gate("videos", videos),
+  });
+  await Promise.resolve();
+  assert.deepEqual(started.sort(), ["summary", "videos"], "both started before either finished");
+  for (const go of release) go();
+  assert.deepEqual(await pending, { summary, revenue: videos });
+  // The same period and day for both.
+  const seen: unknown[] = [];
+  await readYoutubeRevenue({} as never, 180, "2026-10-16", {
+    buildRevenueSummary: async (_c, q, o) => (seen.push(["s", q.days ?? q, o]), summary),
+    buildRevenueVideos: async (_c, q, o) => (seen.push(["v", q.startDate, q.endDate, o]), videos),
+  });
+  assert.equal(seen.length, 2);
+  await assert.rejects(
+    readYoutubeRevenue({} as never, 90, "2026-10-16", {
+      buildRevenueSummary: async () => summary,
+      buildRevenueVideos: async () => {
+        throw new Error("read failed");
+      },
+    }),
+    /read failed/,
+  );
+  // The endpoint still answers 500 on a failed revenue read (see above), and the optimized,
+  // sorted-once opportunity evaluation is still the one used.
+  assert.match(
+    readFileSync("src/lib/server/command-center.ts", "utf8"),
+    /evaluateOpportunities\(inputs, shared\)/,
+  );
+});
+
+test("wiring: the video page opens at the period it is given and asks for its suggestions again after a deal change", () => {
+  const page = readFileSync("src/routes/videos.$videoId.tsx", "utf8");
+  assert.match(page, /validateSearch: videoPageSearch/);
+  assert.match(page, /useState<Range>\(searchRange \?\? "12M"\)/, "12M stays the default");
+  assert.match(page, /onDealsChanged=\{\(\) => setDealsNonce/);
+  assert.match(page, /refreshNonce=\{retryNonce \+ dealsNonce\}/);
+  const deals = readFileSync("src/components/VideoBrandDeals.tsx", "utf8");
+  // Only a saved change calls back: after the refreshed block is shown, never on failure.
+  const success = deals.indexOf("onChanged?.();");
+  assert.ok(success > deals.indexOf("toast.success(") && success < deals.indexOf("return true;"));
+  assert.equal(deals.split("onChanged?.()").length - 1, 1);
+  const links = readFileSync("src/routes/link-tracking.tsx", "utf8");
+  assert.match(
+    links,
+    /links=\{context\.status === "valid" && pageStatus === "ready" \? links : null\}/,
+  );
 });

@@ -712,7 +712,8 @@ test("section: opportunity → why → what to do next, with evidence and a work
   assert.match(html, /High priority/);
   assert.match(html, /Next step: <\/span>/);
   // (The router writes the string "1" JSON-quoted, and reads it back as "1".)
-  assert.match(html, /href="\/link-tracking\?video=vidTHIS0001&amp;create=%221%22"/);
+  // (Phase 3B-1: with the period the suggestion was made over, for "Back to video".)
+  assert.match(html, /href="\/link-tracking\?video=vidTHIS0001&amp;create=%221%22&amp;range=3M"/);
   assert.match(html, /href="\/analytics"/);
   assert.match(html, /href="#brand-deals"/);
   assert.match(html, /Median RPM of 5 other workspace videos, same days/);
@@ -747,7 +748,8 @@ test("wiring: the section follows Revenue sources on the video page, on its own 
   assert.ok(overview > 0 && overview < sources && sources < opportunities);
   assert.match(
     page,
-    /<VideoRevenueOpportunities className="mt-5" youtubeVideoId=\{videoId\} range=\{range\} refreshNonce=\{retryNonce\} \/>/,
+    // (Phase 3B-1: also asked again after a deal is linked to or unlinked from the video.)
+    /<VideoRevenueOpportunities className="mt-5" youtubeVideoId=\{videoId\} range=\{range\} refreshNonce=\{retryNonce \+ dealsNonce\} \/>/,
   );
   assert.equal(
     videoOpportunitiesUrl("vidMINE0000", "3M"),
@@ -755,7 +757,15 @@ test("wiring: the section follows Revenue sources on the video page, on its own 
   );
   assert.equal(videoOpportunitiesUrl("bad", "12M"), null);
   // The Brand deals block is the in-page target of "Link a deal".
-  assert.match(readFileSync("src/components/VideoBrandDealsView.tsx", "utf8"), /id="brand-deals"/);
+  // (Phase 3B-1: one constant, shared with the command center's link to it.)
+  assert.match(
+    readFileSync("src/components/VideoBrandDealsView.tsx", "utf8"),
+    /id=\{BRAND_DEALS_ANCHOR\}/,
+  );
+  assert.match(
+    readFileSync("src/lib/revenue-actions.ts", "utf8"),
+    /export const BRAND_DEALS_ANCHOR = "brand-deals";/,
+  );
   // The overview, sources and deals components do not depend on the new section.
   for (const file of [
     "src/components/VideoRevenueOverview.tsx",

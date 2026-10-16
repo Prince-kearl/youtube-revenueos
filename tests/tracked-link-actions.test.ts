@@ -603,7 +603,8 @@ test("page wiring: context from the URL is validated, confirmed by the server, o
   assert.match(page, /if \(search\.create !== "1" \|\| context\.status !== "valid"\) return;/);
   assert.match(
     page,
-    /navigate\(\{ to: "\/link-tracking", search: \{ video: videoParam \}, replace: true \}\)/,
+    // (Phase 3B-1: the period the video was looked at over is kept too.)
+    /navigate\(\{ to: "\/link-tracking", search: \{ video: videoParam, \.\.\.\(search\.range \? \{ range: search\.range \} : \{\}\) \}, replace: true, \}\)/,
   );
   assert.match(
     page,
@@ -625,7 +626,10 @@ test("page wiring: context from the URL is validated, confirmed by the server, o
     /\s+/g,
     " ",
   );
-  assert.match(view, /const \{ to, search \} = splitActionHref\(action\.href\);/);
+  // (Phase 3B-1: through actionTarget, which splits the href the same way and adds the period only
+  // to a video's links.)
+  assert.match(view, /const target = actionTarget\(action\.href, "", range\);/);
+  assert.match(view, /const \{ to, search \} = target;/);
 });
 
 test("destinations: a link can only point at a destination of the CURRENT workspace", async () => {

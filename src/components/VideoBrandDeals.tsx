@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
+import { BRAND_DEALS_ANCHOR } from "@/lib/revenue-actions";
 import { BUTTON, BrandDealsContent, type BrandDealsState } from "@/components/VideoBrandDealsView";
 import {
   linkDealRequest,
@@ -37,10 +38,13 @@ import type { VideoDealsResponse } from "@/lib/server/video-deals";
 export function VideoBrandDeals({
   youtubeVideoId,
   refreshNonce = 0,
+  onChanged,
 }: {
   youtubeVideoId: string;
   /** Changing this refetches (the page's Refresh button). */
   refreshNonce?: number;
+  /** A link or unlink was saved (called after the block shows the saved state). */
+  onChanged?: () => void;
 }) {
   const [state, setState] = useState<BrandDealsState>({ status: "loading" });
   const [retryNonce, setRetryNonce] = useState(0);
@@ -56,6 +60,16 @@ export function VideoBrandDeals({
     setState({ status: "loading" });
     setDialogOpen(false);
   }, [youtubeVideoId]);
+
+  // Opened at this block ("#brand-deals", from a "Link a deal" suggestion elsewhere): brought into
+  // view once it has loaded, since the sections above it load on their own and move it down.
+  const scrolledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.status === "loading" || scrolledFor.current === youtubeVideoId) return;
+    if (typeof window === "undefined" || window.location.hash !== `#${BRAND_DEALS_ANCHOR}`) return;
+    scrolledFor.current = youtubeVideoId;
+    document.getElementById(BRAND_DEALS_ANCHOR)?.scrollIntoView({ block: "start" });
+  }, [state.status, youtubeVideoId]);
 
   useEffect(() => {
     const url = videoDealsUrl(youtubeVideoId, { demo: IS_LOCAL_DEMO });
@@ -116,6 +130,7 @@ export function VideoBrandDeals({
           refreshing: false,
         });
         toast.success(kind === "link" ? "Deal linked to this video" : "Deal unlinked");
+        onChanged?.();
         return true;
       } catch {
         if (currentVideo.current === video) toast.error(mutationErrorMessage(0, null));
@@ -124,7 +139,7 @@ export function VideoBrandDeals({
         setPendingId(null);
       }
     },
-    [youtubeVideoId],
+    [youtubeVideoId, onChanged],
   );
 
   return (

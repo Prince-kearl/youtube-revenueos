@@ -5,8 +5,8 @@ import { ErrorState } from "@/components/ui-bits";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CommandCenterResponse } from "@/lib/server/command-center";
 import { PRIORITY_LABEL } from "@/lib/video-opportunities-view";
-import { splitActionHref } from "@/lib/link-tracking-context";
-import { formatVideoRevenue } from "@/lib/video-revenue-overview";
+import { formatVideoRevenue, type VideoRevenueRange } from "@/lib/video-revenue-overview";
+import { PROGRESS_NOTE, actionTarget, rangeForDays, videoProgress } from "@/lib/revenue-actions";
 import {
   CLICKS_NOTE,
   COMMAND_CENTER_INTRO,
@@ -220,8 +220,8 @@ function Ready({ data }: { data: Data }) {
         </Source>
       </div>
 
-      <NextActions data={data} />
-      <Videos data={data} />
+      <NextActions data={data} range={rangeForDays(data.period.days)} />
+      <Videos data={data} range={rangeForDays(data.period.days)} />
     </>
   );
 }
@@ -254,21 +254,61 @@ function Source({
   );
 }
 
-function ActionLink({ href, label }: { href: string; label: string }) {
-  if (href.startsWith("#")) return null;
-  const { to, search } = splitActionHref(href);
-  return (
-    <Link to={to} search={search as never} className={ACTION} data-testid="command-center-action">
+/** An action as a link: a page of its own, or — for an action the rules place on the video's
+ * page ("#brand-deals") — that video's page, at that block, over the same period. */
+function ActionLink({
+  href,
+  label,
+  youtubeVideoId,
+  range,
+}: {
+  href: string;
+  label: string;
+  youtubeVideoId: string | null;
+  range: VideoRevenueRange | undefined;
+}) {
+  if (href.startsWith("#") && !youtubeVideoId) return null;
+  const target = actionTarget(href, youtubeVideoId ?? "", range);
+  const content = (
+    <>
       {label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+    </>
+  );
+  return target.kind === "video" ? (
+    <Link
+      to="/videos/$videoId"
+      params={{ videoId: target.videoId }}
+      search={target.search}
+      hash={target.hash}
+      className={ACTION}
+      data-testid="command-center-action"
+    >
+      {content}
+    </Link>
+  ) : (
+    <Link
+      to={target.to}
+      search={target.search as never}
+      className={ACTION}
+      data-testid="command-center-action"
+    >
+      {content}
     </Link>
   );
 }
 
-function VideoLink({ video }: { video: { youtubeVideoId: string; title: string | null } }) {
+function VideoLink({
+  video,
+  range,
+}: {
+  video: { youtubeVideoId: string; title: string | null };
+  range: VideoRevenueRange | undefined;
+}) {
   return (
     <Link
       to="/videos/$videoId"
       params={{ videoId: video.youtubeVideoId }}
+      search={range ? { range } : {}}
       className="font-medium text-foreground hover:underline"
     >
       {video.title ?? "Untitled video"}
@@ -276,7 +316,7 @@ function VideoLink({ video }: { video: { youtubeVideoId: string; title: string |
   );
 }
 
-function NextActions({ data }: { data: Data }) {
+function NextActions({ data, range }: { data: Data; range: VideoRevenueRange | undefined }) {
   const nothing = data.opportunities.length === 0 && data.gettingStarted.length === 0;
   return (
     <div className="mt-5" data-testid="command-center-next">
@@ -299,15 +339,21 @@ function NextActions({ data }: { data: Data }) {
                   </span>
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  <VideoLink video={o.video} /> · {o.nextStep}
+                  <VideoLink video={o.video} range={range} /> · {o.nextStep}
                 </p>
               </div>
               {o.action ? (
-                <ActionLink href={o.action.href} label={o.action.label} />
+                <ActionLink
+                  href={o.action.href}
+                  label={o.action.label}
+                  youtubeVideoId={o.video.youtubeVideoId}
+                  range={range}
+                />
               ) : (
                 <Link
                   to="/videos/$videoId"
                   params={{ videoId: o.video.youtubeVideoId }}
+                  search={range ? { range } : {}}
                   className={ACTION}
                 >
                   Open video <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -335,13 +381,18 @@ function NextActions({ data }: { data: Data }) {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {step.video && (
                       <>
-                        <VideoLink video={step.video} /> ·{" "}
+                        <VideoLink video={step.video} range={range} /> ·{" "}
                       </>
                     )}
                     {step.nextStep}
                   </p>
                 </div>
-                <ActionLink href={step.action.href} label={step.action.label} />
+                <ActionLink
+                  href={step.action.href}
+                  label={step.action.label}
+                  youtubeVideoId={step.video?.youtubeVideoId ?? null}
+                  range={range}
+                />
               </li>
             ))}
           </ul>
@@ -351,7 +402,7 @@ function NextActions({ data }: { data: Data }) {
   );
 }
 
-function Videos({ data }: { data: Data }) {
+function Videos({ data, range }: { data: Data; range: VideoRevenueRange | undefined }) {
   if (data.videos.length === 0) return null;
   const hidden = data.youtube.availability === "hidden";
   return (
@@ -369,11 +420,11 @@ function Videos({ data }: { data: Data }) {
         {data.videos.map((video) => (
           <li
             key={video.youtubeVideoId}
-            className="grid grid-cols-2 gap-x-4 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_repeat(4,auto)] sm:items-center"
+            className="grid grid-cols-2 gap-x-4 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_repeat(6,auto)] sm:items-center"
             data-testid="command-center-video"
           >
             <span className="col-span-2 truncate sm:col-span-1">
-              <VideoLink video={video} />
+              <VideoLink video={video} range={range} />
             </span>
             <Figure label="Views" value={video.views.toLocaleString("en-US")} />
             <Figure
@@ -386,10 +437,7 @@ function Videos({ data }: { data: Data }) {
                     : formatVideoRevenue(video.revenue)
               }
             />
-            <Figure
-              label="Link clicks"
-              value={video.clicks === null ? NO_FIGURE : video.clicks.toLocaleString("en-US")}
-            />
+            <ProgressFigures video={video} />
             <Figure
               label="Suggestions"
               value={video.opportunities === 0 ? "None" : String(video.opportunities)}
@@ -397,13 +445,32 @@ function Videos({ data }: { data: Data }) {
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-xs text-muted-foreground" data-testid="command-center-progress-note">
+        {PROGRESS_NOTE}
+      </p>
     </div>
   );
 }
 
-function Figure({ label, value }: { label: string; value: string }) {
+/** What is set up for the video (completed actions) and the activity on it, as separate figures. */
+function ProgressFigures({ video }: { video: Data["videos"][number] }) {
+  const progress = videoProgress(video);
   return (
-    <span className="text-xs sm:text-right">
+    <>
+      <Figure
+        label="Tracked links"
+        value={progress.trackedLinks.text}
+        state={progress.trackedLinks.state}
+      />
+      <Figure label="Link clicks" value={progress.clicks.text} state={progress.clicks.state} />
+      <Figure label="Deals linked" value={progress.deals.text} state={progress.deals.state} />
+    </>
+  );
+}
+
+function Figure({ label, value, state }: { label: string; value: string; state?: string }) {
+  return (
+    <span className="text-xs sm:text-right" data-state={state}>
       <span className="block text-muted-foreground">{label}</span>
       <span className="font-medium text-foreground">{value}</span>
     </span>

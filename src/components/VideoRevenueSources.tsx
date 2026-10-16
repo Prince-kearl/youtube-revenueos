@@ -40,12 +40,15 @@ export function VideoRevenueSources({
   youtubeVideoId,
   range,
   refreshNonce = 0,
+  onDealsChanged,
   className,
 }: {
   youtubeVideoId: string;
   range: VideoRevenueRange;
   /** Changing this refetches (the page's Refresh button). */
   refreshNonce?: number;
+  /** A deal was linked to or unlinked from the video (saved). */
+  onDealsChanged?: () => void;
   className?: string;
 }) {
   const [state, setState] = useState<LinksState>({ status: "loading" });
@@ -168,7 +171,11 @@ export function VideoRevenueSources({
 
       {/* Brand deals: agreed sponsorship value attributed to this video, on its own request. */}
       <div className="mt-4 border-t border-border pt-4">
-        <VideoBrandDeals youtubeVideoId={youtubeVideoId} refreshNonce={refreshNonce} />
+        <VideoBrandDeals
+          youtubeVideoId={youtubeVideoId}
+          refreshNonce={refreshNonce}
+          onChanged={onDealsChanged}
+        />
       </div>
 
       <div className="mt-4 flex items-start gap-3 border-t border-border pt-4">

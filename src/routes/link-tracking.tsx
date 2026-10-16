@@ -147,8 +147,12 @@ function LinkTracking() {
     if (autoOpened.current === context.video.id) return;
     autoOpened.current = context.video.id;
     setCreating(true);
-    void navigate({ to: "/link-tracking", search: { video: videoParam }, replace: true });
-  }, [search.create, context, navigate, videoParam]);
+    void navigate({
+      to: "/link-tracking",
+      search: { video: videoParam, ...(search.range ? { range: search.range } : {}) },
+      replace: true,
+    });
+  }, [search.create, search.range, context, navigate, videoParam]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -271,6 +275,8 @@ function LinkTracking() {
         context={context}
         justCreated={justCreated}
         onCreate={() => setCreating(true)}
+        links={context.status === "valid" && pageStatus === "ready" ? links : null}
+        range={search.range}
       />
 
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">

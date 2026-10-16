@@ -32,11 +32,15 @@ import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
 import { VideoRevenueSources } from "@/components/VideoRevenueSources";
 import { VideoRevenueOpportunities } from "@/components/VideoRevenueOpportunities";
+import { videoPageSearch } from "@/lib/revenue-actions";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/videos/$videoId")({
+  // ?range=3M|6M|12M — the period to open with (the command center passes its own, so a video
+  // opened from it shows the same days). Anything else is ignored.
+  validateSearch: videoPageSearch,
   component: VideoDetail,
 });
 
@@ -184,8 +188,16 @@ function friendlyError(code: string): string {
 
 function VideoDetail() {
   const { videoId } = Route.useParams();
-  const [range, setRange] = useState<Range>("12M");
+  // The router keeps search keys its validator dropped, so the same check is applied here.
+  const searchRange = videoPageSearch(Route.useSearch() as Record<string, unknown>).range;
+  const [range, setRange] = useState<Range>(searchRange ?? "12M");
+  useEffect(() => {
+    if (searchRange) setRange(searchRange);
+  }, [searchRange]);
   const [retryNonce, setRetryNonce] = useState(0);
+  // A deal linked to or unlinked from this video changes what its suggestions are based on:
+  // they are asked for again (from the persisted links), never edited in place.
+  const [dealsNonce, setDealsNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -438,6 +450,7 @@ function VideoDetail() {
         youtubeVideoId={videoId}
         range={range}
         refreshNonce={retryNonce}
+        onDealsChanged={() => setDealsNonce((n) => n + 1)}
       />
 
       {/* What to do next with this video, from the figures above; on its own request too. */}
@@ -445,7 +458,7 @@ function VideoDetail() {
         className="mt-5"
         youtubeVideoId={videoId}
         range={range}
-        refreshNonce={retryNonce}
+        refreshNonce={retryNonce + dealsNonce}
       />
 
       {result.status === "loading" && <ActivityLoading />}

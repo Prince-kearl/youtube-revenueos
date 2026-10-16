@@ -13,7 +13,8 @@ import {
   PRIORITY_LABEL,
   uncheckedAreas,
 } from "@/lib/video-opportunities-view";
-import { splitActionHref } from "@/lib/link-tracking-context";
+import { actionTarget, rangeForDays } from "@/lib/revenue-actions";
+import type { VideoRevenueRange } from "@/lib/video-revenue-overview";
 
 // The Revenue opportunities section of a video's page, for one state: rendering only, no
 // requests (components/VideoRevenueOpportunities.tsx loads it). Each opportunity reads
@@ -173,21 +174,34 @@ function OpportunityList({ response }: { response: VideoOpportunitiesResponse })
                   <span className="font-medium">Next step: </span>
                   {opportunity.nextStep}
                 </p>
-                {opportunity.action && <OpportunityAction action={opportunity.action} />}
+                {opportunity.action && (
+                  <OpportunityAction
+                    action={opportunity.action}
+                    range={rangeForDays(response.data.period.days)}
+                  />
+                )}
               </div>
             </li>
           ))}
         </ol>
       )}
 
-      {gettingStarted.length > 0 && <GettingStarted steps={gettingStarted} />}
+      {gettingStarted.length > 0 && (
+        <GettingStarted steps={gettingStarted} range={rangeForDays(response.data.period.days)} />
+      )}
       <Footer unchecked={unchecked} days={response.data.period.days} />
     </>
   );
 }
 
 /** Setup steps: deliberately plainer than the findings above — no priority, no evidence. */
-function GettingStarted({ steps }: { steps: GettingStartedRecommendation[] }) {
+function GettingStarted({
+  steps,
+  range,
+}: {
+  steps: GettingStartedRecommendation[];
+  range: VideoRevenueRange | undefined;
+}) {
   return (
     <div className="mt-5" data-testid="getting-started">
       <h3 className="flex items-center gap-1.5 text-sm font-semibold">
@@ -215,7 +229,7 @@ function GettingStarted({ steps }: { steps: GettingStartedRecommendation[] }) {
                 {step.nextStep}
               </p>
             </div>
-            <OpportunityAction action={step.action} />
+            <OpportunityAction action={step.action} range={range} />
           </li>
         ))}
       </ul>
@@ -248,7 +262,13 @@ function Footer({ unchecked, days }: { unchecked: string[]; days: number }) {
 const ACTION_CLASS =
   "inline-flex shrink-0 items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
-function OpportunityAction({ action }: { action: { label: string; href: string } }) {
+function OpportunityAction({
+  action,
+  range,
+}: {
+  action: { label: string; href: string };
+  range: VideoRevenueRange | undefined;
+}) {
   // An in-page target (the Brand deals block) is a plain anchor; an app page is a router link.
   if (action.href.startsWith("#"))
     return (
@@ -256,8 +276,11 @@ function OpportunityAction({ action }: { action: { label: string; href: string }
         {action.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
     );
-  // An app page, with its search parameters (e.g. /link-tracking?video=…&create=1).
-  const { to, search } = splitActionHref(action.href);
+  // An app page, with its search parameters (e.g. /link-tracking?video=…&create=1) — and, for
+  // the video's links, the period it is looked at over, so "Back to video" returns to it.
+  const target = actionTarget(action.href, "", range);
+  if (target.kind !== "page") return null;
+  const { to, search } = target;
   return (
     <Link
       to={to}
