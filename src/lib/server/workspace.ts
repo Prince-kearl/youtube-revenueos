@@ -64,12 +64,31 @@ export async function requireWorkspaceFeature(
   featureKey: string,
 ): Promise<WorkspaceContext> {
   const ctx = await getWorkspaceContext(request);
+  const status = await workspaceFeatureStatus(ctx, featureKey);
+  if (status === "unavailable") throw forbidden("FEATURE_UNAVAILABLE");
+  if (status === "disabled") throw forbidden("FEATURE_DISABLED");
+  return ctx;
+}
+
+/**
+ * Whether the caller's role may use a feature, without throwing — for a route that combines
+ * several features and leaves out what a role may not use (requireWorkspaceFeature is the same
+ * check for a route that needs one feature outright):
+ *
+ *   unavailable  the feature does not exist or is switched off for everyone
+ *   disabled     it is switched off for the caller's role
+ *   enabled      otherwise (a role with no override has it)
+ */
+export async function workspaceFeatureStatus(
+  ctx: Pick<WorkspaceContext, "client" | "workspaceRole">,
+  featureKey: string,
+): Promise<"enabled" | "disabled" | "unavailable"> {
   const { data: feature } = await ctx.client
     .from("features")
     .select("id, is_active")
     .eq("key", featureKey)
     .maybeSingle();
-  if (!feature || !feature.is_active) throw forbidden("FEATURE_UNAVAILABLE");
+  if (!feature || !feature.is_active) return "unavailable";
 
   const { data: override } = await ctx.client
     .from("role_feature_access")
@@ -77,10 +96,7 @@ export async function requireWorkspaceFeature(
     .eq("role", ctx.workspaceRole)
     .eq("feature_id", feature.id)
     .maybeSingle();
-  const enabled = override?.enabled ?? true;
-  if (!enabled) throw forbidden("FEATURE_DISABLED");
-
-  return ctx;
+  return (override?.enabled ?? true) ? "enabled" : "disabled";
 }
 
 // The role rules themselves live in lib/team-policy.ts (pure, shared with the Team page and

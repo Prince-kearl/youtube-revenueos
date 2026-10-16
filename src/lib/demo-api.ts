@@ -1250,6 +1250,97 @@ async function demoVideoDealsWrite(url: URL, method: string, init?: RequestInit)
   return method === "DELETE" ? { ...refreshed, removed } : refreshed;
 }
 
+// ============ videos/opportunities ============
+// Sample opportunities for the sample videos, in the API's shape. Fixed wording, nothing computed.
+function demoVideoOpportunities(url: URL) {
+  const videoId = url.searchParams.get("videoId") ?? "";
+  const days = Number(url.searchParams.get("days") ?? "365");
+  const { period } = demoRevenuePeriod(url.searchParams);
+  const checks = {
+    audience: "checked",
+    links: "checked",
+    sponsorships: "checked",
+    revenue: "checked",
+  };
+  const opportunities =
+    videoId === VIDEOS[0].id
+      ? [
+          {
+            type: "review_link_offer",
+            title: "Viewers are clicking through from this video",
+            explanation: `Its tracked links were clicked 151 times in the last ${days} days. Clicks show interest, not sales: check that the offer behind the link matches what this audience came for.`,
+            evidence: [
+              { label: `Link clicks, last ${days} days (UTC)`, value: "151" },
+              { label: `Views, last ${days} days (stored YouTube data)`, value: "48,210" },
+            ],
+            nextStep:
+              "Review the destination and call to action, and reuse this video's format for your next promotion.",
+            action: { label: "Review tracked links", href: "/link-tracking" },
+            priority: "medium",
+            dataStatus: "complete",
+          },
+          {
+            type: "sponsored_video_for_pitch",
+            title: "Use this sponsored video in your next pitch",
+            explanation: `This video carries 2 contracted sponsorships and is in the top quarter of this workspace's videos by views over the last ${days} days. A contracted deal is agreed, not confirmed as paid.`,
+            evidence: [
+              { label: `Views, last ${days} days (stored YouTube data)`, value: "48,210" },
+              {
+                label: "Compared with this workspace's videos",
+                value: "Top quarter of the workspace's 12 videos",
+              },
+              { label: "Contracted deals linked", value: "2" },
+            ],
+            nextStep: "Use its views and audience as evidence when you pitch similar sponsors.",
+            action: { label: "Open Brand Deals", href: "/brand-deals" },
+            priority: "low",
+            dataStatus: "complete",
+          },
+        ]
+      : [
+          {
+            type: "add_tracked_link",
+            title: "Measure what viewers do after this video",
+            explanation: `This video drew 21,400 views in the last ${days} days but has no tracked link, so Tubify can't see whether viewers act on an offer. That isn't evidence it earns nothing beyond YouTube — only that nothing is measured.`,
+            evidence: [
+              { label: `Views, last ${days} days (stored YouTube data)`, value: "21,400" },
+              {
+                label: "Compared with this workspace's videos",
+                value: "Top quarter of the workspace's 12 videos",
+              },
+              { label: "Tracked links on this video", value: "None" },
+            ],
+            nextStep:
+              "Add a tracked link to the offer, lead magnet or product you mention in this video.",
+            action: { label: "Add a tracked link", href: "/link-tracking" },
+            priority: "high",
+            dataStatus: "complete",
+          },
+          {
+            type: "link_sponsorship",
+            title: "Was this video part of a sponsorship?",
+            explanation:
+              "1 contracted deal in your workspace isn't linked to any video yet. If one of them covered this video, linking it attributes its agreed value here.",
+            evidence: [
+              { label: "Deals linked to this video", value: "None" },
+              { label: "Contracted deals not linked to any video", value: "1" },
+            ],
+            nextStep: "Link the existing deal that covered this video — don't create a new one.",
+            action: { label: "Link a deal", href: "#brand-deals" },
+            priority: "low",
+            dataStatus: "complete",
+          },
+        ];
+  return {
+    data: {
+      opportunities,
+      checks,
+      period: { days, startDate: period.startDate, endDate: period.endDate },
+    },
+    visibility: { revenue: "visible" },
+  };
+}
+
 function demoTrackingLinks() {
   return {
     data: [
@@ -1749,6 +1840,7 @@ const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/tracking-links": demoTrackingLinks,
   "/api/videos/link-activity": demoVideoLinkActivity,
   "/api/videos/deals": demoVideoDeals,
+  "/api/videos/opportunities": demoVideoOpportunities,
   "/api/projects": demoProjects,
   "/api/reports/summary": demoReportsSummary,
   "/api/notifications": demoNotifications,

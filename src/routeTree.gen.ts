@@ -101,6 +101,7 @@ import { Route as ApiTrackingLinksEnsureRouteImport } from './routes/api.trackin
 import { Route as ApiVideosAnalyzeContentRouteImport } from './routes/api.videos.analyze-content'
 import { Route as ApiVideosDealsRouteImport } from './routes/api.videos.deals'
 import { Route as ApiVideosLinkActivityRouteImport } from './routes/api.videos.link-activity'
+import { Route as ApiVideosOpportunitiesRouteImport } from './routes/api.videos.opportunities'
 import { Route as ApiVideosOptimizeRouteImport } from './routes/api.videos.optimize'
 import { Route as ApiWorkspaceBrandingRouteImport } from './routes/api.workspace.branding'
 import { Route as ApiWorkspaceDomainRouteImport } from './routes/api.workspace.domain'
@@ -598,6 +599,11 @@ const ApiVideosLinkActivityRoute = ApiVideosLinkActivityRouteImport.update({
   path: '/link-activity',
   getParentRoute: () => ApiVideosRoute,
 } as any)
+const ApiVideosOpportunitiesRoute = ApiVideosOpportunitiesRouteImport.update({
+  id: '/opportunities',
+  path: '/opportunities',
+  getParentRoute: () => ApiVideosRoute,
+} as any)
 const ApiVideosOptimizeRoute = ApiVideosOptimizeRouteImport.update({
   id: '/optimize',
   path: '/optimize',
@@ -864,6 +870,7 @@ export interface FileRoutesByFullPath {
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/deals': typeof ApiVideosDealsRoute
   '/api/videos/link-activity': typeof ApiVideosLinkActivityRoute
+  '/api/videos/opportunities': typeof ApiVideosOpportunitiesRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
@@ -991,6 +998,7 @@ export interface FileRoutesByTo {
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/deals': typeof ApiVideosDealsRoute
   '/api/videos/link-activity': typeof ApiVideosLinkActivityRoute
+  '/api/videos/opportunities': typeof ApiVideosOpportunitiesRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
@@ -1119,6 +1127,7 @@ export interface FileRoutesById {
   '/api/videos/analyze-content': typeof ApiVideosAnalyzeContentRoute
   '/api/videos/deals': typeof ApiVideosDealsRoute
   '/api/videos/link-activity': typeof ApiVideosLinkActivityRoute
+  '/api/videos/opportunities': typeof ApiVideosOpportunitiesRoute
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
@@ -1248,6 +1257,7 @@ export interface FileRouteTypes {
     | '/api/videos/analyze-content'
     | '/api/videos/deals'
     | '/api/videos/link-activity'
+    | '/api/videos/opportunities'
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
@@ -1375,6 +1385,7 @@ export interface FileRouteTypes {
     | '/api/videos/analyze-content'
     | '/api/videos/deals'
     | '/api/videos/link-activity'
+    | '/api/videos/opportunities'
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
@@ -1502,6 +1513,7 @@ export interface FileRouteTypes {
     | '/api/videos/analyze-content'
     | '/api/videos/deals'
     | '/api/videos/link-activity'
+    | '/api/videos/opportunities'
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
@@ -2284,6 +2296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideosLinkActivityRouteImport
       parentRoute: typeof ApiVideosRoute
     }
+    '/api/videos/opportunities': {
+      id: '/api/videos/opportunities'
+      path: '/opportunities'
+      fullPath: '/api/videos/opportunities'
+      preLoaderRoute: typeof ApiVideosOpportunitiesRouteImport
+      parentRoute: typeof ApiVideosRoute
+    }
     '/api/videos/optimize': {
       id: '/api/videos/optimize'
       path: '/optimize'
@@ -2642,6 +2661,7 @@ interface ApiVideosRouteChildren {
   ApiVideosAnalyzeContentRoute: typeof ApiVideosAnalyzeContentRoute
   ApiVideosDealsRoute: typeof ApiVideosDealsRoute
   ApiVideosLinkActivityRoute: typeof ApiVideosLinkActivityRoute
+  ApiVideosOpportunitiesRoute: typeof ApiVideosOpportunitiesRoute
   ApiVideosOptimizeRoute: typeof ApiVideosOptimizeRoute
 }
 
@@ -2649,6 +2669,7 @@ const ApiVideosRouteChildren: ApiVideosRouteChildren = {
   ApiVideosAnalyzeContentRoute: ApiVideosAnalyzeContentRoute,
   ApiVideosDealsRoute: ApiVideosDealsRoute,
   ApiVideosLinkActivityRoute: ApiVideosLinkActivityRoute,
+  ApiVideosOpportunitiesRoute: ApiVideosOpportunitiesRoute,
   ApiVideosOptimizeRoute: ApiVideosOptimizeRoute,
 }
 

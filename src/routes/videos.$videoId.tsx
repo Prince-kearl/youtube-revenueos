@@ -31,6 +31,7 @@ import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
 import { VideoRevenueSources } from "@/components/VideoRevenueSources";
+import { VideoRevenueOpportunities } from "@/components/VideoRevenueOpportunities";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartSkeleton } from "@/components/skeletons";
@@ -433,6 +434,14 @@ function VideoDetail() {
       {/* What else is connected to this video: tracked-link activity (never money), on its own
           request as well. */}
       <VideoRevenueSources
+        className="mt-5"
+        youtubeVideoId={videoId}
+        range={range}
+        refreshNonce={retryNonce}
+      />
+
+      {/* What to do next with this video, from the figures above; on its own request too. */}
+      <VideoRevenueOpportunities
         className="mt-5"
         youtubeVideoId={videoId}
         range={range}

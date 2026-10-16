@@ -47,7 +47,12 @@ export function BrandDealsContent({
 }) {
   const view = state.status === "ready" ? state.view : null;
   return (
-    <div className="flex items-start gap-3" data-testid="sources-deals">
+    // id: the target of the "Link a deal" revenue opportunity.
+    <div
+      id="brand-deals"
+      className="flex scroll-mt-24 items-start gap-3"
+      data-testid="sources-deals"
+    >
       <Handshake className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
