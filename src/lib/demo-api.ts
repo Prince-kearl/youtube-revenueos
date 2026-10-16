@@ -1367,6 +1367,70 @@ function demoVideoOpportunities(url: URL) {
   };
 }
 
+// ============ revenue/command-center ============
+// The dashboard's command center for the sample workspace, in the API's shape: the sample
+// opportunities, deals and links the video pages show. Fixed figures, nothing computed.
+function demoCommandCenter(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "90");
+  const { period } = demoRevenuePeriod(url.searchParams);
+  const first = demoVideoOpportunities(
+    new URL(`/x?videoId=${VIDEOS[0].id}&days=${days}`, url.origin),
+  ).data;
+  const small = demoVideoOpportunities(
+    new URL(`/x?videoId=${VIDEOS[2].id}&days=${days}`, url.origin),
+  ).data;
+  const ref = (video: (typeof VIDEOS)[number]) => ({
+    youtubeVideoId: video.id,
+    title: video.title,
+  });
+  return {
+    data: {
+      status: "connected",
+      period: { days, startDate: period.startDate, endDate: period.endDate },
+      youtube: { revenue: 1842.37, availability: "available", views: 184_210 },
+      sponsorships: {
+        status: "checked",
+        byCurrency: [
+          {
+            currency: "USD",
+            attributed: 4000,
+            unattributed: 0,
+            attributedDeals: 2,
+            unattributedDeals: 0,
+          },
+        ],
+        payments: { tracked: false },
+      },
+      links: {
+        status: "checked",
+        links: 4,
+        linksOnVideos: 3,
+        videosWithLinks: 2,
+        clicks: 151,
+        period: { startDate: period.startDate, endDate: period.endDate },
+      },
+      opportunities: first.opportunities.map((o) => ({ ...o, video: ref(VIDEOS[0]) })),
+      gettingStarted: small.gettingStarted.map((step) => ({
+        ...step,
+        video: step.type === "track_viewer_interest" ? ref(VIDEOS[2]) : null,
+      })),
+      videos: VIDEOS.slice(0, 5).map((video, i) => ({
+        youtubeVideoId: video.id,
+        title: video.title,
+        views: [48_210, 31_400, 21_400, 12_080, 6_310][i],
+        revenue: [612.4, 388.1, 241.75, 140.2, 66.05][i],
+        revenueAvailability: "complete",
+        trackedLinks: [2, 1, 0, 0, 0][i],
+        clicks: [151, 0, 0, 0, 0][i],
+        linkedDeals: [2, 1, 0, 0, 0][i],
+        opportunities: i === 0 ? first.opportunities.length : 0,
+      })),
+      videoCount: VIDEOS.length,
+    },
+    visibility: { revenue: "visible" },
+  };
+}
+
 function demoTrackingLinks() {
   return {
     data: [
@@ -1867,6 +1931,7 @@ const GET_HANDLERS: Record<string, (url: URL) => unknown> = {
   "/api/videos/link-activity": demoVideoLinkActivity,
   "/api/videos/deals": demoVideoDeals,
   "/api/videos/opportunities": demoVideoOpportunities,
+  "/api/revenue/command-center": demoCommandCenter,
   "/api/projects": demoProjects,
   "/api/reports/summary": demoReportsSummary,
   "/api/notifications": demoNotifications,

@@ -91,6 +91,7 @@ import { Route as ApiPrePublishVideosAnalyzeRouteImport } from './routes/api.pre
 import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.click'
 import { Route as ApiReportsExportRouteImport } from './routes/api.reports.export'
 import { Route as ApiReportsSummaryRouteImport } from './routes/api.reports.summary'
+import { Route as ApiRevenueCommandCenterRouteImport } from './routes/api.revenue.command-center'
 import { Route as ApiRevenueSummaryRouteImport } from './routes/api.revenue.summary'
 import { Route as ApiRevenueVideosRouteImport } from './routes/api.revenue.videos'
 import { Route as ApiSecurityRecoveryCodesRouteImport } from './routes/api.security.recovery-codes'
@@ -548,6 +549,11 @@ const ApiReportsSummaryRoute = ApiReportsSummaryRouteImport.update({
   path: '/api/reports/summary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRevenueCommandCenterRoute = ApiRevenueCommandCenterRouteImport.update({
+  id: '/api/revenue/command-center',
+  path: '/api/revenue/command-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRevenueSummaryRoute = ApiRevenueSummaryRouteImport.update({
   id: '/api/revenue/summary',
   path: '/api/revenue/summary',
@@ -860,6 +866,7 @@ export interface FileRoutesByFullPath {
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
+  '/api/revenue/command-center': typeof ApiRevenueCommandCenterRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
   '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -988,6 +995,7 @@ export interface FileRoutesByTo {
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
+  '/api/revenue/command-center': typeof ApiRevenueCommandCenterRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
   '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -1117,6 +1125,7 @@ export interface FileRoutesById {
   '/api/referrals/click': typeof ApiReferralsClickRoute
   '/api/reports/export': typeof ApiReportsExportRoute
   '/api/reports/summary': typeof ApiReportsSummaryRoute
+  '/api/revenue/command-center': typeof ApiRevenueCommandCenterRoute
   '/api/revenue/summary': typeof ApiRevenueSummaryRoute
   '/api/revenue/videos': typeof ApiRevenueVideosRoute
   '/api/security/recovery-codes': typeof ApiSecurityRecoveryCodesRoute
@@ -1247,6 +1256,7 @@ export interface FileRouteTypes {
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
+    | '/api/revenue/command-center'
     | '/api/revenue/summary'
     | '/api/revenue/videos'
     | '/api/security/recovery-codes'
@@ -1375,6 +1385,7 @@ export interface FileRouteTypes {
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
+    | '/api/revenue/command-center'
     | '/api/revenue/summary'
     | '/api/revenue/videos'
     | '/api/security/recovery-codes'
@@ -1503,6 +1514,7 @@ export interface FileRouteTypes {
     | '/api/referrals/click'
     | '/api/reports/export'
     | '/api/reports/summary'
+    | '/api/revenue/command-center'
     | '/api/revenue/summary'
     | '/api/revenue/videos'
     | '/api/security/recovery-codes'
@@ -1621,6 +1633,7 @@ export interface RootRouteChildren {
   ApiReferralsClickRoute: typeof ApiReferralsClickRoute
   ApiReportsExportRoute: typeof ApiReportsExportRoute
   ApiReportsSummaryRoute: typeof ApiReportsSummaryRoute
+  ApiRevenueCommandCenterRoute: typeof ApiRevenueCommandCenterRoute
   ApiRevenueSummaryRoute: typeof ApiRevenueSummaryRoute
   ApiRevenueVideosRoute: typeof ApiRevenueVideosRoute
   ApiSecurityRecoveryCodesRoute: typeof ApiSecurityRecoveryCodesRoute
@@ -2226,6 +2239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReportsSummaryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/revenue/command-center': {
+      id: '/api/revenue/command-center'
+      path: '/api/revenue/command-center'
+      fullPath: '/api/revenue/command-center'
+      preLoaderRoute: typeof ApiRevenueCommandCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/revenue/summary': {
       id: '/api/revenue/summary'
       path: '/api/revenue/summary'
@@ -2801,6 +2821,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReferralsClickRoute: ApiReferralsClickRoute,
   ApiReportsExportRoute: ApiReportsExportRoute,
   ApiReportsSummaryRoute: ApiReportsSummaryRoute,
+  ApiRevenueCommandCenterRoute: ApiRevenueCommandCenterRoute,
   ApiRevenueSummaryRoute: ApiRevenueSummaryRoute,
   ApiRevenueVideosRoute: ApiRevenueVideosRoute,
   ApiSecurityRecoveryCodesRoute: ApiSecurityRecoveryCodesRoute,

@@ -272,18 +272,76 @@ export function gettingStartedFor(
 
 // ---------- small, exact helpers ----------
 
+const ascending = (values: readonly number[]) => [...values].sort((a, b) => a - b);
+
 /** Median of a non-empty list. */
 export function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  return medianOfSorted(ascending(values));
+}
+
+/** Median of a non-empty list already in ascending order — without its element at `skip`, if
+ * one is given (the list is not copied). */
+function medianOfSorted(sorted: readonly number[], skip = -1): number {
+  const at = (k: number) => (skip < 0 || k < skip ? sorted[k] : sorted[k + 1]);
+  const length = sorted.length - (skip < 0 ? 0 : 1);
+  const middle = Math.floor(length / 2);
+  return length % 2 ? at(middle) : (at(middle - 1) + at(middle)) / 2;
+}
+
+/** Index of the first element ≥ value in an ascending list. */
+function lowerBound(sorted: readonly number[], value: number): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid] < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /** The p-th percentile by nearest rank (0 < p ≤ 100) of a non-empty list. */
 export function percentile(values: readonly number[], p: number): number {
-  const sorted = [...values].sort((a, b) => a - b);
+  return percentileOfSorted(ascending(values), p);
+}
+
+function percentileOfSorted(sorted: readonly number[], p: number): number {
   const rank = Math.max(1, Math.ceil((p / 100) * sorted.length));
   return sorted[rank - 1];
+}
+
+/** Whether a video of the workspace counts towards the RPM comparison. */
+const rpmComparable = (v: { views: number; rpm: number | null; availability: VideoAvailability }) =>
+  revenueKnown(v.availability) && v.views >= OPPORTUNITY_RULES.MIN_VIEWS && v.rpm !== null;
+
+/**
+ * The workspace-wide lists the rules compare a video with, sorted once. They are the same for
+ * every video of one workspace and period, so a caller evaluating many videos together (the
+ * command center) builds them once and passes them to every call instead of having each call
+ * filter and sort the whole workspace again. The result is identical either way, provided this
+ * video's entry in the workspace has the same figures as `input.video` (with the shared lists,
+ * the rules take this video's own figures from `input.video`).
+ */
+export interface WorkspaceComparisons {
+  /** Views of the workspace's videos with any views, ascending. */
+  views: number[];
+  /** RPMs of the workspace's videos that count towards the RPM comparison, ascending. */
+  rpm: number[];
+}
+
+export function workspaceComparisons(
+  workspace: OpportunityInputs["workspace"],
+): WorkspaceComparisons {
+  return {
+    views: workspace
+      .filter((v) => v.views > 0)
+      .map((v) => v.views)
+      .sort((a, b) => a - b),
+    rpm: workspace
+      .filter(rpmComparable)
+      .map((v) => v.rpm as number)
+      .sort((a, b) => a - b),
+  };
 }
 
 const count = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -309,7 +367,10 @@ const TYPE_ORDER: OpportunityType[] = [
 
 // ---------- the rules ----------
 
-export function evaluateOpportunities(input: OpportunityInputs): OpportunityResult {
+export function evaluateOpportunities(
+  input: OpportunityInputs,
+  shared?: WorkspaceComparisons,
+): OpportunityResult {
   const { MIN_VIEWS, MIN_COMPARABLE, MIN_CLICKS, LOW_RPM_RATIO, HIGH_RPM_RATIO } =
     OPPORTUNITY_RULES;
   const days = input.periodDays;
@@ -339,10 +400,17 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
     video.availability === "provisional" ? "provisional" : "complete";
 
   // ----- audience: how this video's views compare with the workspace's other videos -----
-  const viewed = input.workspace.filter((v) => v.views > 0).map((v) => v.views);
+  const viewed = shared
+    ? shared.views
+    : input.workspace.filter((v) => v.views > 0).map((v) => v.views);
   const ranked = viewed.length >= MIN_COMPARABLE;
-  const medianViews = ranked ? median(viewed) : null;
-  const topQuarterViews = ranked ? percentile(viewed, 75) : null;
+  // (The shared list is sorted already; read from it as it is.)
+  const medianViews = !ranked ? null : shared ? medianOfSorted(viewed) : median(viewed);
+  const topQuarterViews = !ranked
+    ? null
+    : shared
+      ? percentileOfSorted(viewed, 75)
+      : percentile(viewed, 75);
   const strongAudience =
     video.views >= MIN_VIEWS && (medianViews === null || video.views >= medianViews);
   const topQuarter =
@@ -465,25 +533,36 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
 
   // ----- YouTube revenue per view (only for a caller who may see revenue) -----
   if (input.revenueVisible) {
-    const comparableRpm = input.workspace
-      .filter(
-        (v) =>
-          !v.isThisVideo && revenueKnown(v.availability) && v.views >= MIN_VIEWS && v.rpm !== null,
-      )
-      .map((v) => v.rpm as number);
+    // The workspace's OTHER videos. From the shared (sorted) list, this video's own RPM is left
+    // out where it stands — one entry with its value — without copying the list.
+    let comparableCount: number;
+    let typicalRpm: () => number;
+    if (shared) {
+      const sorted = shared.rpm;
+      const at = rpmComparable(video) ? lowerBound(sorted, video.rpm as number) : -1;
+      const skip = at >= 0 && sorted[at] === video.rpm ? at : -1;
+      comparableCount = sorted.length - (skip < 0 ? 0 : 1);
+      typicalRpm = () => medianOfSorted(sorted, skip);
+    } else {
+      const comparableRpm = input.workspace
+        .filter((v) => !v.isThisVideo && rpmComparable(v))
+        .map((v) => v.rpm as number);
+      comparableCount = comparableRpm.length;
+      typicalRpm = () => median(comparableRpm);
+    }
     const usable =
       revenueKnown(video.availability) &&
       video.views >= MIN_VIEWS &&
       video.rpm !== null &&
-      comparableRpm.length >= MIN_COMPARABLE;
+      comparableCount >= MIN_COMPARABLE;
     if (usable) {
       checks.revenue = "checked";
       const rpm = video.rpm as number;
-      const typical = median(comparableRpm);
+      const typical = typicalRpm();
       const rpmEvidence = [
         { label: `RPM, last ${days} days`, value: usd(rpm) },
         {
-          label: `Median RPM of ${count(comparableRpm.length)} other workspace videos, same days`,
+          label: `Median RPM of ${count(comparableCount)} other workspace videos, same days`,
           value: usd(typical),
         },
         viewsEvidence,

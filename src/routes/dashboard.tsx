@@ -49,6 +49,7 @@ import type { RevenueSummaryResponse } from "@/lib/server/revenue-summary";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { RevenueCommandCenter } from "@/components/RevenueCommandCenter";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 
 export const Route = createFileRoute("/dashboard")({
@@ -502,6 +503,9 @@ function Dashboard() {
           data and are not connected to Supabase or YouTube.
         </div>
       )}
+
+      {/* The workspace's revenue at a glance and what to do next, on its own request. */}
+      <RevenueCommandCenter />
 
       {youtubeStatus === "loading" && (
         <p
