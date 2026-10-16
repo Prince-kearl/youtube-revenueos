@@ -101,6 +101,8 @@ const revenueKnown = (availability: VideoAvailability) =>
   availability === "complete" || availability === "provisional";
 
 export interface OpportunityInputs {
+  /** The video asked about (its YouTube id, as requested) — only used to point actions at it. */
+  youtubeVideoId: string;
   /** Length of the period every figure covers. */
   periodDays: number;
   /** This video's stored figures for the period; null when nothing is stored for it (unknown,
@@ -180,6 +182,21 @@ export interface OpportunityResult {
 export const MAX_GETTING_STARTED = 3;
 
 /**
+ * Where a tracked-link action goes (Phase 2D-1): the Link Tracking page with this video as its
+ * context — `create` opens the existing creation dialog with the video chosen; without it, the
+ * page lists this video's links. The page re-checks the video on the server: an id that is not
+ * a video of the workspace gets no context at all.
+ */
+export function trackedLinksHref(
+  youtubeVideoId: string,
+  options: { create?: boolean } = {},
+): string {
+  const params = new URLSearchParams({ video: youtubeVideoId });
+  if (options.create) params.set("create", "1");
+  return `/link-tracking?${params.toString()}`;
+}
+
+/**
  * The Getting Started steps (pure). Each needs the role to have the feature its action leads to,
  * and is left out when it is already done, when a performance opportunity covers the same action,
  * or when it cannot be known whether it is done.
@@ -191,7 +208,7 @@ export const MAX_GETTING_STARTED = 3;
  *                                    stored for it); "link a sponsorship" was not found
  */
 export function gettingStartedFor(
-  input: Pick<OpportunityInputs, "links" | "deals" | "setup">,
+  input: Pick<OpportunityInputs, "links" | "deals" | "setup" | "youtubeVideoId">,
   performanceTypes: ReadonlySet<OpportunityType>,
 ): GettingStartedRecommendation[] {
   const steps: GettingStartedRecommendation[] = [];
@@ -217,7 +234,10 @@ export function gettingStartedFor(
         : "A tracked link in a video's description shows how many viewers click through to your offer — interest you can't see in YouTube's own numbers.",
       nextStep:
         "Create a tracked link for something you mention in this video and put it in the description.",
-      action: { label: "Create a tracked link", href: "/link-tracking" },
+      action: {
+        label: "Create a tracked link",
+        href: trackedLinksHref(input.youtubeVideoId, { create: true }),
+      },
     });
 
   if (setup.leadCapture.enabled && setup.leadCapture.workspaceHasLeadMagnet === false)
@@ -360,7 +380,10 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
         ],
         nextStep:
           "Add a tracked link to the offer, lead magnet or product you mention in this video.",
-        action: { label: "Add a tracked link", href: "/link-tracking" },
+        action: {
+          label: "Add a tracked link",
+          href: trackedLinksHref(input.youtubeVideoId, { create: true }),
+        },
         priority: topQuarter ? "high" : "medium",
         dataStatus,
       });
@@ -376,7 +399,10 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
         ],
         nextStep:
           "Check where the link appears and how you introduce it — description position, pinned comment, on-screen mention.",
-        action: { label: "Review tracked links", href: "/link-tracking" },
+        action: {
+          label: "Review this video's links",
+          href: trackedLinksHref(input.youtubeVideoId),
+        },
         priority: "medium",
         dataStatus,
       });
@@ -391,7 +417,10 @@ export function evaluateOpportunities(input: OpportunityInputs): OpportunityResu
         ],
         nextStep:
           "Review the destination and call to action, and reuse this video's format for your next promotion.",
-        action: { label: "Review tracked links", href: "/link-tracking" },
+        action: {
+          label: "Review this video's links",
+          href: trackedLinksHref(input.youtubeVideoId),
+        },
         priority: "medium",
         dataStatus,
       });

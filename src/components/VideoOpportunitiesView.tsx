@@ -13,6 +13,7 @@ import {
   PRIORITY_LABEL,
   uncheckedAreas,
 } from "@/lib/video-opportunities-view";
+import { splitActionHref } from "@/lib/link-tracking-context";
 
 // The Revenue opportunities section of a video's page, for one state: rendering only, no
 // requests (components/VideoRevenueOpportunities.tsx loads it). Each opportunity reads
@@ -255,8 +256,15 @@ function OpportunityAction({ action }: { action: { label: string; href: string }
         {action.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
     );
+  // An app page, with its search parameters (e.g. /link-tracking?video=…&create=1).
+  const { to, search } = splitActionHref(action.href);
   return (
-    <Link to={action.href} className={ACTION_CLASS} data-testid="opportunity-action">
+    <Link
+      to={to}
+      search={search as never}
+      className={ACTION_CLASS}
+      data-testid="opportunity-action"
+    >
       {action.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
     </Link>
   );

@@ -4,6 +4,7 @@ import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { resolveLinkOrigin, buildShortUrl } from "@/lib/server/short-links";
 import { PagedReadError, readAllRows } from "@/lib/server/paged-read";
+import { VideoDealsReadError, resolveWorkspaceVideoIds } from "@/lib/server/video-deals";
 
 const createLinkSchema = z.object({
   destinationId: z.string().uuid(),
@@ -32,6 +33,8 @@ const updateLinkSchema = z.object({
 });
 
 const idSchema = z.string().uuid();
+/** A YouTube video id, as the video page uses it (`?video=` on GET). */
+const youtubeVideoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -62,20 +65,71 @@ function randomSlug(): string {
 
 type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
-async function assertOwnedDestination(client: SupabaseClientLike, destinationId: string) {
+/** The destination must belong to THIS workspace. Row-level security alone would also accept a
+ * destination of another workspace the caller belongs to; such a destination gets the same 404 as
+ * one that does not exist, and nothing about it is returned. */
+async function assertOwnedDestination(
+  client: SupabaseClientLike,
+  workspaceId: string,
+  destinationId: string,
+) {
   const { data, error } = await client
     .from("destinations")
     .select("id")
     .eq("id", destinationId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
   if (error) throw json({ error: "DATABASE_ERROR" }, { status: 500 });
   if (!data) throw json({ error: "DESTINATION_NOT_FOUND" }, { status: 404 });
 }
 
-async function assertOwnedVideo(client: SupabaseClientLike, videoId: string) {
-  const { data, error } = await client.from("videos").select("id").eq("id", videoId).maybeSingle();
+/** The video must be on one of THIS workspace's channels. Row-level security alone would also
+ * accept a video of another workspace the caller belongs to, which must never be attached to a
+ * link of this one; such a video gets the same 404 as one that does not exist. */
+async function assertOwnedVideo(client: SupabaseClientLike, workspaceId: string, videoId: string) {
+  const { data: video, error } = await client
+    .from("videos")
+    .select("id, channel_id")
+    .eq("id", videoId)
+    .maybeSingle();
   if (error) throw json({ error: "DATABASE_ERROR" }, { status: 500 });
-  if (!data) throw json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
+  if (!video) throw json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
+  const { data: channel, error: channelError } = await client
+    .from("youtube_channels")
+    .select("id")
+    .eq("id", video.channel_id)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (channelError) throw json({ error: "DATABASE_ERROR" }, { status: 500 });
+  if (!channel) throw json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
+}
+
+/**
+ * The video page's context (`?video=<YouTube id>`): this workspace's own video with that id, or
+ * null. An unknown id and another workspace's video are the same null — no title or other detail
+ * of anything outside the workspace is ever returned.
+ */
+async function workspaceVideoContext(
+  client: SupabaseClientLike,
+  workspaceId: string,
+  youtubeVideoId: string,
+): Promise<{ id: string; youtubeVideoId: string; title: string } | null> {
+  let ids: string[];
+  try {
+    ids = await resolveWorkspaceVideoIds(client, workspaceId, youtubeVideoId);
+  } catch (error) {
+    if (error instanceof VideoDealsReadError)
+      throw json({ error: "DATABASE_ERROR" }, { status: 500 });
+    throw error;
+  }
+  if (ids.length === 0) return null;
+  const { data, error } = await client
+    .from("videos")
+    .select("id, title")
+    .eq("id", ids[0])
+    .maybeSingle();
+  if (error) throw json({ error: "DATABASE_ERROR" }, { status: 500 });
+  return data ? { id: data.id as string, youtubeVideoId, title: data.title as string } : null;
 }
 
 const linkColumns =
@@ -138,21 +192,42 @@ export const Route = createFileRoute("/api/tracking-links")({
             request,
             "link_tracking",
           );
+          // `?video=<YouTube id>` (from a video's page): only that video's links, and the video
+          // itself so the page can name it — resolved here, inside this workspace, never trusted.
+          const url = new URL(request.url);
+          const rawVideo = url.searchParams.get("video");
+          let video: Awaited<ReturnType<typeof workspaceVideoContext>> | undefined;
+          if (rawVideo !== null) {
+            const parsed = youtubeVideoIdSchema.safeParse(rawVideo);
+            if (!parsed.success)
+              return withCookies(
+                json({ error: "VALIDATION_ERROR" }, { status: 422 }),
+                setCookieHeaders,
+              );
+            video = await workspaceVideoContext(client, workspaceId, parsed.data);
+            // Not a video of this workspace: no links, and nothing about it.
+            if (!video) return withCookies(json({ data: [], video: null }), setCookieHeaders);
+          }
+
           // Every link and every link's stats are read, page by page: a single read stops at
           // the API's row cap, which would drop links — and their clicks — from the totals. A
           // failed page fails the request rather than showing partial or zeroed counts.
           let withStatsData: Record<string, unknown>[];
           try {
-            const links = await readAllRows<Record<string, unknown>>((from, to) =>
-              client
+            const links = await readAllRows<Record<string, unknown>>((from, to) => {
+              let query = client
                 .from("tracking_links")
                 .select(linkColumns)
-                .eq("workspace_id", workspaceId)
-                .order("created_at", { ascending: false })
-                // Unique tie-breaker, so pages never overlap or skip.
-                .order("id", { ascending: true })
-                .range(from, to),
-            );
+                .eq("workspace_id", workspaceId);
+              if (video) query = query.eq("video_id", video.id);
+              return (
+                query
+                  .order("created_at", { ascending: false })
+                  // Unique tie-breaker, so pages never overlap or skip.
+                  .order("id", { ascending: true })
+                  .range(from, to)
+              );
+            });
             withStatsData = await withStats(client, links, { strict: true });
           } catch (error) {
             if (!(error instanceof PagedReadError)) throw error;
@@ -163,7 +238,10 @@ export const Route = createFileRoute("/api/tracking-links")({
           }
           const origin = await resolveLinkOrigin(client, workspaceId, new URL(request.url).origin);
           return withCookies(
-            json({ data: withShortUrls(withStatsData, origin) }),
+            json({
+              data: withShortUrls(withStatsData, origin),
+              ...(video ? { video } : {}),
+            }),
             setCookieHeaders,
           );
         } catch (error) {
@@ -178,8 +256,8 @@ export const Route = createFileRoute("/api/tracking-links")({
             "link_tracking",
           );
           const input = createLinkSchema.parse(await parseJson(request));
-          await assertOwnedDestination(client, input.destinationId);
-          if (input.videoId) await assertOwnedVideo(client, input.videoId);
+          await assertOwnedDestination(client, workspaceId, input.destinationId);
+          if (input.videoId) await assertOwnedVideo(client, workspaceId, input.videoId);
 
           let slug = input.slug?.toLowerCase() ?? randomSlug();
           let attempt = 0;
@@ -249,8 +327,9 @@ export const Route = createFileRoute("/api/tracking-links")({
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
           const input = updateLinkSchema.parse(await parseJson(request));
-          if (input.destinationId) await assertOwnedDestination(client, input.destinationId);
-          if (input.videoId) await assertOwnedVideo(client, input.videoId);
+          if (input.destinationId)
+            await assertOwnedDestination(client, workspaceId, input.destinationId);
+          if (input.videoId) await assertOwnedVideo(client, workspaceId, input.videoId);
 
           const update: Record<string, unknown> = {};
           if (input.destinationId) update.destination_id = input.destinationId;

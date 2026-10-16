@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Search,
   Plus,
@@ -36,12 +36,24 @@ import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { cn } from "@/lib/utils";
+import {
+  linkTrackingSearch,
+  trackingLinksListUrl,
+  type LinkVideoContext,
+} from "@/lib/link-tracking-context";
+import {
+  LinkVideoContextBanner,
+  type VideoContextState,
+} from "@/components/LinkVideoContextBanner";
 
 export const Route = createFileRoute("/link-tracking")({
+  // ?video=<YouTube id>[&create=1] — from a video's Revenue opportunities. Shape-checked here;
+  // the video itself is confirmed by the server inside the current workspace.
+  validateSearch: linkTrackingSearch,
   component: LinkTracking,
 });
 
-type LinkListResponse = { data?: TrackLink[]; error?: string };
+type LinkListResponse = { data?: TrackLink[]; video?: LinkVideoContext | null; error?: string };
 type LinkMutationResponse = { data?: TrackLink; error?: string };
 type DestinationOption = { id: string; name: string };
 type VideoOption = { id: string; title: string };
@@ -60,6 +72,15 @@ function errorMessage(error: string): string {
 }
 
 function LinkTracking() {
+  // The router keeps search keys its validator dropped, so the same check is applied to what the
+  // page reads: an id that is not well-formed is no context at all.
+  const search = linkTrackingSearch(Route.useSearch() as Record<string, unknown>);
+  const navigate = useNavigate();
+  const videoParam = search.video;
+  const [context, setContext] = useState<VideoContextState>({ status: "none" });
+  const [justCreated, setJustCreated] = useState(false);
+  // The context the creation dialog was last opened for automatically (once per video).
+  const autoOpened = useRef<string | null>(null);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [links, setLinks] = useState<TrackLink[]>([]);
   const [pageStatus, setPageStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -89,22 +110,45 @@ function LinkTracking() {
   };
   useEffect(refreshDomain, []);
 
+  // A different video (or none) starts its own context from scratch.
+  useEffect(() => {
+    setJustCreated(false);
+    setContext(videoParam ? { status: "loading" } : { status: "none" });
+  }, [videoParam]);
+
   useEffect(() => {
     const controller = new AbortController();
     setPageStatus("loading");
-    fetch("/api/tracking-links", { cache: "no-store", signal: controller.signal })
+    fetch(trackingLinksListUrl(videoParam), { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as LinkListResponse;
         if (!response.ok || !body.data) throw new Error();
         setLinks(body.data);
+        // The server's answer decides the context: a video of this workspace, or nothing.
+        if (videoParam)
+          setContext(
+            body.video ? { status: "valid", video: body.video } : { status: "unavailable" },
+          );
         setPageStatus("ready");
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (videoParam) setContext({ status: "unavailable" });
         setPageStatus("error");
       });
     return () => controller.abort();
-  }, [retryNonce]);
+  }, [retryNonce, videoParam]);
+
+  // "Create a tracked link" from a video: open the usual creation dialog with that video chosen —
+  // once, and only for a video the server confirmed. The request is then dropped from the URL,
+  // so a reload or Back does not open it again.
+  useEffect(() => {
+    if (search.create !== "1" || context.status !== "valid") return;
+    if (autoOpened.current === context.video.id) return;
+    autoOpened.current = context.video.id;
+    setCreating(true);
+    void navigate({ to: "/link-tracking", search: { video: videoParam }, replace: true });
+  }, [search.create, context, navigate, videoParam]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -142,9 +186,19 @@ function LinkTracking() {
     const body = (await response.json()) as LinkMutationResponse;
     if (!response.ok || !body.data) throw new Error(errorMessage(body.error ?? "DATABASE_ERROR"));
     const saved = body.data;
+    // Showing one video's links: a link saved for another video does not belong in the list.
+    const belongs = context.status !== "valid" || saved.video?.id === context.video.id;
     setLinks((current) =>
-      id ? current.map((x) => (x.id === id ? saved : x)) : [saved, ...current],
+      id
+        ? belongs
+          ? current.map((x) => (x.id === id ? saved : x))
+          : current.filter((x) => x.id !== id)
+        : belongs
+          ? [saved, ...current]
+          : current,
     );
+    if (!id && context.status === "valid" && saved.video?.id === context.video.id)
+      setJustCreated(true);
   };
 
   const remove = async (l: TrackLink) => {
@@ -212,6 +266,12 @@ function LinkTracking() {
           </button>
         </div>
       </div>
+
+      <LinkVideoContextBanner
+        context={context}
+        justCreated={justCreated}
+        onCreate={() => setCreating(true)}
+      />
 
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <FlatKpiCard title="Total Links" value={String(links.length)} accent="var(--brand-blue)" />
@@ -452,6 +512,9 @@ function LinkTracking() {
         destinations={destinations}
         videos={videos}
         onSave={save}
+        defaultVideo={
+          context.status === "valid" ? { id: context.video.id, title: context.video.title } : null
+        }
       />
       <LinkDialog
         open={!!editing}

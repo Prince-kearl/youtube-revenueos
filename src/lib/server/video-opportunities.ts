@@ -110,6 +110,7 @@ export async function loadVideoOpportunities(
   const visible = access.canView && revenue.visibility.revenue !== "hidden";
 
   const inputs: OpportunityInputs = {
+    youtubeVideoId,
     periodDays: days,
     video: item
       ? {

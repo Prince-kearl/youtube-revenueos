@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
+import { videoChoices } from "@/lib/link-tracking-context";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -453,6 +454,7 @@ export function LinkDialog({
   destinations,
   videos,
   onSave,
+  defaultVideo = null,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -460,6 +462,9 @@ export function LinkDialog({
   destinations: { id: string; name: string }[];
   videos: { id: string; title: string }[];
   onSave: (input: TrackLinkInput, id?: string) => Promise<void>;
+  /** A new link for this video (opened from the video's page): chosen up front. The video must
+   * already have been confirmed by the server as one of the workspace's. */
+  defaultVideo?: { id: string; title: string } | null;
 }) {
   const navigate = useNavigate();
   const [destinationId, setDestinationId] = useState("");
@@ -477,11 +482,14 @@ export function LinkDialog({
       setStatus(initial.status);
     } else {
       setDestinationId(destinations[0]?.id ?? "");
-      setVideoId("");
+      setVideoId(defaultVideo?.id ?? "");
       setSlug("");
       setStatus("active");
     }
-  }, [open, initial, destinations]);
+  }, [open, initial, destinations, defaultVideo]);
+
+  // The chosen video is always an option, even when it is not among the videos listed here.
+  const videoOptions = videoChoices(videos, defaultVideo);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -494,7 +502,8 @@ export function LinkDialog({
       );
       onOpenChange(false);
       toast.success(initial ? "Link updated" : "Link created");
-      if (!initial) void goToNextOnboardingStep(navigate, "link");
+      // From a video's page the creator stays in that flow: no onboarding redirect.
+      if (!initial && !defaultVideo) void goToNextOnboardingStep(navigate, "link");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message
@@ -514,7 +523,9 @@ export function LinkDialog({
           <DialogDescription>
             {initial
               ? "Update the destination, video, or slug."
-              : "Generate a short link that captures real clicks."}
+              : defaultVideo
+                ? `For “${defaultVideo.title}”: a short link that captures real clicks from this video.`
+                : "Generate a short link that captures real clicks."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -539,7 +550,7 @@ export function LinkDialog({
             )}
           </Field>
           <Field label="Video (optional)">
-            {videos.length === 0 ? (
+            {videoOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No saved videos yet — add one from Analyze Video to link one here.
               </p>
@@ -553,7 +564,7 @@ export function LinkDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {videos.map((v) => (
+                  {videoOptions.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.title}
                     </SelectItem>

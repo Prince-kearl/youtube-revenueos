@@ -58,6 +58,7 @@ function inputs(
     { views: 2_000, rpm: 6 },
   ];
   return {
+    youtubeVideoId: "vidTHIS0001",
     periodDays: 90,
     video,
     workspace: [
@@ -107,7 +108,11 @@ test("add a tracked link: strong audience and nothing measured — high in the t
   const top = evaluateOpportunities(inputs({ links: none }));
   const opp = byType(top, "add_tracked_link")!;
   assert.equal(opp.priority, "high");
-  assert.deepEqual(opp.action, { label: "Add a tracked link", href: "/link-tracking" });
+  // Phase 2D-1: straight into creating a link for THIS video.
+  assert.deepEqual(opp.action, {
+    label: "Add a tracked link",
+    href: "/link-tracking?video=vidTHIS0001&create=1",
+  });
   assert.match(opp.explanation, /100,000 views in the last 90 days/);
   assert.match(opp.explanation, /isn't evidence it earns nothing beyond YouTube/);
   assert.deepEqual(
@@ -555,7 +560,10 @@ test("endpoint: another workspace's video, an unknown id and a video with nothin
   const theirs = await ask(f, "owner", "?videoId=vidTHEIRS01&days=90");
   const unknown = await ask(f, "owner", "?videoId=vidUNKNOWN1&days=90");
   assert.equal(theirs.status, 200);
-  assert.equal(theirs.text, unknown.text);
+  assert.equal(
+    theirs.text.replaceAll("vidTHEIRS01", "<asked>"),
+    unknown.text.replaceAll("vidUNKNOWN1", "<asked>"),
+  );
   assert.deepEqual(dataOf(theirs).opportunities, []);
   assert.equal(dataOf(theirs).checks.audience, "insufficient_data");
   assert.doesNotMatch(theirs.text, /900,000|Theirs/);
@@ -703,7 +711,8 @@ test("section: opportunity → why → what to do next, with evidence and a work
   );
   assert.match(html, /High priority/);
   assert.match(html, /Next step: <\/span>/);
-  assert.match(html, /href="\/link-tracking"/);
+  // (The router writes the string "1" JSON-quoted, and reads it back as "1".)
+  assert.match(html, /href="\/link-tracking\?video=vidTHIS0001&amp;create=%221%22"/);
   assert.match(html, /href="\/analytics"/);
   assert.match(html, /href="#brand-deals"/);
   assert.match(html, /Median RPM of 5 other workspace videos, same days/);
@@ -831,7 +840,7 @@ test("small creator: no performance findings, but three setup steps — and perf
   assert.deepEqual(
     result.gettingStarted.map((s) => s.action),
     [
-      { label: "Create a tracked link", href: "/link-tracking" },
+      { label: "Create a tracked link", href: "/link-tracking?video=vidTHIS0001&create=1" },
       { label: "Create a lead magnet", href: "/freebie" },
       { label: "Open Brand Deals", href: "/brand-deals" },
     ],
@@ -1122,7 +1131,10 @@ test("endpoint: a small creator's video gets setup steps; unknown and other-work
   // Isolation: unknown and other-workspace ids are indistinguishable, steps included.
   const theirs = await ask(g, "owner", "?videoId=vidTHEIRS01&days=90");
   const unknown = await ask(g, "owner", "?videoId=vidUNKNOWN1&days=90");
-  assert.equal(theirs.text, unknown.text);
+  assert.equal(
+    theirs.text.replaceAll("vidTHEIRS01", "<asked>"),
+    unknown.text.replaceAll("vidUNKNOWN1", "<asked>"),
+  );
   assert.ok(dataOf(unknown).gettingStarted.length > 0);
   assert.equal(dataOf(unknown).checks.links, "insufficient_data", "not 'couldn't be loaded'");
   assert.ok(!theirs.reads.some((r) => ["tracking_links", "deal_videos"].includes(String(r.table))));
