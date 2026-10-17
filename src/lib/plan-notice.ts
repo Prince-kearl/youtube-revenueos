@@ -43,12 +43,25 @@ export function transitionEndText(iso: string): string {
 export function planNotice(
   access: WorkspaceAccess | null,
   now: Date = new Date(),
+  options: {
+    /** Whether new subscriptions can be started right now (Stripe checkout is available). When
+     * they cannot, an owner is told so instead of being invited to start a trial. */
+    checkoutAvailable?: boolean;
+  } = {},
 ): PlanNotice | null {
   if (!access) return null;
+  const checkoutAvailable = options.checkoutAvailable ?? true;
   if (access.source === "unavailable") return null; // a passing failure: the pages report it
   // The existing-customer transition: access continues until a fixed date. Not a trial.
   if (access.source === "transition" && access.periodEnd) {
     const end = transitionEndText(access.periodEnd);
+    if (access.isOwner && !checkoutAvailable)
+      return {
+        tone: "info",
+        title: `Your current access continues until ${end}`,
+        body: "Tubify now has paid plans, but subscription payments aren't available yet — please check back soon or contact support. After that date a subscription is required.",
+        action: null,
+      };
     return access.isOwner
       ? {
           tone: "info",
@@ -63,6 +76,13 @@ export function planNotice(
           action: null,
         };
   }
+  if (!access.plan && access.isOwner && !checkoutAvailable)
+    return {
+      tone: "warning",
+      title: "Your workspace doesn't have an active subscription",
+      body: "Subscription payments aren't available yet — please check back soon or contact support.",
+      action: null,
+    };
   if (!access.plan)
     return access.isOwner
       ? {

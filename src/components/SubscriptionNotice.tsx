@@ -17,8 +17,15 @@ export function SubscriptionNotice() {
     fetch("/api/billing/subscription", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) return;
-        const body = (await response.json()) as { data?: { access?: WorkspaceAccess | null } };
-        setNotice(planNotice(body.data?.access ?? null));
+        const body = (await response.json()) as {
+          data?: { access?: WorkspaceAccess | null; stripeConfigured?: boolean };
+        };
+        // While checkout is unavailable, no one is invited to start a subscription or a trial.
+        setNotice(
+          planNotice(body.data?.access ?? null, new Date(), {
+            checkoutAvailable: body.data?.stripeConfigured !== false,
+          }),
+        );
       })
       .catch(() => {});
     return () => controller.abort();

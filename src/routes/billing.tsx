@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import { useSiteContent } from "@/lib/stores";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { CheckoutUnavailableNotice } from "@/components/CheckoutUnavailableNotice";
+import { billingErrorMessage, planCheckoutState } from "@/lib/billing-availability";
 
 export const Route = createFileRoute("/billing")({
   component: BillingCheckout,
@@ -50,22 +52,6 @@ type PortalResponse = { data?: { url: string }; error?: string };
 
 const money = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function errorMessage(error: string): string {
-  const messages: Record<string, string> = {
-    STRIPE_NOT_CONFIGURED:
-      "Billing isn't set up yet — add Stripe API keys to enable subscriptions.",
-    STRIPE_PRICE_NOT_CONFIGURED: "This plan isn't available for checkout yet. Try another plan.",
-    STRIPE_CHECKOUT_FAILED: "We couldn't start checkout. Please try again.",
-    SUBSCRIPTION_EXISTS:
-      "You already have a subscription. Use Manage billing to change or renew it.",
-    SUBSCRIPTION_PENDING:
-      "Your last subscription is still being confirmed. Use Manage billing to complete or cancel it.",
-    BILLING_STATE_UNAVAILABLE:
-      "We couldn't check your current subscription. Please try again in a moment.",
-  };
-  return messages[error] ?? "Something went wrong. Try again.";
-}
 
 // Cycled per plan card position so a multi-tier catalog reads as visually distinct without any
 // per-plan color config existing in the data model. Each entry pairs an icon color with a
@@ -131,7 +117,9 @@ function BillingCheckout() {
       if (!response.ok || !body.data) throw new Error(body.error ?? "STRIPE_CHECKOUT_FAILED");
       window.location.href = body.data.url;
     } catch (error) {
-      toast.error(errorMessage(error instanceof Error ? error.message : "STRIPE_CHECKOUT_FAILED"));
+      toast.error(
+        billingErrorMessage(error instanceof Error ? error.message : "STRIPE_CHECKOUT_FAILED"),
+      );
       setCheckingOutId(null);
     }
   };
@@ -186,9 +174,7 @@ function BillingCheckout() {
         </h1>
 
         {!data.stripeConfigured && (
-          <div className="mt-6 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-            Checkout isn't available right now.
-          </div>
+          <CheckoutUnavailableNotice contactEmail={content.contactEmail} />
         )}
 
         {activeSubscription ? (
@@ -255,6 +241,10 @@ function BillingCheckout() {
                     ? Math.round((1 - annualCents / (monthlyCents * 12)) * 100)
                     : 0;
                 const isCheckingOut = checkingOutId === p.id;
+                const checkoutState = planCheckoutState(p, {
+                  stripeConfigured: data.stripeConfigured,
+                  checkingOut: isCheckingOut,
+                });
 
                 const accent = CARD_ACCENTS[index % CARD_ACCENTS.length];
                 const Emblem = planIcon(p.name, index);
@@ -333,7 +323,7 @@ function BillingCheckout() {
                     {hasPrice ? (
                       <button
                         onClick={() => void startCheckout(p)}
-                        disabled={isCheckingOut || !p.available}
+                        disabled={checkoutState.disabled}
                         className="relative mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground transition-opacity hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isCheckingOut ? (
@@ -351,9 +341,9 @@ function BillingCheckout() {
                         <Mail className="h-4 w-4" /> Contact us
                       </a>
                     )}
-                    {hasPrice && !p.available && (
+                    {hasPrice && checkoutState.note && (
                       <p className="relative mt-2 text-center text-xs text-muted-foreground">
-                        Not available for checkout yet.
+                        {checkoutState.note}
                       </p>
                     )}
 
@@ -383,11 +373,13 @@ function BillingCheckout() {
                 );
               })}
             </div>
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              Your first subscription starts with a 14-day free trial — you enter payment details
-              securely on Stripe's own checkout page, and nothing is charged until the trial ends.
-              Cancel before then and you won't be billed.
-            </p>
+            {data.stripeConfigured && (
+              <p className="mt-6 text-center text-xs text-muted-foreground">
+                Your first subscription starts with a 14-day free trial — you enter payment details
+                securely on Stripe's own checkout page, and nothing is charged until the trial ends.
+                Cancel before then and you won't be billed.
+              </p>
+            )}
           </div>
         )}
       </div>
