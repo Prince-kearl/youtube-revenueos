@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlatformSuperadmin } from "./platform-staff";
+import { getServerEnv } from "./env";
 
 // What a WORKSPACE's subscription gives it — the one place plan access is decided (Phase 4B-2).
 //
@@ -30,6 +31,29 @@ export const PLAN_LIMITS = {
 export type PaidPlan = keyof typeof PLAN_LIMITS;
 export type PlanLimits = (typeof PLAN_LIMITS)[PaidPlan];
 
+/**
+ * The existing-customer transition (below): the access these workspaces had BEFORE plans were
+ * enforced, as closely as the paywall allows —
+ *
+ *   channels   no cap: every connected channel stays, can be renewed, and new ones can be
+ *              connected, as before.
+ *   AI         the previous allowance, verified in the code before the paywall: 10 per rolling
+ *              24 hours per user, counted separately for each AI feature (task), with the same
+ *              3-a-minute burst limit. Two differences, both from the approved plan rules: a
+ *              cached answer and a failed generation no longer count (before, every request did),
+ *              and an allowance that cannot be read refuses instead of letting the request
+ *              through. Assistant chat keeps its previous 10 per 24 hours too.
+ *   team       never — team management stays with a real Scale subscription.
+ */
+export const TRANSITION_LIMITS = {
+  channels: Number.POSITIVE_INFINITY,
+  aiAnalysesPerMonth: null,
+  aiAnalysesPerDay: 10,
+  chatMessagesPerDay: 10,
+  teamManagement: false,
+} as const;
+export type TransitionLimits = typeof TRANSITION_LIMITS;
+
 export const TRIAL_DAYS = 14;
 
 /**
@@ -43,6 +67,15 @@ export const TRIAL_DAYS = 14;
 export const STAFF_PLAN_EXCEPTION_ENABLED = true;
 
 export type WorkspacePlan =
+  | {
+      /** The existing-customer transition (see below): previous access, not a plan. */
+      plan: null;
+      limits: TransitionLimits;
+      source: "transition";
+      status: null;
+      /** When the transition ends (UTC) — after it, a subscription is required. */
+      periodEnd: string;
+    }
   | {
       plan: PaidPlan;
       limits: PlanLimits;
@@ -69,6 +102,62 @@ const UNAVAILABLE: WorkspacePlan = {
   periodEnd: null,
 };
 
+// ---------- the existing-customer transition (Phase 4B-2A) ----------
+//
+// When plans were first enforced, workspaces that already existed keep working for 14 days, so no
+// existing customer loses access the moment the paywall goes live.
+//
+//   eligible   a workspace CREATED before the transition start — workspaces.created_at, which is
+//              set by the database and writable by the server only (no client can backdate it;
+//              see the workspace_revenue_visibility migration's revoke). Nothing a user sends,
+//              and no email, membership or new workspace, can make a workspace eligible.
+//   window     from before the paywall until exactly TRANSITION_DAYS after the start (UTC). The
+//              end is fixed by the configuration: no request extends it, and nothing is stored.
+//   access     what the workspace had before the paywall (TRANSITION_LIMITS): every paid feature,
+//              no channel cap, the previous AI allowance — never team management, which stays
+//              with a real Scale subscription, and never any other workspace's data.
+//   precedence a real active or trialing subscription always wins (its own plan, its own limits).
+//              The transition does not touch trial eligibility: a workspace owner who has never
+//              subscribed still gets the 14-day introductory trial, which runs on its own dates.
+//
+// The start is server configuration — PAYWALL_TRANSITION_START, a UTC timestamp such as
+// "2026-10-20T15:00:00Z", set to the moment the paywall is activated in production, before it is
+// deployed. Missing or invalid, there is NO transition (the normal paywall applies): nothing is
+// ever inferred from the time of a request or of a local machine.
+
+export const TRANSITION_DAYS = 14;
+export const TRANSITION_START_ENV = "PAYWALL_TRANSITION_START";
+const TRANSITION_START_FORMAT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+
+export interface TransitionWindow {
+  /** Workspaces created before this instant are eligible. */
+  start: Date;
+  /** Transition access ends at this instant (exclusive). */
+  end: Date;
+}
+
+/** The configured window, or null when the configuration is missing or not a valid UTC time. */
+export function transitionWindow(
+  raw: string | undefined = getServerEnv(TRANSITION_START_ENV),
+): TransitionWindow | null {
+  if (!raw || !TRANSITION_START_FORMAT.test(raw.trim())) return null;
+  const start = new Date(raw.trim());
+  if (Number.isNaN(start.getTime())) return null;
+  return { start, end: new Date(start.getTime() + TRANSITION_DAYS * 86_400_000) };
+}
+
+/** Whether a workspace created at `createdAt` has transition access at `now`. */
+export function transitionApplies(
+  createdAt: string | null | undefined,
+  now: Date,
+  window: TransitionWindow | null,
+): boolean {
+  if (!window || !createdAt) return false;
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return false;
+  return created.getTime() < window.start.getTime() && now.getTime() < window.end.getTime();
+}
+
 export function isPaidPlan(value: unknown): value is PaidPlan {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(PLAN_LIMITS, value);
 }
@@ -80,17 +169,19 @@ export function isPaidPlan(value: unknown): value is PaidPlan {
  * membership), never from the request. `service` is the service-role client: a member cannot read
  * the owner's subscription through row-level security, and must not be able to.
  *
- * With no subscription, platform staff get the staff exception (STAFF_PLAN_EXCEPTION_ENABLED).
+ * With no subscription, platform staff get the staff exception (STAFF_PLAN_EXCEPTION_ENABLED),
+ * and a workspace that existed before the paywall gets the transition while it lasts.
  */
 export async function resolveWorkspacePlan(
   service: SupabaseClient,
   input: { workspaceId: string; userId: string },
-  options: { staffException: boolean } = { staffException: STAFF_PLAN_EXCEPTION_ENABLED },
+  options: { staffException?: boolean; now?: Date; transition?: TransitionWindow | null } = {},
 ): Promise<WorkspacePlan> {
+  const staffException = options.staffException ?? STAFF_PLAN_EXCEPTION_ENABLED;
   try {
     const { data: workspace, error: workspaceError } = await service
       .from("workspaces")
-      .select("owner_id")
+      .select("owner_id, created_at")
       .eq("id", input.workspaceId)
       .maybeSingle();
     if (workspaceError || !workspace?.owner_id) return UNAVAILABLE;
@@ -111,7 +202,7 @@ export async function resolveWorkspacePlan(
         status: subscription.status as "active" | "trialing",
         periodEnd: (subscription.current_period_end as string | null) ?? null,
       };
-    if (options.staffException && (await isPlatformSuperadmin(service, input.userId)))
+    if (staffException && (await isPlatformSuperadmin(service, input.userId)))
       return {
         plan: "scale",
         limits: PLAN_LIMITS.scale,
@@ -119,10 +210,24 @@ export async function resolveWorkspacePlan(
         status: "active",
         periodEnd: null,
       };
+    const window = options.transition === undefined ? transitionWindow() : options.transition;
+    if (transitionApplies(workspace.created_at as string | null, options.now ?? new Date(), window))
+      return {
+        plan: null,
+        limits: TRANSITION_LIMITS,
+        source: "transition",
+        status: null,
+        periodEnd: (window as TransitionWindow).end.toISOString(),
+      };
     return NO_PLAN;
   } catch {
     return UNAVAILABLE;
   }
+}
+
+/** Whether the workspace may use paid features: a plan, the staff exception or the transition. */
+export function hasPaidAccess(plan: WorkspacePlan): boolean {
+  return plan.limits !== null;
 }
 
 /** The refusal of a request that needs a plan the workspace does not have. */

@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getActiveProviderInfo } from "./ai-generation";
 import { createServiceSupabaseClient } from "./supabase";
-import { aiMonthStart, subscriptionRequired, type WorkspacePlan } from "./plan-access";
+import {
+  aiMonthStart,
+  subscriptionRequired,
+  TRANSITION_LIMITS,
+  type WorkspacePlan,
+} from "./plan-access";
 import { resolvePlanTier, type PlanTier } from "./subscription-tier";
 
 // Two separate controls (Phase 4B-2):
@@ -156,6 +161,9 @@ export async function reserveAiAnalysis(
   if (!(ANALYSIS_TASKS as readonly string[]).includes(entry.task))
     throw new Error(`NOT_AN_ANALYSIS_TASK:${entry.task}`);
   if (!ctx.plan.limits) throw subscriptionRequired(ctx.plan);
+  // The existing-customer transition keeps its previous, per-day allowance instead.
+  if (ctx.plan.source === "transition")
+    return reserveTransitionAnalysis(service, ctx, entry, ctx.plan.limits.aiAnalysesPerDay, now);
   const limit: number = ctx.plan.limits.aiAnalysesPerMonth;
 
   const { data: members, error: membersError } = await service
@@ -205,6 +213,58 @@ export async function reserveAiAnalysis(
         limit,
         resetsAt,
         message: `Your plan includes ${limit} AI ${limit === 1 ? "analysis" : "analyses"} a month, and this month's are used. They reset on the 1st (UTC), or upgrade in Billing.`,
+      },
+      429,
+    );
+  }
+  return id;
+}
+
+/**
+ * The transition's allowance (plan-access.ts, TRANSITION_LIMITS): the previous one — `limit`
+ * analyses per rolling 24 hours per user, for each AI feature (task) separately. Reserve, then
+ * count, exactly like the monthly allowance, so requests made at the same moment cannot exceed it,
+ * and it refuses (503) when it cannot be checked.
+ */
+async function reserveTransitionAnalysis(
+  service: SupabaseClient,
+  ctx: AiQuotaContext,
+  entry: { provider: string; model: string; task: string },
+  limit: number,
+  now: Date,
+): Promise<string> {
+  const { data: reserved, error: reserveError } = await service
+    .from("ai_usage")
+    .insert({
+      user_id: ctx.userId,
+      provider: entry.provider,
+      model: entry.model,
+      task: entry.task,
+      cache_hit: false,
+    })
+    .select("id")
+    .single();
+  if (reserveError || !reserved?.id) throw QUOTA_UNAVAILABLE();
+  const id = reserved.id as string;
+  const { count, error: countError } = await service
+    .from("ai_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", ctx.userId)
+    .eq("task", entry.task)
+    .eq("cache_hit", false)
+    .gte("created_at", new Date(now.getTime() - 24 * 3600_000).toISOString());
+  if (countError || count === null) {
+    await releaseAiAnalysis(service, id);
+    throw QUOTA_UNAVAILABLE();
+  }
+  if (count > limit) {
+    await releaseAiAnalysis(service, id);
+    throw jsonResponse(
+      {
+        error: "AI_QUOTA_EXCEEDED",
+        limit,
+        window: "day",
+        message: `You've used ${limit} of these AI analyses in the last 24 hours. Please try again later, or choose a plan in Billing.`,
       },
       429,
     );
@@ -316,10 +376,12 @@ export const CHAT_DAILY_LIMITS = { starter: 30, pro: 100, scale: 300 } as const;
 export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance> {
   const providerInfo = getActiveProviderInfo();
   if (!providerInfo) return NOTHING_RESERVED;
-  if (!ctx.plan.plan) throw subscriptionRequired(ctx.plan);
+  if (!ctx.plan.limits) throw subscriptionRequired(ctx.plan);
   const service = createServiceSupabaseClient();
+  // The transition keeps the previous chat limits (the "free" burst tier, 10 a day).
+  const transition = ctx.plan.source === "transition";
   try {
-    await checkAiRateLimit(service, ctx.userId, CHAT_TASK, ctx.plan.plan);
+    await checkAiRateLimit(service, ctx.userId, CHAT_TASK, ctx.plan.plan ?? "free");
   } catch (error) {
     if (!(error instanceof AiRateLimitError)) throw error;
     throw jsonResponse({ error: "RATE_LIMIT_EXCEEDED", window: error.window }, 429);
@@ -330,7 +392,10 @@ export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance
     .eq("user_id", ctx.userId)
     .eq("task", CHAT_TASK)
     .gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
-  const dailyLimit = CHAT_DAILY_LIMITS[ctx.plan.plan];
+  const dailyLimit =
+    transition || !ctx.plan.plan
+      ? TRANSITION_LIMITS.chatMessagesPerDay
+      : CHAT_DAILY_LIMITS[ctx.plan.plan];
   if (!countError && count !== null && count >= dailyLimit)
     throw jsonResponse(
       {

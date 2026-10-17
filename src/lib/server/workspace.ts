@@ -1,7 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { requireSessionUser } from "./supabase-ssr";
 import { createServiceSupabaseClient } from "./supabase";
-import { resolveWorkspacePlan, subscriptionRequired, type WorkspacePlan } from "./plan-access";
+import {
+  hasPaidAccess,
+  resolveWorkspacePlan,
+  subscriptionRequired,
+  type WorkspacePlan,
+} from "./plan-access";
 import { canManageMembers, canManageRole, type WorkspaceRole } from "@/lib/team-policy";
 
 // Workspace membership role — a DIFFERENT axis from profiles.role / AppRole in roles.ts, even
@@ -73,7 +78,7 @@ export async function getWorkspaceContext(
     workspaceId,
     userId: user.id,
   });
-  if ((options.requirePlan ?? true) && !plan.plan) throw subscriptionRequired(plan);
+  if ((options.requirePlan ?? true) && !hasPaidAccess(plan)) throw subscriptionRequired(plan);
   return {
     client,
     user,
