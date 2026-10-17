@@ -466,7 +466,6 @@ export function LinkDialog({
    * already have been confirmed by the server as one of the workspace's. */
   defaultVideo?: { id: string; title: string } | null;
 }) {
-  const navigate = useNavigate();
   const [destinationId, setDestinationId] = useState("");
   const [videoId, setVideoId] = useState("");
   const [slug, setSlug] = useState("");
@@ -502,8 +501,6 @@ export function LinkDialog({
       );
       onOpenChange(false);
       toast.success(initial ? "Link updated" : "Link created");
-      // From a video's page the creator stays in that flow: no onboarding redirect.
-      if (!initial && !defaultVideo) void goToNextOnboardingStep(navigate, "link");
     } catch (error) {
       toast.error(
         error instanceof Error && error.message

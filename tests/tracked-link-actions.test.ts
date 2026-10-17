@@ -618,10 +618,9 @@ test("page wiring: context from the URL is validated, confirmed by the server, o
   );
   const dialog = readFileSync("src/components/modals/index.tsx", "utf8").replace(/\s+/g, " ");
   assert.match(dialog, /setVideoId\(defaultVideo\?\.id \?\? ""\)/);
-  assert.match(
-    dialog,
-    /if \(!initial && !defaultVideo\) void goToNextOnboardingStep\(navigate, "link"\);/,
-  );
+  // Creating a link never redirects into the onboarding guide: it has no tracked-link step (the
+  // dashboard's Next steps suggests one instead).
+  assert.doesNotMatch(dialog, /goToNextOnboardingStep\(navigate, "link"\)/);
   // The video page's action keeps its search parameters through the router.
   const view = readFileSync("src/components/VideoOpportunitiesView.tsx", "utf8").replace(
     /\s+/g,

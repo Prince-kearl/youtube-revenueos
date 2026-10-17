@@ -504,9 +504,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* The workspace's revenue at a glance and what to do next, on its own request. */}
-      <RevenueCommandCenter />
-
       {youtubeStatus === "loading" && (
         <p
           className="mb-1 flex items-center gap-2 text-sm text-muted-foreground"
@@ -760,6 +757,10 @@ function Dashboard() {
         </p>
       )}
 
+      {/* The workspace's revenue at a glance and what to do next, on its own request — below the
+          KPI cards, which stay at the top of the dashboard. */}
+      <RevenueCommandCenter />
+
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl lg:col-span-2">
@@ -854,7 +855,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Audience breakdown + Live Alerts */}
+        {/* Audience breakdown */}
         <div className="flex h-full flex-col gap-5">
           {youtubeStatus === "loading" ? (
             <AudienceBreakdownCardSkeleton />
@@ -865,37 +866,12 @@ function Dashboard() {
               status={dashboardData?.audienceStatus ?? "unavailable"}
             />
           )}
-
-          <div className="card-gradient-outline relative flex flex-1 flex-col p-5 backdrop-blur-xl">
-            <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-            <div className="flex shrink-0 items-center justify-between">
-              <h3 className="text-lg font-semibold">Live Alerts</h3>
-              <button
-                onClick={refresh}
-                className="text-muted-foreground hover:text-foreground"
-                aria-label="Refresh"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing || youtubeRefreshing ? "animate-spin" : ""}`}
-                />
-              </button>
-            </div>
-            <div className="mt-4 flex-1 space-y-2.5">
-              <p className="py-4 text-sm text-muted-foreground">No new alerts</p>
-            </div>
-            <Link
-              to="/notifications"
-              className="mt-3 shrink-0 self-start text-sm font-medium text-primary hover:underline"
-            >
-              View all alerts
-            </Link>
-          </div>
         </div>
       </div>
 
-      {/* Top videos + Revenue split */}
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="card-gradient-outline relative p-5 backdrop-blur-xl lg:col-span-2">
+      {/* Top videos (the revenue split by source is on Analytics) */}
+      <div className="mt-5">
+        <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">
@@ -1074,86 +1050,6 @@ function Dashboard() {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* Revenue Split */}
-        <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <h3 className="text-lg font-semibold">Revenue Split</h3>
-
-          <div
-            className="mt-4 space-y-3.5"
-            aria-busy={revenueLoading}
-            aria-label={revenueLoading ? "Loading revenue split" : undefined}
-          >
-            {revenueLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-3.5 w-24" />
-                    <Skeleton className="h-3.5 w-16" />
-                  </div>
-                  <Skeleton className="mt-1.5 h-1.5 w-full rounded-full" />
-                </div>
-              ))
-            ) : revenue.split.length ? (
-              revenue.split.map((row) => (
-                <div key={row.key}>
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: row.color }}
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">{row.label}</span>
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {row.text} <span className="text-xs">{row.sharePercent}%</span>
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${row.sharePercent > 0 ? Math.max(row.sharePercent, 4) : 0}%`,
-                        backgroundColor: row.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="py-2 text-sm text-muted-foreground">
-                {revenueState.status === "error"
-                  ? "Revenue data couldn't be loaded. Try refreshing."
-                  : revenue.latest
-                    ? "The revenue split isn't available for this month."
-                    : revenueEmptyContent}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 border-t border-border pt-4">
-            <p className="text-sm text-muted-foreground">
-              {revenue.latest ? `${revenue.latest.label} total` : "Latest month total"}
-            </p>
-            {revenueLoading ? (
-              <>
-                <Skeleton className="mt-2 h-7 w-24" />
-                <Skeleton className="mt-2 h-3 w-32" />
-              </>
-            ) : (
-              <>
-                <p className="mt-1 text-2xl font-bold">{revenue.latest?.text ?? "—"}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {revenue.latest?.incomplete
-                    ? "Month in progress · recent days can still change"
-                    : "Platform attribution is not included"}
-                </p>
-              </>
-            )}
           </div>
         </div>
       </div>

@@ -1,31 +1,28 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Gauge, Handshake, Link2, ListChecks, Youtube } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowRight, Handshake, Link2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { ErrorState } from "@/components/ui-bits";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 import type { CommandCenterResponse } from "@/lib/server/command-center";
 import { PRIORITY_LABEL } from "@/lib/video-opportunities-view";
-import { formatVideoRevenue, type VideoRevenueRange } from "@/lib/video-revenue-overview";
-import { PROGRESS_NOTE, actionTarget, rangeForDays, videoProgress } from "@/lib/revenue-actions";
+import type { VideoRevenueRange } from "@/lib/video-revenue-overview";
+import { actionTarget, rangeForDays } from "@/lib/revenue-actions";
 import {
-  CLICKS_NOTE,
   COMMAND_CENTER_INTRO,
-  COMMAND_CENTER_RANGES,
-  HIDDEN,
   NOTHING_TO_DO,
-  NO_FIGURE,
   RESTRICTED_NOTE,
   SPONSORSHIP_NOTE,
   UNAVAILABLE_NOTE,
   sponsorshipText,
-  youtubeRevenueNote,
-  youtubeRevenueText,
   type CommandCenterRange,
 } from "@/lib/command-center-view";
 
-// The Revenue command center at the top of the dashboard, for one state: rendering only, no
-// requests (components/RevenueCommandCenter.tsx loads it). Three sources side by side, each with
-// its own unit and its own caveat; then what to do next; then the videos to look at.
+// "Next steps" on the dashboard, below the KPI cards, for one state: rendering only, no requests
+// (components/RevenueCommandCenter.tsx loads it). Deliberately short — it shows only what the rest
+// of the dashboard does not: sponsorships and tracked-link clicks, side by side and never added
+// together, then the few most useful things to do next. YouTube revenue, trends and top videos are
+// the KPI cards and the sections below.
 
 export type CommandCenterState =
   | { status: "loading" }
@@ -35,72 +32,45 @@ export type CommandCenterState =
 
 type Data = CommandCenterResponse["data"];
 
+/** How many next steps are shown before "Show more". */
+export const NEXT_STEPS_SHOWN = 3;
+
 const ACTION =
   "inline-flex shrink-0 items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
 export function RevenueCommandCenterContent({
   state,
-  range,
-  onRangeChange,
   onRetry,
 }: {
   state: CommandCenterState;
-  range: CommandCenterRange;
-  onRangeChange?: (range: CommandCenterRange) => void;
+  /** The period asked for. Shown periods come from the answer itself (data.period). */
+  range?: CommandCenterRange;
   onRetry?: () => void;
 }) {
   return (
     <section
-      className="mb-5 rounded-xl border border-border bg-card p-5"
+      className="card-gradient-outline relative mt-5 p-5 backdrop-blur-xl"
       aria-labelledby="command-center-heading"
       data-testid="command-center"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
-            aria-hidden="true"
-          >
-            <Gauge className="h-4 w-4" />
-          </span>
-          <h2 id="command-center-heading" className="text-lg font-semibold">
-            Revenue command center
-          </h2>
-        </div>
-        <div
-          className="flex rounded-full border border-border p-0.5"
-          role="group"
-          aria-label="Period"
-        >
-          {(Object.keys(COMMAND_CENTER_RANGES) as CommandCenterRange[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onRangeChange?.(key)}
-              aria-pressed={range === key}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                range === key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">{COMMAND_CENTER_INTRO}</p>
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      <h2 id="command-center-heading" className="text-lg font-semibold">
+        Next steps
+      </h2>
+      <p className="text-sm text-muted-foreground">{COMMAND_CENTER_INTRO}</p>
 
       {state.status === "loading" && (
         <div
-          className="mt-4 grid gap-3 sm:grid-cols-3"
+          className="mt-4 space-y-3"
           role="status"
           aria-label="Loading the revenue command center"
           aria-busy="true"
         >
-          <Skeleton className="h-28 rounded-lg" />
-          <Skeleton className="h-28 rounded-lg" />
-          <Skeleton className="h-28 rounded-lg" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+          <Skeleton className="h-32 rounded-xl" />
           <span className="sr-only">Loading the revenue command center</span>
         </div>
       )}
@@ -139,30 +109,17 @@ export function RevenueCommandCenterContent({
 }
 
 function Ready({ data }: { data: Data }) {
+  const range = rangeForDays(data.period.days);
   return (
     <>
-      <div className="mt-4 grid gap-3 md:grid-cols-3" data-testid="command-center-sources">
-        <Source
-          icon={<Youtube className="h-4 w-4" />}
-          label="YouTube estimated revenue"
-          testId="source-youtube"
-          link={{ to: "/analytics", label: "Open Analytics" }}
-        >
-          <p className="text-2xl font-bold tracking-tight">
-            {youtubeRevenueText(data.youtube.revenue, data.youtube.availability)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {youtubeRevenueNote(data.youtube.availability, data.period.days)}
-          </p>
-        </Source>
-
+      <div className="mt-4 grid gap-3 sm:grid-cols-2" data-testid="command-center-sources">
         <Source
           icon={<Handshake className="h-4 w-4" />}
-          label="Contracted sponsorships"
+          label="Sponsorships"
           testId="source-sponsorships"
           link={
             data.sponsorships.status === "checked"
-              ? { to: "/brand-deals", label: "Open Brand Deals" }
+              ? { to: "/brand-deals", label: "Brand Deals" }
               : null
           }
         >
@@ -173,20 +130,24 @@ function Ready({ data }: { data: Data }) {
           ) : data.sponsorships.byCurrency.length === 0 ? (
             <p className="text-sm text-muted-foreground">No contracted deals yet.</p>
           ) : (
-            <ul className="space-y-1.5 text-sm">
-              {data.sponsorships.byCurrency.map((row) => {
-                const text = sponsorshipText(row);
-                return (
-                  <li key={row.currency} data-testid="sponsorship-currency">
-                    <span className="font-semibold">{text.attributed}</span>
-                    <span className="block text-xs text-muted-foreground">{text.unattributed}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {data.sponsorships.status === "checked" && (
-            <p className="mt-1.5 text-xs text-muted-foreground">{SPONSORSHIP_NOTE}</p>
+            <>
+              <ul className="space-y-0.5 text-sm">
+                {data.sponsorships.byCurrency.map((row) => {
+                  const text = sponsorshipText(row);
+                  return (
+                    <li key={row.currency} data-testid="sponsorship-currency">
+                      <span className="font-semibold">{text.attributed}</span>
+                      {row.unattributedDeals > 0 && (
+                        <span className="block text-xs text-muted-foreground">
+                          {text.unattributed}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-0.5 text-xs text-muted-foreground">{SPONSORSHIP_NOTE}</p>
+            </>
           )}
         </Source>
 
@@ -196,7 +157,7 @@ function Ready({ data }: { data: Data }) {
           testId="source-links"
           link={
             data.links.status === "checked"
-              ? { to: "/link-tracking", label: "Open Link Tracking" }
+              ? { to: "/link-tracking", label: "Link Tracking" }
               : null
           }
         >
@@ -204,24 +165,20 @@ function Ready({ data }: { data: Data }) {
             <p className="text-sm text-muted-foreground">
               {data.links.status === "restricted" ? RESTRICTED_NOTE : UNAVAILABLE_NOTE}
             </p>
+          ) : data.links.links === 0 ? (
+            <p className="text-sm text-muted-foreground">No tracked links yet.</p>
           ) : (
-            <>
-              <p className="text-2xl font-bold tracking-tight">
-                {data.links.clicks.toLocaleString("en-US")}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {data.links.links === 0
-                  ? "No tracked links yet."
-                  : `${data.links.links.toLocaleString("en-US")} tracked ${data.links.links === 1 ? "link" : "links"} on ${data.links.videosWithLinks.toLocaleString("en-US")} ${data.links.videosWithLinks === 1 ? "video" : "videos"}.`}{" "}
-                {CLICKS_NOTE} Last {data.period.days} days (UTC).
-              </p>
-            </>
+            <p className="text-sm">
+              <span className="font-semibold">{data.links.clicks.toLocaleString("en-US")}</span>{" "}
+              <span className="text-muted-foreground">
+                in the last {data.period.days} days · interest, not income
+              </span>
+            </p>
           )}
         </Source>
       </div>
 
-      <NextActions data={data} range={rangeForDays(data.period.days)} />
-      <Videos data={data} range={rangeForDays(data.period.days)} />
+      <NextSteps data={data} range={range} />
     </>
   );
 }
@@ -240,15 +197,131 @@ function Source({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col rounded-lg border border-border p-4" data-testid={testId}>
-      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <span aria-hidden="true">{icon}</span> {label}
-      </p>
-      <div className="mt-2 flex-1">{children}</div>
+    <div
+      className="card-frost flex items-start justify-between gap-3 px-4 py-3 backdrop-blur-lg"
+      data-testid={testId}
+    >
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <span aria-hidden="true">{icon}</span> {label}
+        </p>
+        <div className="mt-1">{children}</div>
+      </div>
       {link && (
-        <Link to={link.to} className="mt-3 text-xs font-medium text-primary hover:underline">
-          {link.label}
+        <Link
+          to={link.to}
+          className="shrink-0 text-sm font-medium text-primary hover:underline"
+          aria-label={`Open ${link.label}`}
+        >
+          Open
         </Link>
+      )}
+    </div>
+  );
+}
+
+type Step = {
+  key: string;
+  title: string;
+  tag: string;
+  video: { youtubeVideoId: string; title: string | null } | null;
+  detail: string;
+  action: { href: string; label: string } | null;
+  testId: string;
+  priority?: string;
+};
+
+/** Suggestions from the videos' data first (already in priority order), then setup steps — one
+ * list, the first few shown. */
+function stepsOf(data: Data): Step[] {
+  return [
+    ...data.opportunities.map((o) => ({
+      key: `${o.type}:${o.video.youtubeVideoId}`,
+      title: o.title,
+      tag: PRIORITY_LABEL[o.priority],
+      video: o.video,
+      detail: o.nextStep,
+      action: o.action ? { href: o.action.href, label: o.action.label } : null,
+      testId: "command-center-opportunity",
+      priority: o.priority,
+    })),
+    ...data.gettingStarted.map((step) => ({
+      key: step.type,
+      title: step.title,
+      tag: "Setup",
+      video: step.video ?? null,
+      detail: step.nextStep,
+      action: { href: step.action.href, label: step.action.label },
+      testId: "command-center-step",
+    })),
+  ];
+}
+
+function NextSteps({ data, range }: { data: Data; range: VideoRevenueRange | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+  const steps = stepsOf(data);
+  const shown = expanded ? steps : steps.slice(0, NEXT_STEPS_SHOWN);
+  const more = steps.length - shown.length;
+  return (
+    <div className="mt-4" data-testid="command-center-next">
+      {steps.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{NOTHING_TO_DO}</p>
+      ) : (
+        <ul className="card-frost divide-y divide-border/60 overflow-hidden backdrop-blur-lg">
+          {shown.map((step) => (
+            <li
+              key={step.key}
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+              data-testid={step.testId}
+              data-priority={step.priority}
+            >
+              <div className="min-w-0 flex-[1_1_100%] sm:flex-1">
+                <p className="text-sm font-medium">
+                  {step.title}
+                  <span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {step.tag}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {step.video && (
+                    <>
+                      <VideoLink video={step.video} range={range} /> ·{" "}
+                    </>
+                  )}
+                  {step.detail}
+                </p>
+              </div>
+              {step.action ? (
+                <ActionLink
+                  href={step.action.href}
+                  label={step.action.label}
+                  youtubeVideoId={step.video?.youtubeVideoId ?? null}
+                  range={range}
+                />
+              ) : step.video ? (
+                <Link
+                  to="/videos/$videoId"
+                  params={{ videoId: step.video.youtubeVideoId }}
+                  search={range ? { range } : {}}
+                  className={ACTION}
+                >
+                  Open video <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {steps.length > NEXT_STEPS_SHOWN && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="mt-2 text-sm font-medium text-primary hover:underline"
+          data-testid="command-center-more"
+        >
+          {expanded ? "Show fewer" : `Show ${more} more`}
+        </button>
       )}
     </div>
   );
@@ -313,166 +386,5 @@ function VideoLink({
     >
       {video.title ?? "Untitled video"}
     </Link>
-  );
-}
-
-function NextActions({ data, range }: { data: Data; range: VideoRevenueRange | undefined }) {
-  const nothing = data.opportunities.length === 0 && data.gettingStarted.length === 0;
-  return (
-    <div className="mt-5" data-testid="command-center-next">
-      <h3 className="text-sm font-semibold">What to do next</h3>
-      {nothing && <p className="mt-1 text-sm text-muted-foreground">{NOTHING_TO_DO}</p>}
-      {data.opportunities.length > 0 && (
-        <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
-          {data.opportunities.map((o) => (
-            <li
-              key={`${o.type}:${o.video.youtubeVideoId}`}
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
-              data-testid="command-center-opportunity"
-              data-priority={o.priority}
-            >
-              <div className="min-w-0 flex-[1_1_100%] sm:flex-1">
-                <p className="text-sm font-medium">
-                  {o.title}
-                  <span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {PRIORITY_LABEL[o.priority]}
-                  </span>
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  <VideoLink video={o.video} range={range} /> · {o.nextStep}
-                </p>
-              </div>
-              {o.action ? (
-                <ActionLink
-                  href={o.action.href}
-                  label={o.action.label}
-                  youtubeVideoId={o.video.youtubeVideoId}
-                  range={range}
-                />
-              ) : (
-                <Link
-                  to="/videos/$videoId"
-                  params={{ videoId: o.video.youtubeVideoId }}
-                  search={range ? { range } : {}}
-                  className={ACTION}
-                >
-                  Open video <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {data.gettingStarted.length > 0 && (
-        <div className="mt-3" data-testid="command-center-getting-started">
-          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <ListChecks className="h-3.5 w-3.5" aria-hidden="true" /> Getting started — setup steps,
-            not findings
-          </p>
-          <ul className="mt-1.5 divide-y divide-border rounded-lg border border-dashed border-border">
-            {data.gettingStarted.map((step) => (
-              <li
-                key={step.type}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
-                data-testid="command-center-step"
-              >
-                <div className="min-w-0 flex-[1_1_100%] sm:flex-1">
-                  <p className="text-sm font-medium">{step.title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {step.video && (
-                      <>
-                        <VideoLink video={step.video} range={range} /> ·{" "}
-                      </>
-                    )}
-                    {step.nextStep}
-                  </p>
-                </div>
-                <ActionLink
-                  href={step.action.href}
-                  label={step.action.label}
-                  youtubeVideoId={step.video?.youtubeVideoId ?? null}
-                  range={range}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Videos({ data, range }: { data: Data; range: VideoRevenueRange | undefined }) {
-  if (data.videos.length === 0) return null;
-  const hidden = data.youtube.availability === "hidden";
-  return (
-    <div className="mt-5" data-testid="command-center-videos">
-      <h3 className="text-sm font-semibold">
-        Your videos{" "}
-        <span className="font-normal text-muted-foreground">
-          · most viewed in the last {data.period.days} days
-          {data.videoCount > data.videos.length
-            ? ` (${data.videos.length} of ${data.videoCount})`
-            : ""}
-        </span>
-      </h3>
-      <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
-        {data.videos.map((video) => (
-          <li
-            key={video.youtubeVideoId}
-            className="grid grid-cols-2 gap-x-4 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_repeat(6,auto)] sm:items-center"
-            data-testid="command-center-video"
-          >
-            <span className="col-span-2 truncate sm:col-span-1">
-              <VideoLink video={video} range={range} />
-            </span>
-            <Figure label="Views" value={video.views.toLocaleString("en-US")} />
-            <Figure
-              label="YouTube revenue"
-              value={
-                hidden
-                  ? HIDDEN
-                  : video.revenue === null || video.revenueAvailability === "unavailable"
-                    ? NO_FIGURE
-                    : formatVideoRevenue(video.revenue)
-              }
-            />
-            <ProgressFigures video={video} />
-            <Figure
-              label="Suggestions"
-              value={video.opportunities === 0 ? "None" : String(video.opportunities)}
-            />
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-xs text-muted-foreground" data-testid="command-center-progress-note">
-        {PROGRESS_NOTE}
-      </p>
-    </div>
-  );
-}
-
-/** What is set up for the video (completed actions) and the activity on it, as separate figures. */
-function ProgressFigures({ video }: { video: Data["videos"][number] }) {
-  const progress = videoProgress(video);
-  return (
-    <>
-      <Figure
-        label="Tracked links"
-        value={progress.trackedLinks.text}
-        state={progress.trackedLinks.state}
-      />
-      <Figure label="Link clicks" value={progress.clicks.text} state={progress.clicks.state} />
-      <Figure label="Deals linked" value={progress.deals.text} state={progress.deals.state} />
-    </>
-  );
-}
-
-function Figure({ label, value, state }: { label: string; value: string; state?: string }) {
-  return (
-    <span className="text-xs sm:text-right" data-state={state}>
-      <span className="block text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </span>
   );
 }

@@ -263,7 +263,6 @@ function LinkTracking() {
           </button>
           <button
             onClick={() => setCreating(true)}
-            data-onboarding-step="link"
             className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" /> Create Link

@@ -34,13 +34,8 @@ export const ONBOARDING_STEPS = [
     to: "/comments",
     search: undefined,
   },
-  {
-    id: "link",
-    label: "Create a tracked link",
-    desc: "Track clicks and revenue from your video descriptions.",
-    to: "/link-tracking",
-    search: undefined,
-  },
+  // No tracked-link step: the dashboard's Next steps already suggests one, for a specific video
+  // (components/RevenueCommandCenterView.tsx), so the guide does not ask for it a second time.
 ] as const;
 
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
@@ -252,7 +247,7 @@ export function leftOnboardingFlow(pathname: string): boolean {
 type Navigate = (opts: { to: string; search?: Record<string, string> }) => void;
 
 // Call this right after a page completes the real action for one of these steps (a channel gets
-// connected, a video gets saved, a rule or link gets created). While the user is following the
+// connected, a video gets saved, a rule gets created). While the user is following the
 // guide it takes them to the next step that is still open — skipping any already done or skipped
 // — or back to the dashboard once nothing is left. Outside the guide it does nothing: someone
 // who just created a tracked link in the ordinary course of work is not sent anywhere.

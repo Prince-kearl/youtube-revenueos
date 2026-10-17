@@ -264,7 +264,6 @@ const NOTHING_DONE: OnboardingStatus = {
   channel: false,
   video: false,
   comments: false,
-  link: false,
 };
 const saved = (patch: Partial<OnboardingState> = {}): OnboardingState => ({
   ...EMPTY_ONBOARDING_STATE,
@@ -280,7 +279,7 @@ const view = (
   canUseStep: (step: (typeof ONBOARDING_STEPS)[number]) => boolean = everyone,
 ) => resolveOnboardingView({ status, state, session, pathname, canUseStep });
 
-const commentsNext: OnboardingStatus = { channel: true, video: true, comments: false, link: false };
+const commentsNext: OnboardingStatus = { channel: true, video: true, comments: false };
 
 /** A minimal stand-in for window.localStorage. */
 function fakeStorage(initial: Record<string, string> = {}) {
@@ -323,7 +322,7 @@ test("the comment-automation prompt appears only on the Dashboard pill and on it
   const dashboard = view("/dashboard", commentsNext);
   assert.equal(dashboard.kind, "nudge");
   assert.equal(dashboard.kind === "nudge" && dashboard.step.id, "comments");
-  assert.deepEqual(dashboard.kind === "nudge" && [dashboard.done, dashboard.total], [2, 4]);
+  assert.deepEqual(dashboard.kind === "nudge" && [dashboard.done, dashboard.total], [2, 3]);
   // On its own page it is a compact hint: nothing is dimmed unless the user asked for the guide.
   assert.equal(view("/comments", commentsNext).kind, "hint");
   assert.equal(view("/comments", commentsNext, saved(), FOLLOWING).kind, "spotlight");
@@ -383,8 +382,8 @@ test("Back/Next still walks an intentional tour, done steps included", () => {
   const reviewingFirst: OnboardingSession = { guided: true, reviewIndex: 0 };
   assert.equal(view("/settings", commentsNext, saved(), reviewingFirst).kind, "spotlight");
   assert.equal(view("/videos", commentsNext, saved(), reviewingFirst).kind, "hidden");
-  const reviewingLast: OnboardingSession = { guided: true, reviewIndex: 3 };
-  assert.equal(view("/link-tracking", commentsNext, saved(), reviewingLast).kind, "spotlight");
+  const reviewingLast: OnboardingSession = { guided: true, reviewIndex: 2 };
+  assert.equal(view("/comments", commentsNext, saved(), reviewingLast).kind, "spotlight");
   // Reopening the guide starts an intentional tour at the first step and un-dismisses it.
   const visited: string[] = [];
   openOnboardingGuide((opts) => void visited.push(opts.to));
@@ -403,7 +402,7 @@ test("closing the guide hides it everywhere until it is reopened", () => {
 
 test("a completed step is not asked for again, and a finished guide disappears", () => {
   assert.equal(nextOnboardingStep(commentsNext, saved(), everyone)?.id, "comments");
-  const done: OnboardingStatus = { channel: true, video: true, comments: true, link: true };
+  const done: OnboardingStatus = { channel: true, video: true, comments: true };
   assert.equal(nextOnboardingStep(done, saved(), everyone), undefined);
   for (const pathname of ["/dashboard", "/comments", "/settings"])
     assert.equal(view(pathname, done).kind, "hidden", pathname);
@@ -412,21 +411,35 @@ test("a completed step is not asked for again, and a finished guide disappears",
 });
 
 test("a skipped step is set aside and the guide moves on", () => {
-  const skipped = saved({ skipped: ["comments"] });
-  assert.equal(nextOnboardingStep(commentsNext, skipped, everyone)?.id, "link");
-  assert.equal(view("/comments", commentsNext, skipped).kind, "hidden");
-  const dashboard = view("/dashboard", commentsNext, skipped);
-  assert.equal(dashboard.kind === "nudge" && dashboard.step.id, "link");
+  const videoNext: OnboardingStatus = { channel: true, video: false, comments: false };
+  const skipped = saved({ skipped: ["video"] });
+  assert.equal(nextOnboardingStep(videoNext, skipped, everyone)?.id, "comments");
+  assert.equal(view("/add-video", videoNext, skipped).kind, "hidden");
+  const dashboard = view("/dashboard", videoNext, skipped);
+  assert.equal(dashboard.kind === "nudge" && dashboard.step.id, "comments");
+  // Skipping the last open step finishes the guide.
+  assert.equal(
+    nextOnboardingStep(commentsNext, saved({ skipped: ["comments"] }), everyone),
+    undefined,
+  );
+});
+
+test("the guide no longer asks for a tracked link: Next steps on the dashboard suggests one", () => {
+  assert.deepEqual(
+    ONBOARDING_STEPS.map((step) => step.id),
+    ["channel", "video", "comments"],
+  );
 });
 
 test("a step the user cannot open — role, plan or feature switch — is never offered", () => {
-  const noComments = (step: (typeof ONBOARDING_STEPS)[number]) => step.to !== "/comments";
-  assert.equal(nextOnboardingStep(commentsNext, saved(), noComments)?.id, "link");
+  const noVideo = (step: (typeof ONBOARDING_STEPS)[number]) => step.to !== "/add-video";
+  const videoNext: OnboardingStatus = { channel: true, video: false, comments: false };
+  assert.equal(nextOnboardingStep(videoNext, saved(), noVideo)?.id, "comments");
   const idle = IDLE_ONBOARDING_SESSION;
-  assert.equal(view("/comments", commentsNext, saved(), idle, noComments).kind, "hidden");
-  const dashboard = view("/dashboard", commentsNext, saved(), idle, noComments);
-  assert.equal(dashboard.kind === "nudge" && dashboard.step.id, "link");
-  assert.deepEqual(dashboard.kind === "nudge" && [dashboard.done, dashboard.total], [2, 3]);
+  assert.equal(view("/add-video", videoNext, saved(), idle, noVideo).kind, "hidden");
+  const dashboard = view("/dashboard", videoNext, saved(), idle, noVideo);
+  assert.equal(dashboard.kind === "nudge" && dashboard.step.id, "comments");
+  assert.deepEqual(dashboard.kind === "nudge" && [dashboard.done, dashboard.total], [1, 2]);
   // Someone who can open none of the steps sees no guide at all.
   assert.equal(view("/dashboard", NOTHING_DONE, saved(), idle, () => false).kind, "hidden");
 });
@@ -437,9 +450,17 @@ test("unknown completion state shows nothing rather than a guess", () => {
 });
 
 test("walking away from the guide ends it, so no spotlight is left waiting", () => {
-  for (const pathname of ["/videos", "/leads", "/analytics", "/notifications", "/admin"])
+  // Link Tracking is no longer a guide step (the dashboard's Next steps suggests tracked links).
+  for (const pathname of [
+    "/videos",
+    "/leads",
+    "/analytics",
+    "/notifications",
+    "/admin",
+    "/link-tracking",
+  ])
     assert.equal(leftOnboardingFlow(pathname), true, pathname);
-  for (const pathname of ["/dashboard", "/settings", "/add-video", "/comments", "/link-tracking"])
+  for (const pathname of ["/dashboard", "/settings", "/add-video", "/comments"])
     assert.equal(leftOnboardingFlow(pathname), false, pathname);
   const tour = read("src/components/OnboardingTour.tsx");
   assert.match(tour, /leftOnboardingFlow\(pathname\)\) endOnboardingSession\(\)/);
@@ -529,7 +550,7 @@ test("finishing a step outside the guide does not send the user anywhere", async
   }) as typeof fetch;
   try {
     const visited: string[] = [];
-    await goToNextOnboardingStep((opts) => void visited.push(opts.to), "link");
+    await goToNextOnboardingStep((opts) => void visited.push(opts.to), "comments");
     assert.deepEqual(visited, [], "no redirect to the next step");
     assert.equal(fetched, 0, "not even a status request");
   } finally {
@@ -541,13 +562,13 @@ test("finishing a step while following the guide still hands over to the next op
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () =>
     new Response(
-      JSON.stringify({ data: { channel: true, video: true, comments: true, link: false } }),
+      JSON.stringify({ data: { channel: true, video: true, comments: false } }),
     )) as typeof fetch;
   try {
-    setOnboardingSession({ guided: true, reviewIndex: 2 });
+    setOnboardingSession({ guided: true, reviewIndex: 1 });
     const visited: string[] = [];
-    await goToNextOnboardingStep((opts) => void visited.push(opts.to), "comments");
-    assert.deepEqual(visited, ["/link-tracking"]);
+    await goToNextOnboardingStep((opts) => void visited.push(opts.to), "video");
+    assert.deepEqual(visited, ["/comments"]);
     assert.deepEqual(getOnboardingSession(), { guided: true, reviewIndex: null });
   } finally {
     globalThis.fetch = realFetch;

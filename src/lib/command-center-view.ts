@@ -48,8 +48,7 @@ export function sponsorshipText(row: {
   };
 }
 
-export const SPONSORSHIP_NOTE =
-  "Agreed values of contracted and completed deals — not payments received, and not limited to this period.";
+export const SPONSORSHIP_NOTE = "Agreed deal values — not payments received.";
 
 export const CLICKS_NOTE = "Clicks show interest, not income.";
 
@@ -59,5 +58,4 @@ export const UNAVAILABLE_NOTE = "Couldn't be loaded — try refreshing.";
 export const NOTHING_TO_DO =
   "Nothing needs attention right now. Suggestions appear here when your videos' data points to a clear next step.";
 
-export const COMMAND_CENTER_INTRO =
-  "What your videos earn, where it comes from, and what to do next. Each source is shown on its own — they are never added together.";
+export const COMMAND_CENTER_INTRO = "The most useful things to do next, based on your videos.";

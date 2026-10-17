@@ -9,8 +9,12 @@ import {
 // Dashboard → Revenue command center: its own request, period, loading and error states, so the
 // rest of the dashboard never waits for it or is taken down by it.
 
+// One period, the last 90 days: the dashboard's KPI cards and Revenue Trends have their own
+// period controls, so this section does not add a second, independent one.
+const RANGE: CommandCenterRange = "3M";
+
 export function RevenueCommandCenter() {
-  const [range, setRange] = useState<CommandCenterRange>("3M");
+  const range = RANGE;
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<CommandCenterState>({ status: "loading" });
 
@@ -41,7 +45,6 @@ export function RevenueCommandCenter() {
     <RevenueCommandCenterContent
       state={state}
       range={range}
-      onRangeChange={setRange}
       onRetry={() => setRetryNonce((n) => n + 1)}
     />
   );
