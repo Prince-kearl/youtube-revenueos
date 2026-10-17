@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { trustedLivemode } from "@/lib/server/stripe-mode";
 import { requireFeatureEnabled } from "@/lib/server/feature-access";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
@@ -74,6 +75,10 @@ export const Route = createFileRoute("/api/affiliate/summary")({
               .eq("id", user.id);
           }
 
+          // Earnings and subscriptions count only records in the mode this deployment bills in:
+          // a test-mode commission is never shown as earnings (none in production without a
+          // live key).
+          const livemode = trustedLivemode();
           const [
             { data: clickRows },
             { data: signupRows },
@@ -82,12 +87,17 @@ export const Route = createFileRoute("/api/affiliate/summary")({
           ] = await Promise.all([
             client.from("referral_clicks").select("created_at").eq("referrer_id", user.id),
             client.from("profiles").select("id, created_at").eq("referred_by", user.id),
-            client
-              .from("referral_commissions")
-              .select("id, referred_user_id, amount_cents, commission_cents, status, created_at")
-              .eq("referrer_id", user.id)
-              .order("created_at", { ascending: false })
-              .limit(500),
+            livemode === null
+              ? Promise.resolve({ data: [] as Array<Record<string, unknown>> })
+              : client
+                  .from("referral_commissions")
+                  .select(
+                    "id, referred_user_id, amount_cents, commission_cents, status, created_at",
+                  )
+                  .eq("referrer_id", user.id)
+                  .eq("livemode", livemode)
+                  .order("created_at", { ascending: false })
+                  .limit(500),
             // The display list: every real signup via this referral link, not just ones that
             // paid — a signup that hasn't converted yet is real too and belongs in the list as
             // "Pending", the same distinction the page has always drawn.
@@ -189,11 +199,12 @@ export const Route = createFileRoute("/api/affiliate/summary")({
             count: number;
             mrrCents: number;
           }> = [];
-          if (referredClientIds.length > 0) {
+          if (referredClientIds.length > 0 && livemode !== null) {
             const { data: subs } = await client
               .from("subscriptions")
               .select("user_id, plan_id, billing_interval, stripe_price_id, status, created_at")
               .in("user_id", referredClientIds)
+              .eq("livemode", livemode)
               .in("status", ["active", "trialing"])
               .order("created_at", { ascending: false });
             const latestByUser = new Map<
@@ -229,7 +240,7 @@ export const Route = createFileRoute("/api/affiliate/summary")({
 
           const signups = recentSignups ?? [];
           let planByUser = new Map<string, string>();
-          if (signups.length > 0) {
+          if (signups.length > 0 && livemode !== null) {
             const { data: signupSubs } = await client
               .from("subscriptions")
               .select("user_id, plan_id, status, created_at")
@@ -237,6 +248,7 @@ export const Route = createFileRoute("/api/affiliate/summary")({
                 "user_id",
                 signups.map((s) => s.id),
               )
+              .eq("livemode", livemode)
               .in("status", ["active", "trialing"])
               .order("created_at", { ascending: false });
             planByUser = new Map();

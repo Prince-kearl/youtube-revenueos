@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireMinimumRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { trustedLivemode } from "@/lib/server/stripe-mode";
 
 const patchSchema = z.object({ name: z.string().trim().min(1).max(120) });
 const idSchema = z.string().uuid();
@@ -50,6 +51,10 @@ export const Route = createFileRoute("/api/admin/workspaces")({
         try {
           await requireMinimumRole(request, "owner");
           const service = createServiceSupabaseClient();
+          // A workspace's plan and MRR come only from subscriptions recorded in the mode this
+          // deployment bills in — never a test or unclassified one (none in production without a
+          // live key).
+          const livemode = trustedLivemode();
 
           const [workspacesResult, membersResult, subsResult, plansResult, pricesResult] =
             await Promise.all([
@@ -58,10 +63,15 @@ export const Route = createFileRoute("/api/admin/workspaces")({
                 .select("id, name, owner_id, created_at")
                 .order("created_at", { ascending: false }),
               service.from("workspace_members").select("workspace_id, user_id, status"),
-              service
-                .from("subscriptions")
-                .select("user_id, status, plan_id, stripe_price_id, billing_interval, created_at")
-                .order("created_at", { ascending: false }),
+              livemode === null
+                ? Promise.resolve({ data: [] as Array<Record<string, string>> })
+                : service
+                    .from("subscriptions")
+                    .select(
+                      "user_id, status, plan_id, stripe_price_id, billing_interval, created_at",
+                    )
+                    .eq("livemode", livemode)
+                    .order("created_at", { ascending: false }),
               service.from("plans").select("slug, name"),
               service.from("plan_prices").select("stripe_price_id, amount_cents"),
             ]);

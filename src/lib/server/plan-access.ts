@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlatformSuperadmin } from "./platform-staff";
 import { getServerEnv } from "./env";
-import { storedSubscriptionsTrusted } from "./stripe-mode";
+import { trustedLivemode } from "./stripe-mode";
 
 // What a WORKSPACE's subscription gives it — the one place plan access is decided (Phase 4B-2).
 //
@@ -186,19 +186,23 @@ export async function resolveWorkspacePlan(
       .eq("id", input.workspaceId)
       .maybeSingle();
     if (workspaceError || !workspace?.owner_id) return UNAVAILABLE;
-    // In production with a non-live Stripe key every stored subscription could only be a test
-    // one: none is read, and the workspace falls through to the staff exception or the
-    // existing-customer transition below (stripe-mode.ts).
-    const { data: subscription, error: subscriptionError } = !storedSubscriptionsTrusted()
-      ? { data: null, error: null }
-      : await service
-          .from("subscriptions")
-          .select("plan_id, status, current_period_end")
-          .eq("user_id", workspace.owner_id as string)
-          .in("status", ["active", "trialing"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    // Only a subscription recorded in the mode this deployment bills in counts — in production,
+    // livemode = true exactly; a test or unclassified (NULL) one never does. In production with a
+    // non-live Stripe key none is read at all, and the workspace falls through to the staff
+    // exception or the existing-customer transition below (stripe-mode.ts).
+    const livemode = trustedLivemode();
+    const { data: subscription, error: subscriptionError } =
+      livemode === null
+        ? { data: null, error: null }
+        : await service
+            .from("subscriptions")
+            .select("plan_id, status, current_period_end")
+            .eq("user_id", workspace.owner_id as string)
+            .eq("livemode", livemode)
+            .in("status", ["active", "trialing"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
     if (subscriptionError) return UNAVAILABLE;
     if (subscription && isPaidPlan(subscription.plan_id))
       return {

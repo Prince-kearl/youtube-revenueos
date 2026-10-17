@@ -22,7 +22,8 @@ function world(options: { customer?: string | null } = {}) {
     w.profiles.find((p) => p.id === me)!,
     {
       email: "me@x.test",
-      stripe_customer_id: options.customer ?? null,
+      // This suite bills with a test key: its customer id lives in the test-mode column.
+      stripe_test_customer_id: options.customer ?? null,
     },
   );
   const planId = uuid();
@@ -88,6 +89,7 @@ function world(options: { customer?: string | null } = {}) {
       billing_interval: "month",
       status,
       created_at: "2026-10-01T00:00:00Z",
+      livemode: false,
     });
   return { w, me, other, stripe, subscribe };
 }

@@ -68,3 +68,35 @@ export function livemodeAccepted(livemode: unknown): boolean {
 export function storedSubscriptionsTrusted(): boolean {
   return stripeModeAllowed();
 }
+
+// Stored Stripe records (subscriptions, referral commissions) carry the `livemode` Stripe reported
+// for them, and customer ids live in one column per mode (supabase/migrations/
+// 202610170001_stripe_livemode_separation.sql). A record counts only when its mode is EXACTLY the
+// mode this deployment bills in: a NULL mode — a record written before the column existed, not yet
+// classified — never counts, anywhere.
+
+/** The `livemode` a stored record must carry to count here: true with a live key, false with any
+ * other key outside production — or null, and then no stored record counts at all (production
+ * without a live key). */
+export function trustedLivemode(): boolean | null {
+  if (!storedSubscriptionsTrusted()) return null;
+  return stripeKeyMode() === "live";
+}
+
+/** The mode this deployment's own Stripe calls (checkout, portal) are made in. */
+export function billingLivemode(): boolean {
+  return stripeKeyMode() === "live";
+}
+
+/** The profiles column that holds a customer id of this mode. Live ids are never stored in the
+ * test column, nor test ids in the live one. */
+export function customerIdColumn(
+  livemode: boolean,
+): "stripe_customer_id" | "stripe_test_customer_id" {
+  return livemode ? "stripe_customer_id" : "stripe_test_customer_id";
+}
+
+/** The `livemode` Stripe reported on an object, or null when it did not report one. */
+export function reportedLivemode(object: { livemode?: unknown }): boolean | null {
+  return typeof object.livemode === "boolean" ? object.livemode : null;
+}

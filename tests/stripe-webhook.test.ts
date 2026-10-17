@@ -32,6 +32,7 @@ type Sub = {
   cancel_at_period_end: boolean;
   items: { data: Array<{ price: { id: string }; current_period_end?: number | null }> };
   metadata?: Record<string, string>;
+  livemode?: boolean;
 };
 
 function world() {
@@ -76,6 +77,8 @@ function world() {
     cancel_at_period_end: false,
     items: { data: [{ price: { id: price } }] },
     metadata: { user_id: owner },
+    // This suite bills with a test key: Stripe returns test-mode objects (it always sends the flag).
+    livemode: false,
     ...extra,
   });
   // What Stripe holds now; "missing" answers 404, "down" a 500.
@@ -117,6 +120,7 @@ const deliver = (f: F, event: Record<string, unknown>, sig?: string) =>
 const checkoutCompleted = (f: F) => ({
   id: "evt_checkout",
   type: "checkout.session.completed",
+  livemode: false,
   data: {
     object: {
       id: "cs_1",
@@ -157,7 +161,7 @@ test("a signed checkout records the subscription once, however often Stripe deli
     },
     { plan: "pro", status: "active", interval: "month", periodEnd: "2030-03-17T17:46:40.000Z" },
   );
-  assert.equal(f.w.profiles.find((p) => p.id === f.owner)?.stripe_customer_id, "cus_1");
+  assert.equal(f.w.profiles.find((p) => p.id === f.owner)?.stripe_test_customer_id, "cus_1");
   const again = await deliver(f, checkoutCompleted(f));
   assert.equal(again.status, 200);
   assert.equal(subscriptionsOf(f).length, 1, "a repeated event is not a second subscription");
@@ -334,7 +338,7 @@ test("a referral commission that cannot be written is a retry; a repeated invoic
   Object.assign(
     f.w.profiles.find((p) => p.id === f.owner)!,
     {
-      stripe_customer_id: "cus_1",
+      stripe_test_customer_id: "cus_1",
       referred_by: referrer,
     },
   );
@@ -349,6 +353,7 @@ test("a referral commission that cannot be written is a retry; a repeated invoic
         amount_paid: 7900,
         currency: "usd",
         status: "paid",
+        livemode: false,
       },
     },
   };
@@ -370,6 +375,7 @@ test("a referral commission that cannot be written is a retry; a repeated invoic
 const checkoutFor = (userId: string, customer: string, subscription: string) => ({
   id: `evt_checkout_${subscription}`,
   type: "checkout.session.completed",
+  livemode: false,
   data: {
     object: {
       id: `cs_${subscription}`,
@@ -434,8 +440,8 @@ test("one customer's events never modify another customer's billing record", asy
   await deliver(f, subscriptionEvent("updated", theirs, "evt_theirs"));
   assert.deepEqual(rowOf(f, "sub_3"), { user: second, plan: "scale", status: "past_due" });
   assert.deepEqual(rowOf(f, "sub_1"), mine);
-  assert.equal(f.w.profiles.find((p) => p.id === f.owner)?.stripe_customer_id, "cus_1");
-  assert.equal(f.w.profiles.find((p) => p.id === second)?.stripe_customer_id, "cus_2");
+  assert.equal(f.w.profiles.find((p) => p.id === f.owner)?.stripe_test_customer_id, "cus_1");
+  assert.equal(f.w.profiles.find((p) => p.id === second)?.stripe_test_customer_id, "cus_2");
   // Even a subscription whose metadata names another user (edited in Stripe) is not moved to
   // them: the recorded owner is kept, and the named user gains nothing.
   f.stripe.others.sub_3 = { ...theirs, status: "active", metadata: { user_id: f.owner } };

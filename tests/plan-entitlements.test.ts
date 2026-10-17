@@ -549,6 +549,7 @@ test("a trial gives its plan; canceling it keeps access until Stripe ends it; an
     cancel_at_period_end: false,
     items: { data: [{ price: { id: PRICE } }] },
     metadata: { user_id: f.owner },
+    livemode: false, // a test key here: Stripe returns test-mode objects
   };
   const provider = f.w.external!;
   f.w.external = (url, init) =>
@@ -575,6 +576,7 @@ test("a trial gives its plan; canceling it keeps access until Stripe ends it; an
   const checkout = {
     id: "evt_checkout",
     type: "checkout.session.completed",
+    livemode: false,
     data: {
       object: {
         id: "cs",

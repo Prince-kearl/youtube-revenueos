@@ -168,12 +168,17 @@ export function addWorkspace(world: World, ownerId: string): string {
   return id;
 }
 
-/** An active subscription for `userId` (a workspace owner): their workspace then has `plan`. */
+/**
+ * An active subscription for `userId` (a workspace owner): their workspace then has `plan`.
+ * Recorded in test mode by default — the mode this suite bills in (no live key) — so it counts
+ * here; pass `livemode: true` where a test runs with a live key, or null for an unclassified row.
+ */
 export function grantPlan(
   world: World,
   userId: string,
   plan: "starter" | "pro" | "scale" = "scale",
   status = "active",
+  livemode: boolean | null = false,
 ): void {
   world.subscriptions.push({
     id: uuid(),
@@ -183,6 +188,7 @@ export function grantPlan(
     plan_id: plan,
     billing_interval: "month",
     status,
+    livemode,
     created_at: "2026-01-01T00:00:00Z",
   });
 }
@@ -227,6 +233,7 @@ export function addSubscription(
   planId: string,
   status = "active",
   createdAt = "2026-09-01T00:00:00Z",
+  livemode: boolean | null = false,
 ): void {
   world.subscriptions.push({
     id: uuid(),
@@ -234,6 +241,7 @@ export function addSubscription(
     plan_id: planId,
     status,
     created_at: createdAt,
+    livemode,
   });
 }
 
@@ -476,6 +484,9 @@ export async function callTeamApi(
             verification_type: "magiclink",
           });
     }
+    // The auth service's user listing (admin dashboard): every profile, one page.
+    if (url.pathname === "/auth/v1/admin/users" && method === "GET")
+      return json({ users: world.profiles.map(authUser), aud: "authenticated" });
     if (url.pathname.startsWith("/auth/v1/admin/users/")) {
       if (method !== "GET") authActions.push(`${method} ${url.pathname}`);
       if (world.authUnavailable)

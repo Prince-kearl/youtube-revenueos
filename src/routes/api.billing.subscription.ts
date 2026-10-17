@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { isStripeBillingAvailable } from "@/lib/server/stripe";
-import { storedSubscriptionsTrusted } from "@/lib/server/stripe-mode";
+import { trustedLivemode } from "@/lib/server/stripe-mode";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import type { WorkspaceAccess } from "@/lib/plan-notice";
@@ -23,15 +23,22 @@ export const Route = createFileRoute("/api/billing/subscription")({
       GET: async ({ request }) => {
         try {
           const { client, user } = await requireSessionUser(request);
-          const { data: subscription } = await client
-            .from("subscriptions")
-            .select(
-              "plan_id, billing_interval, status, current_period_end, cancel_at_period_end, created_at",
-            )
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // Only a subscription recorded in this deployment's mode is shown: a test or
+          // unclassified one grants nothing (plan-access.ts), so it is not shown as one either.
+          const livemode = trustedLivemode();
+          const { data: subscription } =
+            livemode === null
+              ? { data: null }
+              : await client
+                  .from("subscriptions")
+                  .select(
+                    "plan_id, billing_interval, status, current_period_end, cancel_at_period_end, created_at",
+                  )
+                  .eq("user_id", user.id)
+                  .eq("livemode", livemode)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
 
           // Public, unauthenticated-safe listing (RLS on plans/plan_prices allows anyone to read —
           // pricing isn't sensitive) filtered here to what's actually purchasable right now.
@@ -72,9 +79,7 @@ export const Route = createFileRoute("/api/billing/subscription")({
           return json({
             data: {
               stripeConfigured: isStripeBillingAvailable(),
-              // In production with a non-live key a stored subscription can only be a test one:
-              // it grants nothing (plan-access.ts), so it is not shown as one either.
-              subscription: storedSubscriptionsTrusted() ? (subscription ?? null) : null,
+              subscription: subscription ?? null,
               plans,
               access,
             },

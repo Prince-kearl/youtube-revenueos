@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireMinimumRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { listAllAuthUsers } from "@/lib/server/auth-users";
+import { trustedLivemode } from "@/lib/server/stripe-mode";
 
 // Same documented constant as api.youtube.quota.ts — Google's default YouTube Data API v3 quota
 // per project, not something queryable per-request.
@@ -71,6 +72,10 @@ export const Route = createFileRoute("/api/admin/dashboard")({
           const service = createServiceSupabaseClient();
           const startOfToday = startOfDaysAgo(0);
           const startOf30DaysAgo = startOfDaysAgo(30);
+          // Subscription totals (MRR, counts, growth) count only subscriptions recorded in the
+          // mode this deployment bills in — in production, live ones; never a test or unclassified
+          // one. Production without a live key counts none.
+          const livemode = trustedLivemode();
 
           const [
             profilesResult,
@@ -85,10 +90,13 @@ export const Route = createFileRoute("/api/admin/dashboard")({
             service.from("profiles").select("id, role, location, created_at"),
             service.from("projects").select("id", { count: "exact", head: true }),
             service.from("videos").select("id, content_analysis"),
-            service
-              .from("subscriptions")
-              .select("id, status, stripe_price_id, billing_interval, created_at")
-              .in("status", ["active", "trialing"]),
+            livemode === null
+              ? Promise.resolve({ data: [] as Array<Record<string, unknown>> })
+              : service
+                  .from("subscriptions")
+                  .select("id, status, stripe_price_id, billing_interval, created_at")
+                  .eq("livemode", livemode)
+                  .in("status", ["active", "trialing"]),
             service.from("plan_prices").select("stripe_price_id, amount_cents"),
             service
               .from("youtube_quota_events")
@@ -160,6 +168,8 @@ export const Route = createFileRoute("/api/admin/dashboard")({
               totalVideos: videos.length,
               videosAnalyzed: videos.filter((v) => v.content_analysis != null).length,
               mrrCents: Math.round(mrrCents),
+              // Which records the subscription figures are drawn from.
+              subscriptionMode: livemode === null ? "none" : livemode ? "live" : "test",
               activeSubscriptions: activeSubs.length,
               youtubeQuotaToday: quotaToday,
               youtubeQuotaMax: YOUTUBE_DAILY_QUOTA_UNITS,

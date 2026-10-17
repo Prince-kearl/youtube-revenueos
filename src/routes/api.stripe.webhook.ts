@@ -11,7 +11,12 @@ import {
   type StripeSubscriptionObject,
 } from "@/lib/server/stripe";
 import { findPlanByStripePriceId } from "@/lib/server/billing-plans";
-import { livemodeAccepted, stripeModeAllowed } from "@/lib/server/stripe-mode";
+import {
+  customerIdColumn,
+  livemodeAccepted,
+  reportedLivemode,
+  stripeModeAllowed,
+} from "@/lib/server/stripe-mode";
 
 // 20% recurring commission, matching what the Affiliate Program page has always advertised — the
 // one number in this whole feature that was already a real product decision rather than filler,
@@ -126,6 +131,9 @@ async function upsertSubscriptionRow(
         user_id: userId,
         stripe_subscription_id: subscription.id,
         stripe_price_id: priceId,
+        // The mode Stripe reported on the subscription it returned (null if it reported none:
+        // such a row never counts — stripe-mode.ts). Every later event re-records it.
+        livemode: reportedLivemode(subscription),
         plan_id: match.plan.slug,
         billing_interval: match.price.billingInterval,
         status: subscription.status,
@@ -145,11 +153,28 @@ async function recordCommissionIfReferred(
   invoice: StripeInvoiceObject,
 ) {
   if (invoice.status !== "paid" || invoice.amount_paid <= 0) return;
+  // The invoice's own mode decides which customer column it can belong to, and is recorded on the
+  // commission, so a test invoice can never be counted as live earnings. Without one it is not
+  // attributed at all.
+  const livemode = reportedLivemode(invoice);
+  // In production only a live invoice is attributed, as only a live subscription is recorded.
+  if (!livemodeAccepted(invoice.livemode)) {
+    console.warn("Stripe webhook: test-mode invoice ignored in production", {
+      invoiceId: invoice.id,
+    });
+    return;
+  }
+  if (livemode === null) {
+    console.warn("Stripe webhook: invoice without a livemode flag; no commission recorded", {
+      invoiceId: invoice.id,
+    });
+    return;
+  }
   const { data: payer } = ensureOk(
     await service
       .from("profiles")
       .select("id, referred_by")
-      .eq("stripe_customer_id", invoice.customer)
+      .eq(customerIdColumn(livemode), invoice.customer)
       .maybeSingle(),
     "PAYER_LOOKUP_FAILED",
   );
@@ -165,6 +190,7 @@ async function recordCommissionIfReferred(
         currency: invoice.currency,
         commission_cents: Math.round(invoice.amount_paid * COMMISSION_RATE),
         status: "pending",
+        livemode,
       },
       { onConflict: "stripe_invoice_id", ignoreDuplicates: true },
     ),
@@ -216,10 +242,13 @@ export const Route = createFileRoute("/api/stripe/webhook")({
               return json({ received: true });
             }
             if (session.customer) {
+              // Into the column for the event's signed mode: a test customer id never lands in
+              // the live column (where a live checkout or the portal would use it), nor a live one
+              // in the test column.
               ensureOk(
                 await service
                   .from("profiles")
-                  .update({ stripe_customer_id: session.customer })
+                  .update({ [customerIdColumn(event.livemode === true)]: session.customer })
                   .eq("id", userId),
                 "CUSTOMER_WRITE_FAILED",
               );

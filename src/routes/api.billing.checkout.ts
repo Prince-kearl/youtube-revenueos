@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/stripe";
 import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
 import { TRIAL_DAYS } from "@/lib/server/plan-access";
+import { billingLivemode, customerIdColumn } from "@/lib/server/stripe-mode";
 
 // One subscription per customer. A new Checkout session always creates a NEW subscription, so a
 // customer who already has one would be billed twice. Checkout is therefore refused (409, with
@@ -117,28 +118,46 @@ export const Route = createFileRoute("/api/billing/checkout")({
 
           // The caller's own billing state, through their session (row-level security: their
           // own profile and subscription rows only).
+          // Everything below is in the mode this deployment's key bills in (stripe-mode.ts): the
+          // customer id from that mode's column — a test customer is never sent to the live API —
+          // and only subscriptions recorded in that mode can block a new one.
+          const livemode = billingLivemode();
+          const customerColumn = customerIdColumn(livemode);
           const { data: profile, error: profileError } = await client
             .from("profiles")
-            .select("stripe_customer_id, email")
+            .select(`${customerColumn}, email`)
             .eq("id", user.id)
             .maybeSingle();
           if (profileError) return BILLING_STATE_UNAVAILABLE();
-          // Every subscription on record, in any state: the live ones block a second one, and
-          // any at all means the introductory trial has been used.
+          const profileRow = profile as Record<string, unknown> | null;
+          const storedCustomerId = profileRow?.[customerColumn];
+          const customerId =
+            typeof storedCustomerId === "string" && storedCustomerId ? storedCustomerId : null;
+          const profileEmail = typeof profileRow?.email === "string" ? profileRow.email : null;
+          // Every subscription on record, in any state and mode: one in THIS mode in a live state
+          // blocks a second one; one in this mode — or of unknown mode (recorded before modes
+          // were, not yet classified) — means the introductory trial has been used. A test-mode
+          // record neither blocks a live checkout nor uses up the live trial.
           const { data: recorded, error: recordedError } = await client
             .from("subscriptions")
-            .select("status")
+            .select("status, livemode")
             .eq("user_id", user.id);
           if (recordedError) return BILLING_STATE_UNAVAILABLE();
-          const recordedStatuses = (recorded ?? []).map((row) => row.status as string);
+          const sameMode = (recorded ?? []).filter((row) => row.livemode === livemode);
+          const trialUsed = (recorded ?? []).some(
+            (row) =>
+              row.livemode === livemode || row.livemode === null || row.livemode === undefined,
+          );
           const local = existingSubscriptionError(
-            recordedStatuses.filter((status) => RECORDED_BLOCKING_STATUSES.includes(status)),
+            sameMode
+              .map((row) => row.status as string)
+              .filter((status) => RECORDED_BLOCKING_STATUSES.includes(status)),
           );
           if (local) return local;
           let held: Array<{ status: string }> = [];
-          if (profile?.stripe_customer_id) {
+          if (customerId) {
             try {
-              held = await listCustomerSubscriptions(profile.stripe_customer_id);
+              held = await listCustomerSubscriptions(customerId);
             } catch {
               return BILLING_STATE_UNAVAILABLE();
             }
@@ -147,16 +166,14 @@ export const Route = createFileRoute("/api/billing/checkout")({
             );
             if (remote) return remote;
           }
-          const trialEligible = recordedStatuses.length === 0 && held.length === 0;
+          const trialEligible = !trialUsed && held.length === 0;
 
           const origin = new URL(request.url).origin;
           const session = await createCheckoutSession({
             priceId,
             userId: user.id,
-            customerId: profile?.stripe_customer_id ?? null,
-            customerEmail: profile?.stripe_customer_id
-              ? null
-              : (profile?.email ?? user.email ?? null),
+            customerId,
+            customerEmail: customerId ? null : (profileEmail ?? user.email ?? null),
             successUrl: `${origin}/settings?checkout=success`,
             cancelUrl: `${origin}/billing`,
             referralCode: input.referralCode ?? null,

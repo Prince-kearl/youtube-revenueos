@@ -240,6 +240,7 @@ export interface StripeCheckoutSessionObject {
   customer: string | null;
   subscription: string | null;
   customer_email: string | null;
+  livemode?: boolean;
 }
 
 export interface StripeInvoiceObject {
@@ -249,6 +250,8 @@ export interface StripeInvoiceObject {
   amount_paid: number;
   currency: string;
   status: string;
+  /** Stripe's own flag, signed with the event: true for a live-mode invoice. */
+  livemode?: boolean;
 }
 
 export interface StripeWebhookEvent {
