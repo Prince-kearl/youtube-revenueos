@@ -79,10 +79,15 @@ export async function createCheckoutSession(input: {
   successUrl: string;
   cancelUrl: string;
   referralCode?: string | null;
+  /** An introductory trial: no charge for this many days, then billing starts automatically. */
+  trialDays?: number | null;
 }): Promise<StripeCheckoutSession> {
   return stripePost<StripeCheckoutSession>("checkout/sessions", {
     mode: "subscription",
     line_items: [{ price: input.priceId, quantity: 1 }],
+    // A payment method is always collected — with a trial too — so the subscription bills
+    // automatically when the trial ends unless it is canceled first.
+    payment_method_collection: "always",
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
     client_reference_id: input.userId,
@@ -93,6 +98,7 @@ export async function createCheckoutSession(input: {
         ? { customer_email: input.customerEmail }
         : {}),
     subscription_data: {
+      ...(input.trialDays ? { trial_period_days: input.trialDays } : {}),
       metadata: {
         user_id: input.userId,
         ...(input.referralCode ? { referral_code: input.referralCode } : {}),

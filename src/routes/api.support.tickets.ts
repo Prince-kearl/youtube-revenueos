@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/support/tickets")({
 
           // Every real account has a workspace (see handle_new_user()), but a ticket should still
           // send even if that lookup somehow comes back empty — support shouldn't be gated on it.
-          const workspaceId = await getWorkspaceContext(request)
+          const workspaceId = await getWorkspaceContext(request, { requirePlan: false })
             .then((ctx) => ctx.workspaceId)
             .catch(() => null);
 

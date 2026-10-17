@@ -5,6 +5,7 @@ import { PagedReadError, readAllRows } from "../src/lib/server/paged-read";
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -40,9 +41,9 @@ function fixture(): Fixture {
   const owner = addUser(world, "owner@example.com");
   const editor = addUser(world, "editor@example.com");
   const stranger = addUser(world, "stranger@example.com");
-  const workspace = addWorkspace(world, owner);
+  const workspace = addPaidWorkspace(world, owner);
   addMember(world, workspace, editor, "editor");
-  const otherWorkspace = addWorkspace(world, stranger);
+  const otherWorkspace = addPaidWorkspace(world, stranger);
   const destination = uuid();
   const foreignDestination = uuid();
   const videos = { a: uuid(), b: uuid(), c: uuid(), d: uuid() };

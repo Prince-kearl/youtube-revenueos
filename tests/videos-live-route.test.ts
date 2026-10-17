@@ -98,6 +98,13 @@ async function callVideos(query: string) {
         const settings = { auto_sync_videos: true, import_analytics: true };
         return json(wantsObject ? settings : [settings]);
       }
+      // The caller's workspace, its owner and their active subscription (plan-access.ts).
+      const planRows: Record<string, unknown> = {
+        workspace_members: { workspace_id: "ws-1", role: "owner" },
+        workspaces: { owner_id: USER },
+        subscriptions: { plan_id: "scale", status: "active" },
+      };
+      if (planRows[table]) return json(wantsObject ? planRows[table] : [planRows[table]]);
       return json(wantsObject ? null : []);
     }
     if (url.hostname === "www.googleapis.com") {

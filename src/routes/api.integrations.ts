@@ -32,7 +32,9 @@ export const Route = createFileRoute("/api/integrations")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request);
+          const { client, workspaceId } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
           const { data, error } = await client
             .from("connected_integrations")
             .select(
@@ -102,7 +104,9 @@ export async function completeProviderConnection(request: Request, provider: Ext
   const returnTo = "/settings";
   if (!state || expected !== `${provider}:${state}`)
     return redirect(`${returnTo}?integration=invalid_state`, request);
-  const { user, workspaceId, setCookieHeaders } = await getWorkspaceContext(request);
+  const { user, workspaceId, setCookieHeaders } = await getWorkspaceContext(request, {
+    requirePlan: false,
+  });
   const code = url.searchParams.get("code");
   if (!code) return redirect(`${returnTo}?integration=provider_error`, request);
   const tokens = await exchangeProviderCode(provider, code);

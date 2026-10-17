@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+
 import { generateOptimizationSuggestions } from "@/lib/server/ai-generation";
 import { enforceAiQuota } from "@/lib/server/ai-usage";
 
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/api/videos/optimize")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user, workspaceId, plan } = await requirePaidSession(request);
           const input = inputSchema.parse(await parseJson(request));
           const { data: channel, error: channelError } = await client
             .from("youtube_channels")
@@ -56,15 +57,20 @@ export const Route = createFileRoute("/api/videos/optimize")({
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
-          await enforceAiQuota(user.id, "video_optimize");
-          const suggestions = await generateOptimizationSuggestions({
-            title: input.title,
-            currentDescription: input.currentDescription,
-            transcript: input.transcript,
-            destinations: input.destinations,
-            voice: input.voice,
-            customInstructions: input.customInstructions,
-          });
+          const allowance = await enforceAiQuota(
+            { userId: user.id, workspaceId, plan },
+            "video_optimize",
+          );
+          const suggestions = await allowance.run(() =>
+            generateOptimizationSuggestions({
+              title: input.title,
+              currentDescription: input.currentDescription,
+              transcript: input.transcript,
+              destinations: input.destinations,
+              voice: input.voice,
+              customInstructions: input.customInstructions,
+            }),
+          );
           return json({ data: suggestions });
         } catch (error) {
           if (error instanceof Response) return error;

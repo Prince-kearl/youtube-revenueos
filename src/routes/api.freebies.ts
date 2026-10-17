@@ -3,7 +3,7 @@ import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
 import { generateFreebieContent } from "@/lib/server/ai-generation";
-import { enforceAiQuota } from "@/lib/server/ai-usage";
+import { enforceAiQuota, type AiAllowance } from "@/lib/server/ai-usage";
 import { deleteWorkspaceFile } from "@/lib/server/storage";
 import { resolveFormUpload } from "@/lib/server/uploads";
 import { extractTextFromFile } from "@/lib/server/text-extraction";
@@ -143,10 +143,8 @@ export const Route = createFileRoute("/api/freebies")({
       // row on success, or cleaned up on failure — see buildKnowledgeContext and the catch block.
       POST: async ({ request }) => {
         try {
-          const { client, user, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
-            request,
-            "freebie",
-          );
+          const { client, user, workspaceId, setCookieHeaders, plan } =
+            await requireWorkspaceFeature(request, "freebie");
           const form = await request.formData();
           const product = String(form.get("product") ?? "").trim();
           const audience = String(form.get("audience") ?? "").trim();
@@ -166,8 +164,12 @@ export const Route = createFileRoute("/api/freebies")({
 
           // Before the file is resolved below. The browser may already have put that file in
           // Storage, so an over-quota request removes it rather than leaving it orphaned.
+          let allowance: AiAllowance;
           try {
-            await enforceAiQuota(user.id, "freebie_content");
+            allowance = await enforceAiQuota(
+              { userId: user.id, workspaceId, plan },
+              "freebie_content",
+            );
           } catch (error) {
             const uploadedPath = String(form.get("uploadedPath") ?? "");
             if (uploadedPath.startsWith(`${workspaceId}/knowledge/`))
@@ -232,6 +234,8 @@ export const Route = createFileRoute("/api/freebies")({
               knowledgeContext,
             });
           } catch (error) {
+            // The provider failed: the analysis is given back.
+            await allowance.release();
             await cleanupOrphan();
             if (error instanceof Error && error.message === "AI_PROVIDER_NOT_CONFIGURED") {
               return withCookies(

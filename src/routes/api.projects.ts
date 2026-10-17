@@ -65,17 +65,20 @@ export const Route = createFileRoute("/api/projects")({
       // awaited generation immediately after creating the job client-side.
       POST: async ({ request }) => {
         try {
-          const { client, user, workspaceId, setCookieHeaders } = await requireWorkspaceFeature(
-            request,
-            "projects",
-          );
+          const { client, user, workspaceId, setCookieHeaders, plan } =
+            await requireWorkspaceFeature(request, "projects");
           const input = createProjectSchema.parse(await parseJson(request));
-          await enforceAiQuota(user.id, "project_concept");
+          const allowance = await enforceAiQuota(
+            { userId: user.id, workspaceId, plan },
+            "project_concept",
+          );
 
           let generation: Awaited<ReturnType<typeof generateProjectConcept>>;
           try {
             generation = await generateProjectConcept(input);
           } catch (error) {
+            // The provider failed: the analysis is given back.
+            await allowance.release();
             if (error instanceof Error && error.message === "AI_PROVIDER_NOT_CONFIGURED") {
               return withCookies(
                 json({ error: "AI_PROVIDER_NOT_CONFIGURED" }, { status: 503 }),

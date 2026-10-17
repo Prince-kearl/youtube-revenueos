@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { getWorkspaceContext } from "@/lib/server/workspace";
+import { channelCapacity, overChannelLimit, subscriptionRequired } from "@/lib/server/plan-access";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { fetchAuthorizedYoutubeChannels } from "@/lib/server/google-oauth";
 import { getValidAccessToken, isYoutubeTokenRefreshReauthError } from "@/lib/server/youtube-tokens";
@@ -60,7 +61,9 @@ export const Route = createFileRoute("/api/youtube/connections")({
       // screen at all, since the connection's existing token already covers it.
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId, setCookieHeaders } = await getWorkspaceContext(request);
+          const { client, workspaceId, setCookieHeaders } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
           const url = new URL(request.url);
           const connectionId = idSchema.parse(url.searchParams.get("discover"));
 
@@ -127,9 +130,40 @@ export const Route = createFileRoute("/api/youtube/connections")({
       // fetchYoutubeVideoById's expectedChannelId checks).
       POST: async ({ request }) => {
         try {
-          const { client, user, workspaceId, setCookieHeaders } =
-            await getWorkspaceContext(request);
+          const { client, user, workspaceId, setCookieHeaders, plan } = await getWorkspaceContext(
+            request,
+            { requirePlan: false },
+          );
           const input = addSchema.parse(await parseJson(request));
+
+          // The plan's channel limit, before anything is read from Google or written.
+          let capacity: Awaited<ReturnType<typeof channelCapacity>>;
+          try {
+            capacity = await channelCapacity(client, {
+              workspaceId,
+              plan,
+              youtubeChannelId: input.channelId,
+            });
+          } catch {
+            return withCookies(
+              json({ error: "DATABASE_ERROR" }, { status: 500 }),
+              setCookieHeaders,
+            );
+          }
+          if (!capacity.ok)
+            return capacity.reason === "subscription_required"
+              ? withCookies(subscriptionRequired(plan), setCookieHeaders)
+              : withCookies(
+                  json(
+                    {
+                      error: "CHANNEL_LIMIT_REACHED",
+                      limit: capacity.limit,
+                      message: `Your plan includes ${capacity.limit} ${capacity.limit === 1 ? "channel" : "channels"}. Disconnect one or upgrade in Billing to add another.`,
+                    },
+                    { status: 409 },
+                  ),
+                  setCookieHeaders,
+                );
 
           const { data: connection, error: connectionError } = await loadOwnedConnectionSecret(
             client,
@@ -184,6 +218,36 @@ export const Route = createFileRoute("/api/youtube/connections")({
               json({ error: "DATABASE_ERROR" }, { status: 500 }),
               setCookieHeaders,
             );
+
+          // A connection made at the same moment may have taken the last place: then this one is
+          // detached again (its row kept, like any disconnected channel) and the limit reported.
+          if (!capacity.reconnect) {
+            let over: boolean;
+            try {
+              over = await overChannelLimit(client, { workspaceId, plan });
+            } catch {
+              over = true;
+            }
+            if (over) {
+              await client
+                .from("youtube_channels")
+                .update({ connection_id: null })
+                .eq("workspace_id", workspaceId)
+                .eq("youtube_channel_id", channel.channelId);
+              return withCookies(
+                json(
+                  {
+                    error: "CHANNEL_LIMIT_REACHED",
+                    limit: plan.limits?.channels ?? 0,
+                    message:
+                      "Your plan's channel limit was reached. Disconnect one or upgrade in Billing to add another.",
+                  },
+                  { status: 409 },
+                ),
+                setCookieHeaders,
+              );
+            }
+          }
 
           return withCookies(json({ data: upserted }, { status: 201 }), setCookieHeaders);
         } catch (error) {

@@ -1,6 +1,7 @@
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -192,9 +193,9 @@ function world() {
     stranger: addUser(w, "stranger@x.test"),
     both: addUser(w, "both@x.test"),
   };
-  const ws = addWorkspace(w, users.owner);
+  const ws = addPaidWorkspace(w, users.owner);
   addMember(w, ws, users.editor, "editor");
-  const other = addWorkspace(w, users.stranger);
+  const other = addPaidWorkspace(w, users.stranger);
   addMember(w, ws, users.both, "manager");
   addMember(w, other, users.both, "manager");
   for (const id of [ws, other])

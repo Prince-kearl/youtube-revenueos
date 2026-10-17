@@ -201,7 +201,12 @@ function errorMessage(error: string): string {
       "We couldn’t complete that AI request right now. Your current text is safe—please try again.",
     AI_PROVIDER_RATE_LIMITED:
       "AI analysis is getting a lot of requests right now. Please try again in a moment.",
-    RATE_LIMIT_EXCEEDED: "You’ve reached your AI analysis limit for now. Please try again shortly.",
+    RATE_LIMIT_EXCEEDED:
+      "You’re sending AI requests very quickly. Please wait a minute and try again.",
+    AI_QUOTA_EXCEEDED:
+      "This month’s AI analyses for your plan are used. They reset on the 1st (UTC), or upgrade in Billing.",
+    AI_QUOTA_UNAVAILABLE: "We couldn’t check your AI allowance. Please try again.",
+    SUBSCRIPTION_REQUIRED: "AI analysis needs an active subscription. Choose a plan in Billing.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }

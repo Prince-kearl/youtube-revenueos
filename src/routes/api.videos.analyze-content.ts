@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+
 import { generateContentAnalysis } from "@/lib/server/ai-generation";
 import { enforceAiQuota } from "@/lib/server/ai-usage";
 
@@ -37,10 +38,13 @@ export const Route = createFileRoute("/api/videos/analyze-content")({
           // Session-gated (not tied to a specific owned channel) so this also works for public
           // videos from other channels, matching "content analysis works for any public video,
           // private analytics/saving does not" from the rest of this page.
-          const { user } = await requireSessionUser(request);
+          const { user, workspaceId, plan } = await requirePaidSession(request);
           const input = inputSchema.parse(await parseJson(request));
-          await enforceAiQuota(user.id, "content_analysis");
-          const analysis = await generateContentAnalysis(input);
+          const allowance = await enforceAiQuota(
+            { userId: user.id, workspaceId, plan },
+            "content_analysis",
+          );
+          const analysis = await allowance.run(() => generateContentAnalysis(input));
           return json({ data: analysis });
         } catch (error) {
           if (error instanceof Response) return error;

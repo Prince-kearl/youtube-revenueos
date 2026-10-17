@@ -69,6 +69,7 @@ import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { SubscriptionNotice } from "@/components/SubscriptionNotice";
 import { openOnboardingGuide } from "@/lib/onboarding";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
@@ -1015,6 +1016,7 @@ export function DashboardLayout({
         </header>
 
         <main className="dashboard-main min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6 md:pb-6">
+          <SubscriptionNotice />
           {canPreviewRoles && viewerRole.toLowerCase() !== authenticatedRole && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-purple/30 bg-brand-purple/10 px-4 py-2.5 text-sm">
               <span className="text-brand-purple">
@@ -1318,8 +1320,12 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
           body.error === "AI_PROVIDER_NOT_CONFIGURED"
             ? "Tubi isn't set up yet — an admin needs to add an AI provider key in Settings."
             : body.error === "RATE_LIMIT_EXCEEDED"
-              ? "You've reached your AI limit for now. Please try again later."
-              : "Sorry, I couldn't get an answer just now. Please try again.";
+              ? "You're sending messages very quickly. Please wait a minute and try again."
+              : body.error === "AI_QUOTA_EXCEEDED"
+                ? "This month's AI analyses for your plan are used. They reset on the 1st (UTC), or upgrade in Billing."
+                : body.error === "SUBSCRIPTION_REQUIRED"
+                  ? "Tubi needs an active subscription. Choose a plan in Billing."
+                  : "Sorry, I couldn't get an answer just now. Please try again.";
         setMsgs((m) => [...m, { id: uid(), role: "bot", text: errorText }]);
         return;
       }

@@ -8,6 +8,7 @@ import {
   addMember,
   addSubscription,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -70,7 +71,7 @@ function workspace(
     staffEditor: addUser(world, "staff@x.test", "superadmin"),
     stranger: addUser(world, "stranger@x.test"),
   };
-  const id = addWorkspace(world, users.owner);
+  const id = addPaidWorkspace(world, users.owner);
   addSubscription(world, users.owner, "scale");
   const rows = {
     owner: world.workspace_members[0].id as string,
@@ -86,7 +87,7 @@ function workspace(
       setter_revenue_visible: flags.setter ?? false,
     },
   );
-  const other = addWorkspace(world, users.stranger);
+  const other = addPaidWorkspace(world, users.stranger);
   Object.assign(
     world.workspaces.find((w) => w.id === other)!,
     {
@@ -516,7 +517,8 @@ test("revenue endpoints: signed out, removed, and another workspace's channel", 
 
 test("an unreadable setting hides revenue from editors and setters, and never from owners or managers", async () => {
   const f = workspace({ editor: true, setter: true });
-  f.world.failingReads = ["workspaces"];
+  // The setting's read fails; the plan check before it (its first read of workspaces) does not.
+  f.world.failReadsAfter = { workspaces: 1 };
   for (const who of ["editor", "setter"] as const) {
     const result = await get(f, who, routes.summary, "/api/revenue/summary");
     assert.equal(
@@ -1677,7 +1679,9 @@ test("stages: an unreadable setting or profile fails closed for editors, setters
   for (const failing of ["workspaces", "profiles"]) {
     const f = workspace({ editor: true, setter: true });
     const id = addDeal(f, "prospect", "5000");
-    f.world.failingReads = [failing];
+    // (For workspaces: the plan check's read succeeds, the setting's read after it fails.)
+    if (failing === "workspaces") f.world.failReadsAfter = { workspaces: 1 };
+    else f.world.failingReads = [failing];
     const refused =
       failing === "workspaces" ? (["editor", "setter"] as const) : (["staffEditor"] as const);
     // (With an unreadable profile, staffEditor is an ordinary editor; the flags are ON in this

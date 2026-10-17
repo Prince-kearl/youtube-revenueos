@@ -30,7 +30,10 @@ export const Route = createFileRoute("/api/leads/summary")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client, user } = await requireWorkspaceFeature(request, "leads");
+          const { client, user, workspaceId, plan } = await requireWorkspaceFeature(
+            request,
+            "leads",
+          );
           const input = bodySchema.parse(await parseJson(request));
           const { data: lead, error: leadError } = await client
             .from("leads")
@@ -46,14 +49,19 @@ export const Route = createFileRoute("/api/leads/summary")({
             .order("created_at", { ascending: true });
           if (messagesError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
 
-          await enforceAiQuota(user.id, "lead_summary");
-          const summary = await generateLeadSummary({
-            leadName: lead.name ?? "This lead",
-            messages: (messages ?? []).map((m) => ({
-              from: m.from_who as "lead" | "you" | "system",
-              text: m.text as string,
-            })),
-          });
+          const allowance = await enforceAiQuota(
+            { userId: user.id, workspaceId, plan },
+            "lead_summary",
+          );
+          const summary = await allowance.run(() =>
+            generateLeadSummary({
+              leadName: lead.name ?? "This lead",
+              messages: (messages ?? []).map((m) => ({
+                from: m.from_who as "lead" | "you" | "system",
+                text: m.text as string,
+              })),
+            }),
+          );
 
           const generatedAt = new Date().toISOString();
           const { error: updateError } = await client

@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/onboarding/status")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await getWorkspaceContext(request);
+          const { client } = await getWorkspaceContext(request, { requirePlan: false });
           const [channels, videos, rules] = await Promise.all([
             client
               .from("youtube_channels")
