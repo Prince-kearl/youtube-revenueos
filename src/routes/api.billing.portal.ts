@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { createPortalSession, isStripeConfigured } from "@/lib/server/stripe";
+import { createPortalSession, isStripeBillingAvailable } from "@/lib/server/stripe";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/billing/portal")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          if (!isStripeConfigured())
+          if (!isStripeBillingAvailable())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
           const { client, user } = await requireSessionUser(request);
           const { data: profile } = await client

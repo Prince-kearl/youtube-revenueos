@@ -1,4 +1,5 @@
 import { getServerEnv, requireServerEnv } from "./env";
+import { stripeModeAllowed } from "./stripe-mode";
 
 // Raw REST calls rather than the `stripe` npm SDK — matches this codebase's established
 // convention (see google-oauth.ts) of talking to third-party APIs directly over fetch instead of
@@ -66,6 +67,15 @@ export function isStripeConfigured(): boolean {
   return Boolean(getServerEnv("STRIPE_SECRET_KEY"));
 }
 
+/**
+ * Whether customers may be sent to Stripe here (checkout, portal): a key is configured AND its
+ * mode is allowed — in production, live only (stripe-mode.ts). A test key in production reports
+ * billing as unavailable, so no test session is ever created there.
+ */
+export function isStripeBillingAvailable(): boolean {
+  return isStripeConfigured() && stripeModeAllowed();
+}
+
 export interface StripeCheckoutSession {
   id: string;
   url: string | null;
@@ -130,6 +140,8 @@ export interface StripeSubscriptionObject {
   cancel_at_period_end: boolean;
   items: { data: Array<{ price: { id: string }; current_period_end?: number | null }> };
   metadata?: Record<string, string>;
+  /** Stripe's own flag: true for a live-mode object, false for a test-mode one. */
+  livemode?: boolean;
 }
 
 /** The end of the current period (seconds), wherever the account's API version puts it. */
@@ -242,6 +254,8 @@ export interface StripeInvoiceObject {
 export interface StripeWebhookEvent {
   id: string;
   type: string;
+  /** Signed by Stripe with the event: true only for a live-mode event. */
+  livemode?: boolean;
   data: { object: Record<string, unknown> };
 }
 

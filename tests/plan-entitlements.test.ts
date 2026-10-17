@@ -317,7 +317,8 @@ test("both connect paths check the limit before writing, and re-check it after (
     "src/routes/api.youtube.connections.ts",
     "src/routes/api.youtube.callback.ts",
   ]) {
-    const source = readFileSync(file, "utf8");
+    // Line endings normalised: a Windows checkout has CRLF, Linux CI has LF.
+    const source = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
     const check = source.indexOf("await channelCapacity(");
     const upsert =
       source.indexOf('.from("youtube_channels")\n', check) >= 0

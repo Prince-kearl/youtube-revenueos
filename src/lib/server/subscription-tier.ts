@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { storedSubscriptionsTrusted } from "./stripe-mode";
 
 // A user's OWN subscription tier: their latest active or trialing subscription's plan, or "free".
-// Kept in a module with no other imports so the modules that need it (the team entitlement, the
+// Kept in a module with no other imports (but stripe-mode.ts, which reads the environment only) so the modules that need it (the team entitlement, the
 // AI burst limit) can share it without pulling each other — or the AI provider code — into every
 // route's import graph. Plan ACCESS is a workspace's, decided in plan-access.ts.
 
@@ -18,6 +19,9 @@ function isKnownTier(value: string): value is PlanTier {
 // dashboard already read, rather than inventing a parallel "current plan" concept. Any doubt
 // (an error, an unknown plan) is "free".
 export async function resolvePlanTier(service: SupabaseClient, userId: string): Promise<PlanTier> {
+  // In production with a non-live Stripe key, a stored subscription can only be a test one: it
+  // gives no tier — so it can never unlock team management either (stripe-mode.ts).
+  if (!storedSubscriptionsTrusted()) return DEFAULT_TIER;
   try {
     const { data: sub } = await service
       .from("subscriptions")

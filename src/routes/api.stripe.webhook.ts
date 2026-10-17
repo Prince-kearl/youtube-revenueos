@@ -11,6 +11,7 @@ import {
   type StripeSubscriptionObject,
 } from "@/lib/server/stripe";
 import { findPlanByStripePriceId } from "@/lib/server/billing-plans";
+import { livemodeAccepted, stripeModeAllowed } from "@/lib/server/stripe-mode";
 
 // 20% recurring commission, matching what the Affiliate Program page has always advertised — the
 // one number in this whole feature that was already a real product decision rather than filler,
@@ -80,6 +81,14 @@ async function upsertSubscriptionRow(
   candidateUserId: string | null,
   subscription: StripeSubscriptionObject,
 ) {
+  // A test-mode subscription is never recorded in production (stripe-mode.ts): Stripe's own
+  // livemode flag on the subscription it returned decides, not any id.
+  if (!livemodeAccepted(subscription.livemode)) {
+    console.warn("Stripe webhook: test-mode subscription ignored in production", {
+      subscriptionId: subscription.id,
+    });
+    return;
+  }
   const { data: existing } = ensureOk(
     await service
       .from("subscriptions")
@@ -180,6 +189,21 @@ export const Route = createFileRoute("/api/stripe/webhook")({
             return json({ error: "INVALID_SIGNATURE" }, { status: 400 });
           }
           return json({ error: "INVALID_PAYLOAD" }, { status: 400 });
+        }
+
+        // Test mode in production: a test-mode event (Stripe signs its livemode flag) is
+        // acknowledged and ignored — 200, so Stripe does not retry it, and nothing is read or
+        // written. A live event while this deployment's key is not live is a configuration
+        // fault: 503, so Stripe keeps it and retries once the key is fixed.
+        if (!livemodeAccepted(event.livemode)) {
+          console.warn("Stripe webhook: test-mode event ignored in production", {
+            type: event.type,
+          });
+          return json({ received: true, ignored: "test_mode" });
+        }
+        if (!stripeModeAllowed()) {
+          console.error("Stripe webhook: live event received without a live Stripe key");
+          return json({ error: "STRIPE_MODE_MISMATCH" }, { status: 503 });
         }
 
         const service = createServiceSupabaseClient();

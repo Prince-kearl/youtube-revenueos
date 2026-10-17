@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import {
   createCheckoutSession,
-  isStripeConfigured,
+  isStripeBillingAvailable,
   listCustomerSubscriptions,
 } from "@/lib/server/stripe";
 import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
@@ -96,7 +96,7 @@ export const Route = createFileRoute("/api/billing/checkout")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          if (!isStripeConfigured())
+          if (!isStripeBillingAvailable())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
           const { client, user } = await requireSessionUser(request);
           const input = bodySchema.parse(await parseJson(request));

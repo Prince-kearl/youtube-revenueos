@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { isStripeConfigured } from "@/lib/server/stripe";
+import { isStripeBillingAvailable } from "@/lib/server/stripe";
+import { storedSubscriptionsTrusted } from "@/lib/server/stripe-mode";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import type { WorkspaceAccess } from "@/lib/plan-notice";
@@ -70,8 +71,10 @@ export const Route = createFileRoute("/api/billing/subscription")({
 
           return json({
             data: {
-              stripeConfigured: isStripeConfigured(),
-              subscription: subscription ?? null,
+              stripeConfigured: isStripeBillingAvailable(),
+              // In production with a non-live key a stored subscription can only be a test one:
+              // it grants nothing (plan-access.ts), so it is not shown as one either.
+              subscription: storedSubscriptionsTrusted() ? (subscription ?? null) : null,
               plans,
               access,
             },
