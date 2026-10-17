@@ -26,3 +26,47 @@ export async function listAllAuthUsers(
   }
   return byId;
 }
+
+/** An account as Supabase Auth holds it — the authoritative identity. */
+export type AuthIdentity = {
+  id: string;
+  /** The account's sign-in email, or null if it has none. */
+  email: string | null;
+  /** Whether Supabase Auth has confirmed that the account controls `email`. */
+  emailConfirmed: boolean;
+};
+
+/** Supabase Auth could not be asked (as opposed to: it has no such account). */
+export class AuthLookupError extends Error {
+  constructor() {
+    super("AUTH_LOOKUP_FAILED");
+  }
+}
+
+/**
+ * The account with this id, as Supabase Auth holds it, or null when Auth has no such account.
+ * Anything that sends an authentication link or matches an account by email goes through this
+ * — never profiles.email, which is a copy the account holder can edit.
+ */
+export async function getAuthIdentity(
+  service: SupabaseClient,
+  userId: string,
+): Promise<AuthIdentity | null> {
+  const { data, error } = await service.auth.admin.getUserById(userId);
+  if (error) {
+    if (error.status === 404) return null;
+    throw new AuthLookupError();
+  }
+  const user = data?.user;
+  if (!user || user.id !== userId) return null;
+  return {
+    id: user.id,
+    email: user.email?.trim() || null,
+    emailConfirmed: Boolean(user.email_confirmed_at),
+  };
+}
+
+/** The same address, compared as Supabase Auth compares them (case-insensitively). */
+export function sameEmail(a: string | null | undefined, b: string | null | undefined): boolean {
+  return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
+}

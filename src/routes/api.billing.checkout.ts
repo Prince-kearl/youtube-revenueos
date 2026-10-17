@@ -125,7 +125,7 @@ export const Route = createFileRoute("/api/billing/checkout")({
           const customerColumn = customerIdColumn(livemode);
           const { data: profile, error: profileError } = await client
             .from("profiles")
-            .select(`${customerColumn}, email`)
+            .select(customerColumn)
             .eq("id", user.id)
             .maybeSingle();
           if (profileError) return BILLING_STATE_UNAVAILABLE();
@@ -133,7 +133,10 @@ export const Route = createFileRoute("/api/billing/checkout")({
           const storedCustomerId = profileRow?.[customerColumn];
           const customerId =
             typeof storedCustomerId === "string" && storedCustomerId ? storedCustomerId : null;
-          const profileEmail = typeof profileRow?.email === "string" ? profileRow.email : null;
+          // A new customer's email is the signed-in account's own address as Supabase Auth
+          // confirmed it (the session's verified user) — never profiles.email, a copy its holder
+          // can edit. Unconfirmed: none is sent, and Stripe Checkout asks for one.
+          const verifiedEmail = user.email_confirmed_at && user.email ? user.email : null;
           // Every subscription on record, in any state and mode: one in THIS mode in a live state
           // blocks a second one; one in this mode — or of unknown mode (recorded before modes
           // were, not yet classified) — means the introductory trial has been used. A test-mode
@@ -173,7 +176,7 @@ export const Route = createFileRoute("/api/billing/checkout")({
             priceId,
             userId: user.id,
             customerId,
-            customerEmail: customerId ? null : (profileEmail ?? user.email ?? null),
+            customerEmail: customerId ? null : verifiedEmail,
             successUrl: `${origin}/settings?checkout=success`,
             cancelUrl: `${origin}/billing`,
             referralCode: input.referralCode ?? null,

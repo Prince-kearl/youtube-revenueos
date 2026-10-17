@@ -95,6 +95,8 @@ export interface World {
   authEmails?: Record<string, string | null>;
   /** Force the user id a generated sign-in link is issued for (to simulate a mismatch). */
   generateLinkUserId?: string;
+  /** Alias of generateLinkUserId (the billing branch's tests use this name). */
+  linkUserId?: string;
   /** Accounts whose Auth email has never been confirmed (email_confirmed_at is null). */
   authUnconfirmed?: string[];
   /** The Auth admin API is down: every account lookup fails with a server error. */
@@ -127,6 +129,8 @@ export interface CallResult {
   authActions: string[];
   /** The address each sign-in link or password-reset email was requested for, in order. */
   authRecipients: string[];
+  /** Alias of authRecipients (the billing branch's tests use this name). */
+  authTargets: string[];
   /** Database functions called, in order, as "<name>" (rate-limit counters, click counters). */
   rpcCalls: string[];
   /** The response's own headers (Location, Set-Cookie, Retry-After…). */
@@ -433,15 +437,18 @@ export async function callTeamApi(
   const authEmailOf = (p: Row) =>
     world.authEmails && String(p.id) in world.authEmails
       ? world.authEmails[String(p.id)]
-      : (p.email as string);
+      : p.auth_email !== undefined
+        ? (p.auth_email as string | null)
+        : (p.email as string);
   const authUser = (p: Row) => ({
     id: p.id,
     aud: "authenticated",
     role: "authenticated",
     email: authEmailOf(p),
-    email_confirmed_at: world.authUnconfirmed?.includes(String(p.id))
-      ? null
-      : "2026-08-01T00:00:00Z",
+    email_confirmed_at:
+      world.authUnconfirmed?.includes(String(p.id)) || p.email_confirmed === false
+        ? null
+        : "2026-08-01T00:00:00Z",
     last_sign_in_at: "2026-09-01T00:00:00Z",
   });
 
@@ -475,7 +482,7 @@ export async function callTeamApi(
       return url.pathname === "/auth/v1/recover"
         ? json({})
         : json({
-            id: world.generateLinkUserId ?? owner?.id ?? uuid(),
+            id: world.generateLinkUserId ?? world.linkUserId ?? owner?.id ?? uuid(),
             email: recipient,
             action_link: "https://supabase.test/auth/v1/verify?token=test-token",
             email_otp: "000000",
@@ -783,6 +790,7 @@ export async function callTeamApi(
       refusedMoneyReads,
       authActions,
       authRecipients,
+      authTargets: authRecipients,
       rpcCalls,
       headers: response.headers,
       logs,

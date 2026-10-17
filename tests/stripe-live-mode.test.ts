@@ -808,6 +808,27 @@ test("production with a live key: an eligible workspace keeps its transition des
   });
 });
 
+test("checkout: a new customer's email is the account's verified Auth address, never the profile copy", async () => {
+  await withEnv(PRODUCTION_LIVE, async () => {
+    const f = world();
+    profileOf(f).stripe_customer_id = null; // a new live customer: Stripe gets an email
+    profileOf(f).auth_email = "owner@x.test";
+    profileOf(f).email = "victim@x.test"; // the rewritten profile copy
+    assert.equal((await checkout(f)).status, 200);
+    const session = f.stripe.requests.find((r) => r.startsWith("POST /v1/checkout/sessions"))!;
+    assert.match(session, /customer_email=owner%40x\.test/);
+    assert.doesNotMatch(session, /victim/);
+
+    // An address Auth has not confirmed is not sent at all: Stripe Checkout asks for one.
+    const g = world();
+    profileOf(g).stripe_customer_id = null;
+    profileOf(g).email_confirmed = false;
+    assert.equal((await checkout(g)).status, 200);
+    const unconfirmed = g.stripe.requests.find((r) => r.startsWith("POST /v1/checkout/sessions"))!;
+    assert.doesNotMatch(unconfirmed, /customer_email/);
+  });
+});
+
 // ---------- the code and the migration, statically ----------
 
 const serverSources = () =>
@@ -851,16 +872,25 @@ test("customer ids are written only by the webhook", () => {
   assert.deepEqual(writers, ["src/routes/api.stripe.webhook.ts"]);
 });
 
-test("the migration is additive, backfills nothing, and protects profile billing identity in the database", () => {
-  const sql = readFileSync(
-    "supabase/migrations/202610170001_stripe_livemode_separation.sql",
-    "utf8",
-  ).replace(/\r\n/g, "\n");
-  const code = sql
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("--"))
-    .join("\n");
-  // Additive: nullable columns, no constraint on existing rows, no data changed.
+const M1A = "supabase/migrations/202610170001_stripe_livemode_separation.sql";
+const M1B = "supabase/migrations/202610170002_profile_billing_identity.sql";
+/** A migration's SQL without its comments, and its rollback notes (the commented SQL). */
+function migration(path: string) {
+  const sql = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+  const lines = sql.split("\n");
+  return {
+    code: lines.filter((line) => !line.trim().startsWith("--")).join("\n"),
+    comments: lines
+      .filter((line) => line.trim().startsWith("--"))
+      .map((line) => line.replace(/^\s*--\s?/, ""))
+      .join("\n"),
+  };
+}
+
+test("M1a is the billing schema alone: additive, transactional, no backfill, no profile trigger or policy", () => {
+  const { code, comments } = migration(M1A);
+  assert.match(code, /^\s*begin;/m);
+  assert.match(code, /^\s*commit;\s*$/m);
   assert.match(
     code,
     /alter table public\.subscriptions add column if not exists livemode boolean;/,
@@ -873,26 +903,72 @@ test("the migration is additive, backfills nothing, and protects profile billing
     code,
     /alter table public\.profiles add column if not exists stripe_test_customer_id text unique;/,
   );
+  assert.match(code, /create index if not exists subscriptions_user_livemode_idx/);
+  // Nothing but schema: no data written, nothing destructive, no NOT NULL yet …
   assert.doesNotMatch(code, /not null/i, "no NOT NULL until the rollout is validated");
   assert.doesNotMatch(code, /^\s*(update|delete|truncate|insert)\b/im, "no backfill or cleanup");
-  assert.doesNotMatch(code, /\bdrop (table|column)\b/i, "nothing destructive");
-  // The safeguard: an invoker trigger with a fixed search_path, executable by nobody.
-  assert.match(code, /before insert or update on public\.profiles/);
-  assert.match(code, /set search_path = ''/);
+  assert.doesNotMatch(code, /\bdrop\b/i, "nothing dropped");
+  // … and none of M1b: no trigger, function, policy or privilege change.
+  assert.doesNotMatch(code, /\b(trigger|function|policy|grant|revoke)\b/i);
+  // Its rollback drops only its own objects.
+  assert.match(comments, /drop column if exists livemode;/);
+  assert.match(comments, /drop column if exists stripe_test_customer_id;/);
+});
+
+test("M1b depends on M1a, is transactional, and protects profile identity fields in the database", () => {
+  assert.ok(M1B.localeCompare(M1A) > 0, "M1b sorts (and so applies) after M1a");
+  const { code } = migration(M1B);
+  assert.match(code, /^\s*begin;/m);
+  assert.match(code, /^\s*commit;\s*$/m);
+  // Refuses to run without M1a's column instead of half-applying.
+  assert.match(code, /column_name = 'stripe_test_customer_id'[\s\S]+raise exception/);
+  assert.ok(
+    code.indexOf("raise exception 'apply 202610170001") <
+      code.indexOf("create or replace function"),
+    "the dependency check runs first",
+  );
+  // No schema or data change of its own.
+  assert.doesNotMatch(code, /\balter table\b/i);
+  assert.doesNotMatch(code, /^\s*(update|delete|truncate|insert)\b/im);
+  // The trigger: invoker, fixed search_path, executable by nobody, on inserts and updates.
+  assert.match(code, /security invoker/);
   assert.doesNotMatch(code, /security definer/i);
-  assert.match(code, /current_user not in \('authenticated', 'anon'\)/);
-  assert.match(
-    code,
-    /new\.stripe_customer_id is distinct from old\.stripe_customer_id\s+or new\.stripe_test_customer_id is distinct from old\.stripe_test_customer_id then\s+raise exception[^;]+using errcode = '42501';/,
-  );
-  assert.match(code, /new\.stripe_customer_id := null;\s+new\.stripe_test_customer_id := null;/);
-  assert.match(
-    code,
-    /if new\.email is distinct from old\.email and new\.email is distinct from session_email then\s+new\.email := old\.email;/,
-  );
+  assert.match(code, /set search_path = ''/);
+  assert.match(code, /before insert or update on public\.profiles/);
   assert.match(
     code,
     /revoke all on function public\.protect_profile_billing_identity\(\) from public, anon, authenticated, service_role;/,
+  );
+  // Only a user's own requests are checked; every other role (service, definer, owner) is not.
+  assert.match(code, /if current_user not in \('authenticated', 'anon'\) then\s+return new;/);
+  // A self-created profile starts with the defaults — no customer ids, role, code or referrer.
+  for (const assignment of [
+    "new.stripe_customer_id := null;",
+    "new.stripe_test_customer_id := null;",
+    "new.role := 'user';",
+    "new.referral_code := null;",
+    "new.referred_by := null;",
+    "new.email := session_email;",
+  ])
+    assert.ok(code.includes(assignment), assignment);
+  // Changing any protected field is refused outright.
+  for (const column of [
+    "stripe_customer_id",
+    "stripe_test_customer_id",
+    "role",
+    "referral_code",
+    "referred_by",
+  ])
+    assert.match(code, new RegExp(`new\\.${column} is distinct from old\\.${column}`), column);
+  assert.match(
+    code,
+    /raise exception 'protected profile field is not writable'\s+using errcode = '42501';/,
+  );
+  // email: only the session's own; anything else keeps the stored value. An empty claim is none.
+  assert.match(code, /session_email := nullif\(auth\.jwt\(\) ->> 'email', ''\);/);
+  assert.match(
+    code,
+    /if new\.email is distinct from old\.email and new\.email is distinct from session_email then\s+new\.email := old\.email;/,
   );
   // The row-level check keeps every column it pinned, and now pins the test customer id too.
   for (const column of [
@@ -903,4 +979,27 @@ test("the migration is additive, backfills nothing, and protects profile billing
     "referred_by",
   ])
     assert.match(code, new RegExp(`and ${column} is not distinct from`), column);
+});
+
+test("M1b is separately reversible: its rollback removes only the trigger and its function", () => {
+  const { comments } = migration(M1B);
+  const rollback = comments.slice(comments.indexOf("Rollback"));
+  assert.match(
+    rollback,
+    /drop trigger if exists profiles_protect_billing_identity on public\.profiles;/,
+  );
+  assert.match(rollback, /drop function if exists public\.protect_profile_billing_identity\(\);/);
+  assert.doesNotMatch(rollback, /drop column|drop table|alter table/, "M1a's schema is untouched");
+});
+
+test("the billing code needs only M1a: every column it uses is M1a's, and nothing of M1b's", () => {
+  const m1a = migration(M1A).code;
+  for (const column of [
+    "public.subscriptions add column if not exists livemode",
+    "public.referral_commissions add column if not exists livemode",
+    "public.profiles add column if not exists stripe_test_customer_id",
+  ])
+    assert.ok(m1a.includes(column), column);
+  for (const { file, source } of serverSources())
+    assert.doesNotMatch(source, /protect_profile_billing_identity/, file);
 });
