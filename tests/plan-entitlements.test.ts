@@ -855,3 +855,347 @@ test("essential routes stay open without a subscription; paid routes never opt o
   ])
     assert.doesNotMatch(read(file), /requirePlan: false/, `${file} stays paid`);
 });
+
+// ---------- Phase 4B-2A: the 14-day transition for workspaces that existed before the paywall ----------
+
+const { transitionWindow, transitionApplies, TRANSITION_DAYS, TRANSITION_START_ENV } =
+  await import("../src/lib/server/plan-access");
+const checkoutRoute = await import("../src/routes/api.billing.checkout");
+const DAY = 86_400_000;
+
+/** Runs `body` with the transition configured to start at `start` (or unset). */
+async function withTransition(start: string | undefined, body: () => Promise<void>) {
+  const previous = env[TRANSITION_START_ENV];
+  if (start === undefined) delete env[TRANSITION_START_ENV];
+  else env[TRANSITION_START_ENV] = start;
+  try {
+    await body();
+  } finally {
+    if (previous === undefined) delete env[TRANSITION_START_ENV];
+    else env[TRANSITION_START_ENV] = previous;
+  }
+}
+const iso = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+/** A transition that started `daysAgo` days ago, and the owner's workspace created before it. */
+function transitionWorld(daysAgo: number, options: Parameters<typeof world>[0] = { plan: null }) {
+  const f = world(options);
+  const start = Date.now() - daysAgo * DAY;
+  f.w.workspaces.find((w) => w.id === f.ws)!.created_at = iso(start - 30 * DAY);
+  // The other workspace was created after the start: never eligible.
+  f.w.workspaces.find((w) => w.id === f.other)!.created_at = iso(start + 60_000);
+  return {
+    ...f,
+    start: iso(start),
+    end: new Date(Date.parse(iso(start)) + TRANSITION_DAYS * DAY),
+  };
+}
+const cc = (f: F, who: string) => get(f, who, routes.commandCenter, "/api/revenue/command-center");
+
+test("transition: the window is the configured start plus exactly 14 days; eligibility is created-before-start", () => {
+  const window = transitionWindow("2026-10-20T15:00:00Z")!;
+  assert.equal(window.start.toISOString(), "2026-10-20T15:00:00.000Z");
+  assert.equal(window.end.toISOString(), "2026-11-03T15:00:00.000Z");
+  const before = "2026-10-01T00:00:00Z";
+  assert.equal(transitionApplies(before, new Date("2026-11-03T14:59:59.999Z"), window), true);
+  assert.equal(
+    transitionApplies(before, new Date("2026-11-03T15:00:00.000Z"), window),
+    false,
+    "ends exactly at the end",
+  );
+  assert.equal(
+    transitionApplies(before, new Date("2026-10-19T00:00:00Z"), window),
+    true,
+    "no gap before the start",
+  );
+  assert.equal(
+    transitionApplies("2026-10-20T15:00:00Z", new Date("2026-10-21T00:00:00Z"), window),
+    false,
+    "created at the start is not before it",
+  );
+  assert.equal(
+    transitionApplies("2026-10-25T00:00:00Z", new Date("2026-10-26T00:00:00Z"), window),
+    false,
+    "created after the start: never",
+  );
+  assert.equal(transitionApplies(null, new Date("2026-10-21T00:00:00Z"), window), false);
+});
+
+test("transition: missing or invalid configuration means no transition — the normal paywall", async () => {
+  for (const raw of [
+    undefined,
+    "",
+    "2026-10-20",
+    "2026-10-20T15:00:00",
+    "2026-10-20T15:00:00+02:00",
+    "soon",
+    "2026-13-40T99:00:00Z",
+  ])
+    assert.equal(transitionWindow(raw), null, String(raw));
+  const f = transitionWorld(1);
+  for (const raw of [undefined, "next week", "2026-10-20 15:00"])
+    await withTransition(raw, async () => {
+      assert.equal((await cc(f, f.owner)).status, 402, String(raw));
+    });
+});
+
+test("transition: a workspace from before the start keeps its access during the window, on every paid route", async () => {
+  const f = transitionWorld(3);
+  await withTransition(f.start, async () => {
+    for (const [route, path] of [
+      [routes.commandCenter, "/api/revenue/command-center"],
+      [routes.trackingLinks, "/api/tracking-links"],
+    ] as const) {
+      const r = await get(f, f.owner, route, path);
+      assert.equal(r.status, 200, `${path}: ${r.text}`);
+    }
+    // The member of that workspace too — without a subscription of their own.
+    assert.equal((await cc(f, f.editor)).status, 200);
+    const sub = await get(f, f.owner, routes.subscription, "/api/billing/subscription");
+    assert.deepEqual(sub.body.data.access, {
+      plan: null,
+      status: null,
+      source: "transition",
+      periodEnd: f.end.toISOString(),
+      isOwner: true,
+    });
+  });
+});
+
+test("transition: a workspace created after the start never gets it — another workspace's transition opens nothing", async () => {
+  const f = transitionWorld(3);
+  // The stranger's workspace was created after the start and has no subscription of its own.
+  f.w.subscriptions = f.w.subscriptions.filter((s) => s.user_id !== f.stranger);
+  await withTransition(f.start, async () => {
+    assert.equal((await cc(f, f.stranger)).status, 402);
+    assert.equal((await cc(f, f.owner)).status, 200, "only the eligible workspace");
+  });
+});
+
+test("transition: it expires at its end, requests cannot extend it, and expiry deletes nothing", async () => {
+  const f = transitionWorld(TRANSITION_DAYS + 1 / 86_400); // ended one second ago
+  f.rows.youtube_channels.push({
+    id: uuid(),
+    workspace_id: f.ws,
+    youtube_channel_id: "UCkept",
+    connection_id: uuid(),
+  });
+  usage(f, f.owner, 2);
+  const before = JSON.stringify([f.rows.youtube_channels, f.rows.ai_usage, f.w.workspaces]);
+  await withTransition(f.start, async () => {
+    for (let i = 0; i < 3; i++) {
+      const r = await cc(f, f.owner);
+      assert.equal(r.status, 402);
+      assert.equal(r.writes.length, 0, "nothing is written, so nothing can extend it");
+    }
+  });
+  assert.equal(
+    JSON.stringify([f.rows.youtube_channels, f.rows.ai_usage, f.w.workspaces]),
+    before,
+    "data kept",
+  );
+  // During the window, repeated requests write nothing either — the end stays the configured one.
+  const g = transitionWorld(13);
+  await withTransition(g.start, async () => {
+    const ends = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      const r = await get(g, g.owner, routes.subscription, "/api/billing/subscription");
+      ends.add(r.body.data.access.periodEnd);
+      assert.equal(r.writes.length, 0);
+    }
+    assert.deepEqual([...ends], [g.end.toISOString()]);
+  });
+});
+
+test("transition: a real subscription takes precedence; a canceled one leaves the transition rules in force", async () => {
+  const paid = transitionWorld(3, { plan: "pro" });
+  await withTransition(paid.start, async () => {
+    const sub = await get(paid, paid.owner, routes.subscription, "/api/billing/subscription");
+    assert.equal(sub.body.data.access.source, "subscription");
+    assert.equal(sub.body.data.access.plan, "pro");
+  });
+  // Canceled: during the window, the transition; after it, the paywall.
+  const during = transitionWorld(3, { plan: "pro", status: "canceled" });
+  await withTransition(during.start, async () => {
+    assert.equal((await cc(during, during.owner)).status, 200);
+  });
+  const after = transitionWorld(15, { plan: "pro", status: "canceled" });
+  await withTransition(after.start, async () => {
+    assert.equal((await cc(after, after.owner)).status, 402);
+  });
+});
+
+test("transition: the previous channel rules — every channel kept and renewable, new ones without a cap", async () => {
+  const f = transitionWorld(3);
+  connectedChannels(f, f.ws, 12); // more than even Scale allows
+  const before = JSON.stringify(f.rows.youtube_channels);
+  await withTransition(f.start, async () => {
+    const added = await connect(f, f.owner, "UCnew");
+    assert.ok(![402, 409].includes(added.status), `a new channel is not capped (${added.status})`);
+    const renewed = await connect(f, f.owner, "UCown3");
+    assert.ok(![402, 409].includes(renewed.status), `renewal works (${renewed.status})`);
+  });
+  assert.equal(JSON.stringify(f.rows.youtube_channels), before, "every channel kept as it was");
+});
+
+test("transition: the previous AI allowance — 10 per rolling 24 hours per user, for each AI feature", async () => {
+  const f = transitionWorld(3);
+  await withTransition(f.start, async () => {
+    usage(f, f.owner, 9); // nine content analyses earlier today
+    usage(f, f.owner, 10, { task: "video_optimize" }); // another feature's own ten
+    usage(f, f.owner, 5, { cache_hit: true }); // cached answers: free
+    usage(f, f.owner, 7, { created_at: new Date(Date.now() - 25 * 3600_000).toISOString() }); // over 24h ago
+    usage(f, f.editor, 10); // another user's own ten
+    assert.equal((await analyze(f, f.owner)).status, 200, "the 10th");
+    const over = await analyze(f, f.owner);
+    assert.equal(over.status, 429);
+    assert.equal(over.body.error, "AI_QUOTA_EXCEEDED");
+    assert.equal(over.body.limit, 10);
+    assert.equal(over.body.window, "day");
+    assert.equal(f.provider.calls, 1, "the 11th never reaches the provider");
+    // Chat keeps its previous limit too: 10 in 24 hours.
+    usage(f, f.owner, 10, { task: "assistant_chat" });
+    const chatted = await chat(f, f.owner);
+    assert.equal(chatted.status, 429);
+    assert.equal(chatted.body.error, "CHAT_LIMIT_EXCEEDED");
+    assert.equal(chatted.body.limit, 10);
+  });
+});
+
+test("transition: no team management, and a paid subscription uses its own plan's limits instead", async () => {
+  const f = transitionWorld(3);
+  await withTransition(f.start, async () => {
+    const invite = await callTeamApi(routes.members, f.w, {
+      as: f.owner,
+      method: "POST",
+      path: "/api/workspace/members",
+      body: { email: "new@x.test", role: "editor" },
+    });
+    assert.equal(invite.status, 403);
+    assert.equal(
+      invite.body.error,
+      "PLAN_REQUIRED",
+      "team management stays with a real Scale plan",
+    );
+    assert.equal(invite.writes.filter((x) => x.table === "workspace_members").length, 0);
+  });
+  // The same eligible workspace on Pro: Pro's three channels and fifty analyses a month apply.
+  const paid = transitionWorld(3, { plan: "pro" });
+  await withTransition(paid.start, async () => {
+    connectedChannels(paid, paid.ws, 3);
+    const capped = await connect(paid, paid.owner, "UCnew");
+    assert.equal(capped.status, 409);
+    assert.equal(capped.body.limit, 3);
+    usage(paid, paid.owner, 50);
+    const over = await analyze(paid, paid.owner);
+    assert.equal(over.status, 429);
+    assert.equal(over.body.limit, 50, "the monthly allowance, not the transition's");
+  });
+});
+
+test("transition: the activation boundary — created one millisecond before the start is in, at the start is out", () => {
+  const window = transitionWindow("2026-10-20T15:00:00Z")!;
+  const during = new Date("2026-10-25T00:00:00Z");
+  assert.equal(transitionApplies("2026-10-20T14:59:59.999Z", during, window), true);
+  assert.equal(transitionApplies("2026-10-20T15:00:00.000Z", during, window), false);
+  assert.equal(
+    transitionApplies("2026-10-20T14:59:59.999Z", new Date(window.end.getTime() - 1), window),
+    true,
+  );
+  assert.equal(transitionApplies("2026-10-20T14:59:59.999Z", window.end, window), false);
+  assert.equal(
+    transitionWindow("2026-10-20T15:00:00.500Z")!.end.toISOString(),
+    "2026-11-03T15:00:00.500Z",
+  );
+});
+
+test("transition: revenue visibility and workspace isolation are unchanged", async () => {
+  const f = transitionWorld(3);
+  Object.assign(
+    f.w.workspaces.find((w) => w.id === f.ws)!,
+    { editor_revenue_visible: false },
+  );
+  await withTransition(f.start, async () => {
+    const editor = await cc(f, f.editor);
+    assert.equal(editor.status, 200);
+    assert.equal(editor.body.visibility.revenue, "hidden", "an editor still sees no amounts");
+    const owner = await cc(f, f.owner);
+    assert.equal(owner.body.visibility.revenue, "visible");
+  });
+});
+
+test("transition: the introductory 14-day trial stays available to an owner who has never subscribed", async () => {
+  const f = transitionWorld(3);
+  const planId = uuid();
+  f.rows.plans.push({
+    id: planId,
+    name: "Pro",
+    slug: "pro",
+    description: null,
+    currency: "usd",
+    features: [],
+    limits: {},
+    is_active: true,
+    is_public: true,
+    sort_order: 1,
+    stripe_product_id: "prod_pro",
+    plan_prices: [
+      {
+        id: uuid(),
+        plan_id: planId,
+        billing_interval: "month",
+        amount_cents: 7900,
+        currency: "usd",
+        stripe_price_id: "price_pro_month",
+        is_active: true,
+      },
+    ],
+  });
+  const sent: URLSearchParams[] = [];
+  const provider = f.w.external!;
+  f.w.external = (url, init) => {
+    if (url.origin === "https://api.stripe.com" && url.pathname === "/v1/checkout/sessions") {
+      sent.push(new URLSearchParams(init.body ?? ""));
+      return new Response(JSON.stringify({ id: "cs", url: "https://checkout.stripe.com/c/cs" }), {
+        status: 200,
+      });
+    }
+    return provider(url, init);
+  };
+  await withTransition(f.start, async () => {
+    const r = await callTeamApi(checkoutRoute, f.w, {
+      as: f.owner,
+      method: "POST",
+      path: "/api/billing/checkout",
+      body: { planId: "pro", interval: "month" },
+    });
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.body.data.trialDays, 14, "the transition does not use up the trial");
+    assert.equal(sent[0]?.get("subscription_data[trial_period_days]"), "14");
+  });
+});
+
+test("transition: the notice gives the exact end, offers Billing, and is never called a trial", async () => {
+  const { planNotice } = await import("../src/lib/plan-notice");
+  const access = {
+    plan: null,
+    status: null,
+    source: "transition",
+    periodEnd: "2026-11-03T15:00:00.000Z",
+  };
+  const owner = planNotice({ ...access, isOwner: true })!;
+  assert.equal(owner.title, "Your current access continues until Nov 3, 2026, 15:00 UTC");
+  assert.equal(owner.tone, "info");
+  assert.equal(owner.action?.to, "/billing");
+  assert.match(owner.body, /14-day free trial/);
+  assert.match(owner.body, /subscription is required/);
+  assert.match(owner.body, /data is kept/);
+  assert.doesNotMatch(owner.title, /trial/i);
+  const member = planNotice({ ...access, isOwner: false })!;
+  assert.equal(member.action, null);
+  assert.match(member.body, /need a subscription of your own/);
+  // A workspace that is not in the transition never sees it.
+  assert.doesNotMatch(
+    planNotice({ plan: null, status: null, source: "none", periodEnd: null, isOwner: true })!.title,
+    /continues until/,
+  );
+});
