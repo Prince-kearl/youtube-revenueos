@@ -1,6 +1,7 @@
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -127,9 +128,9 @@ async function fixture() {
     other: addUser(world, "other@x.test"),
     nobody: addUser(world, "nobody@x.test"),
   };
-  const w1 = addWorkspace(world, users.owner);
+  const w1 = addPaidWorkspace(world, users.owner);
   addMember(world, w1, users.editor, "editor");
-  const w2 = addWorkspace(world, users.other);
+  const w2 = addPaidWorkspace(world, users.other);
   // `nobody` has a profile and no workspace.
   world.workspace_members = world.workspace_members.filter((m) => m.user_id !== users.nobody);
 

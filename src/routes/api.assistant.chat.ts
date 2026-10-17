@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import { generateAssistantReply } from "@/lib/server/ai-generation";
-import { enforceAiQuota } from "@/lib/server/ai-usage";
+import { enforceChatLimit } from "@/lib/server/ai-usage";
 
 // Real backing for Tubi, the in-app assistant (see HelpSheet in DashboardLayout.tsx) — replaces
 // the old MockLlmService keyword-matched canned copy. Available to any signed-in workspace member
@@ -109,7 +109,13 @@ export const Route = createFileRoute("/api/assistant/chat")({
         try {
           const ctx = await getWorkspaceContext(request);
           const input = chatSchema.parse(await parseJson(request));
-          await enforceAiQuota(ctx.user.id, "assistant_chat");
+          // Ordinary chat: its own per-minute and per-day limits, never the monthly analysis
+          // allowance (ai-usage.ts, enforceChatLimit).
+          const allowance = await enforceChatLimit({
+            userId: ctx.user.id,
+            workspaceId: ctx.workspaceId,
+            plan: ctx.plan,
+          });
 
           const { data: workspace } = await ctx.client
             .from("workspaces")
@@ -131,6 +137,8 @@ export const Route = createFileRoute("/api/assistant/chat")({
               accountContext,
             });
           } catch (error) {
+            // The provider failed: the analysis is given back.
+            await allowance.release();
             if (error instanceof Error && error.message === "AI_PROVIDER_NOT_CONFIGURED") {
               return json({ error: "AI_PROVIDER_NOT_CONFIGURED" }, { status: 503 });
             }

@@ -58,6 +58,8 @@ function world(options: { customer?: string | null } = {}) {
     list: [] as StripeList,
     listed: [] as string[],
     sessionsCreated: [] as string[],
+    /** The parameters each Checkout session was created with. */
+    sessionParams: [] as URLSearchParams[],
   };
   w.external = (url, init) => {
     if (url.origin !== "https://api.stripe.com") return undefined;
@@ -68,6 +70,7 @@ function world(options: { customer?: string | null } = {}) {
     }
     if (init.method === "POST" && url.pathname === "/v1/checkout/sessions") {
       stripe.sessionsCreated.push("cs");
+      stripe.sessionParams.push(new URLSearchParams(init.body ?? ""));
       return new Response(
         JSON.stringify({ id: "cs_1", url: "https://checkout.stripe.com/c/cs_1" }),
         { status: 200 },
@@ -178,4 +181,55 @@ test("only the caller's own subscriptions count, and a signed-out request is ref
   const signedOut = await checkout(f, null);
   assert.equal(signedOut.status, 401);
   assert.equal(f.stripe.sessionsCreated.length, 1);
+});
+
+// ---------- the 14-day introductory trial (Phase 4B-2) ----------
+
+const trialOf = (params: URLSearchParams | undefined) =>
+  params?.get("subscription_data[trial_period_days]") ?? null;
+
+test("a first subscription starts with a 14-day trial, and a payment method is always collected", async () => {
+  const f = world();
+  const r = await checkout(f);
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.body.data.trialDays, 14);
+  const params = f.stripe.sessionParams[0];
+  assert.equal(trialOf(params), "14");
+  assert.equal(params.get("payment_method_collection"), "always");
+  assert.equal(params.get("mode"), "subscription");
+  assert.equal(params.get("line_items[0][price]"), "price_pro_month", "the selected plan's price");
+});
+
+test("one trial per customer: any earlier subscription, in any state, means no trial", async () => {
+  // A trial canceled (or expired, or ended and paid) in Tubify's record — whatever the plan now
+  // chosen — does not start another.
+  for (const status of ["canceled", "incomplete_expired"]) {
+    const f = world({ customer: "cus_me" });
+    f.subscribe(f.me, status);
+    f.stripe.list = [{ id: `sub_${status}`, status }];
+    const r = await checkout(f);
+    assert.equal(r.status, 200, `${status}: ${r.text}`);
+    assert.equal(r.body.data.trialDays, 0, status);
+    assert.equal(trialOf(f.stripe.sessionParams[0]), null, `${status}: Checkout has no trial`);
+    assert.equal(f.stripe.sessionParams[0].get("payment_method_collection"), "always");
+  }
+  // One only Stripe knows about (its webhook never recorded it) counts the same.
+  const g = world({ customer: "cus_me" });
+  g.stripe.list = [{ id: "sub_old_trial", status: "canceled" }];
+  const r = await checkout(g);
+  assert.equal(r.status, 200);
+  assert.equal(trialOf(g.stripe.sessionParams[0]), null);
+  // And a live trial is not a second chance either: it blocks Checkout altogether.
+  const h = world();
+  h.subscribe(h.me, "trialing");
+  assert.equal((await checkout(h)).status, 409);
+  assert.equal(h.stripe.sessionsCreated.length, 0);
+});
+
+test("trial eligibility is the caller's own: another user's history neither grants nor removes it", async () => {
+  const f = world();
+  f.subscribe(f.other, "canceled");
+  const r = await checkout(f);
+  assert.equal(r.body.data.trialDays, 14);
+  assert.equal(trialOf(f.stripe.sessionParams[0]), "14");
 });

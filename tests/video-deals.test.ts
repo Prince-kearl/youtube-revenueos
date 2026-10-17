@@ -1,6 +1,7 @@
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -50,7 +51,7 @@ function fixture(flags: { editor?: boolean; setter?: boolean } = {}) {
     staffEditor: addUser(world, "staff@x.test", "superadmin"),
     stranger: addUser(world, "stranger@x.test"),
   };
-  const ws = addWorkspace(world, users.owner);
+  const ws = addPaidWorkspace(world, users.owner);
   addMember(world, ws, users.manager, "manager");
   addMember(world, ws, users.editor, "editor");
   addMember(world, ws, users.setter, "setter");
@@ -62,7 +63,7 @@ function fixture(flags: { editor?: boolean; setter?: boolean } = {}) {
       setter_revenue_visible: flags.setter ?? false,
     },
   );
-  const otherWs = addWorkspace(world, users.stranger);
+  const otherWs = addPaidWorkspace(world, users.stranger);
   Object.assign(
     world.workspaces.find((w) => w.id === otherWs)!,
     {

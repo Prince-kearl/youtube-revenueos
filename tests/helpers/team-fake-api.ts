@@ -52,7 +52,10 @@ export interface World {
   youtube_connections?: Row[];
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
    * fail the test with "unexpected request". */
-  external?: (url: URL, init: { method: string; headers: Headers }) => Response | undefined;
+  external?: (
+    url: URL,
+    init: { method: string; headers: Headers; body: string | null },
+  ) => Response | undefined;
   /** Per table: inserts into it are refused by the database with this SQLSTATE (a trigger's
    * 23514, a foreign key's 23503…), as PostgREST reports it. */
   refuseWrites?: Record<string, string>;
@@ -148,6 +151,32 @@ export function addWorkspace(world: World, ownerId: string): string {
   const id = uuid();
   world.workspaces.push({ id, owner_id: ownerId, name: "Workspace" });
   addMember(world, id, ownerId, "owner");
+  return id;
+}
+
+/** An active subscription for `userId` (a workspace owner): their workspace then has `plan`. */
+export function grantPlan(
+  world: World,
+  userId: string,
+  plan: "starter" | "pro" | "scale" = "scale",
+  status = "active",
+): void {
+  world.subscriptions.push({
+    id: uuid(),
+    user_id: userId,
+    stripe_subscription_id: `sub_${uuid()}`,
+    stripe_price_id: `price_${plan}`,
+    plan_id: plan,
+    billing_interval: "month",
+    status,
+    created_at: "2026-01-01T00:00:00Z",
+  });
+}
+
+/** A workspace whose owner has an active Scale subscription — every paid route is open to it. */
+export function addPaidWorkspace(world: World, ownerId: string): string {
+  const id = addWorkspace(world, ownerId);
+  grantPlan(world, ownerId, "scale");
   return id;
 }
 
@@ -393,7 +422,9 @@ export async function callTeamApi(
     const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
     const headers = new Headers(init?.headers ?? request?.headers);
     if (url.origin !== SUPABASE) {
-      const answer = world.external?.(url, { method, headers });
+      const body =
+        typeof init?.body === "string" ? init.body : request ? await request.clone().text() : null;
+      const answer = world.external?.(url, { method, headers, body });
       if (answer) return answer;
       throw new Error(`unexpected request in test: ${method} ${url}`);
     }

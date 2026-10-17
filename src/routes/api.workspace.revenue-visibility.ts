@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/workspace/revenue-visibility")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const ctx = await getWorkspaceContext(request);
+          const ctx = await getWorkspaceContext(request, { requirePlan: false });
           const access = await resolveRevenueAccess(ctx);
           return json({
             data: {
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/api/workspace/revenue-visibility")({
       },
       PATCH: async ({ request }) => {
         try {
-          const ctx = await getWorkspaceContext(request);
+          const ctx = await getWorkspaceContext(request, { requirePlan: false });
           const service = createServiceSupabaseClient();
           const access = await resolveRevenueAccess(ctx, service);
           // Authorised before the body is even read.

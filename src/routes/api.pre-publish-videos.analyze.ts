@@ -17,6 +17,9 @@ import {
   checkAiRateLimit,
   AiRateLimitError,
   recordAiUsage,
+  reserveAiAnalysis,
+  completeAiAnalysis,
+  releaseAiAnalysis,
   hashForCacheKey,
   getCachedAiResult,
   setCachedAiResult,
@@ -159,14 +162,22 @@ export const Route = createFileRoute("/api/pre-publish-videos/analyze")({
               cacheHit: true,
             });
           } else {
-            const generation = await generatePrePublishVideoAnalysis(aiInput);
+            // One analysis from the workspace's monthly allowance (refused when used up), given
+            // back if the provider fails. A cached answer, above, never uses one.
+            const reservation = await reserveAiAnalysis(
+              service,
+              { userId: user.id, workspaceId: ctx.workspaceId, plan: ctx.plan },
+              { provider, model, task: TASK },
+            );
+            let generation: Awaited<ReturnType<typeof generatePrePublishVideoAnalysis>>;
+            try {
+              generation = await generatePrePublishVideoAnalysis(aiInput);
+            } catch (providerError) {
+              await releaseAiAnalysis(service, reservation);
+              throw providerError;
+            }
             result = generation.result;
-            await recordAiUsage(service, {
-              userId: user.id,
-              provider,
-              model,
-              task: TASK,
-              cacheHit: false,
+            await completeAiAnalysis(service, reservation, {
               inputTokens: generation.usage?.inputTokens ?? null,
               outputTokens: generation.usage?.outputTokens ?? null,
               estimatedCost: generation.usage?.costUsd ?? null,

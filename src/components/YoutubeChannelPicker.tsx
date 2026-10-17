@@ -65,7 +65,15 @@ export function YoutubeChannelPicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, channelId }),
       });
-      if (!response.ok) throw new Error("ADD_FAILED");
+      if (!response.ok) {
+        // The plan's channel limit, or no subscription: the server says why, in words.
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        if ((response.status === 409 || response.status === 402) && body.message) {
+          toast.error(body.message);
+          return;
+        }
+        throw new Error("ADD_FAILED");
+      }
       setChannelsByConnection((current) =>
         current.filter((row) => row.channel.channelId !== channelId),
       );

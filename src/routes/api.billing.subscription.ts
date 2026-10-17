@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { isStripeConfigured } from "@/lib/server/stripe";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
+import { getWorkspaceContext } from "@/lib/server/workspace";
+import type { WorkspaceAccess } from "@/lib/plan-notice";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -49,11 +51,29 @@ export const Route = createFileRoute("/api/billing/subscription")({
             };
           });
 
+          // The plan of the caller's WORKSPACE (its owner's subscription) — what decides access —
+          // as opposed to the caller's own subscription above. Null for an account with no
+          // workspace.
+          let access: WorkspaceAccess | null = null;
+          try {
+            const ctx = await getWorkspaceContext(request, { requirePlan: false });
+            access = {
+              plan: ctx.plan.plan,
+              status: ctx.plan.status,
+              source: ctx.plan.source,
+              periodEnd: ctx.plan.periodEnd,
+              isOwner: ctx.workspaceRole === "owner",
+            };
+          } catch (error) {
+            if (!(error instanceof Response)) throw error;
+          }
+
           return json({
             data: {
               stripeConfigured: isStripeConfigured(),
               subscription: subscription ?? null,
               plans,
+              access,
             },
           });
         } catch (error) {

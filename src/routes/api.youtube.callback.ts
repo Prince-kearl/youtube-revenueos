@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getWorkspaceContext } from "@/lib/server/workspace";
+import { channelCapacity, overChannelLimit } from "@/lib/server/plan-access";
 import {
   assertYoutubeOAuthConfigured,
   exchangeGoogleAuthorizationCode,
@@ -49,8 +50,13 @@ export const Route = createFileRoute("/api/youtube/callback")({
             return redirectToApp(`${safeReturnTo}?youtube=invalid_state`, url.origin);
           }
 
-          const { client, user, workspaceId, setCookieHeaders } =
-            await getWorkspaceContext(request);
+          const {
+            client,
+            user,
+            workspaceId,
+            setCookieHeaders,
+            plan: workspacePlan,
+          } = await getWorkspaceContext(request, { requirePlan: false });
           // Must match the redirect_uri used in the authorization request — GOOGLE_REDIRECT_URI is
           // the single authoritative source for both, never the callback request's own host/origin.
           assertYoutubeOAuthConfigured();
@@ -316,8 +322,24 @@ export const Route = createFileRoute("/api/youtube/callback")({
             return response;
           }
 
-          // Exactly one new channel — connect it immediately, no picker needed.
+          // Exactly one new channel — connect it immediately, no picker needed, if the plan has room
+          // for it. (Renewing access to channels already connected, above, never needs room.)
           const channel = newChannels[0];
+          let capacity: Awaited<ReturnType<typeof channelCapacity>>;
+          try {
+            capacity = await channelCapacity(client, {
+              workspaceId,
+              plan: workspacePlan,
+              youtubeChannelId: channel.channelId,
+            });
+          } catch {
+            return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+          }
+          if (!capacity.ok)
+            return redirectToApp(
+              `${safeReturnTo}?youtube=${capacity.reason === "subscription_required" ? "subscription_required" : "channel_limit"}`,
+              url.origin,
+            );
           const { error: upsertError } = await client.from("youtube_channels").upsert(
             {
               user_id: user.id,
@@ -348,6 +370,22 @@ export const Route = createFileRoute("/api/youtube/callback")({
               hint: upsertError.hint,
             });
             return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+          }
+          // A connection made at the same moment may have taken the last place (see
+          // overChannelLimit): this channel is detached again, its row kept.
+          let over: boolean;
+          try {
+            over = await overChannelLimit(client, { workspaceId, plan: workspacePlan });
+          } catch {
+            over = true;
+          }
+          if (over) {
+            await client
+              .from("youtube_channels")
+              .update({ connection_id: null })
+              .eq("workspace_id", workspaceId)
+              .eq("youtube_channel_id", channel.channelId);
+            return redirectToApp(`${safeReturnTo}?youtube=channel_limit`, url.origin);
           }
 
           const response = redirectToApp(`${safeReturnTo}?youtube=connected`, url.origin);

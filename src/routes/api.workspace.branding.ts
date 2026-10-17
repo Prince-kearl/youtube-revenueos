@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/workspace/branding")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const ctx = await getWorkspaceContext(request);
+          const ctx = await getWorkspaceContext(request, { requirePlan: false });
           const { data, error } = await ctx.client
             .from("workspace_branding")
             .select("logo_path, primary_color, accent_color, font_family")
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/workspace/branding")({
       },
       PATCH: async ({ request }) => {
         try {
-          const ctx = await getWorkspaceContext(request);
+          const ctx = await getWorkspaceContext(request, { requirePlan: false });
           if (!canManageWorkspaceMembers(ctx.workspaceRole))
             return json({ error: "FORBIDDEN" }, { status: 403 });
 

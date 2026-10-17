@@ -21,6 +21,7 @@ import { demoRevenuePeriod } from "../src/lib/demo-revenue";
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -57,10 +58,10 @@ function fixture(): Fixture {
   const editor = addUser(world, "editor@example.com");
   const setter = addUser(world, "setter@example.com");
   const stranger = addUser(world, "stranger@example.com");
-  const workspace = addWorkspace(world, owner);
+  const workspace = addPaidWorkspace(world, owner);
   addMember(world, workspace, editor, "editor");
   addMember(world, workspace, setter, "setter");
-  const otherWorkspace = addWorkspace(world, stranger);
+  const otherWorkspace = addPaidWorkspace(world, stranger);
   const channel = uuid();
   const otherChannel = uuid();
   world.youtube_channels = [
@@ -610,7 +611,13 @@ test("no money: nothing financial is read or returned, for any role, with revenu
     assert.equal(result.status, 200);
     assert.deepEqual(result.refusedMoneyReads, []);
     assert.ok(
-      result.reads.every((read) => read.as === "user"),
+      // (Besides the plan check, which reads the workspace's owner and subscription with the
+      // service role — plan-access.ts — and nothing financial.)
+      result.reads.every(
+        (read) =>
+          read.as === "user" ||
+          (read.as === "service" && ["workspaces", "subscriptions"].includes(String(read.table))),
+      ),
       "the caller's own session only",
     );
     for (const table of ["deals", "channel_daily_stats", "video_daily_stats"])

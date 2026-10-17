@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import {
   getValidAccessToken,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const url = new URL(request.url);
           const rawChannelId = url.searchParams.get("channelId");
           const requestedChannelId = rawChannelId ? idSchema.parse(rawChannelId) : null;

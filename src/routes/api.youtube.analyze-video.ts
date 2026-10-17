@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
 import { fetchPublicYoutubeVideoById } from "@/lib/server/google-oauth";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/api/youtube/analyze-video")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const url = new URL(request.url);
           const videoId = videoIdSchema.parse(url.searchParams.get("videoId"));
           const rawChannelId = url.searchParams.get("channelId");

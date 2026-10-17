@@ -1203,6 +1203,14 @@ const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; tex
     text: "We couldn't find your workspace — please sign out and back in, then try again.",
   },
   already_connected: { type: "success", text: "That YouTube account is already connected." },
+  channel_limit: {
+    type: "error",
+    text: "Your plan's channel limit is reached, so no new channel was added. Disconnect one or upgrade in Billing to add another. Channels already connected were renewed.",
+  },
+  subscription_required: {
+    type: "error",
+    text: "Connecting a new channel needs an active subscription. Choose a plan in Billing — your first subscription starts with a 14-day free trial.",
+  },
   connection_ambiguous: {
     type: "error",
     text: "We couldn't safely confirm this is the same Google account as an existing connection in this workspace, so nothing was changed. Contact support if you expected this to reconnect automatically.",

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+
 import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
@@ -17,6 +18,9 @@ import {
   checkAiRateLimit,
   AiRateLimitError,
   recordAiUsage,
+  reserveAiAnalysis,
+  completeAiAnalysis,
+  releaseAiAnalysis,
   hashForCacheKey,
   getCachedAiResult,
   setCachedAiResult,
@@ -156,7 +160,7 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
           // today (matches /api/videos/analyze-content and /api/videos/optimize, the two AI
           // routes this page already calls) — any signed-in Tubify user may analyze a public
           // video; per-plan limits below are the actual usage control, not an all-or-nothing gate.
-          const { client, user } = await requireSessionUser(request);
+          const { client, user, workspaceId, plan } = await requirePaidSession(request);
           // 3. Validate input.
           const input = inputSchema.parse(await parseJson(request));
 
@@ -261,7 +265,9 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
           if (!providerInfo) return json({ error: "AI_PROVIDER_NOT_CONFIGURED" }, { status: 503 });
           const { provider, model } = providerInfo;
 
-          // 7. Usage limits, checked before touching the provider at all.
+          // 7. The burst limit, checked before touching the provider at all. (The monthly
+          // allowance is taken only when the provider is actually called — step 9 — so a cached
+          // answer never uses it up.)
           const tier = await resolvePlanTier(service, user.id);
           try {
             await checkAiRateLimit(service, user.id, TASK, tier);
@@ -304,17 +310,25 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             return json({ data: cached, cached: true });
           }
 
-          // 9-10. Call the provider and validate its response.
-          const { result: analysis, usage } = await generateVideoAnalysis(aiInput);
+          // 9. One analysis from the workspace's monthly allowance (refused when used up), then
+          // the provider call — given back if the provider fails.
+          const reservation = await reserveAiAnalysis(
+            service,
+            { userId: user.id, workspaceId, plan },
+            { provider, model, task: TASK },
+          );
+          let generated: Awaited<ReturnType<typeof generateVideoAnalysis>>;
+          try {
+            generated = await generateVideoAnalysis(aiInput);
+          } catch (providerError) {
+            await releaseAiAnalysis(service, reservation);
+            throw providerError;
+          }
+          const { result: analysis, usage } = generated;
 
           // 11-12. Real token/cost usage when the provider reported it (OpenRouter does); null
           // otherwise, which the table allows rather than a fabricated estimate.
-          await recordAiUsage(service, {
-            userId: user.id,
-            provider,
-            model,
-            task: TASK,
-            cacheHit: false,
+          await completeAiAnalysis(service, reservation, {
             inputTokens: usage?.inputTokens ?? null,
             outputTokens: usage?.outputTokens ?? null,
             estimatedCost: usage?.costUsd ?? null,

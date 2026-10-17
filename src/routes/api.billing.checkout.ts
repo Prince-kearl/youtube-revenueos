@@ -7,6 +7,7 @@ import {
   listCustomerSubscriptions,
 } from "@/lib/server/stripe";
 import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
+import { TRIAL_DAYS } from "@/lib/server/plan-access";
 
 // One subscription per customer. A new Checkout session always creates a NEW subscription, so a
 // customer who already has one would be billed twice. Checkout is therefore refused (409, with
@@ -25,6 +26,14 @@ import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
 const LIVE_STATUSES = ["active", "trialing", "past_due", "unpaid"] as const;
 const PENDING_STATUSES = ["incomplete", "paused"] as const;
 const BLOCKING_STATUSES: readonly string[] = [...LIVE_STATUSES, ...PENDING_STATUSES];
+// The introductory trial (TRIAL_DAYS, 14): one per customer, for their FIRST subscription only.
+// A customer who has ever had a subscription — in Tubify's record or in Stripe's, in any state:
+// trialing, active, canceled during or after a trial, expired — gets Checkout without a trial, so
+// a trial cannot be had again by canceling and resubscribing, by choosing another plan, or by
+// opening Checkout twice. The same reads the duplicate check makes decide it; nothing new is
+// stored. (Stripe's list is asked only for a user who already has a Stripe customer — one without
+// has never completed a Checkout, so has never had a subscription.)
+
 // The local record cannot hold "paused" (not a value of public.subscription_status): asking for
 // it would fail the query, so only Stripe's own list is checked for it.
 const RECORDED_BLOCKING_STATUSES = BLOCKING_STATUSES.filter((status) => status !== "paused");
@@ -114,16 +123,20 @@ export const Route = createFileRoute("/api/billing/checkout")({
             .eq("id", user.id)
             .maybeSingle();
           if (profileError) return BILLING_STATE_UNAVAILABLE();
+          // Every subscription on record, in any state: the live ones block a second one, and
+          // any at all means the introductory trial has been used.
           const { data: recorded, error: recordedError } = await client
             .from("subscriptions")
             .select("status")
-            .eq("user_id", user.id)
-            .in("status", RECORDED_BLOCKING_STATUSES);
+            .eq("user_id", user.id);
           if (recordedError) return BILLING_STATE_UNAVAILABLE();
-          const local = existingSubscriptionError((recorded ?? []).map((row) => row.status));
+          const recordedStatuses = (recorded ?? []).map((row) => row.status as string);
+          const local = existingSubscriptionError(
+            recordedStatuses.filter((status) => RECORDED_BLOCKING_STATUSES.includes(status)),
+          );
           if (local) return local;
+          let held: Array<{ status: string }> = [];
           if (profile?.stripe_customer_id) {
-            let held: Array<{ status: string }>;
             try {
               held = await listCustomerSubscriptions(profile.stripe_customer_id);
             } catch {
@@ -134,6 +147,7 @@ export const Route = createFileRoute("/api/billing/checkout")({
             );
             if (remote) return remote;
           }
+          const trialEligible = recordedStatuses.length === 0 && held.length === 0;
 
           const origin = new URL(request.url).origin;
           const session = await createCheckoutSession({
@@ -146,9 +160,10 @@ export const Route = createFileRoute("/api/billing/checkout")({
             successUrl: `${origin}/settings?checkout=success`,
             cancelUrl: `${origin}/billing`,
             referralCode: input.referralCode ?? null,
+            trialDays: trialEligible ? TRIAL_DAYS : null,
           });
           if (!session.url) return json({ error: "STRIPE_CHECKOUT_FAILED" }, { status: 502 });
-          return json({ data: { url: session.url } });
+          return json({ data: { url: session.url, trialDays: trialEligible ? TRIAL_DAYS : 0 } });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)

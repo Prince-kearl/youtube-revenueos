@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requirePaidSession } from "@/lib/server/workspace";
+
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { purgeExpiredRateLimitBuckets } from "@/lib/server/rate-limit";
 import { getServerEnv } from "@/lib/server/env";
@@ -275,7 +276,7 @@ export const Route = createFileRoute("/api/youtube/sync")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });

@@ -1,6 +1,7 @@
 import {
   addMember,
   addUser,
+  addPaidWorkspace,
   addWorkspace,
   callTeamApi,
   emptyWorld,
@@ -256,9 +257,9 @@ function world(flags: { editor?: boolean } = {}) {
     editor: addUser(w, "editor@x.test"),
     stranger: addUser(w, "stranger@x.test"),
   };
-  const ws = addWorkspace(w, users.owner);
+  const ws = addPaidWorkspace(w, users.owner);
   addMember(w, ws, users.editor, "editor");
-  const other = addWorkspace(w, users.stranger);
+  const other = addPaidWorkspace(w, users.stranger);
   Object.assign(
     w.workspaces.find((x) => x.id === ws)!,
     { editor_revenue_visible: flags.editor ?? false, setter_revenue_visible: false },

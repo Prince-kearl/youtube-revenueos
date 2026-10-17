@@ -70,6 +70,9 @@ async function callRoute(route: RouteModule, path: string) {
     youtube_channels: channelRow,
     youtube_integration_settings: { auto_sync_videos: true, import_analytics: true },
     workspace_members: { workspace_id: "ws-1", role: "owner" },
+    // The workspace's owner and their active subscription (lib/server/plan-access.ts).
+    workspaces: { owner_id: USER },
+    subscriptions: { plan_id: "scale", status: "active" },
     features: { id: "feature-analytics", is_active: true },
   };
 

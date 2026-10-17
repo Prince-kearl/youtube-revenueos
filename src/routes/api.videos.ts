@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
@@ -107,7 +108,7 @@ export const Route = createFileRoute("/api/videos")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const url = new URL(request.url);
           const rawChannelId = url.searchParams.get("channelId");
           const rawYoutubeVideoId = url.searchParams.get("youtubeVideoId");
@@ -195,7 +196,7 @@ export const Route = createFileRoute("/api/videos")({
       },
       POST: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const input = saveVideoSchema.parse(await parseJson(request));
           const channel = await findOwnedChannel(client, input.channelId);
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
@@ -279,7 +280,7 @@ export const Route = createFileRoute("/api/videos")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateVideoSchema.parse(await parseJson(request));
           const { data: existing, error: existingError } = await client
@@ -329,7 +330,7 @@ export const Route = createFileRoute("/api/videos")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const { data: existing, error: existingError } = await client
             .from("videos")

@@ -199,9 +199,19 @@ function BillingCheckout() {
                 activeSubscription.plan_id}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Billed {activeSubscription.billing_interval === "year" ? "annually" : "monthly"}
-              {activeSubscription.current_period_end &&
-                ` · renews ${new Date(activeSubscription.current_period_end).toLocaleDateString()}`}
+              {activeSubscription.status === "trialing" ? (
+                <>
+                  Free trial
+                  {activeSubscription.current_period_end &&
+                    ` · ends ${new Date(activeSubscription.current_period_end).toLocaleDateString()}; billing starts then unless you cancel`}
+                </>
+              ) : (
+                <>
+                  Billed {activeSubscription.billing_interval === "year" ? "annually" : "monthly"}
+                  {activeSubscription.current_period_end &&
+                    ` · renews ${new Date(activeSubscription.current_period_end).toLocaleDateString()}`}
+                </>
+              )}
               {activeSubscription.cancel_at_period_end && " · cancels at period end"}
             </p>
             <button
@@ -374,7 +384,9 @@ function BillingCheckout() {
               })}
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              You'll enter payment details securely on Stripe's own checkout page.
+              Your first subscription starts with a 14-day free trial — you enter payment details
+              securely on Stripe's own checkout page, and nothing is charged until the trial ends.
+              Cancel before then and you won't be billed.
             </p>
           </div>
         )}

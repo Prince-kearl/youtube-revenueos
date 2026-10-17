@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolvePlanTier } from "./ai-usage";
+import { resolvePlanTier } from "./subscription-tier";
 import { isPlatformSuperadmin } from "./platform-staff";
 import { TEAM_MANAGEMENT_PLAN, TEAM_NOT_ENTITLED, type TeamEntitlement } from "@/lib/team-policy";
 
