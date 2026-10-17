@@ -677,31 +677,38 @@ const ready = (response: CommandCenterResponse): CommandCenterState => ({
   refreshing: false,
 });
 
-test("section: three sources each with its own unit and caveat, then what to do next, then the videos", async () => {
+test("section: only what the dashboard doesn't already show — sponsorships and clicks apart, then the top next steps", async () => {
   const f = world();
   const response = (await ask(f, "owner")).body as unknown as CommandCenterResponse;
   const html = render(ready(response));
-  assert.match(html, /YouTube estimated revenue/);
-  assert.match(html, /\$535\.00/);
-  assert.match(html, /Contracted sponsorships/);
+  // YouTube revenue, trends and the videos table are the KPI cards and the sections below.
+  assert.doesNotMatch(html, /YouTube estimated revenue/);
+  assert.doesNotMatch(html, /\$535\.00/);
+  assert.doesNotMatch(html, /data-testid="command-center-video"/);
+  assert.doesNotMatch(html, /aria-label="Period"/, "no second period control");
+  assert.match(html, /Next steps/);
+  assert.match(html, /Sponsorships/);
   assert.match(html, /€300\.00 linked to videos \(1 deal\)/);
-  assert.match(html, /not payments received, and not limited to this period/);
+  assert.match(html, /not payments received/);
   assert.match(html, /Tracked-link clicks/);
   assert.match(html, />34</);
-  assert.match(html, /Clicks show interest, not income\./);
-  assert.match(html, /they are never added together/);
+  assert.match(html, /interest, not income/);
   assert.doesNotMatch(html, /\$1,(535|835)|\$1,535/, "no combined total");
-  assert.match(html, /What to do next/);
   assert.match(html, /href="\/link-tracking\?video=vidMINE0001&amp;range=3M"/);
-  // (Over the command center's own period: the video opens at the same days.)
-  assert.match(html, /href="\/videos\/vidMINE0000\?range=3M"/);
-  assert.equal(html.split('data-testid="command-center-video"').length - 1, 6);
+  // One list: suggestions first, then setup steps — the first three, the rest behind "Show more".
+  const steps = response.data.opportunities.length + response.data.gettingStarted.length;
+  const shown =
+    html.split('data-testid="command-center-opportunity"').length -
+    1 +
+    (html.split('data-testid="command-center-step"').length - 1);
+  assert.equal(shown, Math.min(steps, 3));
+  if (steps > 3) assert.match(html, new RegExp(`Show ${steps - 3} more`));
+  else assert.doesNotMatch(html, /data-testid="command-center-more"/);
 });
 
 test("section: hidden amounts read 'Hidden'; loading, error, restricted and not-connected states", async () => {
   const f = world();
   const hidden = render(ready((await ask(f, "editor")).body as unknown as CommandCenterResponse));
-  assert.match(hidden, /Revenue is hidden by your workspace/);
   assert.doesNotMatch(hidden, /\$\d/);
   assert.match(hidden, /Hidden linked to videos/);
   assert.match(render({ status: "loading" }), /aria-label="Loading the revenue command center"/);
@@ -1188,10 +1195,6 @@ test("section: the 'link a deal' action leads to the video's own Brand deals blo
   const html = render(ready(response));
   assert.match(html, /href="\/videos\/vidMINE0003\?range=6M#brand-deals"[^>]*>Link a deal/);
   assert.match(html, /href="\/videos\/vidMINE0003\?range=6M"/, "video links keep the period");
-  assert.match(html, /data-state="completed"[^>]*><span[^>]*>Tracked links/);
-  assert.match(html, /data-state="observed"[^>]*><span[^>]*>Link clicks/);
-  assert.match(html, /data-state="none"[^>]*><span[^>]*>Deals linked<\/span><span[^>]*>None yet/);
-  assert.match(html, /data-testid="command-center-progress-note"/);
 });
 
 test("performance: the two revenue reads run side by side, and either failing fails the answer", async () => {
