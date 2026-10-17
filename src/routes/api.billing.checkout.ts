@@ -1,8 +1,61 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
-import { createCheckoutSession, isStripeConfigured } from "@/lib/server/stripe";
+import {
+  createCheckoutSession,
+  isStripeConfigured,
+  listCustomerSubscriptions,
+} from "@/lib/server/stripe";
 import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
+
+// One subscription per customer. A new Checkout session always creates a NEW subscription, so a
+// customer who already has one would be billed twice. Checkout is therefore refused (409, with
+// "use Manage billing" as the way to change or renew a plan) while any subscription is:
+//
+//   active, trialing        live — it is billing, or will
+//   past_due, unpaid        live — Stripe is still collecting it; paying it renews it
+//   incomplete, paused      pending — its first payment is still being confirmed, or it can
+//                           resume; a second one could start billing beside it
+//
+// "canceled" and "incomplete_expired" are over for good and do not block. Both Tubify's record
+// and Stripe's own are checked: the record can miss a subscription (a webhook not yet delivered,
+// or one created in Stripe directly), and Stripe is asked only when the user already has a Stripe
+// customer — a first purchase costs no extra request. When either cannot be read, checkout is
+// refused (503): never a guess that could charge twice.
+const LIVE_STATUSES = ["active", "trialing", "past_due", "unpaid"] as const;
+const PENDING_STATUSES = ["incomplete", "paused"] as const;
+const BLOCKING_STATUSES: readonly string[] = [...LIVE_STATUSES, ...PENDING_STATUSES];
+// The local record cannot hold "paused" (not a value of public.subscription_status): asking for
+// it would fail the query, so only Stripe's own list is checked for it.
+const RECORDED_BLOCKING_STATUSES = BLOCKING_STATUSES.filter((status) => status !== "paused");
+
+function existingSubscriptionError(statuses: readonly string[]): Response | null {
+  const blocking = statuses.filter((status) => BLOCKING_STATUSES.includes(status));
+  if (blocking.length === 0) return null;
+  const live = blocking.some((status) => (LIVE_STATUSES as readonly string[]).includes(status));
+  return json(
+    live
+      ? {
+          error: "SUBSCRIPTION_EXISTS",
+          message: "You already have a subscription. Use Manage billing to change or renew it.",
+        }
+      : {
+          error: "SUBSCRIPTION_PENDING",
+          message:
+            "Your last subscription is still being confirmed. Use Manage billing to complete or cancel it.",
+        },
+    { status: 409 },
+  );
+}
+
+const BILLING_STATE_UNAVAILABLE = () =>
+  json(
+    {
+      error: "BILLING_STATE_UNAVAILABLE",
+      message: "We couldn't check your current subscription. Please try again in a moment.",
+    },
+    { status: 503 },
+  );
 
 const bodySchema = z.object({
   planId: z.string().trim().min(1).max(60),
@@ -53,11 +106,34 @@ export const Route = createFileRoute("/api/billing/checkout")({
           }
           const priceId = price.stripePriceId;
 
-          const { data: profile } = await client
+          // The caller's own billing state, through their session (row-level security: their
+          // own profile and subscription rows only).
+          const { data: profile, error: profileError } = await client
             .from("profiles")
             .select("stripe_customer_id, email")
             .eq("id", user.id)
             .maybeSingle();
+          if (profileError) return BILLING_STATE_UNAVAILABLE();
+          const { data: recorded, error: recordedError } = await client
+            .from("subscriptions")
+            .select("status")
+            .eq("user_id", user.id)
+            .in("status", RECORDED_BLOCKING_STATUSES);
+          if (recordedError) return BILLING_STATE_UNAVAILABLE();
+          const local = existingSubscriptionError((recorded ?? []).map((row) => row.status));
+          if (local) return local;
+          if (profile?.stripe_customer_id) {
+            let held: Array<{ status: string }>;
+            try {
+              held = await listCustomerSubscriptions(profile.stripe_customer_id);
+            } catch {
+              return BILLING_STATE_UNAVAILABLE();
+            }
+            const remote = existingSubscriptionError(
+              held.map((subscription) => subscription.status),
+            );
+            if (remote) return remote;
+          }
 
           const origin = new URL(request.url).origin;
           const session = await createCheckoutSession({

@@ -46,11 +46,19 @@ async function stripePost<T>(path: string, params: Record<string, unknown>): Pro
   return response.json() as Promise<T>;
 }
 
+/** A Stripe request that Stripe answered with an error status (404: the object does not exist). */
+export class StripeRequestError extends Error {
+  constructor(readonly status: number) {
+    super(`STRIPE_REQUEST_FAILED:${status}`);
+    this.name = "StripeRequestError";
+  }
+}
+
 async function stripeGet<T>(path: string): Promise<T> {
   const response = await fetch(`${STRIPE_API_BASE}/${path}`, {
     headers: { Authorization: `Bearer ${requireServerEnv("STRIPE_SECRET_KEY")}` },
   });
-  if (!response.ok) throw new Error(`STRIPE_REQUEST_FAILED:${response.status}`);
+  if (!response.ok) throw new StripeRequestError(response.status);
   return response.json() as Promise<T>;
 }
 
@@ -111,16 +119,36 @@ export interface StripeSubscriptionObject {
   id: string;
   status: string;
   customer: string;
-  current_period_end: number;
+  /** Absent from newer Stripe API versions, which put it on each item instead. */
+  current_period_end?: number | null;
   cancel_at_period_end: boolean;
-  items: { data: Array<{ price: { id: string } }> };
+  items: { data: Array<{ price: { id: string }; current_period_end?: number | null }> };
   metadata?: Record<string, string>;
+}
+
+/** The end of the current period (seconds), wherever the account's API version puts it. */
+export function subscriptionPeriodEnd(subscription: StripeSubscriptionObject): number | null {
+  const value = subscription.current_period_end ?? subscription.items.data[0]?.current_period_end;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export async function retrieveSubscription(
   subscriptionId: string,
 ): Promise<StripeSubscriptionObject> {
-  return stripeGet<StripeSubscriptionObject>(`subscriptions/${subscriptionId}`);
+  return stripeGet<StripeSubscriptionObject>(`subscriptions/${encodeURIComponent(subscriptionId)}`);
+}
+
+/**
+ * Every subscription of a customer, in any status — what Stripe itself holds, including any the
+ * local record missed. One page of up to 100 (a customer of Tubify has a handful at most).
+ */
+export async function listCustomerSubscriptions(
+  customerId: string,
+): Promise<Array<Pick<StripeSubscriptionObject, "id" | "status">>> {
+  const page = await stripeGet<{ data: Array<Pick<StripeSubscriptionObject, "id" | "status">> }>(
+    `subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`,
+  );
+  return page.data;
 }
 
 export interface StripeProductObject {

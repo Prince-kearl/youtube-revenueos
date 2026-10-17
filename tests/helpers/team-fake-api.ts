@@ -569,7 +569,22 @@ export async function callTeamApi(
     if (method === "POST") {
       const incoming = (Array.isArray(body) ? body : [body]) as Row[];
       const saved: Row[] = [];
+      // ?on_conflict=<columns>: an upsert matched on those columns (a unique constraint), as
+      // PostgREST does — merged, ignored, or a unique violation without a resolution.
+      const conflict = url.searchParams.get("on_conflict")?.split(",").filter(Boolean) ?? [];
       for (const row of incoming) {
+        if (conflict.length > 0) {
+          const match = rows.find((r) => conflict.every((column) => r[column] === row[column]));
+          if (match) {
+            if (prefer.includes("resolution=merge-duplicates")) {
+              Object.assign(match, row);
+              saved.push(match);
+              continue;
+            }
+            if (prefer.includes("resolution=ignore-duplicates")) continue;
+            return json({ code: "23505", message: "duplicate key" }, 409);
+          }
+        }
         const existing = row.id ? rows.find((r) => r.id === row.id) : undefined;
         if (existing && prefer.includes("resolution=merge-duplicates")) {
           Object.assign(existing, row);

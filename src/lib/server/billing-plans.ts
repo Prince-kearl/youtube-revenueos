@@ -121,6 +121,11 @@ export function activePriceFor(plan: Plan, interval: BillingInterval): PlanPrice
 // not just active ones, since a webhook for an existing subscriber may reference a price that has
 // since been retired by a Superadmin price change. That subscriber keeps working normally; only
 // new checkouts are steered to the current active price.
+/**
+ * The plan a Stripe price belongs to, or null when no plan has that price. A failed read THROWS:
+ * "could not look it up" must never be mistaken for "not one of ours" (the Stripe webhook answers
+ * the first with a retry and the second with an acknowledgement).
+ */
 export async function findPlanByStripePriceId(
   client: SupabaseClient,
   stripePriceId: string,
@@ -130,7 +135,8 @@ export async function findPlanByStripePriceId(
     .select(`*, plan:plans(${PLAN_COLUMNS})`)
     .eq("stripe_price_id", stripePriceId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) throw new Error(`PLAN_LOOKUP_FAILED:${error.code ?? "unknown"}`);
+  if (!data) return null;
   const planRow = (data as unknown as { plan: PlanRow }).plan;
   if (!planRow) return null;
   return { plan: mapPlan(planRow), price: mapPrice(data as PlanPriceRow) };

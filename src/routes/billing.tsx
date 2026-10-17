@@ -57,6 +57,12 @@ function errorMessage(error: string): string {
       "Billing isn't set up yet — add Stripe API keys to enable subscriptions.",
     STRIPE_PRICE_NOT_CONFIGURED: "This plan isn't available for checkout yet. Try another plan.",
     STRIPE_CHECKOUT_FAILED: "We couldn't start checkout. Please try again.",
+    SUBSCRIPTION_EXISTS:
+      "You already have a subscription. Use Manage billing to change or renew it.",
+    SUBSCRIPTION_PENDING:
+      "Your last subscription is still being confirmed. Use Manage billing to complete or cancel it.",
+    BILLING_STATE_UNAVAILABLE:
+      "We couldn't check your current subscription. Please try again in a moment.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
