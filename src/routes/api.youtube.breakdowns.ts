@@ -11,6 +11,7 @@ import {
 } from "@/lib/server/youtube-tokens";
 import {
   fetchRecentYoutubeVideos,
+  fetchYoutubeVideosByIds,
   queryYoutubeAnalytics,
   type YoutubeAnalyticsPayload,
 } from "@/lib/server/google-oauth";
@@ -146,7 +147,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
 
           const serviceClient = createServiceSupabaseClient();
           const accessToken = await getValidAccessToken(serviceClient, connection);
-          const [videoBreakdown, trafficBreakdown, recentVideos] = await Promise.all([
+          const [videoBreakdown, trafficBreakdown] = await Promise.all([
             queryBreakdown(
               accessToken,
               channel.youtube_channel_id,
@@ -163,13 +164,34 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
               "insightTrafficSourceType",
               revenueAccess.canView,
             ),
-            channel.uploads_playlist_id
+          ]);
+
+          // Titles and thumbnails for exactly the videos the table lists, looked up by id — in any
+          // visibility (an unlisted or private upload is still the creator's own video) and however
+          // old. Only this channel's videos are used. The recent public uploads are needed only
+          // when YouTube returned no per-video rows at all (the fallback list below).
+          const analyticsRows = rowsFromPayload(videoBreakdown.payload);
+          const listedIds = [
+            ...new Set(
+              analyticsRows
+                .map((row) => row.video)
+                .filter((id): id is string => typeof id === "string" && id.length > 0),
+            ),
+          ].slice(0, 50);
+          const [listedVideos, recentVideos] = await Promise.all([
+            listedIds.length
+              ? fetchYoutubeVideosByIds(accessToken, listedIds).catch(() => [])
+              : Promise.resolve([]),
+            !listedIds.length && channel.uploads_playlist_id
               ? fetchRecentYoutubeVideos(accessToken, channel.uploads_playlist_id).catch(() => [])
               : Promise.resolve([]),
           ]);
+          const ownVideos = [...listedVideos, ...recentVideos].filter(
+            (video) => !video.channelId || video.channelId === channel.youtube_channel_id,
+          );
 
           const videoMetadata = new Map(
-            recentVideos.map((video) => [
+            ownVideos.map((video) => [
               video.id,
               {
                 title: video.title,
@@ -179,7 +201,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
               },
             ]),
           );
-          const videoRows = rowsFromPayload(videoBreakdown.payload).map((row) => ({
+          const videoRows = analyticsRows.map((row) => ({
             ...row,
             ...(typeof row.video === "string" ? videoMetadata.get(row.video) : undefined),
           }));

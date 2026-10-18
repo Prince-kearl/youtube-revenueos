@@ -43,8 +43,16 @@ interface RouteData {
   trafficSources: BreakdownSection;
 }
 
-async function callRoute(route: RouteModule, path: string) {
+/** A YouTube Data API `videos.list` item, as the stub returns it. */
+interface StubVideo {
+  id: string;
+  snippet: { title: string; channelId: string; publishedAt?: string; thumbnails?: unknown };
+  status?: { privacyStatus: string };
+}
+
+async function callRoute(route: RouteModule, path: string, options: { videos?: StubVideo[] } = {}) {
   const analytics: AnalyticsCall[] = [];
+  const videoLookups: string[][] = [];
   const channelRow = {
     id: CHANNEL_ROW,
     user_id: USER,
@@ -100,6 +108,12 @@ async function callRoute(route: RouteModule, path: string) {
           },
         ],
       });
+    if (url.hostname === "www.googleapis.com" && url.pathname.endsWith("/videos")) {
+      if (!options.videos) throw new Error("videos.list is not stubbed in this test");
+      const ids = (url.searchParams.get("id") ?? "").split(",").filter(Boolean);
+      videoLookups.push(ids);
+      return json({ items: options.videos.filter((video) => ids.includes(video.id)) });
+    }
     if (url.hostname === "www.googleapis.com" && url.pathname.endsWith("/playlistItems"))
       return json({ items: [] });
     if (url.hostname === "youtubeanalytics.googleapis.com") {
@@ -144,7 +158,13 @@ async function callRoute(route: RouteModule, path: string) {
       request: new Request(`https://app.test${path}`, { headers: { Cookie: cookie } }),
     });
     const body = (await response.json()) as { data?: RouteData; error?: string };
-    return { status: response.status, body, data: (body.data ?? {}) as RouteData, analytics };
+    return {
+      status: response.status,
+      body,
+      data: (body.data ?? {}) as RouteData,
+      analytics,
+      videoLookups,
+    };
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -257,4 +277,61 @@ test("the Dashboard's own live request behaves as it did after Step 4A", async (
   assert.ok(!analytics.some((call) => call.dimensions === "video"));
   assert.equal("topRevenueVideosStatus" in data, false);
   assert.equal(data.engagementHeatmapStatus, "available");
+});
+
+// ---------- Channel breakdown → Earnings by video: titles and thumbnails ----------
+// The table's rows come from YouTube Analytics (video ids only). Titles are looked up by id, so a
+// video that is unlisted, private or older than the latest uploads still shows its name — and a
+// video id that belongs to another channel never borrows that channel's title.
+
+test("every video in the breakdown gets its title and thumbnail, whatever its visibility", async () => {
+  const { status, data, videoLookups } = await callRoute(
+    breakdowns,
+    "/api/youtube/breakdowns?range=12M",
+    {
+      videos: [
+        {
+          id: "VIDEOVIDEO1",
+          snippet: {
+            title: "My unlisted video",
+            channelId: "UCtestchannel0000000000000",
+            publishedAt: "2025-01-02T00:00:00Z",
+            thumbnails: { medium: { url: "https://i.ytimg.com/vi/VIDEOVIDEO1/mqdefault.jpg" } },
+          },
+          status: { privacyStatus: "unlisted" },
+        },
+      ],
+    },
+  );
+  assert.equal(status, 200);
+  assert.deepEqual(videoLookups, [["VIDEOVIDEO1"]], "looked up by the ids in the table");
+  const [row] = data.video.rows;
+  assert.equal(row.video, "VIDEOVIDEO1");
+  assert.equal(row.title, "My unlisted video");
+  assert.equal(row.thumbnail, "https://i.ytimg.com/vi/VIDEOVIDEO1/mqdefault.jpg");
+  assert.equal(row.views, 5);
+});
+
+test("a video id belonging to another channel gets no title from that channel", async () => {
+  const { status, data } = await callRoute(breakdowns, "/api/youtube/breakdowns?range=12M", {
+    videos: [
+      {
+        id: "VIDEOVIDEO1",
+        snippet: { title: "Someone else's video", channelId: "UCsomeoneelse00000000000000" },
+      },
+    ],
+  });
+  assert.equal(status, 200);
+  const [row] = data.video.rows;
+  assert.equal(row.video, "VIDEOVIDEO1");
+  assert.ok(!("title" in row), "no title borrowed from another channel");
+  assert.ok(!("thumbnail" in row));
+});
+
+test("if the title lookup fails, the table still loads with the ids", async () => {
+  const { status, data } = await callRoute(breakdowns, "/api/youtube/breakdowns?range=12M");
+  assert.equal(status, 200);
+  assert.deepEqual(data.video.rows, [
+    { video: "VIDEOVIDEO1", views: 5, estimatedMinutesWatched: 5 },
+  ]);
 });

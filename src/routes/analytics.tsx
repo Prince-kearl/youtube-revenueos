@@ -362,16 +362,6 @@ function Analytics() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand-amber/30 bg-brand-amber/5 px-4 py-3 text-xs">
-        <span className="inline-flex h-2 w-2 rounded-full bg-brand-amber" />
-        <span className="font-semibold text-brand-amber">YouTube Analytics</span>
-        <span className="text-muted-foreground">
-          {revenueKpi.freshnessNote
-            ? `${revenueKpi.freshnessNote}.`
-            : "Revenue may lag and can be unavailable for non-monetized channels."}
-        </span>
-      </div>
-
       {result.error === "YOUTUBE_REAUTH_REQUIRED" ? (
         <div className="mt-5">
           <YoutubeReauthNotice onRetry={() => setRetryNonce((value) => value + 1)} />
