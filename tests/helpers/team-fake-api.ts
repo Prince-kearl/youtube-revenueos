@@ -92,6 +92,10 @@ export interface World {
   authEmails?: Record<string, string | null>;
   /** Force the user id a generated sign-in link is issued for (to simulate a mismatch). */
   generateLinkUserId?: string;
+  /** Accounts whose Auth email has never been confirmed (email_confirmed_at is null). */
+  authUnconfirmed?: string[];
+  /** The Auth admin API is down: every account lookup fails with a server error. */
+  authUnavailable?: boolean;
 }
 
 export interface Recorded {
@@ -398,6 +402,9 @@ export async function callTeamApi(
     aud: "authenticated",
     role: "authenticated",
     email: authEmailOf(p),
+    email_confirmed_at: world.authUnconfirmed?.includes(String(p.id))
+      ? null
+      : "2026-08-01T00:00:00Z",
     last_sign_in_at: "2026-09-01T00:00:00Z",
   });
 
@@ -440,6 +447,8 @@ export async function callTeamApi(
     }
     if (url.pathname.startsWith("/auth/v1/admin/users/")) {
       if (method !== "GET") authActions.push(`${method} ${url.pathname}`);
+      if (world.authUnavailable)
+        return json({ message: "upstream connect error", code: "unexpected_failure" }, 500);
       const profile = world.profiles.find((p) => p.id === url.pathname.split("/").pop());
       return profile && authEmailOf(profile) !== null
         ? json(authUser(profile))

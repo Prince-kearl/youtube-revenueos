@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canImpersonate, requirePermission, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { lookupAuthIdentity } from "@/lib/server/auth-identity";
 import { getServerEnv } from "@/lib/server/env";
 
 const bodySchema = z.object({ id: z.string().uuid() });
@@ -30,6 +31,10 @@ function json(body: unknown, init?: ResponseInit) {
 // receive a sign-in link for the Superadmin. Now the email comes from Auth, the role from
 // profiles (which users cannot change), and the link Supabase returns must belong to the
 // requested user or it is discarded. The link itself is never logged or audited.
+//
+// The target's Auth email must be CONFIRMED: a magic link is proof of inbox access, so using one
+// would mark an unverified address as verified — impersonation must never do that. If Auth cannot
+// be asked, nothing happens (503) and the provider's message is not passed on.
 export const Route = createFileRoute("/api/admin/users/impersonate")({
   server: {
     handlers: {
@@ -40,22 +45,25 @@ export const Route = createFileRoute("/api/admin/users/impersonate")({
           if (id === user.id) return json({ error: "CANNOT_IMPERSONATE_SELF" }, { status: 409 });
 
           const service = createServiceSupabaseClient();
-          const [{ data: profile }, { data: auth }] = await Promise.all([
+          const [{ data: profile }, identity] = await Promise.all([
             service.from("profiles").select("role").eq("id", id).maybeSingle(),
-            service.auth.admin.getUserById(id),
+            lookupAuthIdentity(service, id),
           ]);
-          const authUser = auth?.user ?? null;
-          if (!profile || !authUser?.email || authUser.id !== id)
+          if (identity.status === "unavailable")
+            return json({ error: "AUTH_UNAVAILABLE" }, { status: 503 });
+          if (!profile || identity.status === "not_found" || !identity.email)
             return json({ error: "USER_NOT_FOUND" }, { status: 404 });
           // Signing in as someone is holding their account: refused before any link exists unless
           // the caller strictly outranks the target (see canImpersonate).
           if (!canImpersonate(actingRole, toAppRole(profile.role as string | null)))
             return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });
+          if (!identity.emailConfirmed)
+            return json({ error: "EMAIL_UNCONFIRMED" }, { status: 409 });
 
           const appUrl = getServerEnv("APP_URL") ?? new URL(request.url).origin;
           const { data, error } = await service.auth.admin.generateLink({
             type: "magiclink",
-            email: authUser.email,
+            email: identity.email,
             options: { redirectTo: `${appUrl}/dashboard` },
           });
           if (error || !data?.properties?.action_link) {

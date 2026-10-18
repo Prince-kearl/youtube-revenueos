@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canActOnUser, requirePermission, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient, createAnonSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { lookupAuthIdentity } from "@/lib/server/auth-identity";
 import { getServerEnv } from "@/lib/server/env";
 
 const bodySchema = z.object({ id: z.string().uuid() });
@@ -25,6 +26,11 @@ function json(body: unknown, init?: ResponseInit) {
 // The reset goes to the account's Auth email, fetched by the account's immutable id — never to
 // profiles.email, which its owner can rewrite. The caller must outrank the target (canActOnUser),
 // decided on the role in profiles, which users cannot change. Audited by account id.
+//
+// No confirmed-email requirement: the reset email goes only to the account's own Auth address,
+// so completing it proves control of that inbox — which is exactly how an account that never
+// finished confirming recovers. Blocking it would stop legitimate recovery and protect nothing.
+// If Auth cannot be asked, nothing is sent (503).
 export const Route = createFileRoute("/api/admin/users/reset-password")({
   server: {
     handlers: {
@@ -34,14 +40,15 @@ export const Route = createFileRoute("/api/admin/users/reset-password")({
           const { id } = bodySchema.parse(await request.json().catch(() => ({})));
 
           const service = createServiceSupabaseClient();
-          const [{ data: profile }, { data: auth }] = await Promise.all([
+          const [{ data: profile }, identity] = await Promise.all([
             service.from("profiles").select("role").eq("id", id).maybeSingle(),
-            service.auth.admin.getUserById(id),
+            lookupAuthIdentity(service, id),
           ]);
-          const authUser = auth?.user ?? null;
-          if (!profile || !authUser?.email || authUser.id !== id)
+          if (identity.status === "unavailable")
+            return json({ error: "AUTH_UNAVAILABLE" }, { status: 503 });
+          if (!profile || identity.status === "not_found" || !identity.email)
             return json({ error: "USER_NOT_FOUND" }, { status: 404 });
-          const target = { email: authUser.email, role: profile.role as string | null };
+          const target = { email: identity.email, role: profile.role as string | null };
           // Refused before any email is sent unless the caller outranks the target.
           if (!canActOnUser(actingRole, toAppRole(target.role as string | null)))
             return json({ error: "PRIVILEGE_ESCALATION_BLOCKED" }, { status: 403 });

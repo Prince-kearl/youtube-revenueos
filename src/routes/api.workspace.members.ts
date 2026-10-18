@@ -6,6 +6,7 @@ import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { requireServerEnv, getServerEnv } from "@/lib/server/env";
 import { notifyWorkspace } from "@/lib/server/notify";
 import { exactIlikePattern, sameTextIgnoringCase } from "@/lib/server/exact-match";
+import { lookupAuthIdentity } from "@/lib/server/auth-identity";
 import {
   PLAN_REQUIRED_BODY,
   authorizeInvite,
@@ -32,8 +33,10 @@ import {
 
 const workspaceRoleEnum = z.enum(["owner", "manager", "setter", "editor"]);
 
-// At most this many profiles can claim one address before the invite stops looking (a spoofed
-// address can be claimed by many profiles; the genuine account is among them if it exists).
+// At most this many profiles claiming one address are checked against Auth. They are taken oldest
+// first, so profiles created later to claim an existing person's address cannot push that person's
+// account out of the window. If the window is full and none is confirmed, the invite stops with
+// INVITE_ADDRESS_AMBIGUOUS rather than guessing (the genuine account may lie beyond it).
 const INVITE_CANDIDATE_LIMIT = 10;
 
 const inviteSchema = z.object({
@@ -191,29 +194,35 @@ export const Route = createFileRoute("/api/workspace/members")({
           // Which existing account (if any) this address belongs to is decided by Supabase Auth.
           // profiles.email is only a way to find candidates: its owner can rewrite it
           // (profiles_self_update does not protect it), so a user who set theirs to the invitee's
-          // address must never be the one who joins. Each candidate is confirmed by id against
-          // its Auth email, exactly (ignoring case); only a confirmed account is activated. If no
-          // candidate is confirmed — a spoofed address, or a stale profile email — nobody is
-          // activated and the invite takes the ordinary new-address path below.
+          // address must never be the one who joins. A candidate is activated only when Auth says
+          // its email IS this address (exactly, ignoring case) AND that address is confirmed —
+          // an unconfirmed sign-up proves nothing about who owns the inbox. Otherwise nobody is
+          // activated and the invite takes the ordinary new-address path below. If Auth cannot
+          // be asked, nothing is written or sent.
           const { data: candidates, error: candidatesError } = await service
             .from("profiles")
             .select("id")
             .ilike("email", exactIlikePattern(input.email))
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
             .limit(INVITE_CANDIDATE_LIMIT);
           if (candidatesError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          const confirmed = await Promise.all(
-            (candidates ?? []).map(async (candidate) => {
-              const { data: auth } = await service.auth.admin.getUserById(candidate.id as string);
-              const authUser = auth?.user ?? null;
-              return authUser !== null &&
-                authUser.id === candidate.id &&
-                sameTextIgnoringCase(authUser.email, input.email)
-                ? (candidate.id as string)
-                : null;
-            }),
+          const identities = await Promise.all(
+            (candidates ?? []).map((candidate) =>
+              lookupAuthIdentity(service, candidate.id as string),
+            ),
           );
-          const confirmedId = confirmed.find((id): id is string => id !== null) ?? null;
-          const existingProfile = confirmedId ? { id: confirmedId } : null;
+          if (identities.some((identity) => identity.status === "unavailable"))
+            return json({ error: "AUTH_UNAVAILABLE" }, { status: 503 });
+          const verified = identities.find(
+            (identity) =>
+              identity.status === "found" &&
+              identity.emailConfirmed &&
+              sameTextIgnoringCase(identity.email, input.email),
+          );
+          const existingProfile = verified?.status === "found" ? { id: verified.id } : null;
+          if (!existingProfile && (candidates ?? []).length >= INVITE_CANDIDATE_LIMIT)
+            return json({ error: "INVITE_ADDRESS_AMBIGUOUS" }, { status: 409 });
 
           if (existingProfile) {
             const { data: existingMembership } = await service
