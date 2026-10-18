@@ -33,3 +33,16 @@ test("the Google & YouTube Access panel is removed from Settings", () => {
   assert.doesNotMatch(settings, /Google & YouTube Access|Google &amp; YouTube Access/);
   assert.doesNotMatch(settings, /OAuthScopesPanel/);
 });
+
+test("Connected Accounts: Google Analytics, Stripe and ConvertKit are hidden; YouTube and Instagram stay", async () => {
+  const { HIDDEN_CONNECTED_ACCOUNTS } = await import("../src/lib/feature-flags");
+  assert.deepEqual([...HIDDEN_CONNECTED_ACCOUNTS], ["Google Analytics", "Stripe", "ConvertKit"]);
+  assert.match(
+    settings,
+    /\{accounts \.filter\(\(account\) => !HIDDEN_CONNECTED_ACCOUNTS\.includes\(account\.title\)\)/,
+  );
+  for (const title of ["YouTube", "Instagram"]) {
+    assert.match(settings, new RegExp(`title: "${title}",`));
+    assert.ok(!HIDDEN_CONNECTED_ACCOUNTS.includes(title), title);
+  }
+});

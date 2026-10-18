@@ -7,3 +7,13 @@
  * Pre-Publish tab and the upload option on Analyze Video). Hidden for now.
  */
 export const PRE_PUBLISH_ENABLED = false;
+
+/**
+ * Connected Accounts rows in Settings that are hidden for now: Google Analytics, Stripe and
+ * ConvertKit. Existing connections are kept; only the rows are not shown.
+ */
+export const HIDDEN_CONNECTED_ACCOUNTS: readonly string[] = [
+  "Google Analytics",
+  "Stripe",
+  "ConvertKit",
+];

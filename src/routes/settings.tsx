@@ -51,6 +51,7 @@ import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { HIDDEN_CONNECTED_ACCOUNTS } from "@/lib/feature-flags";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { YoutubeChannelPicker } from "@/components/YoutubeChannelPicker";
@@ -1020,60 +1021,62 @@ function ConnectedAccountsPanel() {
         </div>
 
         <div className="mt-6 space-y-2">
-          {accounts.map((account) =>
-            account.rowLoading ? (
-              <div
-                key={account.title}
-                className="flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
-                aria-busy="true"
-                aria-label={`Checking ${account.title} connection`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
-                  <div className="min-w-0 space-y-1.5">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                </div>
-                <Skeleton className="h-9 w-full rounded-lg sm:w-24" />
-              </div>
-            ) : (
-              <div
-                key={account.title}
-                className="group flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between sm:p-4"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-accent/50">
-                    <img
-                      referrerPolicy="no-referrer"
-                      src={account.logo}
-                      alt={`${account.title} logo`}
-                      className={`h-6 w-6 object-contain ${account.logoClass ?? ""}`}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{account.title}</p>
-                    <p className="text-xs text-muted-foreground">https://{account.domain}</p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {account.description}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={account.action}
-                  disabled={account.disabled}
-                  className={`w-full rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
-                    account.connected && account.destructiveWhenConnected
-                      ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
-                      : "border border-border bg-accent/40 text-foreground hover:border-primary/50 hover:bg-primary/10"
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
+          {accounts
+            .filter((account) => !HIDDEN_CONNECTED_ACCOUNTS.includes(account.title))
+            .map((account) =>
+              account.rowLoading ? (
+                <div
+                  key={account.title}
+                  className="flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                  aria-busy="true"
+                  aria-label={`Checking ${account.title} connection`}
                 >
-                  {account.actionLabel}
-                </button>
-              </div>
-            ),
-          )}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
+                    <div className="min-w-0 space-y-1.5">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-9 w-full rounded-lg sm:w-24" />
+                </div>
+              ) : (
+                <div
+                  key={account.title}
+                  className="group flex flex-col gap-4 rounded-xl border border-border bg-background/70 p-3 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-accent/50">
+                      <img
+                        referrerPolicy="no-referrer"
+                        src={account.logo}
+                        alt={`${account.title} logo`}
+                        className={`h-6 w-6 object-contain ${account.logoClass ?? ""}`}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{account.title}</p>
+                      <p className="text-xs text-muted-foreground">https://{account.domain}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {account.description}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={account.action}
+                    disabled={account.disabled}
+                    className={`w-full rounded-full px-4 py-2 text-xs font-semibold transition sm:w-auto sm:min-w-24 ${
+                      account.connected && account.destructiveWhenConnected
+                        ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                        : "border border-border bg-accent/40 text-foreground hover:border-primary/50 hover:bg-primary/10"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    {account.actionLabel}
+                  </button>
+                </div>
+              ),
+            )}
         </div>
       </div>
     </div>
