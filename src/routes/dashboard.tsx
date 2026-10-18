@@ -217,7 +217,6 @@ function Dashboard() {
   const youtubeAbortRef = useRef<AbortController | null>(null);
   const youtubeRequestRef = useRef(0);
   const kpiScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeKpiIndex, setActiveKpiIndex] = useState(0);
   // Independent of the YouTube request below: a revenue failure leaves the other cards intact,
   // and a YouTube failure does not blank out stored revenue.
   const loadRevenue = async () => {
@@ -358,31 +357,6 @@ function Dashboard() {
       el.removeEventListener("pointerdown", pause);
       el.removeEventListener("touchstart", pause);
     };
-  }, [youtubeStatus]);
-
-  // Drives the pagination dots below the carousel — the clone (last child) maps back to dot 0
-  // since it's a visual stand-in for the real first card.
-  useEffect(() => {
-    const el = kpiScrollRef.current;
-    if (!el) return;
-    const updateActiveIndex = () => {
-      const children = Array.from(el.children) as HTMLElement[];
-      const realCount = children.length - 1;
-      if (realCount < 1) return;
-      let nearest = 0;
-      let smallestDiff = Infinity;
-      children.forEach((child, i) => {
-        const diff = Math.abs(child.offsetLeft - el.scrollLeft);
-        if (diff < smallestDiff) {
-          smallestDiff = diff;
-          nearest = i;
-        }
-      });
-      setActiveKpiIndex(nearest % realCount);
-    };
-    updateActiveIndex();
-    el.addEventListener("scroll", updateActiveIndex, { passive: true });
-    return () => el.removeEventListener("scroll", updateActiveIndex);
   }, [youtubeStatus]);
 
   const revenue = revenueState.view;
@@ -704,27 +678,7 @@ function Dashboard() {
       </div>
 
       {youtubeStatus !== "loading" && (
-        <div
-          className="mt-3 flex items-center justify-center gap-1.5 sm:hidden"
-          role="tablist"
-          aria-label="KPI card pagination"
-        >
-          {Array.from({ length: 6 }).map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              role="tab"
-              aria-selected={activeKpiIndex === i}
-              aria-label={`Go to KPI card ${i + 1}`}
-              onClick={() => {
-                const el = kpiScrollRef.current;
-                const child = el?.children[i] as HTMLElement | undefined;
-                if (child) el?.scrollTo({ left: child.offsetLeft, behavior: "smooth" });
-              }}
-              className={`h-1.5 rounded-full transition-all ${activeKpiIndex === i ? "w-6 bg-foreground" : "w-1.5 bg-foreground/25"}`}
-            />
-          ))}
-        </div>
+        <KpiCardDots scrollRef={kpiScrollRef} resetKey={youtubeStatus} count={6} />
       )}
 
       {(dashboardData?.analyticsStatus === "unavailable" ||
@@ -1906,6 +1860,72 @@ function EngagementHeatmapSkeleton() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The pagination dots under the phone KPI carousel. The current card is state here, not in
+ * Dashboard: the carousel advances by itself every few seconds, and keeping the index in Dashboard
+ * re-rendered the whole page (charts, heatmap, every card) on each step — steady background work
+ * on a phone. The clone after the last real card maps back to dot 0, since it stands in for the
+ * real first card.
+ */
+function KpiCardDots({
+  scrollRef,
+  resetKey,
+  count,
+}: {
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  /** Re-attach when the carousel's contents change (they are rendered per connection state). */
+  resetKey: string;
+  count: number;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const updateActiveIndex = () => {
+      const children = Array.from(el.children) as HTMLElement[];
+      const realCount = children.length - 1;
+      if (realCount < 1) return;
+      let nearest = 0;
+      let smallestDiff = Infinity;
+      children.forEach((child, i) => {
+        const diff = Math.abs(child.offsetLeft - el.scrollLeft);
+        if (diff < smallestDiff) {
+          smallestDiff = diff;
+          nearest = i;
+        }
+      });
+      setActiveIndex(nearest % realCount);
+    };
+    updateActiveIndex();
+    el.addEventListener("scroll", updateActiveIndex, { passive: true });
+    return () => el.removeEventListener("scroll", updateActiveIndex);
+  }, [scrollRef, resetKey]);
+
+  return (
+    <div
+      className="mt-3 flex items-center justify-center gap-1.5 sm:hidden"
+      role="tablist"
+      aria-label="KPI card pagination"
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <button
+          key={i}
+          type="button"
+          role="tab"
+          aria-selected={activeIndex === i}
+          aria-label={`Go to KPI card ${i + 1}`}
+          onClick={() => {
+            const el = scrollRef.current;
+            const child = el?.children[i] as HTMLElement | undefined;
+            if (child) el?.scrollTo({ left: child.offsetLeft, behavior: "smooth" });
+          }}
+          className={`h-1.5 rounded-full transition-all ${activeIndex === i ? "w-6 bg-foreground" : "w-1.5 bg-foreground/25"}`}
+        />
+      ))}
     </div>
   );
 }

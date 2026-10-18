@@ -445,7 +445,7 @@
    .card-gradient-outline's static ring or GlowingEffect's mouse-tracking rainbow, this animates on
    its own and only uses --primary/the dark navy backdrop tones, so it reads as an extension of the
    nav's own gradient rather than a different color language layered on top.
-   The rotation is driven by NavGlowDriver.tsx writing --nav-glow-angle on :root every frame,
+   The rotation is driven by NavGlowDriver.tsx writing --nav-glow-angle on each .nav-glow-motion element every frame (desktop only; still on touch),
    NOT a CSS @property + @keyframes animation — production CSS minifiers (esbuild/Lightning CSS)
    have been observed to silently drop @property blocks during the build, which produced a static,
    non-spinning (and on some builds entirely invisible) ring in production while dev-mode's
