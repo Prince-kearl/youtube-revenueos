@@ -7,6 +7,11 @@ import { adminUserStatus } from "@/lib/server/admin-users";
 // One account, for the admin Users detail view: identity and account status, workspace
 // memberships, subscription plan, connected channels and recent admin actions on the account.
 //
+// Identity is authoritative: the email is the account's Auth email, fetched by id — never
+// profiles.email, which its owner can rewrite. Recent admin actions are the audit entries whose
+// target is this account's id; older entries that recorded only an email are NOT attributed to
+// the account by matching addresses, because a matching address proves nothing.
+//
 // Every related read is a single indexed lookup by this user's id (or email, for the audit log)
 // with a small LIMIT — never a whole table. What is returned is deliberately narrow:
 //   * no compensation (workspace_members.commission / lead_share stay private, as everywhere);
@@ -54,15 +59,12 @@ export const Route = createFileRoute("/api/admin/users/detail")({
           const service = createServiceSupabaseClient();
           const { data: profile, error: profileError } = await service
             .from("profiles")
-            .select("id, name, email, avatar, role, created_at")
+            .select("id, name, avatar, role, created_at")
             .eq("id", userId)
             .maybeSingle();
           if (profileError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!profile) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-          const auditTargets = [profile.id, profile.email].filter(
-            (value): value is string => typeof value === "string" && value.length > 0,
-          );
           const [authUser, memberships, subscription, channels, activity] = await Promise.all([
             service.auth.admin.getUserById(userId),
             service
@@ -93,7 +95,7 @@ export const Route = createFileRoute("/api/admin/users/detail")({
             service
               .from("admin_audit_log")
               .select("action, created_at")
-              .in("target", auditTargets)
+              .eq("target", userId)
               .order("created_at", { ascending: false })
               .limit(ACTIVITY_LIMIT),
           ]);
@@ -111,7 +113,7 @@ export const Route = createFileRoute("/api/admin/users/detail")({
               identity: {
                 id: profile.id,
                 name: profile.name,
-                email: profile.email,
+                email: auth?.email ?? null,
                 avatar: profile.avatar,
                 role: toAppRole(profile.role as string),
                 createdAt: profile.created_at,

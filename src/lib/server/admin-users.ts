@@ -254,3 +254,37 @@ export function toAdminUsersPage(rows: AdminUserDirectoryRow[], query: AdminUser
 export function isMissingFunctionError(error: { code?: string; message?: string } | null) {
   return !!error && (error.code === "PGRST202" || error.code === "42883");
 }
+
+/** A row as public.admin_user_directory_status returns it. */
+export type DirectoryStatusRow = {
+  status: string;
+  processed: number | string;
+  inserted: number | string;
+  started_at: string | null;
+  completed_at: string | null;
+  last_error_code: string | null;
+  last_error_at: string | null;
+  sync_failures_24h: number | string;
+};
+
+/** The directory's backfill state for the console (no personal data). */
+export function toDirectoryStatus(row: DirectoryStatusRow) {
+  return {
+    status: row.status as "pending" | "backfilling" | "complete" | "failed",
+    processed: Number(row.processed),
+    inserted: Number(row.inserted),
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    lastErrorCode: row.last_error_code,
+    lastErrorAt: row.last_error_at,
+    syncFailures24h: Number(row.sync_failures_24h),
+  };
+}
+
+/** The database refusing to list, count or total a directory whose backfill is not complete. */
+export function isDirectoryIncompleteError(error: { code?: string; message?: string } | null) {
+  return (
+    !!error &&
+    (error.code === "55000" || (error.message ?? "").includes("admin_user_directory_incomplete"))
+  );
+}

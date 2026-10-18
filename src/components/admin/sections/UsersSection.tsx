@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UserDirectoryMaintenance } from "./UserDirectoryMaintenance";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 type AppRole = "user" | "editor" | "setter" | "manager" | "owner" | "superadmin";
@@ -135,6 +136,7 @@ export function UsersSection() {
   const [total, setTotal] = useState<number | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [detailUser, setDetailUser] = useState<UserRow | null>(null);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
@@ -389,12 +391,20 @@ export function UsersSection() {
             Permissions.
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <UserPlus className="h-4 w-4" /> Invite User
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDirectoryOpen(true)}
+            className="flex h-9 items-center rounded-[var(--button-radius)] border border-border px-3.5 text-sm font-medium hover:bg-accent"
+          >
+            Directory health
+          </button>
+          <button
+            onClick={() => setCreating(true)}
+            className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <UserPlus className="h-4 w-4" /> Invite User
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -456,7 +466,16 @@ export function UsersSection() {
       {query.trim().length === 1 && (
         <p className="mt-2 text-xs text-muted-foreground">Type at least 2 characters to search.</p>
       )}
-      {status === "error" && (
+      {status === "error" && loadError === "ADMIN_USERS_DIRECTORY_INCOMPLETE" && (
+        <div className="mt-4 rounded-xl border border-dashed border-border p-5">
+          <p className="mb-3 text-sm text-muted-foreground">
+            The user directory is still being built, so the list is not shown yet — a partial list
+            would look complete when it isn&apos;t.
+          </p>
+          <UserDirectoryMaintenance onComplete={() => setRetryNonce((n) => n + 1)} />
+        </div>
+      )}
+      {status === "error" && loadError !== "ADMIN_USERS_DIRECTORY_INCOMPLETE" && (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">
             {LOAD_ERROR_MESSAGE[loadError ?? ""] ?? "Couldn't load users."}
@@ -772,6 +791,18 @@ export function UsersSection() {
       )}
 
       <UserDetailSheet user={detailUser} onOpenChange={(open) => !open && setDetailUser(null)} />
+      <Sheet open={directoryOpen} onOpenChange={setDirectoryOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>User directory</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {directoryOpen && (
+              <UserDirectoryMaintenance onComplete={() => setRetryNonce((n) => n + 1)} />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <CreateUserDialog open={creating} onOpenChange={setCreating} onCreated={load} />
       <ConfirmDialog

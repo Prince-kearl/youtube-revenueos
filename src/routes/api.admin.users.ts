@@ -7,8 +7,11 @@ import {
   AdminUsersQueryError,
   adminCountUsersArgs,
   adminListUsersArgs,
+  isDirectoryIncompleteError,
   isMissingFunctionError,
   parseAdminUsersQuery,
+  toDirectoryStatus,
+  type DirectoryStatusRow,
   toAdminUsersPage,
   type AdminUserDirectoryRow,
   type AdminUsersQuery,
@@ -92,6 +95,18 @@ export const Route = createFileRoute("/api/admin/users")({
           if (failed) {
             if (isMissingFunctionError(failed))
               return json({ error: "ADMIN_USERS_MIGRATION_REQUIRED" }, { status: 503 });
+            // The initial backfill has not finished: the database refuses to present a partial
+            // directory as the user list. Say how far it has got instead.
+            if (isDirectoryIncompleteError(failed)) {
+              const { data: state } = await service.rpc("admin_user_directory_status").single();
+              return json(
+                {
+                  error: "ADMIN_USERS_DIRECTORY_INCOMPLETE",
+                  directory: state ? toDirectoryStatus(state as DirectoryStatusRow) : null,
+                },
+                { status: 503 },
+              );
+            }
             return json({ error: "DATABASE_ERROR" }, { status: 500 });
           }
 
@@ -147,7 +162,7 @@ export const Route = createFileRoute("/api/admin/users")({
           await logAdminAudit(service, {
             adminUserId: user.id,
             action: "user_invited",
-            target: input.email,
+            target: data.user.id,
             newValue: { role: input.role },
           });
 
@@ -180,7 +195,7 @@ export const Route = createFileRoute("/api/admin/users")({
           const service = createServiceSupabaseClient();
           const { data: target } = await service
             .from("profiles")
-            .select("id, name, email, role")
+            .select("id, role")
             .eq("id", targetId)
             .maybeSingle();
           if (!target) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
@@ -225,7 +240,7 @@ export const Route = createFileRoute("/api/admin/users")({
             await logAdminAudit(service, {
               adminUserId: user.id,
               action: "role_assigned",
-              target: target.email ?? target.id,
+              target: target.id,
               oldValue: { role: targetCurrentRole },
               newValue: { role: input.role },
             });
@@ -240,7 +255,7 @@ export const Route = createFileRoute("/api/admin/users")({
             await logAdminAudit(service, {
               adminUserId: user.id,
               action: input.banDuration === "none" ? "user_unbanned" : "user_banned",
-              target: target.email ?? target.id,
+              target: target.id,
               newValue: { banDuration: input.banDuration },
             });
           }
@@ -254,7 +269,7 @@ export const Route = createFileRoute("/api/admin/users")({
             await logAdminAudit(service, {
               adminUserId: user.id,
               action: "user_email_verified",
-              target: target.email ?? target.id,
+              target: target.id,
             });
           }
 
@@ -271,7 +286,7 @@ export const Route = createFileRoute("/api/admin/users")({
             await logAdminAudit(service, {
               adminUserId: user.id,
               action: input.creatorVerified ? "user_creator_verified" : "user_creator_unverified",
-              target: target.email ?? target.id,
+              target: target.id,
             });
           }
 
@@ -302,7 +317,7 @@ export const Route = createFileRoute("/api/admin/users")({
           const service = createServiceSupabaseClient();
           const { data: target } = await service
             .from("profiles")
-            .select("id, email, role")
+            .select("id, role")
             .eq("id", targetId)
             .maybeSingle();
           if (!target) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
@@ -329,7 +344,7 @@ export const Route = createFileRoute("/api/admin/users")({
           await logAdminAudit(service, {
             adminUserId: user.id,
             action: "user_deleted",
-            target: target.email ?? target.id,
+            target: target.id,
           });
           return json({ data: { id: targetId } });
         } catch (error) {

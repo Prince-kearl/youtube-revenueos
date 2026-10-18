@@ -132,6 +132,7 @@ import { Route as ApiAdminPlansSeedLegacyRouteImport } from './routes/api.admin.
 import { Route as ApiAdminReleasesPublishRouteImport } from './routes/api.admin.releases.publish'
 import { Route as ApiAdminSupportTicketsRouteImport } from './routes/api.admin.support.tickets'
 import { Route as ApiAdminUsersDetailRouteImport } from './routes/api.admin.users.detail'
+import { Route as ApiAdminUsersDirectoryRouteImport } from './routes/api.admin.users.directory'
 import { Route as ApiAdminUsersImpersonateRouteImport } from './routes/api.admin.users.impersonate'
 import { Route as ApiAdminUsersResetPasswordRouteImport } from './routes/api.admin.users.reset-password'
 import { Route as ApiIntegrationsGoogleAnalyticsCallbackRouteImport } from './routes/api.integrations.google-analytics.callback'
@@ -758,6 +759,11 @@ const ApiAdminUsersDetailRoute = ApiAdminUsersDetailRouteImport.update({
   path: '/detail',
   getParentRoute: () => ApiAdminUsersRoute,
 } as any)
+const ApiAdminUsersDirectoryRoute = ApiAdminUsersDirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
+  getParentRoute: () => ApiAdminUsersRoute,
+} as any)
 const ApiAdminUsersImpersonateRoute =
   ApiAdminUsersImpersonateRouteImport.update({
     id: '/impersonate',
@@ -919,6 +925,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
   '/api/admin/users/detail': typeof ApiAdminUsersDetailRoute
+  '/api/admin/users/directory': typeof ApiAdminUsersDirectoryRoute
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
@@ -1050,6 +1057,7 @@ export interface FileRoutesByTo {
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
   '/api/admin/users/detail': typeof ApiAdminUsersDetailRoute
+  '/api/admin/users/directory': typeof ApiAdminUsersDirectoryRoute
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
@@ -1182,6 +1190,7 @@ export interface FileRoutesById {
   '/api/admin/releases/publish': typeof ApiAdminReleasesPublishRoute
   '/api/admin/support/tickets': typeof ApiAdminSupportTicketsRoute
   '/api/admin/users/detail': typeof ApiAdminUsersDetailRoute
+  '/api/admin/users/directory': typeof ApiAdminUsersDirectoryRoute
   '/api/admin/users/impersonate': typeof ApiAdminUsersImpersonateRoute
   '/api/admin/users/reset-password': typeof ApiAdminUsersResetPasswordRoute
   '/api/integrations/google-analytics/callback': typeof ApiIntegrationsGoogleAnalyticsCallbackRoute
@@ -1315,6 +1324,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
     | '/api/admin/users/detail'
+    | '/api/admin/users/directory'
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
@@ -1446,6 +1456,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
     | '/api/admin/users/detail'
+    | '/api/admin/users/directory'
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
@@ -1577,6 +1588,7 @@ export interface FileRouteTypes {
     | '/api/admin/releases/publish'
     | '/api/admin/support/tickets'
     | '/api/admin/users/detail'
+    | '/api/admin/users/directory'
     | '/api/admin/users/impersonate'
     | '/api/admin/users/reset-password'
     | '/api/integrations/google-analytics/callback'
@@ -2551,6 +2563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminUsersDetailRouteImport
       parentRoute: typeof ApiAdminUsersRoute
     }
+    '/api/admin/users/directory': {
+      id: '/api/admin/users/directory'
+      path: '/directory'
+      fullPath: '/api/admin/users/directory'
+      preLoaderRoute: typeof ApiAdminUsersDirectoryRouteImport
+      parentRoute: typeof ApiAdminUsersRoute
+    }
     '/api/admin/users/impersonate': {
       id: '/api/admin/users/impersonate'
       path: '/impersonate'
@@ -2776,12 +2795,14 @@ const ApiAdminReleasesRouteWithChildren =
 
 interface ApiAdminUsersRouteChildren {
   ApiAdminUsersDetailRoute: typeof ApiAdminUsersDetailRoute
+  ApiAdminUsersDirectoryRoute: typeof ApiAdminUsersDirectoryRoute
   ApiAdminUsersImpersonateRoute: typeof ApiAdminUsersImpersonateRoute
   ApiAdminUsersResetPasswordRoute: typeof ApiAdminUsersResetPasswordRoute
 }
 
 const ApiAdminUsersRouteChildren: ApiAdminUsersRouteChildren = {
   ApiAdminUsersDetailRoute: ApiAdminUsersDetailRoute,
+  ApiAdminUsersDirectoryRoute: ApiAdminUsersDirectoryRoute,
   ApiAdminUsersImpersonateRoute: ApiAdminUsersImpersonateRoute,
   ApiAdminUsersResetPasswordRoute: ApiAdminUsersResetPasswordRoute,
 }
