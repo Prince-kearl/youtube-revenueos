@@ -84,6 +84,14 @@ export interface World {
   failReadsAfter?: Record<string, number>;
   /** How the invite email endpoint answers (default 200). */
   inviteStatus?: number;
+  /**
+   * The Auth (sign-in) email per user id, when it differs from the profile's — a profile email
+   * its owner rewrote, or a stale one. null: the profile has no Auth account at all. Accounts not
+   * listed sign in with their profile email.
+   */
+  authEmails?: Record<string, string | null>;
+  /** Force the user id a generated sign-in link is issued for (to simulate a mismatch). */
+  generateLinkUserId?: string;
 }
 
 export interface Recorded {
@@ -110,6 +118,8 @@ export interface CallResult {
   /** Account-level actions requested of the auth service: sign-in links, password resets and
    * user updates (bans), as "<METHOD> <path>". */
   authActions: string[];
+  /** The address each sign-in link or password-reset email was requested for, in order. */
+  authRecipients: string[];
   /** Database functions called, in order, as "<name>" (rate-limit counters, click counters). */
   rpcCalls: string[];
   /** The response's own headers (Location, Set-Cookie, Retry-After…). */
@@ -375,14 +385,19 @@ export async function callTeamApi(
   const refusedMoneyReads: string[] = [];
   looseIlikeEscapes = world.looseIlike === true;
   const authActions: string[] = [];
+  const authRecipients: string[] = [];
   const rpcCalls: string[] = [];
   const logs: unknown[][] = [];
   const actor = world.profiles.find((p) => p.id === options.as) ?? null;
+  const authEmailOf = (p: Row) =>
+    world.authEmails && String(p.id) in world.authEmails
+      ? world.authEmails[String(p.id)]
+      : (p.email as string);
   const authUser = (p: Row) => ({
     id: p.id,
     aud: "authenticated",
     role: "authenticated",
-    email: p.email,
+    email: authEmailOf(p),
     last_sign_in_at: "2026-09-01T00:00:00Z",
   });
 
@@ -402,11 +417,20 @@ export async function callTeamApi(
       return actor ? json(authUser(actor)) : json({ message: "invalid JWT" }, 401);
     if (url.pathname === "/auth/v1/admin/generate_link" || url.pathname === "/auth/v1/recover") {
       authActions.push(`${method} ${url.pathname}`);
+      const rawAuth = init?.body ?? (request ? await request.clone().text() : "{}");
+      const recipient = String((JSON.parse(String(rawAuth || "{}")) as { email?: string }).email);
+      authRecipients.push(recipient);
+      // Auth issues a link for the account that signs in with that address.
+      const owner = world.profiles.find(
+        (p) =>
+          authEmailOf(p) !== null &&
+          String(authEmailOf(p)).toLowerCase() === recipient.toLowerCase(),
+      );
       return url.pathname === "/auth/v1/recover"
         ? json({})
         : json({
-            id: uuid(),
-            email: "target@example.com",
+            id: world.generateLinkUserId ?? owner?.id ?? uuid(),
+            email: recipient,
             action_link: "https://supabase.test/auth/v1/verify?token=test-token",
             email_otp: "000000",
             hashed_token: "hashed",
@@ -417,7 +441,9 @@ export async function callTeamApi(
     if (url.pathname.startsWith("/auth/v1/admin/users/")) {
       if (method !== "GET") authActions.push(`${method} ${url.pathname}`);
       const profile = world.profiles.find((p) => p.id === url.pathname.split("/").pop());
-      return profile ? json(authUser(profile)) : json({ message: "not found" }, 404);
+      return profile && authEmailOf(profile) !== null
+        ? json(authUser(profile))
+        : json({ message: "not found" }, 404);
     }
     if (url.pathname === "/auth/v1/invite") {
       const raw = init?.body ?? (request ? await request.clone().text() : "{}");
@@ -705,6 +731,7 @@ export async function callTeamApi(
       invitesSent,
       refusedMoneyReads,
       authActions,
+      authRecipients,
       rpcCalls,
       headers: response.headers,
       logs,

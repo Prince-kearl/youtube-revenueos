@@ -5,6 +5,7 @@ import { resolveTeamManagementEntitlement } from "@/lib/server/workspace-entitle
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { requireServerEnv, getServerEnv } from "@/lib/server/env";
 import { notifyWorkspace } from "@/lib/server/notify";
+import { exactIlikePattern, sameTextIgnoringCase } from "@/lib/server/exact-match";
 import {
   PLAN_REQUIRED_BODY,
   authorizeInvite,
@@ -30,6 +31,10 @@ import {
 // creates no account, no membership and no email.
 
 const workspaceRoleEnum = z.enum(["owner", "manager", "setter", "editor"]);
+
+// At most this many profiles can claim one address before the invite stops looking (a spoofed
+// address can be claimed by many profiles; the genuine account is among them if it exists).
+const INVITE_CANDIDATE_LIMIT = 10;
 
 const inviteSchema = z.object({
   email: z.string().trim().email().max(320),
@@ -183,11 +188,32 @@ export const Route = createFileRoute("/api/workspace/members")({
           if (!decision.ok) return denied(decision);
 
           const viewer = { userId: ctx.user.id, role: ctx.workspaceRole };
-          const { data: existingProfile } = await service
+          // Which existing account (if any) this address belongs to is decided by Supabase Auth.
+          // profiles.email is only a way to find candidates: its owner can rewrite it
+          // (profiles_self_update does not protect it), so a user who set theirs to the invitee's
+          // address must never be the one who joins. Each candidate is confirmed by id against
+          // its Auth email, exactly (ignoring case); only a confirmed account is activated. If no
+          // candidate is confirmed — a spoofed address, or a stale profile email — nobody is
+          // activated and the invite takes the ordinary new-address path below.
+          const { data: candidates, error: candidatesError } = await service
             .from("profiles")
             .select("id")
-            .eq("email", input.email)
-            .maybeSingle();
+            .ilike("email", exactIlikePattern(input.email))
+            .limit(INVITE_CANDIDATE_LIMIT);
+          if (candidatesError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const confirmed = await Promise.all(
+            (candidates ?? []).map(async (candidate) => {
+              const { data: auth } = await service.auth.admin.getUserById(candidate.id as string);
+              const authUser = auth?.user ?? null;
+              return authUser !== null &&
+                authUser.id === candidate.id &&
+                sameTextIgnoringCase(authUser.email, input.email)
+                ? (candidate.id as string)
+                : null;
+            }),
+          );
+          const confirmedId = confirmed.find((id): id is string => id !== null) ?? null;
+          const existingProfile = confirmedId ? { id: confirmedId } : null;
 
           if (existingProfile) {
             const { data: existingMembership } = await service
@@ -279,14 +305,9 @@ export const Route = createFileRoute("/api/workspace/members")({
           });
           if (!inviteResponse.ok) {
             await service.from("workspace_members").delete().eq("id", pending.id);
-            const body = await inviteResponse.json().catch(() => null);
-            return json(
-              {
-                error: "INVITE_EMAIL_FAILED",
-                detail: body?.msg ?? body?.error_description ?? null,
-              },
-              { status: 502 },
-            );
+            // Supabase's own message is not passed on: it can say whether an account already
+            // exists for the address (account enumeration by any workspace inviter).
+            return json({ error: "INVITE_EMAIL_FAILED" }, { status: 502 });
           }
 
           return json({ data: redactMember(pending, viewer) }, { status: 201 });

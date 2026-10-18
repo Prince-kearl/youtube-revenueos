@@ -68,6 +68,18 @@ export function canActOnUser(actingRole: AppRole, targetRole: AppRole): boolean 
   return ROLE_LEVEL[targetRole] < ROLE_LEVEL["owner"];
 }
 
+// Whether `actingRole` may sign in AS an account currently at `targetRole` (impersonation).
+// Stricter than canActOnUser: the caller must strictly outrank the target, so nobody can
+// impersonate an account of equal or higher privilege — an Owner never an Owner or a Superadmin,
+// and a Superadmin never another Superadmin (that would let one platform admin act under
+// another's identity, with no support need that justifies it). Only console roles may impersonate
+// at all. Password resets, bans and the like keep canActOnUser: they act on the account, they do
+// not hand the caller its session.
+export function canImpersonate(actingRole: AppRole, targetRole: AppRole): boolean {
+  if (!canAccessConsole(actingRole)) return false;
+  return ROLE_LEVEL[actingRole] > ROLE_LEVEL[targetRole];
+}
+
 // ============ PERMISSIONS ============
 // A permission layer alongside (not instead of) the role hierarchy and per-role feature access —
 // only permissions that correspond to real, already-built Tubify admin capabilities.

@@ -161,8 +161,14 @@ for (const action of ACTIONS) {
     }
   });
 
-  test(`${action}: a Superadmin may act on anyone else, including another Superadmin and an Owner`, async () => {
-    for (const target of ["superadmin2", "owner", "manager", "user"] as const) {
+  test(`${action}: a Superadmin may act on accounts below it${action === "impersonate" ? "" : ", and on another Superadmin"}`, async () => {
+    // Impersonation needs a strictly higher role (canImpersonate): one Superadmin may not sign in
+    // as another. Every other action keeps canActOnUser, where a Superadmin may act on anyone.
+    const targets =
+      action === "impersonate"
+        ? (["owner", "manager", "user"] as const)
+        : (["superadmin2", "owner", "manager", "user"] as const);
+    for (const target of targets) {
       const s = staff();
       const result = await act(s, action, s.ids.superadmin, s.ids[target]);
       assert.equal(result.status, 200, target);
@@ -246,7 +252,7 @@ test("the three routes check the target's role before the privileged call, in so
   };
   before(
     flat("src/routes/api.admin.users.impersonate.ts"),
-    "if (!canActOnUser(actingRole, toAppRole(target.role as string | null)))",
+    "if (!canImpersonate(actingRole, toAppRole(profile.role as string | null)))",
     "service.auth.admin.generateLink(",
   );
   before(
