@@ -19,6 +19,7 @@ import {
   ADMIN_SECTIONS,
   adminSectionFrom,
 } from "../src/lib/admin-nav";
+import { HIDDEN_ADMIN_SECTIONS } from "../src/lib/feature-flags";
 import {
   EMPTY_ONBOARDING_STATE,
   IDLE_ONBOARDING_SESSION,
@@ -272,24 +273,35 @@ test("the server still authorises team management itself; the nav is not the gat
 
 // ---------- 2. admin navigation ----------
 
-test("admin navigation: the groups and their sections", () => {
+test("admin navigation: the groups and their sections (sample-data sections hidden)", () => {
   assert.deepEqual(
     ADMIN_NAV_GROUPS.map((group) => [group.label, group.items.map((item) => item.label)]),
     [
-      ["Overview & Insights", ["Executive Dashboard", "Analytics & Reporting"]],
-      ["Accounts & Access", ["Users", "Roles & Permissions", "Workspaces"]],
+      ["Overview & Insights", ["Executive Dashboard"]],
+      ["Accounts & Access", ["Users", "Workspaces"]],
       ["Billing & Subscriptions", ["Billing"]],
-      ["Product Controls", ["AI Management", "Feature Management"]],
-      ["Security & Audit", ["Security Center", "Audit Logs"]],
-      ["Brand & Communications", ["Customization", "Communications"]],
+      ["Product Controls", ["Feature Management"]],
+      ["Security & Audit", ["Audit Logs"]],
+      ["Brand & Communications", ["Customization"]],
       ["Releases & Roadmap", ["Release Registry", "Roadmap", "Changelog"]],
-      ["System & Support", ["System", "Infrastructure", "Support"]],
+      ["System & Support", ["Support"]],
     ],
   );
 });
 
-test("admin navigation: all eighteen sections are kept, once each, and each has a screen", () => {
-  const before = [
+// The seven sections that only ever showed sample data are hidden, not deleted.
+const HIDDEN = [
+  "analytics",
+  "roles",
+  "ai",
+  "security",
+  "communications",
+  "system",
+  "infrastructure",
+];
+
+test("admin navigation: every section keeps its screen; the sample-data ones are hidden", () => {
+  const all = [
     "dashboard",
     "users",
     "roles",
@@ -309,16 +321,15 @@ test("admin navigation: all eighteen sections are kept, once each, and each has 
     "support",
     "infrastructure",
   ];
-  assert.deepEqual([...ADMIN_SECTIONS].sort(), [...before].sort());
-  assert.equal(new Set(ADMIN_SECTIONS).size, 18);
+  assert.deepEqual([...HIDDEN_ADMIN_SECTIONS].sort(), [...HIDDEN].sort());
+  assert.deepEqual([...ADMIN_SECTIONS].sort(), all.filter((key) => !HIDDEN.includes(key)).sort());
+  assert.equal(new Set(ADMIN_SECTIONS).size, ADMIN_SECTIONS.length);
   const admin = read("src/routes/admin.tsx");
-  for (const key of before)
+  for (const key of all)
     assert.match(admin, new RegExp(`\\b${key}: \\w+Section|${key}: ExecutiveDashboard`));
   for (const key of ADMIN_MOBILE_PRIMARY) assert.ok(ADMIN_SECTIONS.includes(key));
-  // Feature Management and Roles & Permissions remain separate screens in separate groups.
-  const groupOf = (key: string) =>
-    ADMIN_NAV_GROUPS.find((group) => group.items.some((item) => item.key === key))!.label;
-  assert.notEqual(groupOf("features"), groupOf("roles"));
+  // A hidden section's address opens the dashboard.
+  for (const key of HIDDEN) assert.equal(adminSectionFrom(key), "dashboard", key);
 });
 
 test("admin navigation: the open section is part of the address and unknown values are safe", () => {

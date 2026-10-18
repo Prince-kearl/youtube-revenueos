@@ -17,3 +17,18 @@ export const HIDDEN_CONNECTED_ACCOUNTS: readonly string[] = [
   "Stripe",
   "ConvertKit",
 ];
+
+/**
+ * Admin console sections that only ever showed sample data (made-up figures and records kept in
+ * the browser, with nothing real behind them). Hidden until each is backed by real data; their
+ * code is kept. A hidden section's address opens the Executive Dashboard instead.
+ */
+export const HIDDEN_ADMIN_SECTIONS: readonly string[] = [
+  "analytics",
+  "roles",
+  "ai",
+  "security",
+  "communications",
+  "system",
+  "infrastructure",
+];

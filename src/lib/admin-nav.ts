@@ -5,6 +5,8 @@
 // responsibility — Feature Management is not Roles & Permissions, and platform-admin roles are
 // not workspace roles — and every admin API still checks platform-admin rights on the server.
 
+import { HIDDEN_ADMIN_SECTIONS } from "./feature-flags";
+
 export type AdminSection =
   | "dashboard"
   | "users"
@@ -30,7 +32,7 @@ export interface AdminNavGroup {
   items: { key: AdminSection; label: string }[];
 }
 
-export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
+const ALL_ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     label: "Overview & Insights",
     items: [
@@ -87,6 +89,12 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
     ],
   },
 ];
+
+/** The groups shown: hidden sections (see feature-flags.ts) removed, and groups left empty. */
+export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = ALL_ADMIN_NAV_GROUPS.map((group) => ({
+  ...group,
+  items: group.items.filter((item) => !HIDDEN_ADMIN_SECTIONS.includes(item.key)),
+})).filter((group) => group.items.length > 0);
 
 export const ADMIN_SECTIONS: readonly AdminSection[] = ADMIN_NAV_GROUPS.flatMap((group) =>
   group.items.map((item) => item.key),
