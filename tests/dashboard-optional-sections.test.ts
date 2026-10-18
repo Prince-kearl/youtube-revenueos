@@ -136,16 +136,24 @@ test("required request + persistent 401: still the required-data failure, never 
   assert.deepEqual(reauthWrites(run), []);
 });
 
-test("the Dashboard words a temporary failure without asking to reconnect", () => {
+test("the Dashboard words a temporary failure without asking to reconnect", async () => {
   const source = readFileSync(new URL("../src/routes/dashboard.tsx", import.meta.url), "utf8");
   const messages = [...source.matchAll(/temporarily_unavailable:\s*"([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(messages.length, 3, "audience, video insights and daily engagement");
+  assert.equal(messages.length, 2, "audience and daily engagement");
+  // Video Insights words its states in lib/video-insights-view.ts.
+  const { videoInsightsNotice } = await import("../src/lib/video-insights-view");
+  const notice = (insightsStatus: "temporarily_unavailable" | "forbidden") =>
+    videoInsightsNotice({ hasLatestVideo: true, videosStatus: "available", insightsStatus });
+  const insights = notice("temporarily_unavailable");
+  messages.push(insights.kind === "partial" ? insights.message : "");
   for (const message of messages) {
     assert.match(message, /temporarily unavailable\. Please try again later\.$/);
     assert.doesNotMatch(message, /reconnect|renew|authoriz/i);
   }
   // The reconnect wording is still there for the state that needs it.
-  assert.equal([...source.matchAll(/forbidden: "Reconnect YouTube/g)].length, 3);
+  assert.equal([...source.matchAll(/forbidden: "Reconnect YouTube/g)].length, 2);
+  const forbidden = notice("forbidden");
+  assert.match(forbidden.kind === "partial" ? forbidden.message : "", /^Reconnect YouTube/);
 });
 
 test("the optional-section classifier cannot write anything", () => {

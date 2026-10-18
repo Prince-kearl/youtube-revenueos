@@ -50,6 +50,7 @@ import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 import { useLocalStore } from "@/lib/local-store";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { RevenueCommandCenter } from "@/components/RevenueCommandCenter";
+import { videoInsightsNotice } from "@/lib/video-insights-view";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 
 export const Route = createFileRoute("/dashboard")({
@@ -1081,6 +1082,8 @@ function Dashboard() {
               }
             }
             status={dashboardData?.videoInsightsStatus ?? "unavailable"}
+            videosStatus={dashboardData?.videosStatus}
+            onRetry={refresh}
           />
         )}
       </div>
@@ -1500,14 +1503,6 @@ function AudienceBreakdownCardSkeleton() {
   );
 }
 
-const VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE: Record<AnalyticsAvailability, string> = {
-  available: "",
-  disabled: "Video sync or analytics import is turned off in settings.",
-  forbidden: "Reconnect YouTube to view video insights.",
-  temporarily_unavailable: "Video insights are temporarily unavailable. Please try again later.",
-  unavailable: "Video insights aren't available for your latest video yet.",
-};
-
 // Average across the already-fetched recent-videos list — a real computed baseline, not a
 // fabricated number, so "vs avg" deltas below are honest even though there's no dedicated
 // channel-average endpoint.
@@ -1521,15 +1516,24 @@ function VideoInsightsCard({
   videos,
   videoInsights,
   status,
+  videosStatus,
+  onRetry,
 }: {
   latestVideo: DashboardVideo | null;
   videos: DashboardVideo[];
   videoInsights: DashboardData["videoInsights"];
   status: AnalyticsAvailability;
+  videosStatus: DashboardData["videosStatus"] | undefined;
+  onRetry: () => void;
 }) {
-  const unavailableMessage = !latestVideo
-    ? VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE.unavailable
-    : VIDEO_INSIGHTS_UNAVAILABLE_MESSAGE[status];
+  // Views and engagement come from the video list itself and are always shown when there is a
+  // latest video; subscriber and device figures need YouTube Analytics, which reports a video a
+  // day or two late — so only that part can be missing, and the card says exactly why.
+  const notice = videoInsightsNotice({
+    hasLatestVideo: Boolean(latestVideo),
+    videosStatus,
+    insightsStatus: status,
+  });
 
   const thisViews = latestVideo?.views ?? 0;
   const thisEngagement = (latestVideo?.likes ?? 0) + (latestVideo?.comments ?? 0);
@@ -1591,10 +1595,31 @@ function VideoInsightsCard({
         </div>
       </div>
 
-      {unavailableMessage ? (
-        <p className="mt-4 border-t border-border py-6 text-center text-sm text-muted-foreground">
-          {unavailableMessage}
-        </p>
+      {notice.kind === "empty" ? (
+        <div
+          className="mt-4 border-t border-border py-6 text-center"
+          data-testid="video-insights-empty"
+        >
+          <p className="text-sm text-muted-foreground">{notice.message}</p>
+          {notice.action === "retry" && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+            >
+              Try again
+            </button>
+          )}
+          {notice.action === "settings" && (
+            <Link
+              to="/settings"
+              search={{ tab: "YouTube Integration" }}
+              className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              Open YouTube settings
+            </Link>
+          )}
+        </div>
       ) : (
         <>
           <div className="mt-4 space-y-4 border-t border-border pt-4">
@@ -1642,19 +1667,39 @@ function VideoInsightsCard({
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Subscribers gained</p>
-                <p className="mt-0.5 text-xl font-bold tracking-tight">
-                  {videoInsights.subscribersGained >= 0 ? "+" : ""}
-                  {formatCount(videoInsights.subscribersGained)}
-                </p>
+            {notice.kind === "none" && (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Subscribers gained</p>
+                  <p className="mt-0.5 text-xl font-bold tracking-tight">
+                    {videoInsights.subscribersGained >= 0 ? "+" : ""}
+                    {formatCount(videoInsights.subscribersGained)}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">from this video</p>
               </div>
-              <p className="text-xs text-muted-foreground">from this video</p>
-            </div>
+            )}
           </div>
 
-          {deviceTotal > 0 && (
+          {notice.kind === "partial" && (
+            <p
+              className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground"
+              data-testid="video-insights-partial"
+            >
+              {notice.message}{" "}
+              {notice.action !== null && (
+                <Link
+                  to="/settings"
+                  search={{ tab: "YouTube Integration" }}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {notice.action === "reconnect" ? "Reconnect YouTube" : "Open settings"}
+                </Link>
+              )}
+            </p>
+          )}
+
+          {notice.kind === "none" && deviceTotal > 0 && (
             <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
               {devices.map((device) => (
                 <div key={device.key}>
