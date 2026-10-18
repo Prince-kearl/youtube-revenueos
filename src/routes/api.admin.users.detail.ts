@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { adminUserStatus } from "@/lib/server/admin-users";
+import { trustedLivemode } from "@/lib/server/stripe-mode";
 
 // One account, for the admin Users detail view: identity and account status, workspace
 // memberships, subscription plan, connected channels and recent admin actions on the account.
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/api/admin/users/detail")({
           if (profileError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!profile) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
+          const livemode = trustedLivemode();
           const [authUser, memberships, subscription, channels, activity] = await Promise.all([
             service.auth.admin.getUserById(userId),
             service
@@ -76,13 +78,21 @@ export const Route = createFileRoute("/api/admin/users/detail")({
               .neq("status", "removed")
               .order("joined_at", { ascending: false, nullsFirst: false })
               .limit(MEMBERSHIP_LIMIT),
-            service
-              .from("subscriptions")
-              .select("plan_id, status, billing_interval, current_period_end, cancel_at_period_end")
-              .eq("user_id", userId)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle(),
+            // Only a subscription recorded in this deployment's Stripe mode is shown (as on the
+            // billing page): a test-mode or unclassified record grants nothing, so it is not
+            // presented as the account's plan either.
+            livemode === null
+              ? Promise.resolve({ data: null, error: null })
+              : service
+                  .from("subscriptions")
+                  .select(
+                    "plan_id, status, billing_interval, current_period_end, cancel_at_period_end",
+                  )
+                  .eq("user_id", userId)
+                  .eq("livemode", livemode)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle(),
             service
               .from("youtube_channels")
               .select(
