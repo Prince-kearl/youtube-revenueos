@@ -35,6 +35,8 @@ const ROLE_LABEL: Record<AppRole, string> = {
   user: "User",
 };
 
+const ROLE_LIST_LIMIT = 50;
+
 const ERROR_MESSAGE: Record<string, string> = {
   CANNOT_CHANGE_OWN_ROLE: "You can't change your own role.",
   PRIVILEGE_ESCALATION_BLOCKED: "You don't have permission to make that change.",
@@ -52,31 +54,48 @@ export function UserRolesManager() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
   const [search, setSearch] = useState("");
+  const [hasMore, setHasMore] = useState(false);
   const [pendingChange, setPendingChange] = useState<{ user: UserRow; newRole: AppRole } | null>(
     null,
   );
 
-  const load = () => {
+  // The server searches and limits the list (see api.admin.users.ts): the newest 50 accounts, or
+  // the first 50 matching the search — never every account.
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const trimmed = search.trim();
+    const id = window.setTimeout(() => setQuery(trimmed.length === 1 ? "" : trimmed), 300);
+    return () => window.clearTimeout(id);
+  }, [search]);
+
+  const load = () => setRetryNonce((n) => n + 1);
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({ limit: String(ROLE_LIST_LIMIT) });
+    if (query) params.set("q", query);
     setStatus((prev) => (prev === "ready" ? "ready" : "loading"));
     Promise.all([
-      fetch("/api/admin/users", { cache: "no-store" }).then((r) => r.json()),
-      fetch("/api/admin/audit", { cache: "no-store" }).then((r) => r.json()),
+      fetch(`/api/admin/users?${params}`, { cache: "no-store", signal: controller.signal }).then(
+        (r) => r.json(),
+      ),
+      fetch("/api/admin/audit", { cache: "no-store", signal: controller.signal }).then((r) =>
+        r.json(),
+      ),
     ])
       .then(([usersBody, auditBody]) => {
         if (!usersBody.data) throw new Error();
         setUsers(usersBody.data);
+        setHasMore(Boolean(usersBody.page?.nextCursor));
         setAuditLog((auditBody.data ?? []).filter((e: AuditEntry) => e.action === "role_assigned"));
         setStatus("ready");
       })
-      .catch(() => setStatus("error"));
-  };
-  useEffect(load, [retryNonce]);
+      .catch(() => {
+        if (!controller.signal.aborted) setStatus("error");
+      });
+    return () => controller.abort();
+  }, [query, retryNonce]);
 
-  const filtered = users.filter((u) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (u.name ?? "").toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q);
-  });
+  const filtered = users;
 
   const applyChange = async () => {
     if (!pendingChange) return;
@@ -110,7 +129,8 @@ export function UserRolesManager() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search users…"
+          placeholder="Search name, email or user ID…"
+          maxLength={100}
           className="pl-9"
         />
       </div>
@@ -179,6 +199,11 @@ export function UserRolesManager() {
             </tbody>
           </table>
         </div>
+      )}
+      {status === "ready" && hasMore && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Showing the first {ROLE_LIST_LIMIT}. Search to find a specific user.
+        </p>
       )}
 
       {auditLog.length > 0 && (

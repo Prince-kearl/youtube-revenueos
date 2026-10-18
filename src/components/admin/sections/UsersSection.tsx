@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Search,
   MoreHorizontal,
@@ -12,6 +12,8 @@ import {
   Trash2,
   RefreshCw,
   Copy,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -43,6 +45,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 type AppRole = "user" | "editor" | "setter" | "manager" | "owner" | "superadmin";
@@ -75,6 +78,15 @@ const statusColor: Record<UserStatus, string> = {
   Banned: "bg-destructive/15 text-destructive",
   Pending: "bg-brand-blue/15 text-brand-blue",
 };
+type UserStats = { total: number; active: number; pending: number; banned: number };
+type SortKey = "newest" | "oldest" | "email";
+const SORT_LABEL: Record<SortKey, string> = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  email: "Email A–Z",
+};
+const PAGE_SIZE = 25;
+
 const ERROR_MESSAGE: Record<string, string> = {
   CANNOT_CHANGE_OWN_ROLE: "You can't change your own role or ban status.",
   CANNOT_DELETE_SELF: "You can't delete your own account.",
@@ -85,6 +97,11 @@ const ERROR_MESSAGE: Record<string, string> = {
   INVITE_FAILED: "Couldn't send the invite. Check the project's email settings.",
   RESET_FAILED: "Couldn't send the reset email.",
   LINK_FAILED: "Couldn't generate an impersonation link.",
+};
+const LOAD_ERROR_MESSAGE: Record<string, string> = {
+  ADMIN_USERS_MIGRATION_REQUIRED:
+    "The Users directory needs its database update before it can load. Ask an owner to apply the pending migration.",
+  PERMISSION_REQUIRED: "You don't have permission to view users.",
 };
 
 function errorMessage(code: string): string {
@@ -100,36 +117,113 @@ function banLabel(bannedUntil: string | null): string {
 }
 
 export function UsersSection() {
+  // One page at a time from the server (search, filters, sorting, counting and paging all happen
+  // in the database — see api.admin.users.ts). Nothing here holds more than the visible page.
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [rows, setRows] = useState<UserRow[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | UserStatus>("All");
+  const [roleFilter, setRoleFilter] = useState<"All" | AppRole>("All");
+  const [sort, setSort] = useState<SortKey>("newest");
+  // cursors[i] opens page i (page 0 has none); the next page's cursor comes with each page.
+  const [cursors, setCursors] = useState<(string | null)[]>([null]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [detailUser, setDetailUser] = useState<UserRow | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<UserRow | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [impersonateLink, setImpersonateLink] = useState<string | null>(null);
 
-  const load = () => {
-    setStatus((prev) => (prev === "ready" ? "ready" : "loading"));
-    fetch("/api/admin/users", { cache: "no-store" })
+  // The search box waits for a pause in typing, and a one-character search is not sent (the
+  // server asks for at least two characters, so it can use its indexes).
+  useEffect(() => {
+    const trimmed = query.trim();
+    const id = window.setTimeout(() => setSearch(trimmed.length === 1 ? "" : trimmed), 300);
+    return () => window.clearTimeout(id);
+  }, [query]);
+
+  // A new search, filter or ordering starts again at page 1. The page position belongs to the
+  // filters it was reached with, so the very render that changes a filter already asks for page 1
+  // (never page 3's cursor with the new filters, which the server would refuse).
+  const filterKey = JSON.stringify([search, statusFilter, roleFilter, sort]);
+  const [pagerKey, setPagerKey] = useState(filterKey);
+  const samePager = pagerKey === filterKey;
+  useEffect(() => {
+    if (samePager) return;
+    setPagerKey(filterKey);
+    setCursors([null]);
+    setPageIndex(0);
+    setSelected(new Set());
+  }, [samePager, filterKey]);
+  const currentPage = samePager ? pageIndex : 0;
+  const cursor = samePager ? (cursors[pageIndex] ?? null) : null;
+  useEffect(() => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), sort });
+    if (search) params.set("q", search);
+    if (roleFilter !== "All") params.set("role", roleFilter);
+    if (statusFilter !== "All") params.set("status", statusFilter.toLowerCase());
+    if (cursor) params.set("cursor", cursor);
+    else params.set("stats", "1");
+    setStatus((prev) => (prev === "error" ? "loading" : prev));
+    setLoadError(null);
+    fetch(`/api/admin/users?${params}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        const body = (await response.json()) as { data?: UserRow[] };
-        if (!response.ok || !body.data) throw new Error();
-        setUsers(body.data);
+        const body = (await response.json()) as {
+          data?: UserRow[];
+          page?: { nextCursor: string | null; total: number | null };
+          stats?: UserStats;
+          error?: string;
+        };
+        if (!response.ok || !body.data) throw new Error(body.error ?? "LOAD_FAILED");
+        setRows(body.data);
+        setNextCursor(body.page?.nextCursor ?? null);
+        if (!cursor) {
+          setTotal(body.page?.total ?? null);
+          if (body.stats) setStats(body.stats);
+        }
         setStatus("ready");
       })
-      .catch(() => setStatus("error"));
-  };
-  useEffect(load, [retryNonce]);
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "LOAD_FAILED");
+        setStatus("error");
+      });
+    return () => controller.abort();
+  }, [search, statusFilter, roleFilter, sort, cursor, retryNonce]);
 
-  const filtered = users.filter(
-    (u) =>
-      (statusFilter === "All" || u.status === statusFilter) &&
-      ((u.name ?? "").toLowerCase().includes(query.toLowerCase()) ||
-        (u.email ?? "").toLowerCase().includes(query.toLowerCase())),
-  );
+  // After a change to an account: reload the page being looked at (and the totals with it).
+  const load = () => {
+    if (currentPage === 0) setRetryNonce((n) => n + 1);
+    else {
+      setCursors([null]);
+      setPageIndex(0);
+    }
+  };
+  const goNext = () => {
+    if (!nextCursor) return;
+    setCursors((prev) => [...prev.slice(0, pageIndex + 1), nextCursor]);
+    setPageIndex((i) => i + 1);
+    setSelected(new Set());
+  };
+  const goPrevious = () => {
+    if (currentPage === 0) return;
+    setPageIndex((i) => i - 1);
+    setSelected(new Set());
+  };
+  const filtered = rows;
+  const firstShown = rows.length ? currentPage * PAGE_SIZE + 1 : 0;
+  const lastShown = currentPage * PAGE_SIZE + rows.length;
 
   const toggleOne = (id: string) =>
     setSelected((prev) => {
@@ -282,25 +376,8 @@ export function UsersSection() {
     a.download = "users.csv";
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${rows.length} users as CSV`);
+    toast.success(`Exported ${rows.length} users from this page as CSV`);
   };
-
-  if (status === "loading") {
-    return <p className="mt-4 text-sm text-muted-foreground">Loading users…</p>;
-  }
-  if (status === "error") {
-    return (
-      <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
-        <p className="text-sm text-muted-foreground">Couldn't load users.</p>
-        <button
-          onClick={() => setRetryNonce((n) => n + 1)}
-          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -321,19 +398,10 @@ export function UsersSection() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Total Users" value={String(users.length)} />
-        <FlatKpiCard
-          title="Active"
-          value={String(users.filter((u) => u.status === "Active").length)}
-        />
-        <FlatKpiCard
-          title="Banned"
-          value={String(users.filter((u) => u.status === "Banned").length)}
-        />
-        <FlatKpiCard
-          title="Pending"
-          value={String(users.filter((u) => u.status === "Pending").length)}
-        />
+        <FlatKpiCard title="Total Users" value={stats ? stats.total.toLocaleString() : "…"} />
+        <FlatKpiCard title="Active" value={stats ? stats.active.toLocaleString() : "…"} />
+        <FlatKpiCard title="Banned" value={stats ? stats.banned.toLocaleString() : "…"} />
+        <FlatKpiCard title="Pending" value={stats ? stats.pending.toLocaleString() : "…"} />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -342,10 +410,37 @@ export function UsersSection() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name or email…"
+            placeholder="Search name, email or user ID…"
+            aria-label="Search users by name, email or user ID"
+            maxLength={100}
             className="h-9 w-full rounded-[var(--input-radius)] border border-border bg-accent/20 pl-9 pr-3 text-sm outline-none focus:border-primary"
           />
         </div>
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as "All" | AppRole)}>
+          <SelectTrigger className="h-9 w-[140px]" aria-label="Filter by role">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All roles</SelectItem>
+            {ROLE_OPTIONS.map((r) => (
+              <SelectItem key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+          <SelectTrigger className="h-9 w-[150px]" aria-label="Sort users">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(SORT_LABEL) as SortKey[]).map((key) => (
+              <SelectItem key={key} value={key}>
+                {SORT_LABEL[key]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex flex-wrap gap-1.5">
           {(["All", "Active", "Banned", "Pending"] as const).map((s) => (
             <button
@@ -358,6 +453,22 @@ export function UsersSection() {
           ))}
         </div>
       </div>
+      {query.trim().length === 1 && (
+        <p className="mt-2 text-xs text-muted-foreground">Type at least 2 characters to search.</p>
+      )}
+      {status === "error" && (
+        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            {LOAD_ERROR_MESSAGE[loadError ?? ""] ?? "Couldn't load users."}
+          </p>
+          <button
+            onClick={() => setRetryNonce((n) => n + 1)}
+            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </button>
+        </div>
+      )}
 
       {selected.size > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm">
@@ -373,7 +484,7 @@ export function UsersSection() {
               onClick={bulkExport}
               className="rounded-[var(--button-radius)] bg-white px-2.5 py-1 text-xs font-medium hover:bg-accent"
             >
-              Bulk Export
+              Export selected
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -399,13 +510,18 @@ export function UsersSection() {
         </div>
       )}
 
-      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-border sm:block">
+      <div
+        className={`mt-4 hidden overflow-x-auto rounded-xl border border-border ${status === "error" ? "" : "sm:block"}`}
+        aria-busy={status === "loading"}
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-card text-left text-xs uppercase tracking-wide text-muted-foreground">
               <th className="w-10 px-5 py-3">
                 <Checkbox
-                  checked={selected.size > 0 && selected.size === filtered.length}
+                  checked={
+                    selected.size > 0 && selected.size === filtered.length && filtered.length > 0
+                  }
                   onCheckedChange={toggleAll}
                   disabled={filtered.length === 0}
                 />
@@ -438,10 +554,14 @@ export function UsersSection() {
                         {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
                       </span>
                     )}
-                    <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setDetailUser(u)}
+                      className="min-w-0 text-left hover:text-primary"
+                    >
                       <p className="truncate font-medium">{u.name ?? "—"}</p>
                       <p className="truncate text-xs text-muted-foreground">{u.email}</p>
-                    </div>
+                    </button>
                   </div>
                 </td>
                 <td className="px-3 py-3.5 text-muted-foreground">{ROLE_LABEL[u.role]}</td>
@@ -533,7 +653,7 @@ export function UsersSection() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-8 text-center text-sm text-muted-foreground">
-                  No users match your filters.
+                  {status === "loading" ? "Loading users…" : "No users match your filters."}
                 </td>
               </tr>
             )}
@@ -542,7 +662,7 @@ export function UsersSection() {
       </div>
 
       {/* Mobile cards */}
-      <div className="mt-4 space-y-3 sm:hidden">
+      <div className={`mt-4 space-y-3 sm:hidden ${status === "error" ? "hidden" : ""}`}>
         {filtered.map((u) => (
           <div key={u.id} className="relative rounded-xl card-gradient-outline p-4">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
@@ -561,10 +681,14 @@ export function UsersSection() {
                     {(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}
                   </span>
                 )}
-                <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setDetailUser(u)}
+                  className="min-w-0 text-left"
+                >
                   <p className="truncate font-medium">{u.name ?? "—"}</p>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
-                </div>
+                </button>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -614,10 +738,40 @@ export function UsersSection() {
         ))}
         {filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No users match your filters.
+            {status === "loading" ? "Loading users…" : "No users match your filters."}
           </p>
         )}
       </div>
+
+      {status !== "error" && (rows.length > 0 || currentPage > 0) && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span aria-live="polite">
+            {rows.length
+              ? `Showing ${firstShown.toLocaleString()}–${lastShown.toLocaleString()}${total !== null ? ` of ${total.toLocaleString()}` : ""}`
+              : "No more users"}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={goPrevious}
+              disabled={currentPage === 0 || status === "loading"}
+              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!nextCursor || status === "loading"}
+              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <UserDetailSheet user={detailUser} onOpenChange={(open) => !open && setDetailUser(null)} />
 
       <CreateUserDialog open={creating} onOpenChange={setCreating} onCreated={load} />
       <ConfirmDialog
@@ -757,5 +911,218 @@ function CreateUserDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type UserDetail = {
+  identity: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    role: AppRole;
+    createdAt: string;
+  };
+  account: {
+    status: UserStatus | null;
+    emailVerified: boolean;
+    creatorVerified: boolean;
+    bannedUntil: string | null;
+    lastSignInAt: string | null;
+  };
+  workspaces: {
+    total: number;
+    items: {
+      workspaceId: string;
+      name: string | null;
+      isOwner: boolean;
+      role: string;
+      status: string;
+      joinedAt: string | null;
+    }[];
+  };
+  subscription: {
+    plan: string | null;
+    status: string;
+    billingInterval: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null;
+  channels: {
+    total: number;
+    items: {
+      id: string;
+      name: string;
+      handle: string | null;
+      connected: boolean;
+      lastSyncedAt: string | null;
+      lastSyncStatus: string | null;
+    }[];
+  };
+  recentAdminActions: { action: string; at: string }[];
+};
+
+const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : "—");
+
+// One account in detail: identity and status, workspaces, plan, channels and the latest admin
+// actions on it. Read-only — the actions stay in the row menu.
+function UserDetailSheet({
+  user,
+  onOpenChange,
+}: {
+  user: UserRow | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [detail, setDetail] = useState<UserDetail | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
+  useEffect(() => {
+    if (!user) return;
+    const controller = new AbortController();
+    setDetail(null);
+    setState("loading");
+    fetch(`/api/admin/users/detail?${new URLSearchParams({ id: user.id })}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: UserDetail };
+        if (!response.ok || !body.data) throw new Error();
+        setDetail(body.data);
+        setState("ready");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setState("error");
+      });
+    return () => controller.abort();
+  }, [user]);
+
+  return (
+    <Sheet open={!!user} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>{user?.name ?? user?.email ?? "User"}</SheetTitle>
+        </SheetHeader>
+        {state === "loading" && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
+        {state === "error" && (
+          <p className="mt-4 text-sm text-muted-foreground">Couldn't load this user.</p>
+        )}
+        {state === "ready" && detail && (
+          <div className="mt-4 space-y-5 text-sm">
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Account
+              </h4>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+                <dt className="text-muted-foreground">Email</dt>
+                <dd className="truncate">{detail.identity.email ?? "—"}</dd>
+                <dt className="text-muted-foreground">User ID</dt>
+                <dd className="truncate font-mono text-xs">{detail.identity.id}</dd>
+                <dt className="text-muted-foreground">Role</dt>
+                <dd>{ROLE_LABEL[detail.identity.role]}</dd>
+                <dt className="text-muted-foreground">Status</dt>
+                <dd>
+                  {detail.account.status === "Banned"
+                    ? banLabel(detail.account.bannedUntil)
+                    : (detail.account.status ?? "—")}
+                </dd>
+                <dt className="text-muted-foreground">Email verified</dt>
+                <dd>{detail.account.emailVerified ? "Yes" : "No"}</dd>
+                <dt className="text-muted-foreground">Creator badge</dt>
+                <dd>{detail.account.creatorVerified ? "Yes" : "No"}</dd>
+                <dt className="text-muted-foreground">Joined</dt>
+                <dd>{formatDate(detail.identity.createdAt)}</dd>
+                <dt className="text-muted-foreground">Last sign-in</dt>
+                <dd>
+                  {detail.account.lastSignInAt ? formatDate(detail.account.lastSignInAt) : "Never"}
+                </dd>
+              </dl>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Subscription
+              </h4>
+              {detail.subscription ? (
+                <p className="mt-2">
+                  {detail.subscription.plan ?? "Unknown plan"} · {detail.subscription.status} ·{" "}
+                  {detail.subscription.billingInterval === "year" ? "yearly" : "monthly"}
+                  {detail.subscription.currentPeriodEnd
+                    ? ` · ${detail.subscription.cancelAtPeriodEnd ? "ends" : "renews"} ${formatDate(detail.subscription.currentPeriodEnd)}`
+                    : ""}
+                </p>
+              ) : (
+                <p className="mt-2 text-muted-foreground">No subscription.</p>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Workspaces ({detail.workspaces.total})
+              </h4>
+              {detail.workspaces.items.length ? (
+                <ul className="mt-2 space-y-1.5">
+                  {detail.workspaces.items.map((w) => (
+                    <li key={w.workspaceId} className="flex justify-between gap-2">
+                      <span className="truncate">{w.name ?? "Untitled workspace"}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {w.isOwner ? "Owner" : w.role}
+                        {w.status !== "active" ? ` · ${w.status}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-muted-foreground">Not in any workspace.</p>
+              )}
+              {detail.workspaces.total > detail.workspaces.items.length && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Showing the latest {detail.workspaces.items.length}.
+                </p>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                YouTube channels ({detail.channels.total})
+              </h4>
+              {detail.channels.items.length ? (
+                <ul className="mt-2 space-y-1.5">
+                  {detail.channels.items.map((c) => (
+                    <li key={c.id} className="flex justify-between gap-2">
+                      <span className="truncate">{c.name}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {c.connected ? `synced ${formatDate(c.lastSyncedAt)}` : "disconnected"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-muted-foreground">No channels connected.</p>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Recent admin actions
+              </h4>
+              {detail.recentAdminActions.length ? (
+                <ul className="mt-2 space-y-1.5">
+                  {detail.recentAdminActions.map((a, i) => (
+                    <li key={`${a.action}-${a.at}-${i}`} className="flex justify-between gap-2">
+                      <span className="truncate">{a.action.replaceAll("_", " ")}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {new Date(a.at).toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-muted-foreground">None recorded.</p>
+              )}
+            </section>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }

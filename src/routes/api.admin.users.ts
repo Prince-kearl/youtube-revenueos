@@ -3,7 +3,16 @@ import { z } from "zod";
 import { requirePermission, canActOnUser, canManageRole, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
-import { listAllAuthUsers } from "@/lib/server/auth-users";
+import {
+  AdminUsersQueryError,
+  adminCountUsersArgs,
+  adminListUsersArgs,
+  isMissingFunctionError,
+  parseAdminUsersQuery,
+  toAdminUsersPage,
+  type AdminUserDirectoryRow,
+  type AdminUsersQuery,
+} from "@/lib/server/admin-users";
 
 const patchSchema = z.object({
   role: z.enum(["user", "editor", "setter", "manager", "owner", "superadmin"]).optional(),
@@ -40,49 +49,72 @@ async function parseJson(request: Request) {
   }
 }
 
-function deriveStatus(
-  authUser: { banned_until?: string | null; email_confirmed_at?: string | null } | undefined,
-) {
-  if (authUser?.banned_until && new Date(authUser.banned_until).getTime() > Date.now())
-    return "Banned";
-  if (!authUser?.email_confirmed_at) return "Pending";
-  return "Active";
-}
-
 export const Route = createFileRoute("/api/admin/users")({
   server: {
     handlers: {
-      // Every real user, merging profiles (name/role/avatar) with auth.users (verification/ban/
-      // last-login) — the only place both halves of "who this person is" and "can they sign in"
-      // exist together.
+      // One page of accounts — identity (profiles) with account status (verification, ban, last
+      // sign-in) — searched, filtered, sorted, counted and paged inside Postgres by the
+      // admin_list_users / admin_count_users / admin_user_stats functions (migration
+      // 202610180001_admin_user_directory.sql). Nothing here loads more than one page of rows.
+      //
+      //   ?limit=1..100 (default 25)  ?sort=newest|oldest|email  ?q=<name, email or user id>
+      //   ?role=<app role>  ?status=active|pending|banned  ?cursor=<from the previous page>
+      //   ?stats=1 (first page only: the Total/Active/Pending/Banned figures)
+      //
+      // The total and the stats are only computed for the first page (no cursor); the console
+      // keeps them while paging.
       GET: async ({ request }) => {
         try {
           await requirePermission(request, "manage_users");
-          // Service client, not the caller's: profiles RLS only lets a user read their OWN row,
-          // so a session-scoped query here returned just the admin themselves and hid every other
-          // account. Authorization is the requirePermission check above.
+          let query: AdminUsersQuery;
+          try {
+            query = parseAdminUsersQuery(new URL(request.url).searchParams);
+          } catch (error) {
+            if (error instanceof AdminUsersQueryError)
+              return json({ error: error.code }, { status: 422 });
+            throw error;
+          }
+
+          // Service client, not the caller's: the functions are granted to service_role only, and
+          // the caller's platform permission was checked above.
           const service = createServiceSupabaseClient();
-          const { data, error } = await service
-            .from("profiles")
-            .select("id, name, email, avatar, role, created_at")
-            .order("created_at", { ascending: false });
-          if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const firstPage = query.cursor === null;
+          const [list, count, stats] = await Promise.all([
+            service.rpc("admin_list_users", adminListUsersArgs(query)),
+            firstPage
+              ? service.rpc("admin_count_users", adminCountUsersArgs(query))
+              : Promise.resolve(null),
+            firstPage && query.includeStats
+              ? service.rpc("admin_user_stats").single()
+              : Promise.resolve(null),
+          ]);
+          const failed = [list.error, count?.error, stats?.error].find(Boolean) ?? null;
+          if (failed) {
+            if (isMissingFunctionError(failed))
+              return json({ error: "ADMIN_USERS_MIGRATION_REQUIRED" }, { status: 503 });
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
 
-          const authUsers = await listAllAuthUsers(service);
-
-          const rows = (data ?? []).map((row) => {
-            const authUser = authUsers.get(row.id);
-            return {
-              ...row,
-              role: toAppRole(row.role as string),
-              status: deriveStatus(authUser),
-              emailVerified: Boolean(authUser?.email_confirmed_at),
-              creatorVerified: authUser?.user_metadata?.creator_verified === true,
-              bannedUntil: authUser?.banned_until ?? null,
-              lastSignInAt: authUser?.last_sign_in_at ?? null,
-            };
+          const page = toAdminUsersPage((list.data ?? []) as AdminUserDirectoryRow[], query);
+          const statsRow = stats?.data as Record<string, number | string> | null | undefined;
+          return json({
+            data: page.items,
+            page: {
+              limit: query.limit,
+              nextCursor: page.nextCursor,
+              total: count ? Number(count.data) : null,
+            },
+            ...(statsRow
+              ? {
+                  stats: {
+                    total: Number(statsRow.total),
+                    active: Number(statsRow.active),
+                    pending: Number(statsRow.pending),
+                    banned: Number(statsRow.banned),
+                  },
+                }
+              : {}),
           });
-          return json({ data: rows });
         } catch (error) {
           if (error instanceof Response) return error;
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
