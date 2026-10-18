@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { DollarSign, Users, Video, FileText, Download } from "lucide-react";
 import { ErrorState, ListLoadingState } from "@/components/ui-bits";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Input } from "@/components/ui/input";
@@ -94,7 +95,11 @@ function Reports() {
       {status === "ready" && summary && (
         <>
           <h2 className="mt-6 text-lg font-semibold">Key Insights — {summary.periodLabel}</h2>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+          {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
+          <KpiCarousel
+            className="mt-3"
+            gridClassName="gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
+          >
             <FlatKpiCard
               title="Brand Deal Revenue Closed"
               value={
@@ -131,7 +136,7 @@ function Reports() {
               value={String(summary.dealsClosedThisPeriod)}
               caption={`${summary.videosThisPeriod} video${summary.videosThisPeriod === 1 ? "" : "s"} published`}
             />
-          </div>
+          </KpiCarousel>
 
           <h2 className="mt-8 text-lg font-semibold">Available Reports</h2>
           <div className="mt-3 space-y-4">

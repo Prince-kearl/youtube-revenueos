@@ -147,3 +147,23 @@ test("Team: its KPI cards are in the carousel too, not squeezed two to a row on 
   );
   assert.doesNotMatch(source, /grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4/);
 });
+
+test("Reports, Support, Destinations and Link Tracking: every card is in the carousel", () => {
+  const pages: Record<string, { grid: string; cards: number }> = {
+    "src/routes/reports.tsx": { grid: "gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4", cards: 4 },
+    "src/routes/support.tsx": { grid: "gap-3 sm:grid-cols-3", cards: 3 },
+    "src/routes/destinations.tsx": { grid: "gap-3 sm:grid-cols-3 sm:gap-4", cards: 3 },
+    "src/routes/link-tracking.tsx": { grid: "gap-3 sm:grid-cols-3 sm:gap-4", cards: 3 },
+  };
+  for (const [file, { grid, cards }] of Object.entries(pages)) {
+    const source = readFileSync(file, "utf8");
+    assert.deepEqual(
+      [...source.matchAll(/gridClassName="([^"]+)"/g)].map((match) => match[1]),
+      [grid],
+      file,
+    );
+    const carousel = source.match(/<KpiCarousel[\s\S]*?<\/KpiCarousel>/)?.[0] ?? "";
+    assert.equal(carousel.match(/<FlatKpiCard\b/g)?.length, cards, `${file}: cards inside`);
+    assert.equal(source.match(/<FlatKpiCard\b/g)?.length, cards, `${file}: none outside`);
+  }
+});

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { LifeBuoy, Send } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,7 +101,8 @@ function Support() {
         </h1>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
+      <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-3">
         <FlatKpiCard title="Your Reports" value={String(tickets.length)} />
         <FlatKpiCard
           title="In Progress"
@@ -110,7 +112,7 @@ function Support() {
           title="Resolved"
           value={String(tickets.filter((t) => t.status === "Resolved").length)}
         />
-      </div>
+      </KpiCarousel>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-5">
         <div className="relative rounded-xl card-gradient-outline p-5 lg:col-span-2">

@@ -34,6 +34,7 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { cn } from "@/lib/utils";
 import {
@@ -278,7 +279,8 @@ function LinkTracking() {
         range={search.range}
       />
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+      {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
+      <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-3 sm:gap-4">
         <FlatKpiCard title="Total Links" value={String(links.length)} accent="var(--brand-blue)" />
         <FlatKpiCard
           title="Total Clicks"
@@ -290,7 +292,7 @@ function LinkTracking() {
           value={totalUnique.toLocaleString()}
           accent="var(--brand-purple)"
         />
-      </div>
+      </KpiCarousel>
 
       <div className="relative mt-5">
         <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

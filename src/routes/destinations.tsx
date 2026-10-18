@@ -31,6 +31,7 @@ import {
 } from "@/components/modals";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { cn } from "@/lib/utils";
 
@@ -163,7 +164,8 @@ function Destinations() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+      {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
+      <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-3 sm:gap-4">
         <FlatKpiCard
           title="Total Destinations"
           value={String(destinations.length)}
@@ -171,7 +173,7 @@ function Destinations() {
         />
         <FlatKpiCard title="Active" value={String(activeCount)} accent="var(--brand-green)" />
         <FlatKpiCard title="Archived" value={String(archivedCount)} accent="var(--brand-purple)" />
-      </div>
+      </KpiCarousel>
 
       {pageStatus === "loading" && (
         <div
