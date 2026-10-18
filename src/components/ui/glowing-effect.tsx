@@ -133,11 +133,14 @@ const GlowingEffect = memo(
       };
     }, [handleMove, disabled]);
 
+    // Both layers are absolutely positioned over the card. "!m-0" keeps them exactly on its edge
+    // inside a card that spaces its children (space-y-*, which in Tailwind v4 puts a bottom margin
+    // on every child but the last — that margin pulled the glow's bottom edge up into the card).
     return (
       <>
         <div
           className={cn(
-            "pointer-events-none absolute -inset-px hidden rounded-[inherit] border opacity-0 transition-opacity",
+            "pointer-events-none absolute -inset-px !m-0 hidden rounded-[inherit] border opacity-0 transition-opacity",
             glow && "opacity-100",
             variant === "white" && "border-white",
             disabled && "!block"
@@ -175,7 +178,7 @@ const GlowingEffect = memo(
             } as React.CSSProperties
           }
           className={cn(
-            "pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 transition-opacity",
+            "pointer-events-none absolute inset-0 !m-0 rounded-[inherit] opacity-100 transition-opacity",
             glow && "opacity-100",
             blur > 0 && "blur-[var(--blur)] ",
             className,
