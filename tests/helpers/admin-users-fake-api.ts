@@ -142,12 +142,15 @@ export async function call(
         : json({ message: "invalid JWT" }, 401);
     if (url.origin === SUPABASE && url.pathname === "/auth/v1/admin/generate_link") {
       recorded.generateLink.push(sent);
+      // Shaped like Supabase Auth's answer: the user's own fields at the top level, beside the
+      // link fields (supabase-js builds data.user from the rest and data.properties from these).
       return json({
+        ...(authUser ?? {}),
         action_link: `https://auth.test/verify?for=${encodeURIComponent(String(sent.email))}`,
-        properties: {
-          action_link: `https://auth.test/verify?for=${encodeURIComponent(String(sent.email))}`,
-        },
-        user: authUser,
+        email_otp: "000000",
+        hashed_token: "hashed",
+        redirect_to: "",
+        verification_type: "magiclink",
       });
     }
     if (url.origin === SUPABASE && url.pathname === "/auth/v1/recover") {

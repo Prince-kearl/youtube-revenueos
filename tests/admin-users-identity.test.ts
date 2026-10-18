@@ -158,7 +158,8 @@ test("user-management audit entries are written with the account id, never an em
   ]) {
     const route = readFileSync(file, "utf8");
     assert.doesNotMatch(route, /\.select\("email, role"\)/, file);
-    assert.match(route, /service\.auth\.admin\.getUserById\(id\)/, file);
+    // Identity by id, through the shared Auth lookup (production hotfix 232e17e/6f027a5).
+    assert.match(route, /lookupAuthIdentity\(service, id\)/, file);
   }
 });
 
