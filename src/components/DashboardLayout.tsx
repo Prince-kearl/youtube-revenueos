@@ -11,6 +11,7 @@ import {
   FileText,
   Settings,
   ChevronLeft,
+  ChevronUp,
   Search,
   Plus,
   Bell,
@@ -80,9 +81,12 @@ import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "@/lib/demo-youtube";
 import {
   CREATOR_MOBILE_PRIMARY,
   CREATOR_NAV,
+  activeCreatorNavHub,
   activeCreatorNavRoute,
+  creatorHubTabsFor,
   permissionRouteFor,
-  visibleCreatorNavGroups,
+  visibleCreatorAccountNav,
+  visibleCreatorNavHubs,
 } from "@/lib/creator-nav";
 
 // What the navigation contains and how it is grouped lives in lib/creator-nav.ts (pure data,
@@ -111,14 +115,15 @@ const NAV_ICONS: Record<string, LucideIcon> = {
 
 const nav = CREATOR_NAV.map((item) => ({ ...item, icon: NAV_ICONS[item.to] ?? LayoutDashboard }));
 
-const primaryMobileNav = nav.filter((item) => CREATOR_MOBILE_PRIMARY.includes(item.to));
+const navItem = (to: string) => nav.find((item) => item.to === to)!;
 
-// The active pill widens to show its label (see the mobile nav render below) — "Comment
-// Automation" at full length dwarfs the other icon-only tabs, so it gets a shorter stand-in here.
-// aria-label/title still use the full nav label; this only affects the visible pill text.
-const MOBILE_NAV_SHORT_LABEL: Partial<Record<string, string>> = {
-  "/comments": "Comments",
+// The main menu's hubs (see lib/creator-nav.ts). A one-page hub uses its page's icon.
+const HUB_ICONS: Record<string, LucideIcon> = {
+  links: Link2,
+  inbox: Inbox,
 };
+const hubIcon = (hub: { id: string; tabs: readonly { to: string }[] }) =>
+  HUB_ICONS[hub.id] ?? NAV_ICONS[hub.tabs[0].to] ?? LayoutDashboard;
 
 const ROUTE_FEATURE: Partial<Record<string, FeatureKey>> = Object.fromEntries(
   (Object.entries(FEATURE_META) as [FeatureKey, (typeof FEATURE_META)[FeatureKey]][]).map(
@@ -363,14 +368,18 @@ export function DashboardLayout({
   const canReachRoute = (to: string) =>
     to === "/admin" ? isPlatformAdmin : canAccessRoute(viewerRole, to);
   const visibleNav = nav.filter((item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to));
-  const visibleNavGroups = visibleCreatorNavGroups(
-    (to) => canReachRoute(to) && realFeatureEnabledFor(to),
-  );
-  // The entry to highlight: the page itself, or the entry a nested page belongs to (a single
-  // video, Analyze Video and Pre-Publish all sit under Videos).
+  // Every page — a hub's tab or an account page — passes its own role and feature check; a hub
+  // whose pages are all hidden disappears.
+  const canSeeNavRoute = (to: string) => canReachRoute(to) && realFeatureEnabledFor(to);
+  const visibleNavHubs = visibleCreatorNavHubs(canSeeNavRoute);
+  const visibleAccountNav = visibleCreatorAccountNav(canSeeNavRoute);
+  // The page to highlight: the page itself, or the entry a nested page belongs to (a single
+  // video, Analyze Video and Pre-Publish all sit under Videos) — and the hub that page is in.
   const activeNavRoute = activeCreatorNavRoute(pathname);
-  const visiblePrimaryMobileNav = primaryMobileNav.filter(
-    (item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to),
+  const activeHub = activeCreatorNavHub(pathname);
+  const hubTabs = creatorHubTabsFor(pathname, canSeeNavRoute);
+  const visiblePrimaryMobileNav = visibleNavHubs.filter((hub) =>
+    CREATOR_MOBILE_PRIMARY.includes(hub.id),
   );
 
   // Global search — searches pages plus real content (videos, leads, brand deals), not just nav
@@ -729,94 +738,109 @@ export function DashboardLayout({
             </button>
           </div>
 
-          <nav aria-label="Main" className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
-            {visibleNavGroups.map((group, groupIndex) => (
-              <div key={group.label} role="group" aria-label={group.label}>
-                {/* Collapsed, the group names are hidden: a hairline keeps the groups apart. */}
-                {collapsed && groupIndex > 0 && (
-                  <div className="mx-auto mb-3 h-px w-8 bg-border/70" aria-hidden="true" />
-                )}
-                {!collapsed && (
-                  <p
-                    className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider ${group.label === "Platform" ? "text-brand-purple/70" : "text-muted-foreground/60"}`}
-                  >
-                    {group.label}
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {group.items.map((to) => {
-                    const item = nav.find((n) => n.to === to)!;
-                    const active = activeNavRoute === item.to;
-                    const locked = isLocked(item.to);
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        title={collapsed ? item.label : locked ? "Disabled by admin" : undefined}
-                        aria-label={collapsed ? item.label : undefined}
-                        aria-current={active ? "page" : undefined}
-                        className={`group relative flex items-center text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
-                      >
-                        <Icon className="relative h-[18px] w-[18px] shrink-0" />
-                        {!collapsed && (
-                          <span className="relative flex-1 truncate whitespace-nowrap">
-                            {item.label}
-                          </span>
-                        )}
-                        {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+            {visibleNavHubs.map((hub) => {
+              const active = activeHub === hub.id;
+              const locked = isLocked(hub.to);
+              const Icon = hubIcon(hub);
+              return (
+                <Link
+                  key={hub.id}
+                  to={hub.to}
+                  title={collapsed ? hub.label : locked ? "Disabled by admin" : undefined}
+                  aria-label={collapsed ? hub.label : undefined}
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${active ? "glass-active-nav" : locked ? "rounded-full text-muted-foreground/40 hover:bg-accent" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
+                >
+                  <Icon className="relative h-[18px] w-[18px] shrink-0" />
+                  {!collapsed && (
+                    <span className="relative flex-1 truncate whitespace-nowrap">{hub.label}</span>
+                  )}
+                  {!collapsed && locked && <Lock className="relative h-3.5 w-3.5 shrink-0" />}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="p-3">
-            <div className="card-frost flex items-center gap-3 px-3 py-3 backdrop-blur-lg">
-              <div className="relative shrink-0">
-                <div className="flex h-8 w-8 items-center justify-center">
-                  <svg viewBox="0 0 24 18" className="h-6 w-8" fill="none" aria-hidden="true">
-                    <path
-                      d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
-                      fill="#ff0000"
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Account menu"
+                  className={`card-frost flex w-full items-center gap-3 px-3 py-3 text-left backdrop-blur-lg transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${activeNavRoute && visibleAccountNav.includes(activeNavRoute) ? "ring-1 ring-primary/40" : ""}`}
+                >
+                  <div className="relative shrink-0">
+                    <div className="flex h-8 w-8 items-center justify-center">
+                      <svg viewBox="0 0 24 18" className="h-6 w-8" fill="none" aria-hidden="true">
+                        <path
+                          d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
+                          fill="#ff0000"
+                        />
+                        <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="white" />
+                      </svg>
+                    </div>
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
+                      title={
+                        youtubeConnected === null
+                          ? "Checking YouTube connection…"
+                          : youtubeConnected
+                            ? "YouTube connected"
+                            : "YouTube not connected"
+                      }
+                      role="status"
+                      aria-label={
+                        youtubeConnected === null
+                          ? "Checking YouTube connection"
+                          : youtubeConnected
+                            ? "YouTube connected"
+                            : "YouTube not connected"
+                      }
                     />
-                    <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="white" />
-                  </svg>
-                </div>
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
-                  title={
-                    youtubeConnected === null
-                      ? "Checking YouTube connection…"
-                      : youtubeConnected
-                        ? "YouTube connected"
-                        : "YouTube not connected"
-                  }
-                  role="status"
-                  aria-label={
-                    youtubeConnected === null
-                      ? "Checking YouTube connection"
-                      : youtubeConnected
-                        ? "YouTube connected"
-                        : "YouTube not connected"
-                  }
-                />
-              </div>
-              {!collapsed && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground">Account</p>
-                  <p className="truncate text-sm font-semibold">
-                    {youtubeConnected === null
-                      ? "Checking…"
-                      : youtubeConnected
-                        ? "YouTube connected"
-                        : "Not connected"}
-                  </p>
-                </div>
-              )}
-            </div>
+                  </div>
+                  {!collapsed && (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] text-muted-foreground">Account</p>
+                      <p className="truncate text-sm font-semibold">
+                        {youtubeConnected === null
+                          ? "Checking…"
+                          : youtubeConnected
+                            ? "YouTube connected"
+                            : "Not connected"}
+                      </p>
+                    </div>
+                  )}
+                  {!collapsed && <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56 rounded-2xl">
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {visibleAccountNav.map((to) => {
+                  const item = navItem(to);
+                  const Icon = item.icon;
+                  const locked = isLocked(to);
+                  return (
+                    <DropdownMenuItem key={to} asChild>
+                      <Link
+                        to={to}
+                        aria-current={activeNavRoute === to ? "page" : undefined}
+                        className={cn(
+                          "cursor-pointer",
+                          activeNavRoute === to && "font-semibold text-primary",
+                          to === "/admin" && "text-brand-purple",
+                        )}
+                      >
+                        <Icon className="mr-2 h-4 w-4" />
+                        <span className="flex-1">{item.label}</span>
+                        {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </aside>
       )}
@@ -1010,6 +1034,31 @@ export function DashboardLayout({
               </button>
             </div>
           )}
+          {hubTabs && !pageBlocked && (
+            <nav aria-label={`${hubTabs.label} pages`} className="flex">
+              <div className="glass-pill inline-flex gap-0.5 p-1 text-sm backdrop-blur-lg">
+                {hubTabs.tabs.map((tab) => {
+                  const active = activeNavRoute === tab.to;
+                  return (
+                    <Link
+                      key={tab.to}
+                      to={tab.to}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        active
+                          ? "glass-segment-active"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {tab.label}
+                      {isLocked(tab.to) && <Lock className="h-3 w-3" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+          )}
           {pageBlocked ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-border p-10 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
@@ -1070,16 +1119,16 @@ export function DashboardLayout({
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           >
             <div className="glass-pill flex items-center gap-1 px-2 py-1.5 backdrop-blur-2xl">
-              {visiblePrimaryMobileNav.map((item) => {
-                const active = activeNavRoute === item.to;
-                const Icon = item.icon;
+              {visiblePrimaryMobileNav.map((hub) => {
+                const active = activeHub === hub.id;
+                const Icon = hubIcon(hub);
                 return (
                   <Link
-                    key={item.to}
-                    to={item.to}
-                    aria-label={item.label}
+                    key={hub.id}
+                    to={hub.to}
+                    aria-label={hub.label}
                     aria-current={active ? "page" : undefined}
-                    title={item.label}
+                    title={hub.label}
                     className={cn(
                       "group relative flex h-10 shrink-0 items-center justify-center rounded-full transition-all",
                       active
@@ -1089,9 +1138,7 @@ export function DashboardLayout({
                   >
                     <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
                     {active && (
-                      <span className="whitespace-nowrap text-sm font-semibold">
-                        {MOBILE_NAV_SHORT_LABEL[item.to] ?? item.label}
-                      </span>
+                      <span className="whitespace-nowrap text-sm font-semibold">{hub.label}</span>
                     )}
                   </Link>
                 );
@@ -1104,8 +1151,9 @@ export function DashboardLayout({
                 title="More"
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-                  !visiblePrimaryMobileNav.some((item) => item.to === activeNavRoute) &&
-                    visibleNav.some((item) => item.to === activeNavRoute)
+                  !visiblePrimaryMobileNav.some((hub) => hub.id === activeHub) &&
+                    (visibleNavHubs.some((hub) => hub.id === activeHub) ||
+                      (!!activeNavRoute && visibleAccountNav.includes(activeNavRoute)))
                     ? "glass-tab-active"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
@@ -1125,54 +1173,74 @@ export function DashboardLayout({
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="mt-2 space-y-5 pb-4">
-                {visibleNavGroups.map((group) => (
-                  <div key={group.label} role="group" aria-label={group.label}>
-                    <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      {group.label}
-                    </p>
-                    <div className="grid grid-cols-4 gap-4">
-                      {group.items.map((to) => {
-                        const item = nav.find((n) => n.to === to)!;
-                        const active = activeNavRoute === item.to;
-                        const locked = isLocked(item.to);
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setMoreOpen(false)}
-                            aria-current={active ? "page" : undefined}
-                            className="relative flex flex-col items-center gap-1.5 text-center"
-                          >
-                            <span
-                              className={cn(
-                                "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
-                                active
-                                  ? "bg-primary text-primary-foreground"
-                                  : locked
-                                    ? "bg-accent text-muted-foreground/40"
-                                    : "bg-accent text-muted-foreground",
-                              )}
+                {[
+                  {
+                    label: "Pages",
+                    items: visibleNavHubs.map((hub) => ({
+                      key: hub.id,
+                      to: hub.to,
+                      label: hub.label,
+                      Icon: hubIcon(hub),
+                      active: activeHub === hub.id,
+                    })),
+                  },
+                  {
+                    label: "Account",
+                    items: visibleAccountNav.map((to) => ({
+                      key: to,
+                      to,
+                      label: navItem(to).label,
+                      Icon: navItem(to).icon,
+                      active: activeNavRoute === to,
+                    })),
+                  },
+                ]
+                  .filter((section) => section.items.length > 0)
+                  .map((section) => (
+                    <div key={section.label} role="group" aria-label={section.label}>
+                      <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                        {section.label}
+                      </p>
+                      <div className="grid grid-cols-4 gap-4">
+                        {section.items.map(({ key, to, label, Icon, active }) => {
+                          const locked = isLocked(to);
+                          return (
+                            <Link
+                              key={key}
+                              to={to}
+                              onClick={() => setMoreOpen(false)}
+                              aria-current={active ? "page" : undefined}
+                              className="relative flex flex-col items-center gap-1.5 text-center"
                             >
-                              <Icon className="h-5 w-5" strokeWidth={2} />
-                            </span>
-                            {locked && (
-                              <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
-                            )}
-                            <span
-                              className={cn(
-                                "text-xs leading-tight",
-                                active ? "font-semibold text-primary" : "text-muted-foreground",
+                              <span
+                                className={cn(
+                                  "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
+                                  active
+                                    ? "bg-primary text-primary-foreground"
+                                    : locked
+                                      ? "bg-accent text-muted-foreground/40"
+                                      : "bg-accent text-muted-foreground",
+                                )}
+                              >
+                                <Icon className="h-5 w-5" strokeWidth={2} />
+                              </span>
+                              {locked && (
+                                <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
                               )}
-                            >
-                              {item.label}
-                            </span>
-                          </Link>
-                        );
-                      })}
+                              <span
+                                className={cn(
+                                  "text-xs leading-tight",
+                                  active ? "font-semibold text-primary" : "text-muted-foreground",
+                                )}
+                              >
+                                {label}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </SheetContent>
           </Sheet>

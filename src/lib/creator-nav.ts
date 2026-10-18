@@ -2,11 +2,14 @@
 // are grouped. Pure data (no React, no icons) so the structure itself is unit-tested; the layout
 // adds the icons and decides what the signed-in user may see.
 //
-// Grouping follows how the product is used: see how the channel is doing, understand the
-// content, capture the attention it earns, make money from it, talk to the people it brings in.
+// The menu is kept short: seven main entries, each a "hub" whose related pages open as tabs at
+// the top of the page (Analytics → Channel · Audience · Reports), and the occasional pages (Team,
+// Settings, Referrals, Support, Admin Console) under the account card. Every page keeps its own
+// address, so old links and bookmarks still open it, with its hub highlighted.
 //
-// This file only arranges links. It grants nothing: every entry is still filtered by the role and
-// feature checks in DashboardLayout, and every page's data is authorised again on the server.
+// This file only arranges links. It grants nothing: every page — hub entry or tab — is still
+// filtered by its own role and feature checks in DashboardLayout, a hub with no page left to show
+// disappears, and every page's data is authorised again on the server.
 
 export interface CreatorNavItem {
   to: string;
@@ -72,31 +75,75 @@ export const CREATOR_NAV: readonly CreatorNavItem[] = [
   { to: "/admin", label: "Admin Console", keywords: "superadmin platform" },
 ];
 
-export interface CreatorNavGroup {
+export interface CreatorNavTab {
+  to: string;
+  /** The tab's name on its hub's page ("Channel" for /analytics under Analytics). */
   label: string;
-  items: string[];
 }
 
-export const CREATOR_NAV_GROUPS: readonly CreatorNavGroup[] = [
-  { label: "Overview", items: ["/dashboard"] },
-  { label: "Content & Insights", items: ["/videos", "/analytics", "/audience", "/ai-lab"] },
-  { label: "Attribution & Capture", items: ["/destinations", "/link-tracking", "/freebie"] },
-  { label: "Monetization", items: ["/brand-deals"] },
-  { label: "Engagement & Leads", items: ["/comments", "/leads", "/email"] },
+export interface CreatorNavHub {
+  id: string;
+  label: string;
+  /** The hub's pages, in tab order. The first one the user may open is where the entry leads. */
+  tabs: readonly CreatorNavTab[];
+}
+
+export const CREATOR_NAV_HUBS: readonly CreatorNavHub[] = [
+  { id: "dashboard", label: "Dashboard", tabs: [{ to: "/dashboard", label: "Dashboard" }] },
   {
-    label: "Workspace & Tools",
-    items: ["/projects", "/reports", "/team", "/settings", "/support"],
+    id: "videos",
+    label: "Videos",
+    tabs: [
+      { to: "/videos", label: "All videos" },
+      { to: "/ai-lab", label: "AI Description Lab" },
+    ],
   },
-  { label: "Account", items: ["/affiliate"] },
-  { label: "Platform", items: ["/admin"] },
+  {
+    id: "analytics",
+    label: "Analytics",
+    tabs: [
+      { to: "/analytics", label: "Channel" },
+      { to: "/audience", label: "Audience" },
+      { to: "/reports", label: "Reports" },
+    ],
+  },
+  {
+    id: "links",
+    label: "Links",
+    tabs: [
+      { to: "/destinations", label: "Destinations" },
+      { to: "/link-tracking", label: "Link Tracking" },
+      { to: "/freebie", label: "Freebies" },
+    ],
+  },
+  { id: "brand-deals", label: "Brand Deals", tabs: [{ to: "/brand-deals", label: "Brand Deals" }] },
+  {
+    id: "inbox",
+    label: "Inbox",
+    tabs: [
+      { to: "/comments", label: "Comments" },
+      { to: "/leads", label: "Leads" },
+      { to: "/email", label: "Email" },
+    ],
+  },
+  { id: "projects", label: "Projects", tabs: [{ to: "/projects", label: "Projects" }] },
 ];
 
-/** The four destinations on the phone's bottom bar; everything else is under "More". */
+/** Pages used now and then, listed under the account card rather than in the main menu. */
+export const CREATOR_ACCOUNT_NAV: readonly string[] = [
+  "/team",
+  "/settings",
+  "/affiliate",
+  "/support",
+  "/admin",
+];
+
+/** The four hubs on the phone's bottom bar; everything else is under "More". */
 export const CREATOR_MOBILE_PRIMARY: readonly string[] = [
-  "/dashboard",
-  "/videos",
-  "/comments",
-  "/analytics",
+  "dashboard",
+  "videos",
+  "analytics",
+  "inbox",
 ];
 
 // Pages that have no entry of their own but belong to one: opening a video, analysing one, or
@@ -137,10 +184,41 @@ export function permissionRouteFor(pathname: string): string {
   return path;
 }
 
-/** The groups with only the routes `canSee` allows, dropping groups left empty. */
-export function visibleCreatorNavGroups(canSee: (to: string) => boolean): CreatorNavGroup[] {
-  return CREATOR_NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(canSee),
-  })).filter((group) => group.items.length > 0);
+export interface VisibleCreatorNavHub extends CreatorNavHub {
+  /** Where the hub's entry leads: its first tab the user may open. */
+  to: string;
+}
+
+/** The hubs with only the tabs `canSee` allows, dropping hubs left with none. */
+export function visibleCreatorNavHubs(canSee: (to: string) => boolean): VisibleCreatorNavHub[] {
+  return CREATOR_NAV_HUBS.flatMap((hub) => {
+    const tabs = hub.tabs.filter((tab) => canSee(tab.to));
+    return tabs.length ? [{ ...hub, tabs, to: tabs[0].to }] : [];
+  });
+}
+
+/** The account-card pages `canSee` allows. */
+export function visibleCreatorAccountNav(canSee: (to: string) => boolean): string[] {
+  return CREATOR_ACCOUNT_NAV.filter(canSee);
+}
+
+/** The hub to highlight for a pathname (a tab's page, or a page nested under one), or null. */
+export function activeCreatorNavHub(pathname: string): string | null {
+  const route = activeCreatorNavRoute(pathname);
+  return CREATOR_NAV_HUBS.find((hub) => hub.tabs.some((tab) => tab.to === route))?.id ?? null;
+}
+
+/**
+ * The tabs to show at the top of a page: only on a hub's own tab pages (not on a single video,
+ * say), only the tabs `canSee` allows, and only when there is more than one to choose from.
+ */
+export function creatorHubTabsFor(
+  pathname: string,
+  canSee: (to: string) => boolean,
+): VisibleCreatorNavHub | null {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const hub = visibleCreatorNavHubs(canSee).find((entry) =>
+    entry.tabs.some((tab) => tab.to === path),
+  );
+  return hub && hub.tabs.length > 1 ? hub : null;
 }

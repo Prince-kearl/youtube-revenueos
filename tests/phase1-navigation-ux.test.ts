@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  CREATOR_ACCOUNT_NAV,
   CREATOR_MOBILE_PRIMARY,
   CREATOR_NAV,
-  CREATOR_NAV_GROUPS,
+  CREATOR_NAV_HUBS,
+  activeCreatorNavHub,
   activeCreatorNavRoute,
+  creatorHubTabsFor,
   permissionRouteFor,
-  visibleCreatorNavGroups,
+  visibleCreatorAccountNav,
+  visibleCreatorNavHubs,
 } from "../src/lib/creator-nav";
 import {
   ADMIN_MOBILE_PRIMARY,
@@ -73,33 +77,44 @@ const CREATOR_ROUTES_BEFORE = [
   "/admin",
 ];
 
-test("creator navigation: the groups and their links", () => {
+test("creator navigation: seven hubs, their tabs, and the account pages", () => {
   assert.deepEqual(
-    CREATOR_NAV_GROUPS.map((group) => [group.label, group.items]),
+    CREATOR_NAV_HUBS.map((hub) => [hub.label, hub.tabs.map((tab) => tab.to)]),
     [
-      ["Overview", ["/dashboard"]],
-      ["Content & Insights", ["/videos", "/analytics", "/audience", "/ai-lab"]],
-      ["Attribution & Capture", ["/destinations", "/link-tracking", "/freebie"]],
-      ["Monetization", ["/brand-deals"]],
-      ["Engagement & Leads", ["/comments", "/leads", "/email"]],
-      ["Workspace & Tools", ["/projects", "/reports", "/team", "/settings", "/support"]],
-      ["Account", ["/affiliate"]],
-      ["Platform", ["/admin"]],
+      ["Dashboard", ["/dashboard"]],
+      ["Videos", ["/videos", "/ai-lab"]],
+      ["Analytics", ["/analytics", "/audience", "/reports"]],
+      ["Links", ["/destinations", "/link-tracking", "/freebie"]],
+      ["Brand Deals", ["/brand-deals"]],
+      ["Inbox", ["/comments", "/leads", "/email"]],
+      ["Projects", ["/projects"]],
     ],
   );
+  assert.deepEqual(CREATOR_ACCOUNT_NAV, ["/team", "/settings", "/affiliate", "/support", "/admin"]);
 });
 
 test("creator navigation: every page that was reachable still is, exactly once, and no page was added", () => {
-  const grouped = CREATOR_NAV_GROUPS.flatMap((group) => group.items);
-  assert.deepEqual([...grouped].sort(), [...CREATOR_ROUTES_BEFORE].sort());
-  assert.equal(new Set(grouped).size, grouped.length, "no page appears in two groups");
+  const placed = [
+    ...CREATOR_NAV_HUBS.flatMap((hub) => hub.tabs.map((tab) => tab.to)),
+    ...CREATOR_ACCOUNT_NAV,
+  ];
+  assert.deepEqual([...placed].sort(), [...CREATOR_ROUTES_BEFORE].sort());
+  assert.equal(new Set(placed).size, placed.length, "no page appears in two places");
   assert.deepEqual(CREATOR_NAV.map((item) => item.to).sort(), [...CREATOR_ROUTES_BEFORE].sort());
   for (const item of CREATOR_NAV) {
     assert.ok(item.label.trim(), item.to);
     assert.ok(item.label.length <= 20, `${item.label} fits the sidebar`);
   }
-  // The phone's bottom bar still offers real pages.
-  for (const to of CREATOR_MOBILE_PRIMARY) assert.ok(grouped.includes(to), to);
+  for (const hub of CREATOR_NAV_HUBS) {
+    assert.ok(hub.label.length <= 12, `${hub.label} fits the phone bar`);
+    for (const tab of hub.tabs) assert.ok(tab.label.trim(), tab.to);
+  }
+  // The phone's bottom bar offers real hubs.
+  for (const id of CREATOR_MOBILE_PRIMARY)
+    assert.ok(
+      CREATOR_NAV_HUBS.some((hub) => hub.id === id),
+      id,
+    );
 });
 
 test("creator navigation: direct links still resolve — every entry has its route file", () => {
@@ -137,23 +152,58 @@ test("active highlighting: the page itself, or the entry a nested page belongs t
     assert.equal(CREATOR_NAV.filter((n) => n.to === activeCreatorNavRoute(path)).length, 1);
 });
 
+test("active highlighting: a tab's page and a nested page light up their hub", () => {
+  assert.equal(activeCreatorNavHub("/audience"), "analytics");
+  assert.equal(activeCreatorNavHub("/reports/"), "analytics");
+  assert.equal(activeCreatorNavHub("/ai-lab"), "videos");
+  assert.equal(activeCreatorNavHub("/videos/abc123XYZ_-"), "videos", "a single video");
+  assert.equal(activeCreatorNavHub("/leads"), "inbox");
+  assert.equal(activeCreatorNavHub("/freebie"), "links");
+  // Account pages and pages outside the menu light up no hub.
+  assert.equal(activeCreatorNavHub("/settings"), null);
+  assert.equal(activeCreatorNavHub("/notifications"), null);
+});
+
+test("old addresses still open their page, now as a tab of its hub", () => {
+  const all = () => true;
+  assert.deepEqual(
+    creatorHubTabsFor("/audience", all)?.tabs.map((tab) => tab.label),
+    ["Channel", "Audience", "Reports"],
+  );
+  assert.equal(creatorHubTabsFor("/leads", all)?.label, "Inbox");
+  // No tab bar on a single video, a one-page hub, an account page or a page outside the menu.
+  assert.equal(creatorHubTabsFor("/videos/abc", all), null);
+  assert.equal(creatorHubTabsFor("/dashboard", all), null);
+  assert.equal(creatorHubTabsFor("/settings", all), null);
+  assert.equal(creatorHubTabsFor("/notifications", all), null);
+});
+
 test("the layout renders from the shared structure and marks the current page", () => {
   const layout = read("src/components/DashboardLayout.tsx");
-  assert.match(layout, /visibleCreatorNavGroups\(/);
+  assert.match(layout, /visibleCreatorNavHubs\(canSeeNavRoute\)/);
+  assert.match(layout, /visibleCreatorAccountNav\(canSeeNavRoute\)/);
+  assert.match(layout, /creatorHubTabsFor\(pathname, canSeeNavRoute\)/);
   assert.match(layout, /activeCreatorNavRoute\(pathname\)/);
+  assert.match(layout, /activeCreatorNavHub\(pathname\)/);
   assert.match(layout, /aria-current=\{active \? "page" : undefined\}/);
   assert.match(layout, /aria-label=\{collapsed \? "Expand sidebar" : "Collapse sidebar"\}/);
-  // One structure for desktop and mobile: the "More" sheet uses the same groups.
-  assert.equal(layout.match(/visibleNavGroups\.map\(/g)?.length, 2);
+  // One structure for desktop and mobile: the sidebar and the "More" sheet use the same hubs.
+  assert.equal(layout.match(/visibleNavHubs\.map\(/g)?.length, 2);
+  assert.equal(layout.match(/visibleAccountNav\.map\(/g)?.length, 2);
+  // The tabs are only drawn for a page the user may open.
+  assert.match(layout, /\{hubTabs && !pageBlocked && \(/);
 });
 
 // ---------- 5 & 6. restrictions are preserved ----------
 
 const ROLES: PlatformRole[] = ["Owner", "Manager", "Setter", "Editor"];
-const visibleFor = (role: PlatformRole, features: Record<string, boolean> = {}) =>
-  visibleCreatorNavGroups((to) => canAccessRoute(role, to) && (features[to] ?? true)).flatMap(
-    (group) => group.items,
-  );
+const visibleFor = (role: PlatformRole, features: Record<string, boolean> = {}) => {
+  const canSee = (to: string) => canAccessRoute(role, to) && (features[to] ?? true);
+  return [
+    ...visibleCreatorNavHubs(canSee).flatMap((hub) => hub.tabs.map((tab) => tab.to)),
+    ...visibleCreatorAccountNav(canSee),
+  ];
+};
 
 test("regrouping grants nothing: each role sees exactly the pages its role allowed before", () => {
   for (const role of ROLES) {
@@ -171,9 +221,42 @@ test("team management stays hidden from roles and workspaces that are not entitl
   // too — even for an owner. (That map is per role; it does not know about subscription plans.)
   assert.ok(!visibleFor("Owner", { "/team": false }).includes("/team"));
   assert.ok(visibleFor("Owner", { "/team": true }).includes("/team"));
-  // A group left with nothing to show disappears instead of rendering an empty heading.
-  const withoutBrandDeals = visibleCreatorNavGroups((to) => to !== "/brand-deals");
-  assert.ok(!withoutBrandDeals.some((group) => group.label === "Monetization"));
+  // A hub left with nothing to show disappears instead of rendering an empty entry.
+  const withoutBrandDeals = visibleCreatorNavHubs((to) => to !== "/brand-deals");
+  assert.ok(!withoutBrandDeals.some((hub) => hub.id === "brand-deals"));
+});
+
+test("tabs grant nothing: each tab is checked on its own, and a hub leads to a page you may open", () => {
+  // Audience hidden: Analytics still shows, without an Audience tab.
+  const noAudience = (to: string) => to !== "/audience";
+  const analytics = visibleCreatorNavHubs(noAudience).find((hub) => hub.id === "analytics")!;
+  assert.deepEqual(
+    analytics.tabs.map((tab) => tab.to),
+    ["/analytics", "/reports"],
+  );
+  assert.deepEqual(
+    creatorHubTabsFor("/analytics", noAudience)?.tabs.map((tab) => tab.to),
+    ["/analytics", "/reports"],
+  );
+  // Its first page hidden: the hub's entry leads to the next page the user may open.
+  const noChannel = (to: string) => to !== "/analytics";
+  assert.equal(
+    visibleCreatorNavHubs(noChannel).find((hub) => hub.id === "analytics")?.to,
+    "/audience",
+  );
+  // A hidden page gets no tab bar of its own, even reached by its address.
+  assert.equal(creatorHubTabsFor("/audience", noAudience), null);
+  // Only one tab left: no tab bar, just the page.
+  const onlyComments = (to: string) => !["/leads", "/email"].includes(to);
+  assert.equal(creatorHubTabsFor("/comments", onlyComments), null);
+  // Every role: the tabs offered are exactly the pages that role may open.
+  for (const role of ROLES) {
+    const canSee = (to: string) => canAccessRoute(role, to);
+    for (const hub of visibleCreatorNavHubs(canSee)) {
+      assert.ok(canSee(hub.to), `${role} ${hub.id} leads to an allowed page`);
+      for (const tab of hub.tabs) assert.ok(canSee(tab.to), `${role} ${tab.to}`);
+    }
+  }
 });
 
 test("the server still authorises team management itself; the nav is not the gate", () => {
@@ -181,7 +264,10 @@ test("the server still authorises team management itself; the nav is not the gat
   assert.ok((members.match(/requireWorkspaceFeature\(request, "team"\)/g) ?? []).length >= 4);
   // The layout still applies both checks to every entry it renders.
   const layout = read("src/components/DashboardLayout.tsx");
-  assert.match(layout, /\(to\) => canReachRoute\(to\) && realFeatureEnabledFor\(to\)/);
+  assert.match(
+    layout,
+    /const canSeeNavRoute = \(to: string\) => canReachRoute\(to\) && realFeatureEnabledFor\(to\);/,
+  );
 });
 
 // ---------- 2. admin navigation ----------
