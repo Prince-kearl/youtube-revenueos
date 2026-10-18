@@ -28,3 +28,15 @@ test("Earnings by video: phones get stacked rows with every figure; wider screen
   // Both layouts show earnings through the same helper, so hidden revenue stays hidden on a phone.
   assert.equal(page.match(/videoEarningsText\(videoEarnings\.byVideo, row\.video\)/g)?.length, 2);
 });
+
+// "Revenue by Source": a period where every source is $0 has no slices to draw, so the donut is
+// left out instead of leaving an empty gap between the chart and the list of sources.
+test("Revenue by Source: no empty donut gap when every source is $0", () => {
+  const page = readFileSync("src/routes/analytics.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(
+    page,
+    /\{revenueSources\.shares\.some\(\(row\) => row\.usd > 0\) && \( <div className="h-\[160px\]"> <ResponsiveContainer width="100%" height="100%"> <PieChart>/,
+  );
+  // The list of sources is always shown.
+  assert.match(page, /\{revenueSources\.shares\.map\(\(row\) => \( <div key=\{row\.key\}/);
+});

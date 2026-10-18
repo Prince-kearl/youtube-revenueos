@@ -553,24 +553,28 @@ function Analytics() {
                   </ResponsiveContainer>
                 </div>
                 <div>
-                  <div className="h-[160px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={revenueSources.shares}
-                          dataKey="usd"
-                          innerRadius={45}
-                          outerRadius={70}
-                          paddingAngle={2}
-                          stroke="none"
-                        >
-                          {revenueSources.shares.map((row) => (
-                            <Cell key={row.key} fill={row.color} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {/* An all-zero period has no slices to draw: no donut, so no empty gap above
+                      the list (most visible on a phone, where the list sits under the chart). */}
+                  {revenueSources.shares.some((row) => row.usd > 0) && (
+                    <div className="h-[160px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={revenueSources.shares}
+                            dataKey="usd"
+                            innerRadius={45}
+                            outerRadius={70}
+                            paddingAngle={2}
+                            stroke="none"
+                          >
+                            {revenueSources.shares.map((row) => (
+                              <Cell key={row.key} fill={row.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                   <div className="mt-3 space-y-2 text-sm">
                     {revenueSources.shares.map((row) => (
                       <div key={row.key} className="flex items-center justify-between">
