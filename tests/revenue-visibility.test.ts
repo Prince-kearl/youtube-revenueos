@@ -1207,9 +1207,18 @@ test("pages: each money-showing screen has an explicit hidden state", () => {
     ],
     [
       "src/routes/videos.$videoId.tsx",
-      // The page shows revenue only through the Revenue overview section.
-      [/<VideoRevenueOverview /],
+      // The page shows revenue only through its two revenue KPI cards.
+      [
+        /<RevenueKpiCard revenue=\{revenue\.state\} \/>/,
+        /<RpmKpiCard revenue=\{revenue\.state\} \/>/,
+      ],
     ],
+    [
+      "src/components/VideoRevenueKpiCards.tsx",
+      // Both cards render the mapper's hidden state, never an amount.
+      [/videoRevenueKpi\(revenue\.view\)/, /view\?\.state === "hidden"/],
+    ],
+    ["src/lib/video-revenue-overview.ts", [/hidden: "hidden by revenue settings"/]],
     [
       "src/lib/video-revenue-overview.ts",
       [

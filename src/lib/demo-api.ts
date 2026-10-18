@@ -419,10 +419,14 @@ function demoVideoDetail(url: URL) {
   });
   const sum = (key: keyof (typeof rows)[number]) =>
     rows.reduce((a, r) => a + (typeof r[key] === "number" ? (r[key] as number) : 0), 0);
+  // The period follows the requested range, as the real endpoint's does (the sample ends 19 Sept).
+  const requested = url.searchParams.get("range");
+  const range = requested === "3M" || requested === "6M" ? requested : "12M";
+  const startDate = { "3M": "2026-06-19", "6M": "2026-03-19", "12M": "2025-09-19" }[range];
   return {
     data: {
-      range: "12M",
-      startDate: "2025-09-19",
+      range,
+      startDate,
       endDate: "2026-09-19",
       channel: { id: CHANNEL_ROW_ID, title: CHANNEL.title, handle: CHANNEL.handle },
       video: {

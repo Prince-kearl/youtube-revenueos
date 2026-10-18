@@ -757,7 +757,7 @@ test("wiring: on the dashboard on its own request; the video pages are untouched
   assert.match(dashboard, /<RevenueCommandCenter \/>/);
   for (const file of [
     "src/routes/videos.$videoId.tsx",
-    "src/components/VideoRevenueOverview.tsx",
+    "src/components/VideoRevenueKpiCards.tsx",
     "src/components/VideoRevenueSources.tsx",
     "src/components/VideoRevenueOpportunities.tsx",
   ])

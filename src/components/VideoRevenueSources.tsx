@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Info, Layers, Link2, MousePointerClick, Plus, Youtube } from "lucide-react";
+import { Link2, MousePointerClick, Plus } from "lucide-react";
 import { ErrorState } from "@/components/ui-bits";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoBrandDeals } from "@/components/VideoBrandDeals";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
@@ -9,10 +10,8 @@ import type { VideoRevenueRange } from "@/lib/video-revenue-overview";
 import {
   SOURCES_CLICKS_NOTE,
   SOURCES_EMPTY_NOTE,
-  SOURCES_NOT_CONNECTED_NOTE,
   SOURCES_PERIOD_NOTE,
   SOURCES_RESTRICTED_NOTE,
-  SOURCES_YOUTUBE_NOTE,
   mapVideoRevenueSources,
   videoLinkActivityUrl,
   type VideoRevenueSourcesView,
@@ -90,15 +89,10 @@ export function VideoRevenueSources({
   return (
     <section
       aria-labelledby={headingId}
-      className={`rounded-xl border border-border bg-card p-5 ${className ?? ""}`}
+      className={`card-gradient-outline relative p-5 backdrop-blur-xl ${className ?? ""}`}
     >
+      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
-          aria-hidden="true"
-        >
-          <Layers className="h-4 w-4" />
-        </span>
         <h2 id={headingId} className="text-lg font-semibold">
           Revenue sources
         </h2>
@@ -112,16 +106,9 @@ export function VideoRevenueSources({
         )}
       </div>
 
-      {/* YouTube: a pointer to the figure above, never a second figure. */}
-      <div className="mt-4 flex items-start gap-3" data-testid="sources-youtube">
-        <Youtube className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <div>
-          <h3 className="text-sm font-semibold">YouTube</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">{SOURCES_YOUTUBE_NOTE}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-border pt-4" data-testid="sources-links">
+      {/* YouTube revenue is the Revenue overview above; this section is what else is connected
+          to the video — tracked links and brand deals — each with its own action. */}
+      <div className="mt-4" data-testid="sources-links">
         <div className="flex items-start gap-3">
           <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div className="min-w-0 flex-1">
@@ -176,16 +163,6 @@ export function VideoRevenueSources({
           refreshNonce={refreshNonce}
           onChanged={onDealsChanged}
         />
-      </div>
-
-      <div className="mt-4 flex items-start gap-3 border-t border-border pt-4">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <div>
-          <h3 className="text-sm font-semibold">Not connected yet</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground" data-testid="sources-not-connected">
-            {SOURCES_NOT_CONNECTED_NOTE}
-          </p>
-        </div>
       </div>
     </section>
   );

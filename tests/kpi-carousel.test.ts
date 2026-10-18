@@ -109,9 +109,10 @@ test("every page's KPI cards sit inside the carousel, with the grid it had befor
     "src/routes/comments.tsx": ["gap-3 sm:grid-cols-3"],
     "src/routes/email.tsx": ["gap-4 sm:grid-cols-3"],
     "src/routes/freebie.tsx": ["gap-4 sm:grid-cols-3"],
+    // Six cards (revenue, revenue per 1,000 views and the four activity cards): three per row.
     "src/routes/videos.$videoId.tsx": [
-      "gap-3 sm:grid-cols-2 xl:grid-cols-4",
-      "gap-3 sm:grid-cols-2 xl:grid-cols-4",
+      "gap-3 sm:grid-cols-2 xl:grid-cols-3",
+      "gap-3 sm:grid-cols-2 xl:grid-cols-3",
     ],
   };
   for (const [file, grids] of Object.entries(pages)) {

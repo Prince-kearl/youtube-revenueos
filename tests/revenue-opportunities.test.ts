@@ -703,14 +703,13 @@ test("section: opportunity → why → what to do next, with evidence and a work
       ),
     ),
   );
+  // A "For this video" feed: one card per finding, each with a dismiss control and one action.
+  assert.match(html, /For this video/);
   assert.equal(html.split('data-testid="opportunity"').length - 1, 3);
+  assert.equal(html.split('data-testid="opportunity-dismiss"').length - 1, 3);
   assert.match(html, /This video earns less per view than most of this workspace&#x27;s videos/);
-  assert.match(
-    html,
-    /Comparisons use only this workspace&#x27;s videos \(all its connected channels\)/,
-  );
   assert.match(html, /High priority/);
-  assert.match(html, /Next step: <\/span>/);
+  assert.match(html, /Revenue check/, "the card's type label");
   // (The router writes the string "1" JSON-quoted, and reads it back as "1".)
   // (Phase 3B-1: with the period the suggestion was made over, for "Back to video".)
   assert.match(html, /href="\/link-tracking\?video=vidTHIS0001&amp;create=%221%22&amp;range=3M"/);
@@ -719,24 +718,23 @@ test("section: opportunity → why → what to do next, with evidence and a work
   assert.match(html, /Median RPM of 5 other workspace videos, same days/);
 });
 
-test("section: loading, error, restricted, empty and insufficient states say what they mean", () => {
-  assert.match(render({ status: "loading" }), /aria-label="Loading opportunities"/);
+test("section: shown only with a finding — nothing while loading, restricted, empty or short of data", () => {
+  assert.equal(render({ status: "loading" }), "");
+  assert.equal(render({ status: "restricted" }), "");
+  // A failed request says so, with a retry — never an empty or zero section.
   assert.match(
     render({ status: "error" }),
     /We couldn&#x27;t work out this video&#x27;s opportunities/,
   );
-  assert.match(render({ status: "restricted" }), /aren&#x27;t available for your account/);
   const empty = render(ready(evaluateOpportunities(inputs({}, { rpm: 5, views: 3_000 }))));
-  assert.match(empty, /data-testid="opportunities-empty"/);
+  assert.equal(empty, "", "nothing stands out: no section, no filler");
   const insufficient = render(
     ready(evaluateOpportunities({ ...inputs(), video: null, workspace: [] })),
   );
-  assert.match(insufficient, /data-testid="opportunities-insufficient"/);
-  assert.match(insufficient, /Not checked for this video:/);
+  assert.equal(insufficient, "", "not enough data: no section, no 'not checked' fine print");
   const hidden = render(
     ready(evaluateOpportunities(inputs({ revenueVisible: false }, { rpm: null }))),
   );
-  assert.match(hidden, /Revenue per view: hidden by your workspace&#x27;s revenue settings/);
   for (const html of [empty, insufficient, hidden]) assert.doesNotMatch(html, /\$\d/);
 });
 
@@ -744,8 +742,9 @@ test("wiring: the section follows Revenue sources on the video page, on its own 
   const page = readFileSync("src/routes/videos.$videoId.tsx", "utf8").replace(/\s+/g, " ");
   const sources = page.indexOf("<VideoRevenueSources");
   const opportunities = page.indexOf("<VideoRevenueOpportunities");
-  const overview = page.indexOf("<VideoRevenueOverview");
-  assert.ok(overview > 0 && overview < sources && sources < opportunities);
+  // After the KPI cards (the video's revenue first), then Revenue sources, then this section.
+  const cards = page.indexOf("<RevenueKpiCard");
+  assert.ok(cards > 0 && cards < sources && sources < opportunities);
   assert.match(
     page,
     // (Phase 3B-1: also asked again after a deal is linked to or unlinked from the video.)
@@ -768,7 +767,7 @@ test("wiring: the section follows Revenue sources on the video page, on its own 
   );
   // The overview, sources and deals components do not depend on the new section.
   for (const file of [
-    "src/components/VideoRevenueOverview.tsx",
+    "src/components/VideoRevenueKpiCards.tsx",
     "src/components/VideoRevenueSources.tsx",
     "src/components/VideoBrandDeals.tsx",
   ])
@@ -1172,17 +1171,13 @@ test("endpoint: setup steps follow the role's features, and say nothing about mo
   assert.doesNotMatch(hidden.text, /\$/);
 });
 
-test("section: Performance and Getting Started are shown apart; setup steps have no priority", () => {
-  const html = render(ready(evaluateOpportunities(smallCreator())));
-  assert.match(html, /Performance opportunities/);
-  assert.match(html, /data-testid="opportunities-insufficient"/);
-  assert.match(html, /Performance insights need more data than this video has/);
-  assert.doesNotMatch(html, /at 1,000 views|once it reaches/, "no promise of when");
-  assert.match(html, /Getting started/);
-  assert.equal(html.split('data-testid="getting-started-step"').length - 1, 3);
-  assert.doesNotMatch(html.slice(html.indexOf('data-testid="getting-started"')), /priority/i);
-  assert.match(html, /href="\/freebie"/);
-  // Nothing at all to suggest: one clear message.
+test("section: setup steps are not shown — that is the onboarding guide's job; only findings are", () => {
+  // A small creator: setup steps only, no finding — no section at all.
+  const result = evaluateOpportunities(smallCreator());
+  assert.ok(result.gettingStarted.length > 0, "the API still works them out");
+  const html = render(ready(result));
+  assert.equal(html, "");
+  // Nothing at all to suggest: no section either.
   const nothing = render(
     ready(
       evaluateOpportunities(
@@ -1196,8 +1191,7 @@ test("section: Performance and Getting Started are shown apart; setup steps have
       ),
     ),
   );
-  assert.match(nothing, /data-testid="opportunities-nothing"/);
-  assert.match(nothing, /There&#x27;s nothing to suggest for this video right now\./);
+  assert.equal(nothing, "");
   // An older response without the new fields still renders.
   const legacy = response(evaluateOpportunities(inputs({}, { rpm: 1 })));
   delete (legacy.data as Partial<typeof legacy.data>).gettingStarted;

@@ -218,7 +218,10 @@ test("reported revenue: the total, RPM, sources and change are the endpoint's ow
     text: "+100.0%",
     positive: true,
     comparedWith: "2 Aug 2026 – 31 Aug 2026",
+    percent: 100,
+    previousUsd: 30,
   });
+  assert.equal(view.amountUsd, 60);
   assert.equal(view.periodLabel, `1 ${septLabel()} 2026 – 30 ${septLabel()} 2026`);
   assert.equal(view.periodDays, 30);
 });
@@ -473,47 +476,60 @@ const code = (path: string) =>
     .replace(/^\s*\/\/.*$/gm, "")
     .replace(/\s+/g, " ");
 
-test("the mapper and the component calculate nothing", () => {
+test("the mapper, the load and the cards calculate nothing", () => {
   const mapper = code("src/lib/video-revenue-overview.ts");
   // No totals, ratios or percentages are derived here: every figure is read off the response.
   assert.doesNotMatch(mapper, /reduce\(|\/ ?item\.views|\* ?1000|- ?item\.previous/);
-  const component = code("src/components/VideoRevenueOverview.tsx");
-  assert.doesNotMatch(component, /reduce\(|toFixed|\.usd\b|Intl\.NumberFormat|Math\./);
-  assert.match(component, /mapVideoRevenueOverview\(body\.data, youtubeVideoId\)/);
+  const load = code("src/hooks/use-video-revenue.ts");
+  const cards = code("src/components/VideoRevenueKpiCards.tsx");
+  for (const source of [load, cards])
+    assert.doesNotMatch(source, /reduce\(|toFixed|\.usd\b|Intl\.NumberFormat|Math\./);
+  assert.match(load, /mapVideoRevenueOverview\(body\.data, youtubeVideoId\)/);
 });
 
-test("the section loads on its own request, with its own loading and error states", () => {
-  const component = flat("src/components/VideoRevenueOverview.tsx");
-  assert.match(component, /videoRevenueUrl\(youtubeVideoId, range, \{ demo: IS_LOCAL_DEMO \}\)/);
-  assert.match(component, /aria-label="Loading revenue"/);
-  assert.match(component, /title="We couldn't load this video's revenue"/);
-  assert.match(component, /onRetry=\{\(\) => setRetryNonce/);
-  assert.doesNotMatch(component, /api\/youtube\//, "never the live route");
+test("the revenue cards load on their own request, with their own loading and error states", () => {
+  // The request is hooks/use-video-revenue.ts: the stored, canonical endpoint — never the live one.
+  const load = flat("src/hooks/use-video-revenue.ts");
+  assert.match(load, /videoRevenueUrl\(youtubeVideoId, range, \{ demo: IS_LOCAL_DEMO \}\)/);
+  assert.match(load, /return \{ state, retry: \(\) => setRetryNonce\(\(n\) => n \+ 1\) \};/);
+  assert.doesNotMatch(load, /api\/youtube\//, "never the live route");
   // A failed request shows the error state and no figure at all.
-  assert.match(component, /setState\(\{ status: "error" \}\)/);
+  assert.match(load, /setState\(\{ status: "error" \}\)/);
+  // The cards say while loading, and on failure — and show no figure then.
+  const cards = flat("src/components/VideoRevenueKpiCards.tsx");
+  assert.match(cards, /revenue\.status === "loading" \? "Loading…" : "Couldn't load revenue"/);
+  assert.match(cards, /value: "—"/);
 
+  // The Revenue overview section is gone: the cards are the page's only revenue figures.
   const page = flat("src/routes/videos.$videoId.tsx");
+  assert.doesNotMatch(page, /VideoRevenueOverview/);
   const header = page.indexOf("Open on YouTube");
-  const section = page.indexOf("<VideoRevenueOverview");
-  const cards = page.indexOf('title="Views in period"');
-  assert.ok(header > 0 && header < section && section < cards, "below the header, above the cards");
-  // It is not inside the block that waits for the live request.
-  const before = page.slice(0, section);
-  const opened = before.match(/\{data && result\.status === "connected" && \(/g)?.length ?? 0;
-  assert.equal(opened, 1, "only the identity header's own condition precedes it");
-  assert.match(before, /<\/a> <\/div> \)\} (\{\/\*.*?\*\/\} )?$/, "that condition is closed");
-  assert.match(page, /<VideoRevenueOverview [^>]*youtubeVideoId=\{videoId\} range=\{range\}/);
+  const revenueCard = page.indexOf("<RevenueKpiCard");
+  assert.ok(header > 0 && header < revenueCard, "below the header, first among the KPI cards");
 });
 
-test("the live revenue card is gone: four activity cards, and no revenue from the live route", () => {
+test("revenue on the KPI cards is the stored figure — never the live route", () => {
   const page = code("src/routes/videos.$videoId.tsx");
+  const cards = code("src/components/VideoRevenueKpiCards.tsx");
+  // The four activity cards, and first the two revenue cards (components/VideoRevenueKpiCards).
   assert.equal(page.match(/<KpiTrendCard /g)?.length, 4);
   for (const title of ["Views in period", "Watch time", "Average view duration", "Average viewed"])
     assert.ok(page.includes(`title="${title}"`), title);
-  assert.doesNotMatch(
+  for (const title of ["Estimated revenue", "Revenue per 1,000 views"])
+    assert.ok(cards.includes(`title="${title}"`), title);
+  assert.match(
     page,
-    /estimatedRevenue|revenueAvailable|playbackBasedCpm|\bcpm\b|formatCurrency|Estimated revenue|Revenue unavailable/,
+    /<RevenueKpiCard revenue=\{revenue\.state\} \/>\s*<RpmKpiCard revenue=\{revenue\.state\} \/>\s*<KpiTrendCard\s+title="Views in period"/,
   );
+  // One load of the stored revenue, for both revenue cards.
+  assert.equal(page.match(/useVideoRevenue\(videoId, range, retryNonce\)/g)?.length, 1);
+  assert.match(cards, /videoRevenueKpi\(revenue\.view\)/);
+  // Nothing from the live request's (removed) revenue fields, on the page or the cards.
+  for (const source of [page, cards])
+    assert.doesNotMatch(
+      source,
+      /estimatedRevenue|revenueAvailable|playbackBasedCpm|\bcpm\b|formatCurrency|Revenue unavailable/,
+    );
   assert.doesNotMatch(page, /2xl:grid-cols-5/);
 
   const route = code("src/routes/api.youtube.video.ts");
@@ -608,9 +624,7 @@ test("demo: RPM is the canonical calculation on the sample's own revenue and vie
   assert.doesNotMatch(handler, /rpm: [0-9]|20\d\d-\d\d-\d\d/, "no hard-coded RPM or dates");
 });
 
-test("demo: sample data is labelled, and the demo handlers answer without the network", () => {
-  const component = flat("src/components/VideoRevenueOverview.tsx");
-  assert.match(component, /\{IS_LOCAL_DEMO && \( <span [^>]*> Sample data <\/span> \)\}/);
+test("demo: the demo handlers answer without the network", () => {
   const source = flat("src/lib/demo-api.ts");
   // A demo answer is built in the page from bundled sample numbers; the real fetch is used only
   // for requests the demo has no handler for.
@@ -624,7 +638,7 @@ test("demo: sample data is labelled, and the demo handlers answer without the ne
 
 // ---------- loading layout ----------
 
-test("while the live request loads, placeholders hold the header's and the cards' places around the section", () => {
+test("while the live request loads, placeholders hold the header's and the cards' places", () => {
   const page = flat("src/routes/videos.$videoId.tsx");
   const at = (text: string) => {
     const index = page.indexOf(text);
@@ -633,33 +647,34 @@ test("while the live request loads, placeholders hold the header's and the cards
   };
   const identitySkeleton = at('{result.status === "loading" && <IdentityLoading />}');
   const header = at("Open on YouTube");
-  const section = at("<VideoRevenueOverview");
   const activitySkeleton = at('{result.status === "loading" && <ActivityLoading />}');
   const cards = at('title="Views in period"');
-  assert.ok(identitySkeleton < header && header < section, "header (or its placeholder) first");
-  assert.ok(section < activitySkeleton && activitySkeleton < cards, "cards (or theirs) after");
+  const sources = at("<VideoRevenueSources");
+  assert.ok(identitySkeleton < header, "header (or its placeholder) first");
+  // Then the KPI cards (or their placeholder) — at the top, as on the dashboard — then the rest.
+  assert.ok(header < activitySkeleton && activitySkeleton < cards, "cards (or theirs) next");
+  assert.ok(cards < sources, "the other sections after the cards");
   assert.doesNotMatch(page, /DetailLoading/);
   // The placeholders use the real boxes' own layout classes, so arriving content does not move
   // what is below it.
   const box =
     'className="mt-5 flex flex-col gap-4 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center"';
   assert.equal(page.split(box).length - 1, 2, "header and its placeholder share one box");
-  const grid = 'className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4"';
+  const grid = 'className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-3"';
   assert.equal(page.split(grid).length - 1, 2, "cards and their placeholder share one grid");
 });
 
 test("a refresh or a change of range keeps the loaded figures in place; a failure shows none", () => {
-  const component = flat("src/components/VideoRevenueOverview.tsx");
+  const load = flat("src/hooks/use-video-revenue.ts");
   assert.match(
-    component,
+    load,
     /previous\.status === "ready" \? \{ \.\.\.previous, refreshing: true \} : \{ status: "loading" \}/,
   );
-  assert.match(component, /aria-busy=\{state\.refreshing\}/);
   // A different video never shows the previous video's figures.
   assert.match(
-    component,
+    load,
     /useEffect\(\(\) => setState\(\{ status: "loading" \}\), \[youtubeVideoId\]\);/,
   );
   // The error state replaces whatever was showing.
-  assert.match(component, /setState\(\{ status: "error" \}\); \}\);/);
+  assert.match(load, /setState\(\{ status: "error" \}\); \}\);/);
 });

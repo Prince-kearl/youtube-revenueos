@@ -17,6 +17,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -29,7 +30,9 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-import { VideoRevenueOverview } from "@/components/VideoRevenueOverview";
+import { useVideoRevenue } from "@/hooks/use-video-revenue";
+import { RevenueKpiCard, RpmKpiCard } from "@/components/VideoRevenueKpiCards";
+import { isShortTimeline, shortTimelineNote, timelineDayLabel } from "@/lib/video-timeline-view";
 import { VideoRevenueSources } from "@/components/VideoRevenueSources";
 import { VideoRevenueOpportunities } from "@/components/VideoRevenueOpportunities";
 import { videoPageSearch } from "@/lib/revenue-actions";
@@ -195,9 +198,19 @@ function VideoDetail() {
     if (searchRange) setRange(searchRange);
   }, [searchRange]);
   const [retryNonce, setRetryNonce] = useState(0);
+  const navigate = Route.useNavigate();
+  // The period is kept in the address (?range=), so a reload, a shared link or Back opens the same
+  // period the creator chose — every section on the page follows it.
+  const chooseRange = (next: Range) => {
+    setRange(next);
+    void navigate({ search: (previous) => ({ ...previous, range: next }), replace: true });
+  };
   // A deal linked to or unlinked from this video changes what its suggestions are based on:
   // they are asked for again (from the persisted links), never edited in place.
   const [dealsNonce, setDealsNonce] = useState(0);
+  // This video's stored revenue for the "Estimated revenue" and "Revenue per 1,000 views" KPI
+  // cards (its own request: it never waits for the live YouTube one).
+  const revenue = useVideoRevenue(videoId, range, retryNonce);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -263,7 +276,7 @@ function VideoDetail() {
           .map(numericValue)
           .filter((value): value is number => value !== null);
         return {
-          date: row.date.slice(5),
+          date: timelineDayLabel(row.date),
           views: numericValue(row.views),
           watchTime: numericValue(row.watchTimeMinutes),
           engagement: engagementValues.length
@@ -354,13 +367,18 @@ function VideoDetail() {
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing" : "Refresh"}
           </button>
-          <div className="flex rounded-full bg-accent p-1 text-xs">
+          <div
+            className="glass-pill flex gap-0.5 p-1 text-xs backdrop-blur-lg"
+            role="group"
+            aria-label="Period"
+          >
             {ranges.map((item) => (
               <button
                 key={item}
                 type="button"
-                onClick={() => setRange(item)}
-                className={`rounded-full px-3 py-1.5 font-medium transition-colors ${item === range ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => chooseRange(item)}
+                aria-pressed={item === range}
+                className={`rounded-full px-3 py-1.5 font-medium transition-all ${item === range ? "glass-segment-active" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {item}
               </button>
@@ -435,37 +453,13 @@ function VideoDetail() {
         </div>
       )}
 
-      {/* Stored revenue, on its own request: it is shown whatever the live request above is doing. */}
-      <VideoRevenueOverview
-        className="mt-5"
-        youtubeVideoId={videoId}
-        range={range}
-        refreshNonce={retryNonce}
-      />
-
-      {/* What else is connected to this video: tracked-link activity (never money), on its own
-          request as well. */}
-      <VideoRevenueSources
-        className="mt-5"
-        youtubeVideoId={videoId}
-        range={range}
-        refreshNonce={retryNonce}
-        onDealsChanged={() => setDealsNonce((n) => n + 1)}
-      />
-
-      {/* What to do next with this video, from the figures above; on its own request too. */}
-      <VideoRevenueOpportunities
-        className="mt-5"
-        youtubeVideoId={videoId}
-        range={range}
-        refreshNonce={retryNonce + dealsNonce}
-      />
-
       {result.status === "loading" && <ActivityLoading />}
 
       {data && result.status === "connected" && (
         <>
-          <KpiCarousel className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCarousel className="mt-5" gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <RevenueKpiCard revenue={revenue.state} />
+            <RpmKpiCard revenue={revenue.state} />
             <KpiTrendCard
               title="Views in period"
               accent="var(--brand-blue)"
@@ -520,7 +514,8 @@ function VideoDetail() {
             />
           </KpiCarousel>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* The five smaller figures in one row on wide screens. */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <MetricCard
               icon={<ThumbsUp className="h-4 w-4" />}
               label="Likes"
@@ -547,7 +542,32 @@ function VideoDetail() {
               value={formatCount(data.summary.subscribersLost)}
             />
           </div>
+        </>
+      )}
 
+      {/* Below the KPI cards, which stay at the top of the page (as on the dashboard; the video's
+          revenue is the first two of them). Each of these has its own request, so they show
+          whatever the live request above is doing. */}
+      {/* What else is connected to this video: tracked-link activity (never money), on its own
+          request as well. */}
+      <VideoRevenueSources
+        className="mt-5"
+        youtubeVideoId={videoId}
+        range={range}
+        refreshNonce={retryNonce}
+        onDealsChanged={() => setDealsNonce((n) => n + 1)}
+      />
+
+      {/* What to do next with this video, from the figures above; on its own request too. */}
+      <VideoRevenueOpportunities
+        className="mt-5"
+        youtubeVideoId={videoId}
+        range={range}
+        refreshNonce={retryNonce + dealsNonce}
+      />
+
+      {data && result.status === "connected" && (
+        <>
           <div className="relative mt-5 rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -558,6 +578,14 @@ function VideoDetail() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Via YouTube Analytics, for the selected period.
                 </p>
+                {data.timeline.available && shortTimelineNote(timelineChart.length) && (
+                  <p
+                    className="mt-1 text-xs text-muted-foreground"
+                    data-testid="timeline-short-note"
+                  >
+                    {shortTimelineNote(timelineChart.length)}
+                  </p>
+                )}
               </div>
               {!data.timeline.available && (
                 <span className="text-xs text-muted-foreground">No daily data available</span>
@@ -566,7 +594,9 @@ function VideoDetail() {
             {data.timeline.available ? (
               <div className="mt-5 h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={timelineChart} margin={{ left: 0, right: 12, top: 10 }}>
+                  {/* A short history is one bar per day; a long one a smooth curve
+                      (lib/video-timeline-view.ts). */}
+                  <ComposedChart data={timelineChart} margin={{ left: 0, right: 12, top: 10 }}>
                     <defs>
                       <linearGradient id="videoViewsGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--color-brand-blue)" stopOpacity={0.35} />
@@ -600,34 +630,44 @@ function VideoDetail() {
                         fontSize: 12,
                       }}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="views"
-                      stroke="var(--color-brand-blue)"
-                      fill="url(#videoViewsGradient)"
-                      strokeWidth={2}
-                      name="Views"
-                      connectNulls={false}
-                    />
+                    {isShortTimeline(timelineChart.length) ? (
+                      <Bar
+                        dataKey="views"
+                        fill="var(--color-brand-blue)"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={56}
+                        name="Views"
+                      />
+                    ) : (
+                      <Area
+                        type="monotone"
+                        dataKey="views"
+                        stroke="var(--color-brand-blue)"
+                        fill="url(#videoViewsGradient)"
+                        strokeWidth={2}
+                        name="Views"
+                        connectNulls={false}
+                      />
+                    )}
                     <Line
-                      type="monotone"
+                      type={isShortTimeline(timelineChart.length) ? "linear" : "monotone"}
                       dataKey="watchTime"
                       stroke="var(--color-brand-purple)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={isShortTimeline(timelineChart.length)}
                       name="Watch time (minutes)"
                       connectNulls={false}
                     />
                     <Line
-                      type="monotone"
+                      type={isShortTimeline(timelineChart.length) ? "linear" : "monotone"}
                       dataKey="engagement"
                       stroke="var(--color-brand-red)"
                       strokeWidth={2}
-                      dot={false}
+                      dot={isShortTimeline(timelineChart.length)}
                       name="Engagement"
                       connectNulls={false}
                     />
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             ) : (
@@ -850,11 +890,11 @@ function ActivityLoading() {
     <>
       <KpiCarousel
         className="mt-5"
-        gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        gridClassName="gap-3 sm:grid-cols-2 xl:grid-cols-3"
         loading
         aria-label="Loading video analytics"
       >
-        {[1, 2, 3, 4].map((item) => (
+        {[1, 2, 3, 4, 5, 6].map((item) => (
           <Skeleton key={item} className="h-[178px] w-full rounded-xl" />
         ))}
       </KpiCarousel>

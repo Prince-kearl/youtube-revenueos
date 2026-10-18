@@ -69,6 +69,7 @@ export function VideoRevenueOpportunities({
       headingId={headingId}
       onRetry={() => setRetryNonce((n) => n + 1)}
       className={className}
+      youtubeVideoId={youtubeVideoId}
     />
   );
 }

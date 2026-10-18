@@ -91,6 +91,8 @@ export interface VideoRevenueOverviewView {
   headline: string;
   /** True only when `headline` is a real amount (reported, zero or partial). */
   hasAmount: boolean;
+  /** The amount behind `headline`, in USD; null whenever there is no amount to show. */
+  amountUsd: number | null;
   /** One sentence saying what the headline is, or why there is none. */
   note: string;
   /** The stored period the figures cover, from the API: "10 Oct 2025 – 9 Oct 2026". */
@@ -100,7 +102,15 @@ export interface VideoRevenueOverviewView {
   rpm: string | null;
   /** Change in revenue against the previous period of equal length — null unless both periods'
    * revenue is fully known and the API supplied a percentage. */
-  change: { text: string; positive: boolean; comparedWith: string } | null;
+  change: {
+    text: string;
+    positive: boolean;
+    comparedWith: string;
+    /** The same change as a number, e.g. 12.5 for +12.5%. */
+    percent: number;
+    /** The previous period's revenue (fully known whenever a change is offered). */
+    previousUsd: number;
+  } | null;
   /** Ads / YouTube Premium / Other, only the parts YouTube reported. Empty when there is no
    * amount to break down, or no part was reported. */
   sources: VideoRevenueSource[];
@@ -229,6 +239,7 @@ export function mapVideoRevenueOverview(
       state: "hidden",
       headline: HIDDEN_AMOUNT_TEXT,
       hasAmount: false,
+      amountUsd: null,
       note: `${REVENUE_HIDDEN_MESSAGE}.`,
       freshnessNote: "",
       completenessNote: null,
@@ -240,6 +251,7 @@ export function mapVideoRevenueOverview(
     state,
     headline: NO_FIGURE,
     hasAmount: false,
+    amountUsd: null,
     note,
     freshnessNote: freshnessNoteOf(response, item),
     completenessNote: completenessNoteOf(response),
@@ -300,6 +312,7 @@ export function mapVideoRevenueOverview(
     state,
     headline: formatVideoRevenue(usd),
     hasAmount: true,
+    amountUsd: usd,
     note,
     rpm: item.rpm === null ? null : formatVideoRevenue(item.rpm),
     change: comparable
@@ -307,6 +320,8 @@ export function mapVideoRevenueOverview(
           text: `${percent >= 0 ? "+" : ""}${percent.toFixed(1)}%`,
           positive: percent >= 0,
           comparedWith: periodLabelOf(response.previousPeriod),
+          percent,
+          previousUsd: item.previous.revenue.usd ?? 0,
         }
       : null,
     sources,
@@ -320,5 +335,48 @@ export function mapVideoRevenueOverview(
             : null,
     freshnessNote: freshnessNoteOf(response, item),
     completenessNote: completenessNoteOf(response),
+  };
+}
+
+// ---------- the KPI card ----------
+
+/** What the "Estimated revenue" KPI card at the top of a video's page shows, from the same view
+ * as the Revenue overview: the amount, the change against the previous period of equal length
+ * (only when both are fully known), and a two-point line from that period to this one. Never a
+ * zero for an amount that is unknown or hidden. */
+export function videoRevenueKpi(view: VideoRevenueOverviewView): {
+  value: string;
+  changePercent: number | null;
+  positive: boolean;
+  deltaLabel: string;
+  deltaSuffix: string;
+  series: number[];
+} {
+  const series = view.change
+    ? [view.change.previousUsd, view.amountUsd ?? 0]
+    : view.amountUsd !== null
+      ? [view.amountUsd]
+      : [];
+  const reason: Partial<Record<VideoRevenueState, string>> = {
+    hidden: "hidden by revenue settings",
+    unavailable: "not reported by YouTube",
+    history_pending: "after the next sync",
+    no_data_in_period: "nothing stored this period",
+    unknown_video: "no stored data",
+    not_connected: "connect a channel",
+  };
+  return {
+    value: view.headline,
+    changePercent: view.change?.percent ?? null,
+    positive: view.change?.positive ?? true,
+    deltaLabel: view.change?.text ?? "",
+    deltaSuffix: view.change
+      ? "vs previous period"
+      : view.hasAmount
+        ? view.state === "partial"
+          ? "partly reported"
+          : "this period"
+        : (reason[view.state] ?? ""),
+    series,
   };
 }

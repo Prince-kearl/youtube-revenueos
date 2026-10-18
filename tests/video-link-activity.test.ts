@@ -759,18 +759,19 @@ test("wording: clicks are activity, and what is not connected is said plainly", 
 
 const flat = (path: string) => readFileSync(path, "utf8").replace(/\s+/g, " ");
 
-test("the section sits directly below the Revenue overview, above the KPI cards, on its own request", () => {
+test("the section sits directly below the KPI cards, on its own request", () => {
   const page = flat("src/routes/videos.$videoId.tsx");
-  const overview = page.indexOf("<VideoRevenueOverview");
   const sources = page.indexOf("<VideoRevenueSources");
   const cards = page.indexOf('title="Views in period"');
-  assert.ok(overview > 0 && overview < sources && sources < cards);
+  // The KPI cards (the video's revenue first) stay at the top of the page, as on the dashboard.
+  assert.ok(cards > 0 && cards < sources);
   assert.match(
     page,
     /<VideoRevenueSources className="mt-5" youtubeVideoId=\{videoId\} range=\{range\}/,
   );
-  // Rendered unconditionally, like the overview: no live-request state can remove it.
-  assert.doesNotMatch(page.slice(overview, sources), /\{data && result\.status/);
+  // Rendered unconditionally: the live-request block above it is closed, so no live-request state
+  // can remove it.
+  assert.match(page.slice(0, sources), /<\/div> <\/> \)\} (\{\/\*.*?\*\/\} )*$/);
 
   const component = flat("src/components/VideoRevenueSources.tsx");
   assert.match(
@@ -780,7 +781,7 @@ test("the section sits directly below the Revenue overview, above the KPI cards,
   assert.doesNotMatch(component, /api\/revenue\/|api\/youtube\//, "its own endpoint only");
   // The Revenue overview is untouched by it.
   assert.doesNotMatch(
-    flat("src/components/VideoRevenueOverview.tsx"),
+    flat("src/components/VideoRevenueKpiCards.tsx"),
     /VideoRevenueSources|link-activity/,
   );
 });
@@ -799,10 +800,9 @@ test("the section's states: loading, restricted, error with retry, empty with a 
   assert.match(component, /setState\(\{ status: "error" \}\); \}\);/);
   assert.match(component, /<Link to="\/link-tracking"/);
   assert.doesNotMatch(component, /search=|\?video=/, "no video preselection");
-  // The YouTube line and the not-connected line are outside every link state, so a restricted
-  // or failed section still shows them.
-  assert.match(component, /\{SOURCES_YOUTUBE_NOTE\}/);
-  assert.match(component, /\{SOURCES_NOT_CONNECTED_NOTE\}/);
+  // No repeat of the Revenue overview's YouTube figure, and no placeholder for features that do
+  // not exist: only what is connected to the video, each with its action.
+  assert.doesNotMatch(component, /SOURCES_YOUTUBE_NOTE|SOURCES_NOT_CONNECTED_NOTE/);
   assert.match(component, /\{SOURCES_CLICKS_NOTE\}/);
   // No money, no arithmetic.
   assert.doesNotMatch(component, /\$\{?\d|toFixed|reduce\(|usd|formatVideoRevenue/);

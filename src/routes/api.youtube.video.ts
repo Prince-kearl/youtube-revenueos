@@ -38,8 +38,8 @@ type AnalyticsRow = Record<string, string | number | null>;
 
 // Activity only. This route does not request revenue from YouTube: a video's revenue is shown
 // from stored data, by the canonical /api/revenue/videos endpoint (see
-// components/VideoRevenueOverview.tsx), so there is one revenue figure per video and it does
-// not depend on a live call succeeding.
+// hooks/use-video-revenue.ts and components/VideoRevenueKpiCards.tsx), so there is one revenue
+// figure per video and it does not depend on a live call succeeding.
 type ReportResult = {
   payload: YoutubeAnalyticsPayload | null;
 };

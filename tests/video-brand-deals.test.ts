@@ -363,8 +363,9 @@ test("wiring: inside Revenue sources, after tracked links; the overview and YouT
   const sources = flat("src/components/VideoRevenueSources.tsx");
   const links = sources.indexOf('data-testid="sources-links"');
   const deals = sources.indexOf("<VideoBrandDeals");
-  const notConnected = sources.indexOf("{SOURCES_NOT_CONNECTED_NOTE}");
-  assert.ok(links > 0 && links < deals && deals < notConnected);
+  assert.ok(links > 0 && links < deals);
+  // The "Not connected yet" placeholder (features that do not exist) is gone.
+  assert.doesNotMatch(sources, /SOURCES_NOT_CONNECTED_NOTE|Not connected yet/);
   assert.match(
     sources,
     // (Phase 3B-1: a saved link or unlink is reported up, so the page's suggestions are asked
@@ -376,7 +377,7 @@ test("wiring: inside Revenue sources, after tracked links; the overview and YouT
   // The Revenue overview (YouTube estimated revenue) neither reads nor adds any deal figure; it
   // still says plainly that brand deals are not included in it.
   for (const file of [
-    "src/components/VideoRevenueOverview.tsx",
+    "src/components/VideoRevenueKpiCards.tsx",
     "src/lib/video-revenue-overview.ts",
   ])
     assert.doesNotMatch(
