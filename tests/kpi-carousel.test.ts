@@ -138,3 +138,12 @@ test("every page's KPI cards sit inside the carousel, with the grid it had befor
   // The Dashboard keeps its own, original implementation.
   assert.doesNotMatch(readFileSync("src/routes/dashboard.tsx", "utf8"), /KpiCarousel/);
 });
+
+test("Team: its KPI cards are in the carousel too, not squeezed two to a row on a phone", () => {
+  const source = readFileSync("src/routes/team.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(
+    source,
+    /<KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4">( <FlatKpiCard [^>]*\/>){4} <\/KpiCarousel>/,
+  );
+  assert.doesNotMatch(source, /grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4/);
+});

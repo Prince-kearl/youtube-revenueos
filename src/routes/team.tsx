@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from "recharts";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { KpiCarousel } from "@/components/KpiCarousel";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
 import { ConfirmDialog } from "@/components/modals";
 import {
@@ -493,12 +494,13 @@ function Team() {
         <RevenueVisibilitySettings className="mt-6" />
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+      {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
+      <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FlatKpiCard title="Total Members" value={String(members.length)} />
         <FlatKpiCard title="Active" value={String(stats.active)} />
         <FlatKpiCard title="Pending Invites" value={String(stats.invited)} />
         <FlatKpiCard title="Avg Commission" value={stats.avgCommission} />
-      </div>
+      </KpiCarousel>
 
       {status === "loading" && <ListLoadingState label="Loading your team" className="mt-6" />}
 
