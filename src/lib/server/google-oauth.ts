@@ -167,6 +167,8 @@ export interface YoutubeChannelSummary {
   viewCount: number;
   videoCount: number;
   uploadsPlaylistId: string | null;
+  /** The country set on the channel (ISO 3166 code, e.g. "GH"); null when none is set. */
+  country: string | null;
 }
 
 interface RawYoutubeChannelItem {
@@ -174,6 +176,7 @@ interface RawYoutubeChannelItem {
   snippet: {
     title: string;
     customUrl?: string;
+    country?: string;
     thumbnails?: { high?: { url: string }; default?: { url: string } };
   };
   statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
@@ -191,6 +194,7 @@ function mapYoutubeChannel(channel: RawYoutubeChannelItem): YoutubeChannelSummar
     viewCount: Number(channel.statistics.viewCount ?? 0),
     videoCount: Number(channel.statistics.videoCount ?? 0),
     uploadsPlaylistId: channel.contentDetails?.relatedPlaylists?.uploads ?? null,
+    country: channel.snippet.country ?? null,
   };
 }
 

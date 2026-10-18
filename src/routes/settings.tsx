@@ -7,7 +7,6 @@ import {
   Bell,
   CreditCard,
   Shield,
-  Camera,
   Check,
   LayoutDashboard,
   KeyRound,
@@ -210,6 +209,26 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   // DashboardLayout doesn't render its children until authLoading resolves), so there's no
   // fabricated-looking fallback to hide there.
   const [profileFieldsLoading, setProfileFieldsLoading] = useState(true);
+  // The location is the country set on the YouTube channel the user connected (see
+  // /api/youtube/location); undefined while it loads, null when there is none.
+  const [youtubeCountry, setYoutubeCountry] = useState<string | null | undefined>(undefined);
+  const location = youtubeCountry ? countryName(youtubeCountry) : null;
+  // Follows the channel chosen in the app's channel switcher.
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  useEffect(() => {
+    const controller = new AbortController();
+    setYoutubeCountry(undefined);
+    const query = activeChannelId ? `?${new URLSearchParams({ channelId: activeChannelId })}` : "";
+    fetch(`/api/youtube/location${query}`, { signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: { country: string | null } };
+        setYoutubeCountry(response.ok ? (body.data?.country ?? null) : null);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setYoutubeCountry(null);
+      });
+    return () => controller.abort();
+  }, [activeChannelId]);
   const [editor, setEditor] = useState<ProfileEditorMode | null>(null);
   const fallbackName =
     user?.user_metadata?.full_name ??
@@ -295,14 +314,6 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(255,0,0,0.28),transparent_34%),linear-gradient(115deg,#121212_0%,#292929_48%,#0b0b0b_100%)]" />
         )}
         <div className="absolute -right-8 -top-20 h-64 w-64 rotate-12 border border-white/10 bg-white/[0.03]" />
-        <button
-          onClick={() => setEditor("cover")}
-          aria-label="Edit profile cover"
-          title="Edit profile cover"
-          className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full border border-white/20 bg-black/30 text-white hover:bg-black/50"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
       </div>
 
       <div className="relative px-5 pb-0 sm:px-7">
@@ -321,14 +332,6 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                   {name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <button
-                onClick={() => setEditor("avatar")}
-                aria-label="Edit profile photo"
-                title="Edit profile photo"
-                className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground"
-              >
-                <Camera className="h-3.5 w-3.5" />
-              </button>
             </div>
             <div className="pb-1">
               <div className="flex items-center gap-1.5">
@@ -360,7 +363,8 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
               : "recently"}
           </span>
           <span className="inline-flex items-center gap-1">
-            <MapPin className="h-3 w-3" /> {profile.location || "Location not set"}
+            <MapPin className="h-3 w-3" />{" "}
+            {youtubeCountry === undefined ? "…" : location || "Location not set"}
           </span>
           <span className="inline-flex items-center gap-1">
             <Crown className="h-3 w-3 text-primary" /> {role}
@@ -409,10 +413,10 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">Location</p>
-                  {profileFieldsLoading ? (
+                  {youtubeCountry === undefined ? (
                     <Skeleton className="mt-1 h-3 w-16" />
                   ) : (
-                    <p className="mt-1 text-xs font-semibold">{profile.location || "Not set"}</p>
+                    <p className="mt-1 text-xs font-semibold">{location || "Not set"}</p>
                   )}
                 </div>
                 <div>
@@ -631,7 +635,16 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   );
 }
 
-type ProfileEditorMode = "profile" | "about" | "avatar" | "cover";
+type ProfileEditorMode = "profile" | "about";
+
+/** "Ghana" for "GH"; the code itself if the browser cannot name it. */
+function countryName(code: string): string {
+  try {
+    return new Intl.DisplayNames(undefined, { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 interface ProfileData {
   id?: string;
   name: string | null;
@@ -659,64 +672,19 @@ function ProfileEditor({
 }) {
   const [values, setValues] = useState({
     name: profile.name ?? "",
-    avatar: profile.avatar ?? "",
-    cover_url: profile.cover_url ?? "",
-    location: profile.location ?? "",
     website: profile.website ?? "",
     bio: profile.bio ?? "",
   });
   const [saving, setSaving] = useState(false);
-  const title =
-    mode === "avatar"
-      ? "Profile photo"
-      : mode === "cover"
-        ? "Profile cover"
-        : mode === "about"
-          ? "About profile"
-          : "Edit profile";
-  const imageField = mode === "avatar" ? "avatar" : "cover_url";
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Images must be 2 MB or smaller");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string")
-        setValues((current) => ({ ...current, [imageField]: reader.result }));
-    };
-    reader.onerror = () => toast.error("Could not read that image");
-    reader.readAsDataURL(file);
-  };
+  const title = mode === "about" ? "About profile" : "Edit profile";
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
     try {
       const payload =
-        mode === "avatar"
-          ? { avatar: values.avatar || null }
-          : mode === "cover"
-            ? { cover_url: values.cover_url || null }
-            : mode === "about"
-              ? {
-                  location: values.location || null,
-                  website: values.website || null,
-                  bio: values.bio || null,
-                }
-              : {
-                  name: values.name,
-                  avatar: values.avatar || null,
-                  location: values.location || null,
-                  website: values.website || null,
-                  bio: values.bio || null,
-                  cover_url: values.cover_url || null,
-                };
+        mode === "about"
+          ? { website: values.website || null, bio: values.bio || null }
+          : { name: values.name, website: values.website || null, bio: values.bio || null };
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -761,7 +729,7 @@ function ProfileEditor({
             <X className="h-4 w-4" />
           </button>
         </div>
-        {mode !== "avatar" && mode !== "cover" && (
+        {mode === "profile" && (
           <label className="block text-xs font-semibold">
             Name
             <input
@@ -773,65 +741,26 @@ function ProfileEditor({
             />
           </label>
         )}
-        {mode !== "avatar" && mode !== "cover" && (
-          <label className="block text-xs font-semibold">
-            Location
-            <input
-              value={values.location}
-              onChange={(event) => setValues({ ...values, location: event.target.value })}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              maxLength={120}
-            />
-          </label>
-        )}
-        {mode !== "avatar" && mode !== "cover" && (
-          <label className="block text-xs font-semibold">
-            Website
-            <input
-              type="url"
-              value={values.website}
-              onChange={(event) => setValues({ ...values, website: event.target.value })}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              placeholder="https://"
-            />
-          </label>
-        )}
-        {mode !== "avatar" && mode !== "cover" && (
-          <label className="block text-xs font-semibold">
-            Bio
-            <textarea
-              value={values.bio}
-              onChange={(event) => setValues({ ...values, bio: event.target.value })}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              maxLength={500}
-            />
-          </label>
-        )}
-        {mode !== "about" && (
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold">
-              Image URL
-              <input
-                type="url"
-                value={values[imageField]}
-                onChange={(event) => setValues({ ...values, [imageField]: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                placeholder="https://"
-              />
-            </label>
-            <label className="inline-flex cursor-pointer items-center rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:border-primary">
-              Upload image
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="sr-only"
-              />
-            </label>
-            <p className="text-[10px] text-muted-foreground">PNG, JPEG, WebP, or GIF up to 2 MB.</p>
-          </div>
-        )}
+        <label className="block text-xs font-semibold">
+          Website
+          <input
+            type="url"
+            value={values.website}
+            onChange={(event) => setValues({ ...values, website: event.target.value })}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="https://"
+          />
+        </label>
+        <label className="block text-xs font-semibold">
+          Bio
+          <textarea
+            value={values.bio}
+            onChange={(event) => setValues({ ...values, bio: event.target.value })}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            maxLength={500}
+          />
+        </label>
         <div className="flex justify-end gap-2">
           <button
             type="button"

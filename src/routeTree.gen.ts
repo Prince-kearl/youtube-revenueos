@@ -118,6 +118,7 @@ import { Route as ApiYoutubeCommentsRouteImport } from './routes/api.youtube.com
 import { Route as ApiYoutubeConnectionsRouteImport } from './routes/api.youtube.connections'
 import { Route as ApiYoutubeDashboardRouteImport } from './routes/api.youtube.dashboard'
 import { Route as ApiYoutubeDiagnosticsRouteImport } from './routes/api.youtube.diagnostics'
+import { Route as ApiYoutubeLocationRouteImport } from './routes/api.youtube.location'
 import { Route as ApiYoutubeQuotaRouteImport } from './routes/api.youtube.quota'
 import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.settings'
 import { Route as ApiYoutubeStatsSyncRouteImport } from './routes/api.youtube.stats-sync'
@@ -686,6 +687,11 @@ const ApiYoutubeDiagnosticsRoute = ApiYoutubeDiagnosticsRouteImport.update({
   path: '/api/youtube/diagnostics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYoutubeLocationRoute = ApiYoutubeLocationRouteImport.update({
+  id: '/api/youtube/location',
+  path: '/api/youtube/location',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeQuotaRoute = ApiYoutubeQuotaRouteImport.update({
   id: '/api/youtube/quota',
   path: '/api/youtube/quota',
@@ -893,6 +899,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/location': typeof ApiYoutubeLocationRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
@@ -1022,6 +1029,7 @@ export interface FileRoutesByTo {
   '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/location': typeof ApiYoutubeLocationRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
@@ -1152,6 +1160,7 @@ export interface FileRoutesById {
   '/api/youtube/connections': typeof ApiYoutubeConnectionsRoute
   '/api/youtube/dashboard': typeof ApiYoutubeDashboardRoute
   '/api/youtube/diagnostics': typeof ApiYoutubeDiagnosticsRoute
+  '/api/youtube/location': typeof ApiYoutubeLocationRoute
   '/api/youtube/quota': typeof ApiYoutubeQuotaRoute
   '/api/youtube/settings': typeof ApiYoutubeSettingsRoute
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
@@ -1283,6 +1292,7 @@ export interface FileRouteTypes {
     | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/location'
     | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/stats-sync'
@@ -1412,6 +1422,7 @@ export interface FileRouteTypes {
     | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/location'
     | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/stats-sync'
@@ -1541,6 +1552,7 @@ export interface FileRouteTypes {
     | '/api/youtube/connections'
     | '/api/youtube/dashboard'
     | '/api/youtube/diagnostics'
+    | '/api/youtube/location'
     | '/api/youtube/quota'
     | '/api/youtube/settings'
     | '/api/youtube/stats-sync'
@@ -1654,6 +1666,7 @@ export interface RootRouteChildren {
   ApiYoutubeConnectionsRoute: typeof ApiYoutubeConnectionsRoute
   ApiYoutubeDashboardRoute: typeof ApiYoutubeDashboardRoute
   ApiYoutubeDiagnosticsRoute: typeof ApiYoutubeDiagnosticsRoute
+  ApiYoutubeLocationRoute: typeof ApiYoutubeLocationRoute
   ApiYoutubeQuotaRoute: typeof ApiYoutubeQuotaRoute
   ApiYoutubeSettingsRoute: typeof ApiYoutubeSettingsRoute
   ApiYoutubeStatsSyncRoute: typeof ApiYoutubeStatsSyncRoute
@@ -2428,6 +2441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeDiagnosticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/youtube/location': {
+      id: '/api/youtube/location'
+      path: '/api/youtube/location'
+      fullPath: '/api/youtube/location'
+      preLoaderRoute: typeof ApiYoutubeLocationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/youtube/quota': {
       id: '/api/youtube/quota'
       path: '/api/youtube/quota'
@@ -2842,6 +2862,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeConnectionsRoute: ApiYoutubeConnectionsRoute,
   ApiYoutubeDashboardRoute: ApiYoutubeDashboardRoute,
   ApiYoutubeDiagnosticsRoute: ApiYoutubeDiagnosticsRoute,
+  ApiYoutubeLocationRoute: ApiYoutubeLocationRoute,
   ApiYoutubeQuotaRoute: ApiYoutubeQuotaRoute,
   ApiYoutubeSettingsRoute: ApiYoutubeSettingsRoute,
   ApiYoutubeStatsSyncRoute: ApiYoutubeStatsSyncRoute,
