@@ -29,6 +29,7 @@ import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
+import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
@@ -854,19 +855,21 @@ function AddVideo() {
                   </p>
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={() => setPrePublishDialogOpen(true)}
-                className="flex items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-primary/40"
-              >
-                <Upload className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">Upload a video (not yet published)</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    Get packaging ideas before it&apos;s on YouTube
-                  </p>
-                </div>
-              </button>
+              {PRE_PUBLISH_ENABLED && (
+                <button
+                  type="button"
+                  onClick={() => setPrePublishDialogOpen(true)}
+                  className="flex items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-primary/40"
+                >
+                  <Upload className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Upload a video (not yet published)</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      Get packaging ideas before it&apos;s on YouTube
+                    </p>
+                  </div>
+                </button>
+              )}
             </div>
 
             {pickerTab === "mine" ? (
@@ -1641,7 +1644,12 @@ function AddVideo() {
         <Lock className="h-3 w-3" /> This analysis is private to you.
       </p>
 
-      <PrePublishUploadDialog open={prePublishDialogOpen} onOpenChange={setPrePublishDialogOpen} />
+      {PRE_PUBLISH_ENABLED && (
+        <PrePublishUploadDialog
+          open={prePublishDialogOpen}
+          onOpenChange={setPrePublishDialogOpen}
+        />
+      )}
     </DashboardLayout>
   );
 }

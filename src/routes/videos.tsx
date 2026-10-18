@@ -21,6 +21,7 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { ListRowSkeleton } from "@/components/skeletons";
 import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
+import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import {
   EMPTY_VIDEOS_REVENUE,
@@ -383,27 +384,32 @@ function Videos() {
           >
             <Plus className="h-4 w-4" /> Analyze Video
           </Link>
-          <button
-            type="button"
-            onClick={() => setPrePublishDialogOpen(true)}
-            className="flex h-9 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 text-sm font-medium text-primary hover:bg-primary/15"
-          >
-            <Sparkles className="h-4 w-4" /> Analyze Before Publishing
-          </button>
+          {PRE_PUBLISH_ENABLED && (
+            <button
+              type="button"
+              onClick={() => setPrePublishDialogOpen(true)}
+              className="flex h-9 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 text-sm font-medium text-primary hover:bg-primary/15"
+            >
+              <Sparkles className="h-4 w-4" /> Analyze Before Publishing
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 inline-flex rounded-full bg-accent p-1 text-sm">
-        <span className="rounded-full bg-primary px-3 py-1.5 font-medium text-primary-foreground">
-          YouTube Videos
-        </span>
-        <Link
-          to="/pre-publish"
-          className="rounded-full px-3 py-1.5 font-medium text-muted-foreground hover:text-foreground"
-        >
-          Pre-Publish
-        </Link>
-      </div>
+      {/* With Pre-Publish hidden there is only one list, so no tabs. */}
+      {PRE_PUBLISH_ENABLED && (
+        <div className="mt-4 inline-flex rounded-full bg-accent p-1 text-sm">
+          <span className="rounded-full bg-primary px-3 py-1.5 font-medium text-primary-foreground">
+            YouTube Videos
+          </span>
+          <Link
+            to="/pre-publish"
+            className="rounded-full px-3 py-1.5 font-medium text-muted-foreground hover:text-foreground"
+          >
+            Pre-Publish
+          </Link>
+        </div>
+      )}
 
       {refreshError && state.data && state.status === "connected" && (
         <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -519,7 +525,12 @@ function Videos() {
         </>
       )}
 
-      <PrePublishUploadDialog open={prePublishDialogOpen} onOpenChange={setPrePublishDialogOpen} />
+      {PRE_PUBLISH_ENABLED && (
+        <PrePublishUploadDialog
+          open={prePublishDialogOpen}
+          onOpenChange={setPrePublishDialogOpen}
+        />
+      )}
     </DashboardLayout>
   );
 }
@@ -597,7 +608,8 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
           </p>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+      {/* YouTube is on the video's analytics page ("Open on YouTube" in its header). */}
+      <div className="mt-3 text-xs">
         <Link
           to="/videos/$videoId"
           params={{ videoId: video.id }}
@@ -605,14 +617,6 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
         >
           View analytics
         </Link>
-        <a
-          href={video.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-        >
-          Open on YouTube
-        </a>
       </div>
     </div>
   );
@@ -633,26 +637,21 @@ function VideoRow({
   return (
     <tr className="border-b border-border last:border-0 transition-colors hover:bg-accent/30">
       <td className="px-5 py-3.5">
-        <a
-          href={video.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex min-w-0 items-center gap-3"
+        {/* The video opens its analytics page in Tubify, which links to YouTube in its header. */}
+        <Link
+          to="/videos/$videoId"
+          params={{ videoId: video.id }}
+          className="group flex min-w-0 items-center gap-3"
         >
           <VideoThumbnail video={video} />
           <span className="min-w-0">
-            <span className="block max-w-[32rem] truncate font-medium">{video.title}</span>
+            <span className="block max-w-[32rem] truncate font-medium group-hover:text-primary">
+              {video.title}
+            </span>
             <span className="block text-xs text-muted-foreground">
               {formatDate(video.publishedAt)}
             </span>
           </span>
-        </a>
-        <Link
-          to="/videos/$videoId"
-          params={{ videoId: video.id }}
-          className="mt-1 inline-block text-xs font-semibold text-primary hover:underline"
-        >
-          View analytics
         </Link>
       </td>
       <td className="px-3 py-3.5 text-muted-foreground">

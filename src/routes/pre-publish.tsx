@@ -1,4 +1,5 @@
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Clock, FileVideo, Loader2, Plus, Sparkles } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -8,6 +9,11 @@ import { PrePublishUploadDialog } from "@/components/PrePublishUploadDialog";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/pre-publish")({
+  // Hidden for now (lib/feature-flags.ts): an old link to Pre-Publish or one of its videos
+  // (/pre-publish/$id is nested here) goes to Videos instead.
+  beforeLoad: () => {
+    if (!PRE_PUBLISH_ENABLED) throw redirect({ to: "/videos" });
+  },
   component: PrePublishList,
 });
 
