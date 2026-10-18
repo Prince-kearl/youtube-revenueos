@@ -7,15 +7,12 @@ import { test } from "node:test";
 // locks — is exercised against a real local PostgreSQL by scripts/db/validate-admin-user-directory.mjs;
 // these checks keep the files themselves from drifting.)
 
-const m1 = readFileSync("supabase/migrations/202610180001_admin_user_directory.sql", "utf8");
-const m2 = readFileSync(
-  "supabase/migrations/202610180002_admin_user_directory_triggers.sql",
-  "utf8",
-);
-const m3 = readFileSync(
-  "supabase/migrations/202610180003_admin_audit_log_target_index.sql",
-  "utf8",
-);
+// Line endings normalised: a Windows checkout (core.autocrlf) turns \n into \r\n on disk.
+const sqlFile = (name: string) =>
+  readFileSync(`supabase/migrations/${name}`, "utf8").replace(/\r\n/g, "\n");
+const m1 = sqlFile("202610180001_admin_user_directory.sql");
+const m2 = sqlFile("202610180002_admin_user_directory_triggers.sql");
+const m3 = sqlFile("202610180003_admin_audit_log_target_index.sql");
 const code = (sql: string) =>
   sql
     .split("\n")
@@ -102,7 +99,9 @@ test("authoritative email: from auth.users only; profile changes never write the
   // The shared source of truth reads the email from auth.users.
   assert.match(
     fn("admin_user_directory_expected"),
-    /u\.email,\s+coalesce\(lower\(u\.email\), ''''\)/,
+    // ::text — on Supabase auth.users.email is varchar(255); RETURN QUERY needs an exact type
+    // match (found on staging: 42804 "structure of query does not match function result type").
+    /u\.email::text,\s+coalesce\(lower\(u\.email\), ''''\)/,
   );
   // Planned per call with the real cursor (EXECUTE ... USING), never a generic whole-table plan.
   assert.match(fn("admin_user_directory_expected"), /language plpgsql/);

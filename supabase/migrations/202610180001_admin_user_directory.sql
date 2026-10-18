@@ -152,7 +152,7 @@ begin
     'select
        p.id,
        p.created_at,
-       u.email,
+       u.email::text,
        coalesce(lower(u.email), ''''),
        coalesce(lower(p.name), ''''),
        p.role::text,

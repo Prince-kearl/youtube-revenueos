@@ -96,7 +96,7 @@ try {
     grant usage on schema public to anon, authenticated, service_role;
     create schema auth; grant usage on schema auth to anon, authenticated, supabase_auth_admin;
     create table auth.users (
-      id uuid primary key, email text, email_confirmed_at timestamptz, banned_until timestamptz,
+      id uuid primary key, email character varying(255), email_confirmed_at timestamptz, banned_until timestamptz,
       last_sign_in_at timestamptz, raw_user_meta_data jsonb default '{}'::jsonb,
       created_at timestamptz default now(), updated_at timestamptz default now()
     );
@@ -616,7 +616,7 @@ try {
     await q(`select count(*)::int n from public.admin_user_directory where email_lower = ''`)
   ).rows[0].n;
   check(
-    tied > 100 && blank >= 10,
+    tied >= Math.floor(SEED * 0.01) && blank >= Math.floor(SEED / 1000),
     `ties covered: ${tied} accounts share one created_at, ${blank} share an empty email`,
   );
   // Precision: timestamps keep microseconds through the cursor.
