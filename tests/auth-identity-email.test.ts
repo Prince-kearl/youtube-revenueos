@@ -63,9 +63,11 @@ test("a spoofed profiles.email cannot redirect an impersonation link or a passwo
     const r = await action(a, a.owner, a.target);
     assert.equal(r.status, 200, r.text);
     assert.deepEqual(r.authTargets, ["target@example.com"], "the account's own address, from Auth");
+    // Production contract (hotfix 232e17e): audit entries name the account by its immutable id
+    // and carry no email address at all.
     const [audit] = audits(r);
-    assert.equal((audit.body as Record<string, unknown>).target, "target@example.com");
-    assert.deepEqual((audit.body as Record<string, unknown>).new_value, { userId: a.target });
+    assert.equal((audit.body as Record<string, unknown>).target, a.target);
+    assert.doesNotMatch(JSON.stringify(audit.body), /@/);
   }
 });
 
@@ -79,23 +81,30 @@ test("the auth user id stays authoritative when the address has changed and the 
   }
 });
 
-test("an unconfirmed or missing address gets no link and no reset — and nothing is audited as done", async () => {
+test("an unconfirmed address gets no impersonation link; a missing address gets nothing — and nothing is audited as done", async () => {
+  // Production contract (hotfix 6f027a5): impersonating an unconfirmed address is refused
+  // (EMAIL_UNCONFIRMED), because using a magic link would mark it verified.
+  const a = admins();
+  profile(a.w, a.target).email_confirmed = false;
+  const unconfirmed = await impersonate(a, a.superadmin, a.target);
+  assert.deepEqual([unconfirmed.status, unconfirmed.body], [409, { error: "EMAIL_UNCONFIRMED" }]);
+  assert.deepEqual(unconfirmed.authActions, []);
+  assert.equal(audits(unconfirmed).length, 0);
+  // A password reset is deliberately still sent for an unconfirmed account: it goes only to that
+  // account's own Auth address, and completing it proves the inbox — that is how it recovers.
+  const r = admins();
+  profile(r.w, r.target).email_confirmed = false;
+  const recovery = await resetPassword(r, r.superadmin, r.target);
+  assert.equal(recovery.status, 200);
+  assert.deepEqual(recovery.authTargets, ["target@example.com"]);
+  // No address at all: nothing is sent and nothing audited, for either action.
   for (const action of [impersonate, resetPassword]) {
-    const a = admins();
-    profile(a.w, a.target).email_confirmed = false;
-    const unconfirmed = await action(a, a.superadmin, a.target);
-    assert.deepEqual(
-      [unconfirmed.status, unconfirmed.body],
-      [409, { error: "EMAIL_NOT_VERIFIED" }],
-    );
-    assert.deepEqual(unconfirmed.authActions, []);
-    assert.equal(audits(unconfirmed).length, 0);
-
     const b = admins();
     profile(b.w, b.target).auth_email = null;
     const none = await action(b, b.superadmin, b.target);
-    assert.deepEqual([none.status, none.body], [409, { error: "USER_HAS_NO_EMAIL" }]);
+    assert.deepEqual([none.status, none.body], [404, { error: "USER_NOT_FOUND" }]);
     assert.deepEqual(none.authActions, []);
+    assert.equal(audits(none).length, 0);
   }
 });
 
@@ -103,9 +112,17 @@ test("an impersonation link that would sign in to a different account is never r
   const a = admins();
   a.w.linkUserId = a.superadmin; // the address moved to another account in between
   const r = await impersonate(a, a.owner, a.target);
-  assert.deepEqual([r.status, r.body], [409, { error: "IDENTITY_CHANGED" }]);
+  // Production contract (hotfix 232e17e): LINK_MISMATCH, and the rejection itself is audited —
+  // by account id, without the link.
+  assert.deepEqual([r.status, r.body], [502, { error: "LINK_MISMATCH" }]);
   assert.doesNotMatch(r.text, /action_link|token|https:/);
-  assert.equal(audits(r).length, 0);
+  const rejected = audits(r);
+  assert.equal(rejected.length, 1);
+  assert.equal(
+    (rejected[0].body as Record<string, unknown>).action,
+    "user_impersonation_link_rejected",
+  );
+  assert.doesNotMatch(JSON.stringify(rejected[0].body), /action_link|token|https:|@/);
 });
 
 test("the role hierarchy is still decided first: a refused request asks nothing of Supabase Auth", async () => {
@@ -182,9 +199,21 @@ test("invitations: an account whose address Auth has not confirmed is not joined
   const unconfirmed = addUser(t.w, "pending@x.test");
   profile(t.w, unconfirmed).email_confirmed = false;
   const r = await invite(t, "pending@x.test");
-  assert.deepEqual([r.status, r.body], [409, { error: "ACCOUNT_EMAIL_UNVERIFIED" }]);
-  assert.equal(r.writes.length, 0);
-  assert.deepEqual(r.invitesSent, []);
+  // Production contract (hotfix 6f027a5): the unconfirmed account is never joined; the invite
+  // takes the ordinary new-address path instead (a pending row and the invite email), so the
+  // person who actually holds the inbox can still accept it — an unconfirmed sign-up cannot
+  // block someone else's invitation.
+  assert.equal(r.status, 201);
+  assert.ok(
+    !t.w.workspace_members.some((m) => m.workspace_id === t.ws && m.user_id === unconfirmed),
+    "the unconfirmed account was not joined",
+  );
+  const pending = t.w.workspace_members.find(
+    (m) => m.workspace_id === t.ws && m.invited_email === "pending@x.test",
+  );
+  assert.equal(pending?.status, "invited");
+  assert.equal(pending?.user_id ?? null, null);
+  assert.deepEqual(r.invitesSent, ["pending@x.test"]);
 });
 
 test("invitations: the verified account is joined exactly as before", async () => {
