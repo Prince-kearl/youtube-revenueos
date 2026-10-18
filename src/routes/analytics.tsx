@@ -641,73 +641,139 @@ function Analytics() {
                     No video activity was returned for this period.
                   </p>
                 ) : (
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-3 py-3 font-medium">Video</th>
-                        <th className="px-3 py-3 font-medium">Views</th>
-                        <th className="px-3 py-3 font-medium">Watch time</th>
-                        <th className="px-3 py-3 font-medium">Estimated earnings</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <>
+                    {/* Phones: one stacked row per video, so every figure stays on screen. */}
+                    <ul className="divide-y divide-border sm:hidden">
                       {videoRows.map((row, index) => (
-                        <tr
-                          key={`${String(row.video ?? "video")}-${index}`}
-                          className="border-b border-border last:border-0"
-                        >
-                          <td className="max-w-[360px] px-3 py-4">
-                            <div className="flex items-center gap-3">
-                              {row.thumbnail ? (
-                                <img
-                                  referrerPolicy="no-referrer"
-                                  src={String(row.thumbnail)}
-                                  alt=""
-                                  className="h-12 w-20 rounded-md object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-12 w-20 items-center justify-center rounded-md bg-accent">
-                                  <Youtube className="h-4 w-4" />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                {row.url ? (
-                                  <a
-                                    href={String(row.url)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block truncate font-medium hover:text-primary"
-                                  >
-                                    {String(row.title ?? row.video ?? "Unknown video")}
-                                  </a>
-                                ) : (
-                                  <span className="block truncate font-medium">
-                                    {String(row.title ?? row.video ?? "Unknown video")}
-                                  </span>
-                                )}
-                                {row.publishedAt && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(String(row.publishedAt)).toLocaleDateString()}
-                                  </span>
-                                )}
+                        <li key={`${String(row.video ?? "video")}-${index}`} className="py-3">
+                          <div className="flex items-start gap-3">
+                            {row.thumbnail ? (
+                              <img
+                                referrerPolicy="no-referrer"
+                                src={String(row.thumbnail)}
+                                alt=""
+                                className="h-12 w-20 shrink-0 rounded-md object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-12 w-20 shrink-0 items-center justify-center rounded-md bg-accent">
+                                <Youtube className="h-4 w-4" />
                               </div>
+                            )}
+                            <div className="min-w-0">
+                              {row.url ? (
+                                <a
+                                  href={String(row.url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="line-clamp-2 text-sm font-medium hover:text-primary"
+                                >
+                                  {String(row.title ?? row.video ?? "Unknown video")}
+                                </a>
+                              ) : (
+                                <span className="line-clamp-2 text-sm font-medium">
+                                  {String(row.title ?? row.video ?? "Unknown video")}
+                                </span>
+                              )}
+                              {row.publishedAt && (
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(String(row.publishedAt)).toLocaleDateString()}
+                                </span>
+                              )}
                             </div>
-                          </td>
-                          <td className="px-3 py-4 font-semibold">
-                            {formatCount(numericValue(row.views))}
-                          </td>
-                          <td className="px-3 py-4 text-muted-foreground">
-                            {formatWatchTime(row.estimatedMinutesWatched)}
-                          </td>
-                          <td className="px-3 py-4 font-semibold">
-                            {videoEarnings.status === "loading"
-                              ? "…"
-                              : videoEarningsText(videoEarnings.byVideo, row.video)}
-                          </td>
-                        </tr>
+                          </div>
+                          <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <dt className="text-muted-foreground">Views</dt>
+                              <dd className="font-semibold">
+                                {formatCount(numericValue(row.views))}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">Watch time</dt>
+                              <dd className="font-semibold">
+                                {formatWatchTime(row.estimatedMinutesWatched)}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">Earnings</dt>
+                              <dd className="font-semibold">
+                                {videoEarnings.status === "loading"
+                                  ? "…"
+                                  : videoEarningsText(videoEarnings.byVideo, row.video)}
+                              </dd>
+                            </div>
+                          </dl>
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
+                    </ul>
+                    <table className="hidden w-full text-left text-sm sm:table">
+                      <thead>
+                        <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                          <th className="px-3 py-3 font-medium">Video</th>
+                          <th className="px-3 py-3 font-medium">Views</th>
+                          <th className="px-3 py-3 font-medium">Watch time</th>
+                          <th className="px-3 py-3 font-medium">Estimated earnings</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {videoRows.map((row, index) => (
+                          <tr
+                            key={`${String(row.video ?? "video")}-${index}`}
+                            className="border-b border-border last:border-0"
+                          >
+                            <td className="max-w-[360px] px-3 py-4">
+                              <div className="flex items-center gap-3">
+                                {row.thumbnail ? (
+                                  <img
+                                    referrerPolicy="no-referrer"
+                                    src={String(row.thumbnail)}
+                                    alt=""
+                                    className="h-12 w-20 rounded-md object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-12 w-20 items-center justify-center rounded-md bg-accent">
+                                    <Youtube className="h-4 w-4" />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  {row.url ? (
+                                    <a
+                                      href={String(row.url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="block truncate font-medium hover:text-primary"
+                                    >
+                                      {String(row.title ?? row.video ?? "Unknown video")}
+                                    </a>
+                                  ) : (
+                                    <span className="block truncate font-medium">
+                                      {String(row.title ?? row.video ?? "Unknown video")}
+                                    </span>
+                                  )}
+                                  {row.publishedAt && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(String(row.publishedAt)).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 font-semibold">
+                              {formatCount(numericValue(row.views))}
+                            </td>
+                            <td className="px-3 py-4 text-muted-foreground">
+                              {formatWatchTime(row.estimatedMinutesWatched)}
+                            </td>
+                            <td className="px-3 py-4 font-semibold">
+                              {videoEarnings.status === "loading"
+                                ? "…"
+                                : videoEarningsText(videoEarnings.byVideo, row.video)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
                 {!result.loading && videoRows.length > 0 && videoEarnings.status === "error" && (
                   <p className="mt-4 text-xs text-muted-foreground">
