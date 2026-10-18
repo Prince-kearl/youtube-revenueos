@@ -27,10 +27,12 @@ test("the list has no YouTube links: the video's analytics page has 'Open on You
   assert.match(videoPage, /href=\{data\.video\.url\}[\s\S]*?Open on YouTube/);
 });
 
-test("phones: the card's title already opens analytics", () => {
-  const card = page.slice(0, page.indexOf("function VideoRow("));
+test("phones: the card's title and thumbnail open analytics, with no separate 'View analytics'", () => {
+  const card = page.slice(page.indexOf("function VideoCard("), page.indexOf("function VideoRow("));
   assert.match(
     card,
-    /<Link\s+to="\/videos\/\$videoId"\s+params=\{\{ videoId: video\.id \}\}\s+className="line-clamp-2[^"]*"\s*>\s*\{video\.title\}/,
+    /<Link\s+to="\/videos\/\$videoId"\s+params=\{\{ videoId: video\.id \}\}\s+className="group flex[^"]*"\s*>\s*<VideoThumbnail video=\{video\} \/>[\s\S]*?\{video\.title\}[\s\S]*?<\/Link>/,
   );
+  assert.doesNotMatch(card, /View analytics/);
+  assert.equal(card.match(/to="\/videos\/\$videoId"/g)?.length, 1, "one link per card");
 });

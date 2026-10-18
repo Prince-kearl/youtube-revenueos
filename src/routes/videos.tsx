@@ -574,22 +574,22 @@ function MessageState({
 function VideoCard({ video }: { video: YoutubeVideo }) {
   return (
     <div className="relative block rounded-xl card-gradient-outline p-4">
-      <div className="flex items-center gap-3">
+      {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
+          YouTube in its header. */}
+      <Link
+        to="/videos/$videoId"
+        params={{ videoId: video.id }}
+        className="group flex items-center gap-3"
+      >
         <VideoThumbnail video={video} />
-        <div className="min-w-0 flex-1">
-          <Link
-            to="/videos/$videoId"
-            params={{ videoId: video.id }}
-            className="line-clamp-2 font-medium hover:text-primary"
-          >
-            {video.title}
-          </Link>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 font-medium group-hover:text-primary">{video.title}</span>
+          <span className="mt-1 block text-xs text-muted-foreground">
             {formatDate(video.publishedAt)}
             {video.duration ? ` · ${video.duration}` : ""}
-          </p>
-        </div>
-      </div>
+          </span>
+        </span>
+      </Link>
       <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
         <div>
           <p className="text-muted-foreground">Views</p>
@@ -607,16 +607,6 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
             {video.comments === null ? "Unavailable" : formatCount(video.comments)}
           </p>
         </div>
-      </div>
-      {/* YouTube is on the video's analytics page ("Open on YouTube" in its header). */}
-      <div className="mt-3 text-xs">
-        <Link
-          to="/videos/$videoId"
-          params={{ videoId: video.id }}
-          className="font-semibold text-primary hover:underline"
-        >
-          View analytics
-        </Link>
       </div>
     </div>
   );
