@@ -677,49 +677,79 @@ const ready = (response: CommandCenterResponse): CommandCenterState => ({
   refreshing: false,
 });
 
-test("section: only what the dashboard doesn't already show — sponsorships and clicks apart, then the top next steps", async () => {
+test("section: a 'For you' feed — one card per finding, with its video, its facts and one action", async () => {
   const f = world();
   const response = (await ask(f, "owner")).body as unknown as CommandCenterResponse;
+  assert.ok(response.data.opportunities.length > 0, "this world has findings");
   const html = render(ready(response));
+  assert.match(html, /For you/);
+  // One card per finding, each with a dismiss control and a single action.
+  const cards = html.split('data-testid="command-center-opportunity"').length - 1;
+  assert.equal(cards, response.data.opportunities.length);
+  assert.equal(html.split('data-testid="command-center-dismiss"').length - 1, cards);
+  assert.match(html, /i\.ytimg\.com\/vi\/vidMINE\d+\/mqdefault\.jpg/, "the video's thumbnail");
+  assert.match(html, /href="\/link-tracking\?video=vidMINE0001&amp;range=3M"/);
+  // Setup prompts are the onboarding guide's job, not findings.
+  assert.doesNotMatch(html, /data-testid="command-center-step"/);
+  assert.doesNotMatch(html, />Setup</);
+  // Figures appear only where they exist, each on its own — never added together.
+  assert.match(html, /€300\.00 linked to videos \(1 deal\)/);
+  assert.match(html, />34<!-- --> link clicks|34 link clicks/);
+  assert.doesNotMatch(html, /\$1,(535|835)|\$1,535/, "no combined total");
+  assert.doesNotMatch(html, /No contracted deals yet|No tracked links yet/);
   // YouTube revenue, trends and the videos table are the KPI cards and the sections below.
   assert.doesNotMatch(html, /YouTube estimated revenue/);
-  assert.doesNotMatch(html, /\$535\.00/);
   assert.doesNotMatch(html, /data-testid="command-center-video"/);
   assert.doesNotMatch(html, /aria-label="Period"/, "no second period control");
-  assert.match(html, /Next steps/);
-  assert.match(html, /Sponsorships/);
-  assert.match(html, /€300\.00 linked to videos \(1 deal\)/);
-  assert.match(html, /not payments received/);
-  assert.match(html, /Tracked-link clicks/);
-  assert.match(html, />34</);
-  assert.match(html, /interest, not income/);
-  assert.doesNotMatch(html, /\$1,(535|835)|\$1,535/, "no combined total");
-  assert.match(html, /href="\/link-tracking\?video=vidMINE0001&amp;range=3M"/);
-  // One list: suggestions first, then setup steps — the first three, the rest behind "Show more".
-  const steps = response.data.opportunities.length + response.data.gettingStarted.length;
-  const shown =
-    html.split('data-testid="command-center-opportunity"').length -
-    1 +
-    (html.split('data-testid="command-center-step"').length - 1);
-  assert.equal(shown, Math.min(steps, 3));
-  if (steps > 3) assert.match(html, new RegExp(`Show ${steps - 3} more`));
-  else assert.doesNotMatch(html, /data-testid="command-center-more"/);
 });
 
-test("section: hidden amounts read 'Hidden'; loading, error, restricted and not-connected states", async () => {
-  const f = world();
-  const hidden = render(ready((await ask(f, "editor")).body as unknown as CommandCenterResponse));
-  assert.doesNotMatch(hidden, /\$\d/);
-  assert.match(hidden, /Hidden linked to videos/);
-  assert.match(render({ status: "loading" }), /aria-label="Loading the revenue command center"/);
-  assert.match(render({ status: "error" }), /We couldn&#x27;t load the revenue command center/);
-  assert.match(render({ status: "restricted" }), /isn&#x27;t available for your account/);
+test("section: nothing is shown without a finding — while loading, restricted, not connected or with only setup steps", async () => {
+  assert.equal(render({ status: "loading" }), "");
+  assert.equal(render({ status: "restricted" }), "");
   const g = world();
   g.w.youtube_channels = g.w.youtube_channels!.filter((c) => c.workspace_id !== g.ws);
-  assert.match(
-    render(ready((await ask(g, "owner")).body as unknown as CommandCenterResponse)),
-    /Connect a YouTube channel/,
+  assert.equal(render(ready((await ask(g, "owner")).body as unknown as CommandCenterResponse)), "");
+  // Only setup steps (a small channel with nothing to find yet): no panel at all.
+  const f = world();
+  const response = (await ask(f, "owner")).body as unknown as CommandCenterResponse;
+  const setupOnly = {
+    ...response,
+    data: { ...response.data, opportunities: [] },
+  } as CommandCenterResponse;
+  assert.equal(render(ready(setupOnly)), "");
+  // A failed request says so (and offers a retry) — never an empty or zero feed.
+  assert.match(render({ status: "error" }), /We couldn&#x27;t load your suggestions/);
+});
+
+test("section: hidden amounts read 'Hidden' for a member who may not see revenue", async () => {
+  const f = world();
+  const response = (await ask(f, "editor")).body as unknown as CommandCenterResponse;
+  const hidden = render(ready(response));
+  assert.doesNotMatch(hidden, /\$\d/);
+  if (response.data.opportunities.length > 0) assert.match(hidden, /Hidden linked to videos/);
+});
+
+test("feed (pure): labels, dismissal for 30 days per suggestion and video, thumbnails", async () => {
+  const view = await import("../src/lib/command-center-view");
+  assert.equal(view.insightLabel("add_tracked_link"), "Link opportunity");
+  assert.equal(view.insightLabel("something_new"), "Suggestion");
+  const a = { type: "add_tracked_link", video: { youtubeVideoId: "vidA" } };
+  const b = { type: "add_tracked_link", video: { youtubeVideoId: "vidB" } };
+  const now = Date.parse("2026-10-17T12:00:00Z");
+  assert.equal(view.insightKey(a), "add_tracked_link@vidA");
+  // Dismissed a day ago: hidden; the same suggestion for another video is not.
+  assert.deepEqual(view.visibleInsights([a, b], { [view.insightKey(a)]: now - 86_400_000 }, now), [
+    b,
+  ]);
+  // Dismissed more than 30 days ago: back, if it still applies.
+  assert.deepEqual(
+    view.visibleInsights([a, b], { [view.insightKey(a)]: now - 31 * 86_400_000 }, now),
+    [a, b],
   );
+  assert.equal(view.videoThumbnailUrl("abc 123"), "https://i.ytimg.com/vi/abc%20123/mqdefault.jpg");
+  // Dismissals live on this device under the prefix sign-out clears.
+  const component = readFileSync("src/components/RevenueCommandCenterView.tsx", "utf8");
+  assert.match(component, /const DISMISSED_KEY = "yroos\.insights\.dismissed";/);
 });
 
 test("wiring: on the dashboard on its own request; the video pages are untouched", () => {
