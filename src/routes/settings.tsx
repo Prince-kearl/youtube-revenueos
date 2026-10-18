@@ -79,7 +79,6 @@ const menu = [
   { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
-  { label: "Google & YouTube Access", icon: KeyRound },
   { label: "Privacy & Data", icon: Globe },
   { label: "Notifications", icon: Bell },
   { label: "Billing", icon: CreditCard },
@@ -159,8 +158,6 @@ function renderPanel(active: string, setActive: (section: string) => void) {
       return <ConnectedAccountsPanel />;
     case "YouTube Integration":
       return <YouTubeIntegrationPanel />;
-    case "Google & YouTube Access":
-      return <OAuthScopesPanel />;
     case "Privacy & Data":
       return <CompliancePanel />;
     case "Notifications":
@@ -1224,7 +1221,7 @@ function YouTubeIntegrationPanel() {
   const [integrationSettings, setIntegrationSettings] = useState({
     auto_sync_videos: true,
     import_analytics: true,
-    sync_comments: false,
+    sync_comments: true,
     import_chapters: true,
   });
   const [loading, setLoading] = useState(true);
@@ -1600,7 +1597,7 @@ function NotificationsPanel() {
       key: "ai",
       label: "AI optimization ready",
       description: "When AI descriptions are ready for review",
-      enabled: false,
+      enabled: true,
     },
     {
       key: "digest",
@@ -2466,62 +2463,6 @@ function DashboardBannerPanel() {
           "Save changes"
         )}
       </button>
-    </div>
-  );
-}
-
-function OAuthScopesPanel() {
-  const scopes = [
-    {
-      name: "YouTube channel data",
-      scope: "youtube.readonly",
-      purpose: "Read your channel, videos, thumbnails, and public statistics.",
-    },
-    {
-      name: "YouTube Analytics",
-      scope: "yt-analytics.readonly",
-      purpose: "Read views, watch time, engagement, and audience metrics.",
-    },
-    {
-      name: "YouTube revenue analytics",
-      scope: "yt-analytics-monetary.readonly",
-      purpose: "Read estimated revenue and RPM where YouTube makes this information available.",
-    },
-  ];
-  return (
-    <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      <div>
-        <h3 className="text-lg font-semibold">Google &amp; YouTube Access</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tubify requests only the permissions needed to sync your connected YouTube channel and
-          analytics.
-        </p>
-      </div>
-      <div className="space-y-3">
-        {scopes.map((s) => (
-          <div
-            key={s.name}
-            className="flex flex-col gap-2 rounded-xl border border-border bg-accent/20 p-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{s.name}</p>
-              <code className="text-xs text-muted-foreground">{s.scope}</code>
-              <p className="mt-1 text-sm text-muted-foreground">{s.purpose}</p>
-            </div>
-            <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              Required
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-        <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p className="text-muted-foreground">
-          Your YouTube connection can be removed at any time from Connected Accounts. Credentials
-          are encrypted on the server and are never displayed here.
-        </p>
-      </div>
     </div>
   );
 }

@@ -23,7 +23,7 @@ import {
 const defaults = {
   auto_sync_videos: true,
   import_analytics: true,
-  sync_comments: false,
+  sync_comments: true,
   import_chapters: true,
 };
 

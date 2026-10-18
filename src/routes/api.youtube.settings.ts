@@ -12,7 +12,7 @@ const settingsSchema = z.object({
 const defaults = {
   auto_sync_videos: true,
   import_analytics: true,
-  sync_comments: false,
+  sync_comments: true,
   import_chapters: true,
 };
 
@@ -87,7 +87,8 @@ export const Route = createFileRoute("/api/youtube/settings")({
           return json({ data, status: "connected" });
         } catch (error) {
           if (error instanceof Response) return error;
-          if (error instanceof z.ZodError) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
+          if (error instanceof z.ZodError)
+            return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           return json({ error: "SERVER_ERROR" }, { status: 500 });
         }
       },
