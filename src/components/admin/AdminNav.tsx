@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -13,7 +12,6 @@ import {
   ScrollText,
   LifeBuoy,
   Server,
-  Menu,
   Palette,
   ToggleLeft,
   GitBranch,
@@ -22,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { MobileDock, type DockItem } from "@/components/MobileDock";
 import { ADMIN_MOBILE_PRIMARY, ADMIN_NAV_GROUPS, type AdminSection } from "@/lib/admin-nav";
 
 // What the console contains and how it is grouped lives in lib/admin-nav.ts (pure data,
@@ -58,6 +56,36 @@ export const ADMIN_NAV = ADMIN_NAV_GROUPS.map((group) => ({
 const ALL_ITEMS = ADMIN_NAV.flatMap((g) => g.items);
 const primaryItems = ALL_ITEMS.filter((i) => ADMIN_MOBILE_PRIMARY.includes(i.key));
 
+// Tile labels on the phone dock, where a column is about 60px wide. The full section name stays
+// the tile's accessible name (and is what the desktop rail shows).
+const DOCK_LABELS: Partial<Record<AdminSection, string>> = {
+  dashboard: "Dashboard",
+  analytics: "Analytics",
+  roles: "Roles",
+  ai: "AI",
+  features: "Features",
+  security: "Security",
+  audit: "Audit Logs",
+  content: "Customize",
+  communications: "Messages",
+  releases: "Releases",
+};
+
+function dockItem(
+  item: (typeof ALL_ITEMS)[number],
+  active: AdminSection,
+  onSelect: (s: AdminSection) => void,
+): DockItem {
+  return {
+    key: item.key,
+    label: item.label,
+    shortLabel: DOCK_LABELS[item.key],
+    Icon: item.icon,
+    active: active === item.key,
+    onSelect: () => onSelect(item.key),
+  };
+}
+
 export function AdminNav({
   active,
   onSelect,
@@ -65,7 +93,6 @@ export function AdminNav({
   active: AdminSection;
   onSelect: (s: AdminSection) => void;
 }) {
-  const [moreOpen, setMoreOpen] = useState(false);
   const keyboardOpen = useKeyboardInset() > 150;
 
   return (
@@ -102,104 +129,23 @@ export function AdminNav({
         ))}
       </nav>
 
-      {/* Mobile pill nav — same floating design as the workspace nav, fixed above the content */}
-      <nav
-        aria-label="Admin"
-        className={cn(
-          "fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 lg:hidden print:hidden",
-          keyboardOpen && "hidden",
-        )}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1.5 shadow-xl backdrop-blur-xl">
-          {primaryItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => onSelect(item.key)}
-              aria-label={item.label}
-              aria-current={active === item.key ? "page" : undefined}
-              title={item.label}
-              className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-                active === item.key
-                  ? "bg-brand-purple text-white"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
-            </button>
-          ))}
-          <button
-            onClick={() => setMoreOpen(true)}
-            aria-label="More admin sections"
-            aria-haspopup="dialog"
-            aria-expanded={moreOpen}
-            title="More"
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-              !primaryItems.some((i) => i.key === active)
-                ? "bg-brand-purple text-white"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <Menu className="h-[18px] w-[18px]" strokeWidth={2} />
-          </button>
-        </div>
-      </nav>
-
-      {/* Mobile "more" sheet — every admin section, grouped the same way as the rail */}
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[75vh] overflow-y-auto rounded-t-2xl lg:hidden"
-        >
-          <SheetHeader>
-            <SheetTitle>Admin sections</SheetTitle>
-          </SheetHeader>
-          <div className="mt-2 space-y-4">
-            {ADMIN_NAV.map((group) => (
-              <div key={group.label}>
-                <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  {group.label}
-                </p>
-                <div className="grid grid-cols-4 gap-4">
-                  {group.items.map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => {
-                        onSelect(item.key);
-                        setMoreOpen(false);
-                      }}
-                      className="flex flex-col items-center gap-1.5 text-center"
-                    >
-                      <span
-                        className={cn(
-                          "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
-                          active === item.key
-                            ? "bg-brand-purple text-white"
-                            : "bg-accent text-muted-foreground",
-                        )}
-                      >
-                        <item.icon className="h-5 w-5" strokeWidth={2} />
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs leading-tight",
-                          active === item.key
-                            ? "font-semibold text-brand-purple"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Phone nav — the same dock as the workspace app (see MobileDock): the primary sections
+          in a pill, every section in a panel of tiles, in the rail's order. */}
+      <MobileDock
+        label="Admin"
+        panelLabel="Admin sections"
+        moreLabel="More admin sections"
+        hideAt="lg"
+        hidden={keyboardOpen}
+        resetKey={active}
+        primary={primaryItems.map((item) => dockItem(item, active, onSelect))}
+        sections={[
+          {
+            label: "Admin sections",
+            items: ALL_ITEMS.map((item) => dockItem(item, active, onSelect)),
+          },
+        ]}
+      />
     </>
   );
 }
