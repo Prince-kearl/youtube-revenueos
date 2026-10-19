@@ -70,9 +70,9 @@ const audits = (result: CallResult) =>
 test("impersonation policy: strictly outrank the target; resets keep the existing hierarchy", () => {
   for (const acting of APP_ROLES)
     for (const target of APP_ROLES) {
-      const expected =
-        (acting === "superadmin" && target !== "superadmin") ||
-        (acting === "owner" && !["owner", "superadmin"].includes(target));
+      // Only the console role may impersonate at all, and never an equal: a Superadmin may sign
+      // in as anyone but another Superadmin; nobody else may impersonate anyone.
+      const expected = acting === "superadmin" && target !== "superadmin";
       assert.equal(canImpersonate(acting, target), expected, `${acting} → ${target}`);
     }
   // Never more permissive than the general rule.
@@ -89,7 +89,7 @@ test("impersonation policy: strictly outrank the target; resets keep the existin
 
 test("ATTACK: impersonating a spoofed account yields a link for its OWN Auth account, never the Superadmin's", async () => {
   const { world, ids } = staff();
-  const result = await callImpersonate(world, ids.owner, ids.spoofer);
+  const result = await callImpersonate(world, ids.superadmin, ids.spoofer);
   assert.equal(result.status, 200);
   assert.deepEqual(result.authRecipients, ["mallory@evil.test"]);
   assert.ok(!result.authRecipients.includes("boss@tubify.test"));
@@ -100,10 +100,8 @@ test("an Owner cannot impersonate a Superadmin or another Owner: nothing is gene
   const { world, ids } = staff();
   for (const target of [ids.superadmin, ids.owner2]) {
     const result = await callImpersonate(world, ids.owner, target);
-    assert.deepEqual(
-      [result.status, result.body],
-      [403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }],
-    );
+    // The admin console is Superadmin only: refused at the gate, before any lookup.
+    assert.deepEqual([result.status, result.body], [403, { error: "ADMIN_REQUIRED" }]);
     assert.deepEqual(result.authActions, []);
     assert.deepEqual(result.writes, []);
   }
@@ -122,7 +120,7 @@ test("a Superadmin cannot impersonate another Superadmin; it may impersonate an 
 test("a sign-in link issued for any other user is discarded, and the rejection is audited without it", async () => {
   const { world, ids } = staff();
   world.generateLinkUserId = ids.superadmin; // Auth answers with a link for the wrong account.
-  const result = await callImpersonate(world, ids.owner, ids.user);
+  const result = await callImpersonate(world, ids.superadmin, ids.user);
   assert.deepEqual([result.status, result.body], [502, { error: "LINK_MISMATCH" }]);
   assert.doesNotMatch(result.text, /action_link|token|https?:\/\//);
   const [entry] = audits(result);
@@ -133,7 +131,7 @@ test("a sign-in link issued for any other user is discarded, and the rejection i
 
 test("legitimate impersonation: link for the requested account, audited by id with no link or email", async () => {
   const { world, ids } = staff();
-  const result = await callImpersonate(world, ids.owner, ids.user);
+  const result = await callImpersonate(world, ids.superadmin, ids.user);
   assert.equal(result.status, 200);
   assert.match(String((result.body.data as { url: string }).url), /^https:\/\//);
   assert.deepEqual(result.authRecipients, ["user@tubify.test"]);
@@ -148,7 +146,7 @@ test("legitimate impersonation: link for the requested account, audited by id wi
 
 test("ATTACK: a reset for a spoofed account goes to its Auth email, never the address the profile claims", async () => {
   const { world, ids } = staff();
-  const result = await callReset(world, ids.owner, ids.spoofer);
+  const result = await callReset(world, ids.superadmin, ids.spoofer);
   assert.equal(result.status, 200);
   assert.deepEqual(result.authRecipients, ["mallory@evil.test"]);
 });
@@ -157,10 +155,7 @@ test("an Owner cannot reset a Superadmin's or another Owner's password", async (
   const { world, ids } = staff();
   for (const target of [ids.superadmin, ids.owner2]) {
     const result = await callReset(world, ids.owner, target);
-    assert.deepEqual(
-      [result.status, result.body],
-      [403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }],
-    );
+    assert.deepEqual([result.status, result.body], [403, { error: "ADMIN_REQUIRED" }]);
     assert.deepEqual(result.authRecipients, []);
     assert.deepEqual(result.writes, []);
   }
@@ -168,7 +163,7 @@ test("an Owner cannot reset a Superadmin's or another Owner's password", async (
 
 test("legitimate reset: sent to the verified Auth email, audited by id with no email", async () => {
   const { world, ids } = staff();
-  const result = await callReset(world, ids.owner, ids.user);
+  const result = await callReset(world, ids.superadmin, ids.user);
   assert.equal(result.status, 200);
   assert.deepEqual(result.authRecipients, ["user@tubify.test"]);
   const entries = audits(result);
@@ -185,10 +180,10 @@ test("legitimate reset: sent to the verified Auth email, audited by id with no e
 test("stale profile email: impersonation and reset use the current Auth email", async () => {
   const { world, ids } = staff();
   world.authEmails![ids.user] = "user.new@tubify.test"; // profile still says user@tubify.test
-  const link = await callImpersonate(world, ids.owner, ids.user);
+  const link = await callImpersonate(world, ids.superadmin, ids.user);
   assert.equal(link.status, 200);
   assert.deepEqual(link.authRecipients, ["user.new@tubify.test"]);
-  const sent = await callReset(world, ids.owner, ids.user);
+  const sent = await callReset(world, ids.superadmin, ids.user);
   assert.deepEqual(sent.authRecipients, ["user.new@tubify.test"]);
 });
 
@@ -196,7 +191,7 @@ test("missing Auth identity: 404, no link, no email, nothing audited", async () 
   const { world, ids } = staff();
   world.authEmails![ids.user] = null;
   for (const call of [callImpersonate, callReset]) {
-    const result = await call(world, ids.owner, ids.user);
+    const result = await call(world, ids.superadmin, ids.user);
     assert.deepEqual([result.status, result.body], [404, { error: "USER_NOT_FOUND" }]);
     assert.deepEqual(result.authActions, []);
     assert.deepEqual(result.writes, []);
@@ -207,7 +202,11 @@ test("unauthorized callers are refused before any lookup, link or email", async 
   const { world, ids } = staff();
   for (const call of [callImpersonate, callReset]) {
     const manager = await call(world, ids.manager, ids.user);
-    assert.deepEqual([manager.status, manager.body], [403, { error: "PERMISSION_REQUIRED" }]);
+    assert.deepEqual([manager.status, manager.body], [403, { error: "ADMIN_REQUIRED" }]);
+    const owner = await call(world, ids.owner, ids.user);
+    assert.deepEqual([owner.status, owner.body], [403, { error: "ADMIN_REQUIRED" }]);
+    assert.deepEqual(owner.authActions, []);
+    assert.deepEqual(owner.writes, []);
     assert.deepEqual(manager.authActions, []);
     const signedOut = await call(world, null, ids.user);
     assert.equal(signedOut.status, 401);

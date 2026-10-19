@@ -54,14 +54,14 @@ const nothingHappened = (result: CallResult, label: string) => {
 
 test("confirmed target: the link is generated for its Auth email", async () => {
   const { world, ids } = staff();
-  const result = await callImpersonate(world, ids.owner, ids.user);
+  const result = await callImpersonate(world, ids.superadmin, ids.user);
   assert.equal(result.status, 200);
   assert.deepEqual(result.authRecipients, ["user@tubify.test"]);
 });
 
 test("unconfirmed target: refused (409 EMAIL_UNCONFIRMED) before any link exists", async () => {
   const { world, ids } = staff();
-  const result = await callImpersonate(world, ids.owner, ids.pending);
+  const result = await callImpersonate(world, ids.superadmin, ids.pending);
   assert.deepEqual([result.status, result.body], [409, { error: "EMAIL_UNCONFIRMED" }]);
   nothingHappened(result, "unconfirmed");
 });
@@ -69,7 +69,7 @@ test("unconfirmed target: refused (409 EMAIL_UNCONFIRMED) before any link exists
 test("missing Auth account: 404, nothing happens", async () => {
   const { world, ids } = staff();
   world.authEmails = { [ids.user]: null };
-  const result = await callImpersonate(world, ids.owner, ids.user);
+  const result = await callImpersonate(world, ids.superadmin, ids.user);
   assert.deepEqual([result.status, result.body], [404, { error: "USER_NOT_FOUND" }]);
   nothingHappened(result, "missing");
 });
@@ -88,7 +88,8 @@ test("an Owner cannot impersonate a Superadmin — refused on role before its em
   const { world, ids } = staff();
   world.authUnconfirmed = [ids.superadmin];
   const result = await callImpersonate(world, ids.owner, ids.superadmin);
-  assert.deepEqual([result.status, result.body], [403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }]);
+  // The admin console is Superadmin only: refused at the gate, before any lookup.
+  assert.deepEqual([result.status, result.body], [403, { error: "ADMIN_REQUIRED" }]);
   nothingHappened(result, "owner → superadmin");
 });
 
@@ -102,7 +103,7 @@ test("a Superadmin cannot impersonate another Superadmin", async () => {
 test("a link issued for a different account is discarded", async () => {
   const { world, ids } = staff();
   world.generateLinkUserId = ids.superadmin;
-  const result = await callImpersonate(world, ids.owner, ids.user);
+  const result = await callImpersonate(world, ids.superadmin, ids.user);
   assert.deepEqual([result.status, result.body], [502, { error: "LINK_MISMATCH" }]);
   assert.doesNotMatch(result.text, /action_link|token|https?:\/\//);
 });
@@ -111,13 +112,13 @@ test("a link issued for a different account is discarded", async () => {
 
 test("legitimate reset: sent to the Auth email; an unconfirmed account can still recover", async () => {
   const { world, ids } = staff();
-  const confirmed = await callReset(world, ids.owner, ids.user);
+  const confirmed = await callReset(world, ids.superadmin, ids.user);
   assert.equal(confirmed.status, 200);
   assert.deepEqual(confirmed.authRecipients, ["user@tubify.test"]);
-  const unconfirmed = await callReset(world, ids.owner, ids.pending);
+  const unconfirmed = await callReset(world, ids.superadmin, ids.pending);
   assert.equal(unconfirmed.status, 200);
   assert.deepEqual(unconfirmed.authRecipients, ["pending@tubify.test"]);
-  // The hierarchy is unchanged: an Owner may not reset a Superadmin.
+  // An Owner may not reset anyone's password (the console is Superadmin only).
   const refused = await callReset(world, ids.owner, ids.superadmin);
   assert.equal(refused.status, 403);
   assert.deepEqual(refused.authRecipients, []);

@@ -40,9 +40,10 @@ export const Route = createFileRoute("/api/admin/plans/prices")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // Authorize first: whether Stripe is configured is not for an unauthorized caller.
+          const { user } = await requirePermission(request, "manage_plans");
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requirePermission(request, "manage_plans");
           const service = createServiceSupabaseClient();
           const input = bodySchema.parse(await parseJson(request));
 

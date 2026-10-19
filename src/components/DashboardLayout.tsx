@@ -342,7 +342,7 @@ export function DashboardLayout({
     }
   }, [authenticatedRole, canPreviewRoles, viewerRole, setViewerRole]);
 
-  // For a Superadmin/Owner who's never touched the preview switcher, viewerRole still sits at the
+  // For a Superadmin who's never touched the preview switcher, viewerRole still sits at the
   // old demo's generic default ("Owner") — without this, that default reads as "previewing Owner"
   // the instant we learn a real role like Superadmin, showing the preview banner to someone who
   // never asked for a preview. Sync it to their own real role once per page load; any deliberate
@@ -364,7 +364,7 @@ export function DashboardLayout({
   };
   // /admin defers to the real platform-staff check (isPlatformAdmin) instead of the workspace-role
   // preview — see the routeAllowed comment below for why canAccessRoute alone can never admit a
-  // real Superadmin/Owner here.
+  // real Superadmin here.
   const canReachRoute = (to: string) =>
     to === "/admin" ? isPlatformAdmin : canAccessRoute(viewerRole, to);
   const visibleNav = nav.filter((item) => canReachRoute(item.to) && realFeatureEnabledFor(item.to));
@@ -611,7 +611,7 @@ export function DashboardLayout({
   // /admin is exempt from the workspace-role preview gate below: canAccessRoute's Superadmin
   // check exists to hide the nav link during role preview, but there's no way to ever *preview*
   // Superadmin (WORKSPACE_PREVIEW_ROLES deliberately excludes it — it isn't a workspace role), so
-  // a real platform-staff Superadmin/Owner would otherwise get "Access restricted" here before
+  // a real platform-staff Superadmin would otherwise get "Access restricted" here before
   // admin.tsx's own real, server-verified profiles.role check ever runs.
   //
   // A nested or contextual page is checked against the entry it belongs to (permissionRouteFor):

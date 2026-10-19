@@ -139,9 +139,10 @@ for (const action of ACTIONS) {
     for (const target of ["superadmin", "owner2"] as const) {
       const s = staff();
       const result = await act(s, action, s.ids.owner, s.ids[target]);
+      // The admin console is Superadmin only: an Owner is refused at the console gate.
       assert.deepEqual(
         [target, result.status, result.body],
-        [target, 403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }],
+        [target, 403, { error: "ADMIN_REQUIRED" }],
       );
       // No sign-in link, no reset email, no ban — and nothing written or logged as done.
       assert.deepEqual(result.authActions, [], target);
@@ -150,14 +151,16 @@ for (const action of ACTIONS) {
     }
   });
 
-  test(`${action}: an Owner may still act on accounts below Owner`, async () => {
+  test(`${action}: an Owner is refused even against accounts below Owner — the console is Superadmin only`, async () => {
     for (const target of ["manager", "setter", "editor", "user"] as const) {
       const s = staff();
       const result = await act(s, action, s.ids.owner, s.ids[target]);
-      assert.equal(result.status, 200, target);
-      assert.equal(result.authActions.length, 1, target);
-      assert.match(result.authActions[0], PERFORMED[action], target);
-      assert.equal(audited(result), 1, `${target}: audited`);
+      assert.deepEqual(
+        [target, result.status, result.body],
+        [target, 403, { error: "ADMIN_REQUIRED" }],
+      );
+      assert.deepEqual(result.authActions, [], target);
+      assert.deepEqual(result.writes, [], target);
     }
   });
 
@@ -184,7 +187,7 @@ for (const action of ACTIONS) {
       const result = await act(s, action, s.ids[acting], target);
       assert.deepEqual(
         [acting, result.status, result.body],
-        [acting, 403, { error: "PERMISSION_REQUIRED" }],
+        [acting, 403, { error: "ADMIN_REQUIRED" }],
       );
       assert.deepEqual(result.authActions, [], acting);
     }
@@ -197,15 +200,17 @@ for (const action of ACTIONS) {
 
 test("impersonation of a permitted target returns the sign-in link; of a forbidden one, nothing", async () => {
   const s = staff();
-  const allowed = await act(s, "impersonate", s.ids.owner, s.ids.user);
+  const allowed = await act(s, "impersonate", s.ids.superadmin, s.ids.user);
   assert.match(String((allowed.body.data as { url: string }).url), /^https:\/\//);
-  const refused = await act(s, "impersonate", s.ids.owner, s.ids.superadmin);
+  // One Superadmin may never sign in as another.
+  const refused = await act(s, "impersonate", s.ids.superadmin, s.ids.superadmin2);
   assert.equal(refused.body.data, undefined);
 });
 
 test("ban: a request that demotes and bans in one go is decided on the target's CURRENT role", async () => {
   const s = staff();
-  // An Owner tries to demote another Owner to user and ban them in the same request.
+  // An Owner tries to demote another Owner to user and ban them in the same request: refused at
+  // the console gate (Superadmin only), and nothing happens.
   const result = await callTeamApi(routes.users, s.world, {
     as: s.ids.owner,
     method: "PATCH",
@@ -213,7 +218,7 @@ test("ban: a request that demotes and bans in one go is decided on the target's 
     query: `?id=${s.ids.owner2}`,
     body: { role: "user", banDuration: "24h" },
   });
-  assert.deepEqual([result.status, result.body], [403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }]);
+  assert.deepEqual([result.status, result.body], [403, { error: "ADMIN_REQUIRED" }]);
   assert.deepEqual(result.authActions, []);
   assert.deepEqual(result.writes, []);
   assert.equal(s.world.profiles.find((p) => p.id === s.ids.owner2)!.role, "owner", "unchanged");
@@ -230,17 +235,18 @@ test("unchanged admin behaviour: self-ban is still refused, unknown users are 40
     assert.equal(unknown.status, 404, action);
     assert.deepEqual(unknown.authActions, [], action);
   }
-  // An Owner promoting a user to manager (a plain role change) still works; to owner does not.
-  const patch = (role: string) =>
+  // A Superadmin's plain role change works; an Owner can make none at all (console is
+  // Superadmin only).
+  const patch = (role: string, as = s.ids.superadmin) =>
     callTeamApi(routes.users, s.world, {
-      as: s.ids.owner,
+      as,
       method: "PATCH",
       path: "/api/admin/users",
       query: `?id=${s.ids.user}`,
       body: { role },
     });
   assert.equal((await patch("manager")).status, 200);
-  assert.equal((await patch("owner")).status, 403);
+  assert.equal((await patch("editor", s.ids.owner)).status, 403);
 });
 
 test("the three routes check the target's role before the privileged call, in source order", () => {
@@ -543,7 +549,7 @@ test("delete: an Owner cannot delete a Superadmin or another Owner, and the acco
     const result = await act(s, "delete", s.ids.owner, s.ids[target]);
     assert.deepEqual(
       [target, result.status, result.body],
-      [target, 403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }],
+      [target, 403, { error: "ADMIN_REQUIRED" }],
     );
     assert.deepEqual(result.authActions, [], target);
     assert.deepEqual(result.writes, [], target);
@@ -557,7 +563,7 @@ test("delete: the last-Superadmin and self rules still apply to a Superadmin", a
   assert.deepEqual([self.status, self.body], [409, { error: "CANNOT_DELETE_SELF" }]);
   // Two Superadmins: one may delete the other.
   assert.equal((await act(s, "delete", s.ids.superadmin, s.ids.superadmin2)).status, 200);
-  // With a single Superadmin left, nobody can delete it — an Owner is refused by rank first.
+  // With a single Superadmin left, nobody can delete it — an Owner is refused at the console gate.
   const lone = staff();
   lone.world.profiles = lone.world.profiles.filter((p) => p.id !== lone.ids.superadmin2);
   const byOwner = await act(lone, "delete", lone.ids.owner, lone.ids.superadmin);
@@ -578,7 +584,7 @@ test("email verification and creator badge: an Owner cannot set either on a Supe
       const label = `${target} ${JSON.stringify(body)}`;
       assert.deepEqual(
         [label, result.status, result.body],
-        [label, 403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }],
+        [label, 403, { error: "ADMIN_REQUIRED" }],
       );
       assert.deepEqual(result.authActions, [], label);
       assert.deepEqual(result.writes, [], label);
@@ -600,12 +606,12 @@ test("combined requests: nothing is applied when any part is against a target th
       const result = await patchUser(s, s.ids.owner, s.ids[target], body);
       const label = `${target} ${JSON.stringify(body)}`;
       assert.equal(result.status, 403, label);
-      assert.equal(result.body.error, "PRIVILEGE_ESCALATION_BLOCKED", label);
+      assert.equal(result.body.error, "ADMIN_REQUIRED", label);
       assert.deepEqual(result.authActions, [], label);
       assert.deepEqual(result.writes, [], label);
       assert.equal(roleOf(s, s.ids[target]), before, `${label}: role unchanged`);
     }
-  // A role change the Owner may not make blocks the rest of an otherwise permitted request too.
+  // An Owner's request is refused whole: no part of it is applied.
   const s = staff();
   const promote = await patchUser(s, s.ids.owner, s.ids.user, {
     role: "owner",
@@ -618,15 +624,15 @@ test("combined requests: nothing is applied when any part is against a target th
 
 test("combined requests still work for a caller who outranks the target", async () => {
   const s = staff();
-  const byOwner = await patchUser(s, s.ids.owner, s.ids.user, {
+  const byUserTarget = await patchUser(s, s.ids.superadmin, s.ids.user, {
     role: "editor",
     banDuration: "24h",
     emailConfirm: true,
     creatorVerified: true,
   });
-  assert.equal(byOwner.status, 200);
+  assert.equal(byUserTarget.status, 200);
   assert.equal(roleOf(s, s.ids.user), "editor");
-  assert.equal(byOwner.authActions.filter((a) => a.startsWith("PUT ")).length, 3);
+  assert.equal(byUserTarget.authActions.filter((a) => a.startsWith("PUT ")).length, 3);
   const bySuperadmin = await patchUser(s, s.ids.superadmin, s.ids.owner, {
     role: "manager",
     emailConfirm: true,
@@ -639,20 +645,23 @@ test("combined requests still work for a caller who outranks the target", async 
 test("a caller's own email flag and creator badge are unchanged behaviour; a ban or role change on oneself is still refused", async () => {
   const s = staff();
   for (const body of [{ emailConfirm: true }, { creatorVerified: true }]) {
-    assert.equal((await patchUser(s, s.ids.owner, s.ids.owner, body)).status, 200);
     assert.equal((await patchUser(s, s.ids.superadmin, s.ids.superadmin, body)).status, 200);
+    // An Owner cannot use the admin route even on their own account.
+    const own = await patchUser(s, s.ids.owner, s.ids.owner, body);
+    assert.deepEqual([own.status, own.body], [403, { error: "ADMIN_REQUIRED" }]);
   }
-  for (const body of [{ banDuration: "24h" }, { role: "superadmin" }, { role: "user" }]) {
-    const result = await patchUser(s, s.ids.owner, s.ids.owner, body);
+  for (const body of [{ banDuration: "24h" }, { role: "owner" }, { role: "user" }]) {
+    const result = await patchUser(s, s.ids.superadmin, s.ids.superadmin, body);
     assert.deepEqual([result.status, result.body], [409, { error: "CANNOT_CHANGE_OWN_ROLE" }]);
     assert.deepEqual(result.authActions, []);
   }
+  assert.equal(roleOf(s, s.ids.superadmin), "superadmin");
   assert.equal(roleOf(s, s.ids.owner), "owner");
 });
 
-test("inviting a user: an Owner still cannot create an Owner or a Superadmin", async () => {
+test("inviting a user: an Owner cannot invite anyone through the console API", async () => {
   const s = staff();
-  for (const role of ["owner", "superadmin"]) {
+  for (const role of ["user", "owner", "superadmin"]) {
     const result = await callTeamApi(routes.users, s.world, {
       as: s.ids.owner,
       method: "POST",

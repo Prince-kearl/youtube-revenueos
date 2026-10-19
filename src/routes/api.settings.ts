@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { requireMinimumRole } from "@/lib/server/roles";
+import { requireConsoleAccess } from "@/lib/server/roles";
 
 // Backs global Customization/Design Studio settings (src/lib/stores.ts useSiteContent) via a
 // real Supabase table, so a Superadmin's changes apply for every browser/device/user instead of
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/settings")({
       // route previously had no server-side check at all.
       PUT: async ({ request }) => {
         try {
-          await requireMinimumRole(request, "owner");
+          await requireConsoleAccess(request);
           let body: unknown;
           try {
             body = await request.json();
