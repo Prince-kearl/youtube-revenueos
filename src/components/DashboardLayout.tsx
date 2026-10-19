@@ -28,7 +28,6 @@ import {
   LogOut,
   User as UserIcon,
   Send,
-  Menu,
   Shield,
   Pencil,
   Lock,
@@ -69,6 +68,7 @@ import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { MobileDock } from "@/components/MobileDock";
 import { openOnboardingGuide } from "@/lib/onboarding";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
@@ -234,10 +234,10 @@ export function DashboardLayout({
   const { user, loading: authLoading } = useAuthSession();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [siteContent] = useSiteContent();
-  const [moreOpen, setMoreOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   const navigate = useNavigate();
   const [profile, setProfile] = useProfile();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
@@ -1107,144 +1107,47 @@ export function DashboardLayout({
         </button>
       </div>
 
-      {/* Mobile pill nav */}
+      {/* Mobile nav (see MobileDock): the primary pages in a pill, everything else in a panel. */}
       {!hideAppNav && (
-        <>
-          <nav
-            aria-label="Primary"
-            className={cn(
-              "fixed bottom-4 left-1/2 z-50 w-fit max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 md:hidden print:hidden",
-              keyboardOpen && "hidden",
-            )}
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
-            <div className="glass-pill flex items-center gap-1 px-2 py-1.5 backdrop-blur-2xl">
-              {visiblePrimaryMobileNav.map((hub) => {
-                const active = activeHub === hub.id;
-                const Icon = hubIcon(hub);
-                return (
-                  <Link
-                    key={hub.id}
-                    to={hub.to}
-                    aria-label={hub.label}
-                    aria-current={active ? "page" : undefined}
-                    title={hub.label}
-                    className={cn(
-                      "group relative flex h-10 shrink-0 items-center justify-center rounded-full transition-all",
-                      active
-                        ? "glass-tab-active gap-1.5 px-3"
-                        : "w-10 text-muted-foreground hover:bg-accent hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
-                    {active && (
-                      <span className="whitespace-nowrap text-sm font-semibold">{hub.label}</span>
-                    )}
-                  </Link>
-                );
-              })}
-              <button
-                onClick={() => setMoreOpen(true)}
-                aria-label="More pages"
-                aria-haspopup="dialog"
-                aria-expanded={moreOpen}
-                title="More"
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all",
-                  !visiblePrimaryMobileNav.some((hub) => hub.id === activeHub) &&
-                    (visibleNavHubs.some((hub) => hub.id === activeHub) ||
-                      (!!activeNavRoute && visibleAccountNav.includes(activeNavRoute)))
-                    ? "glass-tab-active"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <Menu className="h-[18px] w-[18px]" strokeWidth={2} />
-              </button>
-            </div>
-          </nav>
-
-          {/* Mobile "more" nav sheet */}
-          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-            <SheetContent
-              side="bottom"
-              className="max-h-[75vh] overflow-y-auto rounded-t-2xl md:hidden"
-            >
-              <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <div className="mt-2 space-y-5 pb-4">
-                {[
-                  {
-                    label: "Pages",
-                    items: visibleNavHubs.map((hub) => ({
-                      key: hub.id,
-                      to: hub.to,
-                      label: hub.label,
-                      Icon: hubIcon(hub),
-                      active: activeHub === hub.id,
-                    })),
-                  },
-                  {
-                    label: "Account",
-                    items: visibleAccountNav.map((to) => ({
-                      key: to,
-                      to,
-                      label: navItem(to).label,
-                      Icon: navItem(to).icon,
-                      active: activeNavRoute === to,
-                    })),
-                  },
-                ]
-                  .filter((section) => section.items.length > 0)
-                  .map((section) => (
-                    <div key={section.label} role="group" aria-label={section.label}>
-                      <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                        {section.label}
-                      </p>
-                      <div className="grid grid-cols-4 gap-4">
-                        {section.items.map(({ key, to, label, Icon, active }) => {
-                          const locked = isLocked(to);
-                          return (
-                            <Link
-                              key={key}
-                              to={to}
-                              onClick={() => setMoreOpen(false)}
-                              aria-current={active ? "page" : undefined}
-                              className="relative flex flex-col items-center gap-1.5 text-center"
-                            >
-                              <span
-                                className={cn(
-                                  "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
-                                  active
-                                    ? "bg-primary text-primary-foreground"
-                                    : locked
-                                      ? "bg-accent text-muted-foreground/40"
-                                      : "bg-accent text-muted-foreground",
-                                )}
-                              >
-                                <Icon className="h-5 w-5" strokeWidth={2} />
-                              </span>
-                              {locked && (
-                                <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
-                              )}
-                              <span
-                                className={cn(
-                                  "text-xs leading-tight",
-                                  active ? "font-semibold text-primary" : "text-muted-foreground",
-                                )}
-                              >
-                                {label}
-                              </span>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </>
+        <MobileDock
+          label="Primary"
+          panelLabel="All pages"
+          moreLabel="More pages"
+          hideAt="md"
+          hidden={keyboardOpen}
+          resetKey={pathname}
+          primary={visiblePrimaryMobileNav.map((hub) => ({
+            key: hub.id,
+            to: hub.to,
+            label: hub.label,
+            Icon: hubIcon(hub),
+            active: activeHub === hub.id,
+          }))}
+          sections={[
+            {
+              label: "Pages",
+              items: visibleNavHubs.map((hub) => ({
+                key: hub.id,
+                to: hub.to,
+                label: hub.label,
+                Icon: hubIcon(hub),
+                active: activeHub === hub.id,
+                locked: isLocked(hub.to),
+              })),
+            },
+            {
+              label: "Account",
+              items: visibleAccountNav.map((to) => ({
+                key: to,
+                to,
+                label: navItem(to).label,
+                Icon: navItem(to).icon,
+                active: activeNavRoute === to,
+                locked: isLocked(to),
+              })),
+            },
+          ]}
+        />
       )}
 
       {/* Help / Tubi assistant panel */}

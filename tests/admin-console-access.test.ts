@@ -203,6 +203,7 @@ test("the database admin-read policies are narrowed to Superadmin", () => {
     "supabase/migrations/202610190003_admin_reads_superadmin_only.sql",
     "utf8",
   )
+    .replace(/\r\n/g, "\n") // a Windows checkout has CRLF line endings
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("--"))
     .join("\n");
