@@ -82,9 +82,10 @@ export const Route = createFileRoute("/api/admin/plans")({
       // ignore, rather than a half-created plan a user could ever see).
       POST: async ({ request }) => {
         try {
+          // Authorize first: whether Stripe is configured is not for an unauthorized caller.
+          const { user } = await requirePermission(request, "manage_plans");
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requirePermission(request, "manage_plans");
           // plans/plan_prices/plan_audit_log have no write policy for regular authenticated users
           // by design — only the service-role client (used only after requireAdminUser has already
           // verified this caller is an admin) can insert/update them.

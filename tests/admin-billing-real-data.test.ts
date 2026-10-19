@@ -19,10 +19,10 @@ test("MRR and subscriptions come from the real, server-checked admin endpoint", 
   assert.match(billing, /activeSubscriptions: body\.data\.activeSubscriptions/);
   // A failed load says so instead of showing a made-up or zero figure.
   assert.match(billing, /status === "error" \? "Unavailable"/);
-  // The endpoint itself requires platform-owner rights.
+  // The endpoint itself requires admin console access (Superadmin only).
   assert.match(
     readFileSync("src/routes/api.admin.dashboard.ts", "utf8"),
-    /await requireMinimumRole\(request, "owner"\);/,
+    /await requireConsoleAccess\(request\);/,
   );
 });
 

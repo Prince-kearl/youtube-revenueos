@@ -20,11 +20,12 @@ export const ROLE_LEVEL: Record<AppRole, number> = {
   superadmin: 5,
 };
 
-// Roles that may sign into and act within the Superadmin console at all — Manager/Setter/Editor
-// are real operational/content roles for the product itself, not platform administration, so they
-// don't get a foot in the admin console door (they can still have rich feature_access-driven
-// product permissions, just not console access).
-const CONSOLE_ROLES: ReadonlySet<AppRole> = new Set(["superadmin", "owner"]);
+// Roles that may sign into and act within the Superadmin console at all: Superadmin only. Every
+// admin API goes through requireConsoleAccess or requirePermission below, and both refuse any
+// other role before a permission is even considered — so no role reaches console data by calling
+// an admin API directly, whatever ROLE_PERMISSIONS lists for it. (Platform Owner was once a
+// console role too; it no longer is. Manager/Setter/Editor are product roles, never console ones.)
+const CONSOLE_ROLES: ReadonlySet<AppRole> = new Set(["superadmin"]);
 
 export function toAppRole(rawRole: string | null | undefined): AppRole {
   if (rawRole === "admin") return "superadmin"; // legacy value defensive fallback, see migration
@@ -151,11 +152,22 @@ export async function requireMinimumRole(
   return result;
 }
 
+// The admin console's server boundary: a signed-in Superadmin, or 401/403 before anything else
+// happens. For admin routes that need no finer permission (dashboard, workspaces, site content).
+export async function requireConsoleAccess(request: Request): Promise<AuthedResult> {
+  const result = await getAuthenticatedRole(request);
+  if (!canAccessConsole(result.role)) throw forbidden("ADMIN_REQUIRED");
+  return result;
+}
+
+// Every permission here is an admin-console capability, so console access is checked first: a
+// role outside the console is refused even where ROLE_PERMISSIONS lists the permission for it.
 export async function requirePermission(
   request: Request,
   permission: Permission,
 ): Promise<AuthedResult> {
   const result = await getAuthenticatedRole(request);
+  if (!canAccessConsole(result.role)) throw forbidden("ADMIN_REQUIRED");
   if (!hasPermission(result.role, permission)) throw forbidden("PERMISSION_REQUIRED");
   return result;
 }

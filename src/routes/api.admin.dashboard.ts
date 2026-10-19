@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireMinimumRole } from "@/lib/server/roles";
+import { requireConsoleAccess } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { listAllAuthUsers } from "@/lib/server/auth-users";
 import { trustedLivemode } from "@/lib/server/stripe-mode";
@@ -66,9 +66,9 @@ export const Route = createFileRoute("/api/admin/dashboard")({
       // active-session count, device/geo analytics) was dropped instead of faked.
       GET: async ({ request }) => {
         try {
-          // Console access (Superadmin/Owner), not "view_dashboard" — every role has that
+          // Console access (Superadmin only), not "view_dashboard" — every role has that
           // permission for their own personal dashboard, but this reads across every user.
-          await requireMinimumRole(request, "owner");
+          await requireConsoleAccess(request);
           const service = createServiceSupabaseClient();
           const startOfToday = startOfDaysAgo(0);
           const startOf30DaysAgo = startOfDaysAgo(30);

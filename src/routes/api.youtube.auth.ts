@@ -5,6 +5,7 @@ import {
   buildGoogleAuthorizationUrl,
 } from "@/lib/server/google-oauth";
 import { buildSetCookie } from "@/lib/server/cookies";
+import { safeAppPath } from "@/lib/server/safe-redirect";
 
 export const Route = createFileRoute("/api/youtube/auth")({
   server: {
@@ -16,8 +17,7 @@ export const Route = createFileRoute("/api/youtube/auth")({
           const { client, setCookieHeaders } = await requireSessionUser(request);
           const requestUrl = new URL(request.url);
           const returnTo = requestUrl.searchParams.get("returnTo");
-          const safeReturnTo =
-            returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
+          const safeReturnTo = safeAppPath(returnTo, "/settings");
 
           // `ifNeeded=1` is what the sign-in flows use: go connect YouTube only when this person's
           // workspace has no channel yet. Without it every login — including a returning creator

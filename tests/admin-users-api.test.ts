@@ -20,11 +20,12 @@ test("signed out: 401, and the database is never asked for users", async () => {
   assert.equal(recorded.rpc.length, 0);
 });
 
-test("roles without manage_users (manager, setter, editor, user) are refused before any read", async () => {
-  for (const role of ["manager", "setter", "editor", "user", null]) {
+test("every role but Superadmin (owner, manager, setter, editor, user) is refused before any read", async () => {
+  for (const role of ["owner", "manager", "setter", "editor", "user", null]) {
     const list = await call(users, "/api/admin/users", { callerRole: role });
     assert.equal(list.status, 403, String(role));
-    assert.equal(list.body.error, "PERMISSION_REQUIRED");
+    // The admin console is Superadmin only; that is checked before any permission.
+    assert.equal(list.body.error, "ADMIN_REQUIRED");
     assert.equal(list.recorded.rpc.length, 0, `${role}: no list read`);
     const one = await call(detail, `/api/admin/users/detail?id=${TARGET}`, { callerRole: role });
     assert.equal(one.status, 403, `${role} detail`);
@@ -36,8 +37,8 @@ test("roles without manage_users (manager, setter, editor, user) are refused bef
   }
 });
 
-test("owner and superadmin may list users", async () => {
-  for (const role of ["owner", "superadmin"]) {
+test("a Superadmin may list users", async () => {
+  for (const role of ["superadmin"]) {
     const { status } = await call(users, "/api/admin/users", { callerRole: role });
     assert.equal(status, 200, role);
   }

@@ -60,7 +60,7 @@ test("a spoofed profiles.email cannot redirect an impersonation link or a passwo
     // The target rewrites their profile copy to the Superadmin's address.
     profile(a.w, a.target).email = "boss@example.com";
     profile(a.w, a.target).auth_email = "target@example.com";
-    const r = await action(a, a.owner, a.target);
+    const r = await action(a, a.superadmin, a.target);
     assert.equal(r.status, 200, r.text);
     assert.deepEqual(r.authTargets, ["target@example.com"], "the account's own address, from Auth");
     // Production contract (hotfix 232e17e): audit entries name the account by its immutable id
@@ -111,7 +111,7 @@ test("an unconfirmed address gets no impersonation link; a missing address gets 
 test("an impersonation link that would sign in to a different account is never returned", async () => {
   const a = admins();
   a.w.linkUserId = a.superadmin; // the address moved to another account in between
-  const r = await impersonate(a, a.owner, a.target);
+  const r = await impersonate(a, a.superadmin, a.target);
   // Production contract (hotfix 232e17e): LINK_MISMATCH, and the rejection itself is audited —
   // by account id, without the link.
   assert.deepEqual([r.status, r.body], [502, { error: "LINK_MISMATCH" }]);
@@ -128,10 +128,11 @@ test("an impersonation link that would sign in to a different account is never r
 test("the role hierarchy is still decided first: a refused request asks nothing of Supabase Auth", async () => {
   for (const action of [impersonate, resetPassword]) {
     const a = admins();
-    // An Owner against the Superadmin, whose profile copy names a plain user's address.
+    // An Owner against the Superadmin, whose profile copy names a plain user's address: refused
+    // at the console gate (Superadmin only) before anything else.
     profile(a.w, a.superadmin).email = "target@example.com";
     const r = await action(a, a.owner, a.superadmin);
-    assert.deepEqual([r.status, r.body], [403, { error: "PRIVILEGE_ESCALATION_BLOCKED" }]);
+    assert.deepEqual([r.status, r.body], [403, { error: "ADMIN_REQUIRED" }]);
     assert.deepEqual(r.authActions, []);
     assert.deepEqual(r.authTargets, []);
     assert.deepEqual(r.writes, []);

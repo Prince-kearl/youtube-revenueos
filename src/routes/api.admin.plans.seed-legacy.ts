@@ -74,9 +74,10 @@ export const Route = createFileRoute("/api/admin/plans/seed-legacy")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // Authorize first: whether Stripe is configured is not for an unauthorized caller.
+          const { user } = await requirePermission(request, "manage_plans");
           if (!isStripeConfigured())
             return json({ error: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
-          const { user } = await requirePermission(request, "manage_plans");
           // Admin authorization above runs on the session-bound client (subject to RLS), but plans/
           // plan_prices/plan_audit_log deliberately have no insert/update policy for regular
           // authenticated users — only the service-role client can write here, by design.

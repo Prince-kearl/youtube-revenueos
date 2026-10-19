@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireMinimumRole } from "@/lib/server/roles";
+import { requireConsoleAccess } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
 import { trustedLivemode } from "@/lib/server/stripe-mode";
@@ -45,11 +45,11 @@ export const Route = createFileRoute("/api/admin/workspaces")({
     handlers: {
       // Every real workspace (Tubify's actual tenant boundary — see the workspaces migration),
       // with its owner, real active member count, and the owner's real subscription/plan if any.
-      // Console access (Superadmin/Owner) rather than any per-feature permission, same reasoning
+      // Console access (Superadmin only) rather than any per-feature permission, same reasoning
       // as the Executive Dashboard: this reads across every user's workspace.
       GET: async ({ request }) => {
         try {
-          await requireMinimumRole(request, "owner");
+          await requireConsoleAccess(request);
           const service = createServiceSupabaseClient();
           // A workspace's plan and MRR come only from subscriptions recorded in the mode this
           // deployment bills in — never a test or unclassified one (none in production without a
@@ -140,7 +140,7 @@ export const Route = createFileRoute("/api/admin/workspaces")({
       // anywhere in the app, so it isn't reintroduced as a fake control.
       PATCH: async ({ request }) => {
         try {
-          const { user } = await requireMinimumRole(request, "owner");
+          const { user } = await requireConsoleAccess(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = patchSchema.parse(await parseJson(request));
 

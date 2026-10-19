@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/google-oauth";
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
+import { safeAppPath } from "@/lib/server/safe-redirect";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 import {
@@ -43,9 +44,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
           const code = url.searchParams.get("code");
           const state = url.searchParams.get("state");
           const expectedState = getCookie(request, "yt_oauth_state");
-          const returnTo = getCookie(request, "yt_oauth_return") ?? "/settings";
-          const safeReturnTo =
-            returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/settings";
+          const safeReturnTo = safeAppPath(getCookie(request, "yt_oauth_return"), "/settings");
           if (!code || !state || !expectedState || state !== expectedState) {
             return redirectToApp(`${safeReturnTo}?youtube=invalid_state`, url.origin);
           }

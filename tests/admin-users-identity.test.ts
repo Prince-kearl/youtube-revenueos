@@ -40,7 +40,7 @@ test("ATTACK: impersonation signs in as the account's Auth email, never the prof
   const { status, body, recorded } = await call(impersonate, "/api/admin/users/impersonate", {
     method: "POST",
     body: { id: TARGET },
-    callerRole: "owner",
+    callerRole: "superadmin",
     targetProfile: SPOOFED,
     authUser: REAL_AUTH,
   });
@@ -188,13 +188,11 @@ test("while the directory is incomplete the list says so, with progress — neve
 
 // ---------- maintenance endpoint ----------
 
-test("directory status: anyone who may manage users; only a Superadmin may maintain", async () => {
-  const owner = await call(directory, "/api/admin/users/directory", { callerRole: "owner" });
-  assert.equal(owner.status, 200);
-  assert.equal((owner.body.data as { canMaintain: boolean }).canMaintain, false);
+test("directory status: Superadmin only (the admin console is Superadmin only)", async () => {
   const superadmin = await call(directory, "/api/admin/users/directory");
+  assert.equal(superadmin.status, 200);
   assert.equal((superadmin.body.data as { canMaintain: boolean }).canMaintain, true);
-  for (const role of ["manager", "editor", "user", null]) {
+  for (const role of ["owner", "manager", "editor", "user", null]) {
     const refused = await call(directory, "/api/admin/users/directory", { callerRole: role });
     assert.equal(refused.status, 403, String(role));
     assert.equal(refused.recorded.rpc.length, 0);
@@ -211,7 +209,7 @@ test("maintenance is Superadmin-only: an Owner is refused before any database wo
       callerRole: "owner",
     });
     assert.equal(status, 403, action);
-    assert.equal(body.error, "ROLE_REQUIRED");
+    assert.equal(body.error, "ADMIN_REQUIRED");
     assert.equal(recorded.rpc.length, 0);
     assert.equal(recorded.audit.length, 0);
   }
