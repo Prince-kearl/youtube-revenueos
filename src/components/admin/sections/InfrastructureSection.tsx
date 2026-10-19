@@ -1,6 +1,6 @@
-import { CheckCircle2, HardDrive, Play } from "lucide-react";
+import { CheckCircle2, HardDrive, Play, Server } from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { useBackups, useTenants } from "@/lib/stores";
 import { uid } from "@/lib/local-store";
 import { useAuditLogger } from "../useAuditLogger";
@@ -43,7 +43,14 @@ export function InfrastructureSection() {
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {services.map((s) => (
-          <FlatKpiCard key={s.name} title={s.name} value="Operational" caption={s.latency} />
+          <AdminKpiCard
+            key={s.name}
+            icon={Server}
+            tone="green"
+            title={s.name}
+            value="Operational"
+            caption={s.latency}
+          />
         ))}
       </div>
 

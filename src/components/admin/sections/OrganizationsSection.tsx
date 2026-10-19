@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
-import { Search, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import {
+  Search,
+  MoreHorizontal,
+  Pencil,
+  RefreshCw,
+  Building2,
+  Users,
+  CreditCard,
+  DollarSign,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/ui-bits";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import {
   Dialog,
   DialogContent,
@@ -122,10 +131,20 @@ export function OrganizationsSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Workspaces" value={String(workspaces.length)} />
-        <FlatKpiCard title="Total Members" value={String(totalMembers)} />
-        <FlatKpiCard title="Paying" value={String(paying)} />
-        <FlatKpiCard title="MRR" value={money(totalMrr)} />
+        <AdminKpiCard
+          icon={Building2}
+          tone="blue"
+          title="Workspaces"
+          value={String(workspaces.length)}
+        />
+        <AdminKpiCard
+          icon={Users}
+          tone="purple"
+          title="Total Members"
+          value={String(totalMembers)}
+        />
+        <AdminKpiCard icon={CreditCard} tone="green" title="Paying" value={String(paying)} />
+        <AdminKpiCard icon={DollarSign} tone="amber" title="MRR" value={money(totalMrr)} />
       </div>
 
       <div className="relative mt-5 max-w-xs">

@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
-import { Plus, Send, Mail, Bell, Smartphone } from "lucide-react";
+import {
+  Plus,
+  Send,
+  Mail,
+  Bell,
+  Smartphone,
+  Megaphone,
+  CalendarClock,
+  FilePen,
+} from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import {
   Dialog,
   DialogContent,
@@ -75,13 +84,27 @@ export function CommunicationsSection() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Total Announcements" value={String(items.length)} />
-        <FlatKpiCard title="Sent" value={String(items.filter((a) => a.status === "Sent").length)} />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={Megaphone}
+          tone="blue"
+          title="Total Announcements"
+          value={String(items.length)}
+        />
+        <AdminKpiCard
+          icon={Send}
+          tone="green"
+          title="Sent"
+          value={String(items.filter((a) => a.status === "Sent").length)}
+        />
+        <AdminKpiCard
+          icon={CalendarClock}
+          tone="amber"
           title="Scheduled"
           value={String(items.filter((a) => a.status === "Scheduled").length)}
         />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={FilePen}
+          tone="neutral"
           title="Drafts"
           value={String(items.filter((a) => a.status === "Draft").length)}
         />

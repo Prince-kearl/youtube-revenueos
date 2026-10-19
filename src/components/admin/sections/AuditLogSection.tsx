@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { RefreshCw, ScrollText, ShieldCheck, Clock } from "lucide-react";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 
 type AuditEntry = {
   id: string;
@@ -94,9 +94,21 @@ export function AuditLogSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <FlatKpiCard title="Total Events" value={String(entries.length)} />
-        <FlatKpiCard title="Admins Involved" value={String(uniqueAdmins)} />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={ScrollText}
+          tone="blue"
+          title="Total Events"
+          value={String(entries.length)}
+        />
+        <AdminKpiCard
+          icon={ShieldCheck}
+          tone="purple"
+          title="Admins Involved"
+          value={String(uniqueAdmins)}
+        />
+        <AdminKpiCard
+          icon={Clock}
+          tone="amber"
           title="Most Recent"
           value={entries[0] ? new Date(entries[0].created_at).toLocaleDateString() : "—"}
         />

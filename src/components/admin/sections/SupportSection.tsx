@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, BookOpen } from "lucide-react";
+import {
+  CheckCircle2,
+  BookOpen,
+  Ticket,
+  CircleDot,
+  TriangleAlert,
+  CircleCheck,
+} from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { useAuditLogger } from "../useAuditLogger";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
@@ -98,16 +105,27 @@ export function SupportSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Total Tickets" value={String(tickets.length)} />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={Ticket}
+          tone="blue"
+          title="Total Tickets"
+          value={String(tickets.length)}
+        />
+        <AdminKpiCard
+          icon={CircleDot}
+          tone="amber"
           title="Open"
           value={String(tickets.filter((t) => t.status === "Open").length)}
         />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={TriangleAlert}
+          tone="red"
           title="Urgent"
           value={String(tickets.filter((t) => t.priority === "Urgent").length)}
         />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={CircleCheck}
+          tone="green"
           title="Resolved"
           value={String(tickets.filter((t) => t.status === "Resolved").length)}
         />

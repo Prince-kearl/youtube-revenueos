@@ -1,6 +1,6 @@
 import { toast } from "sonner";
-import { FileDown } from "lucide-react";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { FileDown, TrendingDown, Percent, Repeat, Timer } from "lucide-react";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const funnel = [
@@ -55,10 +55,10 @@ export function AnalyticsSection() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Monthly Churn" value="3.8%" />
-        <FlatKpiCard title="Visitor → Paid Conversion" value="6.1%" />
-        <FlatKpiCard title="6-Month Retention" value="39%" />
-        <FlatKpiCard title="Avg. Support Response" value="4.2m" />
+        <AdminKpiCard icon={TrendingDown} tone="red" title="Monthly Churn" value="3.8%" />
+        <AdminKpiCard icon={Percent} tone="green" title="Visitor → Paid Conversion" value="6.1%" />
+        <AdminKpiCard icon={Repeat} tone="blue" title="6-Month Retention" value="39%" />
+        <AdminKpiCard icon={Timer} tone="amber" title="Avg. Support Response" value="4.2m" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">

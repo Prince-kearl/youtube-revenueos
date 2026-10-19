@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Star, Pencil, Check, X } from "lucide-react";
+import { Star, Pencil, Check, X, Cpu, Coins, Sparkles, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -73,13 +73,25 @@ export function AiManagementSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={Cpu}
+          tone="blue"
           title="Enabled Models"
           value={String(models.filter((m) => m.enabled).length)}
         />
-        <FlatKpiCard title="Blended Cost / 1K Tokens" value={`$${totalCost.toFixed(3)}`} />
-        <FlatKpiCard title="Generations This Month" value="214.6K" />
-        <FlatKpiCard title="Pending Moderation" value={String(pending)} />
+        <AdminKpiCard
+          icon={Coins}
+          tone="amber"
+          title="Blended Cost / 1K Tokens"
+          value={`$${totalCost.toFixed(3)}`}
+        />
+        <AdminKpiCard icon={Sparkles} tone="purple" title="Generations This Month" value="214.6K" />
+        <AdminKpiCard
+          icon={ShieldAlert}
+          tone="red"
+          title="Pending Moderation"
+          value={String(pending)}
+        />
       </div>
 
       <h3 className="mt-6 text-sm font-semibold">AI Models</h3>

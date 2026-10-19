@@ -125,6 +125,7 @@ import { Route as ApiYoutubeStatsSyncRouteImport } from './routes/api.youtube.st
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
 import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
 import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
+import { Route as ApiAdminDashboardGrowthRouteImport } from './routes/api.admin.dashboard.growth'
 import { Route as ApiAdminFeaturesBulkRouteImport } from './routes/api.admin.features.bulk'
 import { Route as ApiAdminPlansAuditRouteImport } from './routes/api.admin.plans.audit'
 import { Route as ApiAdminPlansPricesRouteImport } from './routes/api.admin.plans.prices'
@@ -724,6 +725,11 @@ const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
   path: '/api/youtube/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminDashboardGrowthRoute = ApiAdminDashboardGrowthRouteImport.update({
+  id: '/growth',
+  path: '/growth',
+  getParentRoute: () => ApiAdminDashboardRoute,
+} as any)
 const ApiAdminFeaturesBulkRoute = ApiAdminFeaturesBulkRouteImport.update({
   id: '/bulk',
   path: '/bulk',
@@ -856,7 +862,7 @@ export interface FileRoutesByFullPath {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
-  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRouteWithChildren
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -918,6 +924,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/dashboard/growth': typeof ApiAdminDashboardGrowthRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
   '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
@@ -988,7 +995,7 @@ export interface FileRoutesByTo {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
-  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRouteWithChildren
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -1050,6 +1057,7 @@ export interface FileRoutesByTo {
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/dashboard/growth': typeof ApiAdminDashboardGrowthRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
   '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
@@ -1121,7 +1129,7 @@ export interface FileRoutesById {
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
   '/api/admin/audit': typeof ApiAdminAuditRoute
-  '/api/admin/dashboard': typeof ApiAdminDashboardRoute
+  '/api/admin/dashboard': typeof ApiAdminDashboardRouteWithChildren
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
@@ -1183,6 +1191,7 @@ export interface FileRoutesById {
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
+  '/api/admin/dashboard/growth': typeof ApiAdminDashboardGrowthRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
   '/api/admin/plans/prices': typeof ApiAdminPlansPricesRoute
@@ -1317,6 +1326,7 @@ export interface FileRouteTypes {
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/dashboard/growth'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
     | '/api/admin/plans/prices'
@@ -1449,6 +1459,7 @@ export interface FileRouteTypes {
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/dashboard/growth'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
     | '/api/admin/plans/prices'
@@ -1581,6 +1592,7 @@ export interface FileRouteTypes {
     | '/api/youtube/sync'
     | '/api/youtube/video'
     | '/api/youtube/videos'
+    | '/api/admin/dashboard/growth'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
     | '/api/admin/plans/prices'
@@ -1650,7 +1662,7 @@ export interface RootRouteChildren {
   FSlugRoute: typeof FSlugRoute
   RSlugRoute: typeof RSlugRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
-  ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
+  ApiAdminDashboardRoute: typeof ApiAdminDashboardRouteWithChildren
   ApiAdminFeaturesRoute: typeof ApiAdminFeaturesRouteWithChildren
   ApiAdminPlansRoute: typeof ApiAdminPlansRouteWithChildren
   ApiAdminReleasesRoute: typeof ApiAdminReleasesRouteWithChildren
@@ -2514,6 +2526,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/dashboard/growth': {
+      id: '/api/admin/dashboard/growth'
+      path: '/growth'
+      fullPath: '/api/admin/dashboard/growth'
+      preLoaderRoute: typeof ApiAdminDashboardGrowthRouteImport
+      parentRoute: typeof ApiAdminDashboardRoute
+    }
     '/api/admin/features/bulk': {
       id: '/api/admin/features/bulk'
       path: '/bulk'
@@ -2755,6 +2774,17 @@ const ApiVideosRouteWithChildren = ApiVideosRoute._addFileChildren(
   ApiVideosRouteChildren,
 )
 
+interface ApiAdminDashboardRouteChildren {
+  ApiAdminDashboardGrowthRoute: typeof ApiAdminDashboardGrowthRoute
+}
+
+const ApiAdminDashboardRouteChildren: ApiAdminDashboardRouteChildren = {
+  ApiAdminDashboardGrowthRoute: ApiAdminDashboardGrowthRoute,
+}
+
+const ApiAdminDashboardRouteWithChildren =
+  ApiAdminDashboardRoute._addFileChildren(ApiAdminDashboardRouteChildren)
+
 interface ApiAdminFeaturesRouteChildren {
   ApiAdminFeaturesBulkRoute: typeof ApiAdminFeaturesBulkRoute
 }
@@ -2864,7 +2894,7 @@ const rootRouteChildren: RootRouteChildren = {
   FSlugRoute: FSlugRoute,
   RSlugRoute: RSlugRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
-  ApiAdminDashboardRoute: ApiAdminDashboardRoute,
+  ApiAdminDashboardRoute: ApiAdminDashboardRouteWithChildren,
   ApiAdminFeaturesRoute: ApiAdminFeaturesRouteWithChildren,
   ApiAdminPlansRoute: ApiAdminPlansRouteWithChildren,
   ApiAdminReleasesRoute: ApiAdminReleasesRouteWithChildren,

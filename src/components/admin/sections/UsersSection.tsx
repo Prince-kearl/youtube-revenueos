@@ -14,9 +14,12 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  Users,
+  UserCheck,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -408,10 +411,30 @@ export function UsersSection() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Total Users" value={stats ? stats.total.toLocaleString() : "…"} />
-        <FlatKpiCard title="Active" value={stats ? stats.active.toLocaleString() : "…"} />
-        <FlatKpiCard title="Banned" value={stats ? stats.banned.toLocaleString() : "…"} />
-        <FlatKpiCard title="Pending" value={stats ? stats.pending.toLocaleString() : "…"} />
+        <AdminKpiCard
+          icon={Users}
+          tone="blue"
+          title="Total Users"
+          value={stats ? stats.total.toLocaleString() : "…"}
+        />
+        <AdminKpiCard
+          icon={UserCheck}
+          tone="green"
+          title="Active"
+          value={stats ? stats.active.toLocaleString() : "…"}
+        />
+        <AdminKpiCard
+          icon={Ban}
+          tone="red"
+          title="Banned"
+          value={stats ? stats.banned.toLocaleString() : "…"}
+        />
+        <AdminKpiCard
+          icon={Clock}
+          tone="amber"
+          title="Pending"
+          value={stats ? stats.pending.toLocaleString() : "…"}
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { ExternalLink, DollarSign, CreditCard } from "lucide-react";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { PlansManager } from "./billing/PlansManager";
 
@@ -44,7 +44,9 @@ export function BillingSection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-2">
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={DollarSign}
+          tone="green"
           title="MRR"
           value={figure((t) =>
             (t.mrrCents / 100).toLocaleString(undefined, {
@@ -54,7 +56,9 @@ export function BillingSection() {
             }),
           )}
         />
-        <FlatKpiCard
+        <AdminKpiCard
+          icon={CreditCard}
+          tone="blue"
           title="Active Subscriptions"
           value={figure((t) => t.activeSubscriptions.toLocaleString())}
         />

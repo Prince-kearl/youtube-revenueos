@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ShieldAlert, Plus, X } from "lucide-react";
+import { ShieldAlert, Plus, X, MonitorSmartphone, Ban, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { FlatKpiCard } from "@/components/KpiTrendCard";
+import { AdminKpiCard } from "@/components/admin/AdminKpiCard";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useAdminSessions, useIpLists, usePlatformSettings } from "@/lib/stores";
@@ -63,10 +63,30 @@ export function SecuritySection() {
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <FlatKpiCard title="Active Admin Sessions" value={String(sessions.length)} />
-        <FlatKpiCard title="Suspicious Events (7d)" value={String(suspiciousEvents.length)} />
-        <FlatKpiCard title="Blocked IPs" value={String(ipLists.block.length)} />
-        <FlatKpiCard title="MFA Policy" value={settings.requireMfa ? "Enforced" : "Optional"} />
+        <AdminKpiCard
+          icon={MonitorSmartphone}
+          tone="blue"
+          title="Active Admin Sessions"
+          value={String(sessions.length)}
+        />
+        <AdminKpiCard
+          icon={ShieldAlert}
+          tone="red"
+          title="Suspicious Events (7d)"
+          value={String(suspiciousEvents.length)}
+        />
+        <AdminKpiCard
+          icon={Ban}
+          tone="amber"
+          title="Blocked IPs"
+          value={String(ipLists.block.length)}
+        />
+        <AdminKpiCard
+          icon={KeyRound}
+          tone={settings.requireMfa ? "green" : "amber"}
+          title="MFA Policy"
+          value={settings.requireMfa ? "Enforced" : "Optional"}
+        />
       </div>
 
       <div className="relative mt-6 rounded-xl card-gradient-outline p-5">
