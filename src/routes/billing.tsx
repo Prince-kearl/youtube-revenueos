@@ -83,16 +83,22 @@ function BillingCheckout() {
   const [checkingOutId, setCheckingOutId] = useState<PlanId | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
 
+  // A signed-out (or expired) session goes to sign-in, as the app-shell pages do, rather than
+  // seeing "couldn't load". The server refuses the request either way; this is only navigation.
   useEffect(() => {
     fetch("/api/billing/subscription", { cache: "no-store" })
       .then(async (response) => {
+        if (response.status === 401) {
+          navigate({ to: "/", replace: true });
+          return;
+        }
         const body = (await response.json()) as SubscriptionResponse;
         if (!response.ok || !body.data) throw new Error();
         setData(body.data);
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
-  }, []);
+  }, [navigate]);
 
   const plans = data?.plans ?? [];
   // Odd-length catalogs land the badge dead center (matches the 3-plan reference); even-length
