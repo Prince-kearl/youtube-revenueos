@@ -18,6 +18,9 @@ import {
   Loader2,
   Play,
   Clock,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCarousel } from "@/components/KpiCarousel";
@@ -92,6 +95,31 @@ type YoutubeComment = {
   publishedAt: string | null;
   updatedAt: string | null;
   canReply: boolean | null;
+  /** Replies in the thread, as YouTube counts them. */
+  replyCount?: number | null;
+};
+/** A reply in a comment's thread (GET /api/comment-replies/thread). */
+type ThreadReply = {
+  id: string;
+  parentId: string | null;
+  authorName: string | null;
+  authorChannelId: string | null;
+  authorAvatarUrl: string | null;
+  text: string;
+  likeCount: number;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  /** Written by the connected channel itself: it can be edited. */
+  isOwn: boolean;
+  /** The reply Tubify sent. */
+  autoReply: boolean;
+};
+/** Thread and AI draft calls for one comment, bound to the active channel. */
+type CommentActions = {
+  loadThread: (commentId: string) => Promise<{ replies: ThreadReply[]; more: boolean }>;
+  editReply: (commentId: string, replyId: string, text: string) => Promise<ThreadReply>;
+  draftReply: (commentId: string, intent: string | null) => Promise<string | null>;
+  aiAvailable: boolean;
 };
 type YoutubeVideoOption = { id: string; title: string };
 /** The video a one-video comments view is about, for the preview at the top of the dialog. */
@@ -116,6 +144,8 @@ type ReplyQueue = {
     remaining: number;
   };
   pendingCommentIds: string[];
+  /** An AI provider is configured, so replies can be written by AI. */
+  aiAvailable?: boolean;
 };
 /** Why the queue stopped for now: today's limits, YouTube's quota, a reconnect, or an error. */
 type QueuePause = "daily_limit" | "quota" | "reconnect" | "error" | null;
@@ -181,6 +211,13 @@ function errorMessage(error: string): string {
     COMMENT_NOT_FOUND: "That comment wasn’t found on your channel.",
     REPLIES_DISABLED: "Replies are turned off for that comment.",
     YOUTUBE_REAUTH_REQUIRED: "Reconnect your YouTube channel in Settings.",
+    AI_NOT_CONFIGURED: "AI replies aren’t available right now.",
+    AI_REPLY_FAILED: "The AI couldn’t write a reply. Please try again.",
+    RATE_LIMIT_EXCEEDED: "You’ve reached your AI limit for now. Try again later.",
+    VIDEO_NOT_FOUND: "We couldn’t find that video on your channel.",
+    REPLY_NOT_FOUND: "Only your channel’s own replies can be edited.",
+    YOUTUBE_COMMENT_UPDATE_FAILED: "That reply couldn’t be updated. Please try again.",
+    VALIDATION_ERROR: "That request wasn’t valid. Please try again.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
 }
@@ -356,7 +393,10 @@ function Comments() {
     return result.data;
   };
   // Selected comments, 500 per request (the server's limit).
-  const queueSelectedReplies = async (items: QueueItemInput[]): Promise<QueueOutcome> => {
+  const queueSelectedReplies = async (
+    items: QueueItemInput[],
+    ai: boolean,
+  ): Promise<QueueOutcome> => {
     const total: QueueOutcome = {
       queued: 0,
       alreadyReplied: 0,
@@ -366,7 +406,7 @@ function Comments() {
       status: replyQueue as ReplyQueue,
     };
     for (let i = 0; i < items.length; i += 500) {
-      const part = await postQueue({ mode: "selected", items: items.slice(i, i + 500) });
+      const part = await postQueue({ mode: "selected", items: items.slice(i, i + 500), ai });
       total.queued += part.queued;
       total.alreadyReplied += part.alreadyReplied;
       total.alreadyQueued += part.alreadyQueued;
@@ -375,7 +415,54 @@ function Comments() {
     }
     return total;
   };
-  const queueAllReplies = () => postQueue({ mode: "all" });
+  const queueAllReplies = (ai: boolean) => postQueue({ mode: "all", ai });
+
+  // One comment's thread (replies, and editing the channel's own), and AI-written drafts.
+  const channelQuery = () => {
+    const params = new URLSearchParams();
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    return params;
+  };
+  const callJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
+    const response = await fetch(url, { cache: "no-store", ...init });
+    const body = (await response.json().catch(() => ({}))) as { data?: T; error?: string };
+    if (!response.ok || body.data === undefined) {
+      if (body.error === "YOUTUBE_INSUFFICIENT_SCOPE") setInsufficientScope(true);
+      throw new Error(errorMessage(body.error ?? "YOUTUBE_DATA_UNAVAILABLE"));
+    }
+    return body.data;
+  };
+  const commentActions: CommentActions = {
+    aiAvailable: replyQueue?.aiAvailable ?? false,
+    loadThread: (commentId) => {
+      const params = channelQuery();
+      params.set("commentId", commentId);
+      return callJson(`/api/comment-replies/thread?${params.toString()}`);
+    },
+    editReply: async (commentId, replyId, text) => {
+      const updated = await callJson<ThreadReply>(
+        `/api/comment-replies/thread?${channelQuery().toString()}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ commentId, replyId, text }),
+        },
+      );
+      loadRecentReplies();
+      return updated;
+    },
+    draftReply: async (commentId, intent) => {
+      const draft = await callJson<{ text: string | null }>(
+        `/api/comment-replies/draft?${channelQuery().toString()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ youtubeCommentId: commentId, intent }),
+        },
+      );
+      return draft.text;
+    },
+  };
   const cancelReplyQueue = async () => {
     const params = new URLSearchParams();
     if (activeChannelId) params.set("channelId", activeChannelId);
@@ -932,6 +1019,7 @@ function Comments() {
           onQueueAll: queueAllReplies,
           onCancel: cancelReplyQueue,
         }}
+        actions={commentActions}
       />
     </DashboardLayout>
   );
@@ -957,15 +1045,17 @@ function AllCommentsDialog({
   videoFilter,
   moreOnYoutube,
   queue,
+  actions,
 }: {
   open: boolean;
+  actions: CommentActions;
   /** The server-side reply queue: progress, today's allowance, and how to add to or cancel it. */
   queue: {
     state: ReplyQueue | null;
     pause: QueuePause;
     queuedIds: Set<string>;
-    onQueueSelected: (items: QueueItemInput[]) => Promise<QueueOutcome>;
-    onQueueAll: () => Promise<QueueOutcome>;
+    onQueueSelected: (items: QueueItemInput[], ai: boolean) => Promise<QueueOutcome>;
+    onQueueAll: (ai: boolean) => Promise<QueueOutcome>;
     onCancel: () => Promise<void>;
   };
   onOpenChange: (v: boolean) => void;
@@ -1049,6 +1139,10 @@ function AllCommentsDialog({
   // Bulk replies go to the server's queue (never a loop of sends from this browser), after a
   // confirmation that says how many can go out today.
   const [confirming, setConfirming] = useState<null | "selected" | "all">(null);
+  // AI replies (on by default when available): each reply is written for its own comment from the
+  // video's details when it is sent, instead of the same template text for every comment.
+  const [useAi, setUseAi] = useState(true);
+  const aiReplies = actions.aiAvailable && useAi;
   const summarize = (outcome: QueueOutcome) =>
     [
       `Queued ${outcome.queued} repl${outcome.queued === 1 ? "y" : "ies"}`,
@@ -1066,7 +1160,7 @@ function AllCommentsDialog({
     try {
       const outcome =
         mode === "all"
-          ? await queue.onQueueAll()
+          ? await queue.onQueueAll(aiReplies)
           : await queue.onQueueSelected(
               [...selected].flatMap((id) => {
                 const comment = comments.find((c) => c.id === id);
@@ -1080,6 +1174,7 @@ function AllCommentsDialog({
                   },
                 ];
               }),
+              aiReplies,
             );
       setSelected(new Set());
       toast.success(summarize(outcome));
@@ -1283,6 +1378,7 @@ function AllCommentsDialog({
                   onToggleSelect={() => toggleOne(c.id)}
                   onReply={(text) => void replyOne(c, text)}
                   showVideo={!videoFilter}
+                  actions={actions}
                 />
               ))}
               {visible.length > rendered.length && (
@@ -1347,6 +1443,19 @@ function AllCommentsDialog({
                       } go out today (limit ${allowance.dailyCap} a day); the rest continue on the following days.`
                     : "They go out a few at a time within today’s limit; the rest continue on the following days."}
                 </p>
+                {actions.aiAvailable && (
+                  <label className="flex w-full items-center gap-2 text-xs">
+                    <Switch checked={useAi} onCheckedChange={setUseAi} aria-label="AI replies" />
+                    <span className="min-w-0">
+                      <span className="font-medium">AI replies</span>
+                      <span className="text-muted-foreground">
+                        {useAi
+                          ? " · each reply is written for its comment from the video’s description and details; spam is skipped"
+                          : " · every comment gets its rule’s reply text"}
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div className="flex shrink-0 gap-2">
                   <button
                     type="button"
@@ -1418,8 +1527,10 @@ function CommentRow({
   onToggleSelect,
   onReply,
   showVideo,
+  actions,
 }: {
   comment: YoutubeComment;
+  actions: CommentActions;
   /** A reply to it is waiting in the queue. */
   queued: boolean;
   videoTitle: string;
@@ -1433,6 +1544,54 @@ function CommentRow({
   onReply: (text: string) => void;
 }) {
   const [draft, setDraft] = useState(rule?.reply_template ?? GENERIC_REPLY);
+  const [drafting, setDrafting] = useState(false);
+  // The thread: loaded when the comment is opened, kept while the dialog is.
+  const [open, setOpen] = useState(false);
+  const [thread, setThread] = useState<
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; replies: ThreadReply[]; more: boolean }
+    | null
+  >(null);
+  const loadThread = () => {
+    setThread({ status: "loading" });
+    actions
+      .loadThread(comment.id)
+      .then((result) => setThread({ status: "ready", ...result }))
+      .catch((error: unknown) =>
+        setThread({
+          status: "error",
+          message: error instanceof Error ? error.message : "We couldn’t load the replies.",
+        }),
+      );
+  };
+  const toggleThread = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && (!thread || thread.status === "error")) loadThread();
+  };
+  // Replying changes the thread: load it again next time it is opened.
+  useEffect(() => {
+    if (replied) {
+      setThread(null);
+      setOpen(false);
+    }
+  }, [replied]);
+  const replyCount =
+    thread?.status === "ready" ? thread.replies.length : (comment.replyCount ?? null);
+
+  const writeWithAi = async () => {
+    setDrafting(true);
+    try {
+      const text = await actions.draftReply(comment.id, rule?.reply_template ?? null);
+      if (text) setDraft(text);
+      else toast.message("This comment looks like spam, so the AI suggests not replying.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The AI couldn’t write a reply.");
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   return (
     <div className={`rounded-xl border border-border p-3 ${replied ? "bg-accent/20" : ""}`}>
@@ -1450,12 +1609,32 @@ function CommentRow({
               {timeAgo(comment.publishedAt)}
             </span>
           </div>
-          <p
-            className="mt-0.5 line-clamp-4 break-words text-sm text-muted-foreground"
-            title={comment.text}
+          {/* The comment opens its thread: every reply, and the channel's own can be edited. */}
+          <button
+            type="button"
+            onClick={toggleThread}
+            aria-expanded={open}
+            className="mt-0.5 block w-full text-left"
+            title="Show replies"
           >
-            &quot;{comment.text}&quot;
-          </p>
+            <span
+              className={`break-words text-sm text-muted-foreground ${open ? "" : "line-clamp-4"}`}
+            >
+              &quot;{comment.text}&quot;
+            </span>
+            <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-primary">
+              {open ? (
+                <ChevronUp className="h-3 w-3" aria-hidden />
+              ) : (
+                <ChevronDown className="h-3 w-3" aria-hidden />
+              )}
+              {open
+                ? "Hide replies"
+                : replyCount
+                  ? `${replyCount} repl${replyCount === 1 ? "y" : "ies"}`
+                  : "Replies"}
+            </span>
+          </button>
           {(showVideo || rule) && (
             <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
               {showVideo && <span className="truncate">{videoTitle}</span>}
@@ -1493,8 +1672,28 @@ function CommentRow({
         )}
       </div>
 
+      {open && (
+        <CommentThread
+          state={thread}
+          onRetry={loadThread}
+          onEdit={async (reply, text) => {
+            const updated = await actions.editReply(comment.id, reply.id, text);
+            setThread((current) =>
+              current?.status === "ready"
+                ? {
+                    ...current,
+                    replies: current.replies.map((r) =>
+                      r.id === reply.id ? { ...r, ...updated } : r,
+                    ),
+                  }
+                : current,
+            );
+          }}
+        />
+      )}
+
       {!replied && !queued && comment.canReply !== false && (
-        <div className="ml-7 mt-2">
+        <div className="ml-7 mt-2 space-y-1.5">
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -1503,7 +1702,148 @@ function CommentRow({
             className="min-h-[2.25rem] resize-y py-1.5 text-sm"
             placeholder="Reply text..."
           />
+          {actions.aiAvailable && (
+            <button
+              type="button"
+              onClick={() => void writeWithAi()}
+              disabled={drafting}
+              className="flex items-center gap-1 text-[11px] font-medium text-brand-purple hover:underline disabled:opacity-60"
+              title="Write a reply to this comment from the video’s description and details — you can edit it before sending"
+            >
+              {drafting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {drafting ? "Writing…" : "Write with AI"}
+            </button>
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** A comment's replies, oldest first; the channel's own replies can be edited in place. */
+function CommentThread({
+  state,
+  onRetry,
+  onEdit,
+}: {
+  state:
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; replies: ThreadReply[]; more: boolean }
+    | null;
+  onRetry: () => void;
+  onEdit: (reply: ThreadReply, text: string) => Promise<void>;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async (reply: ThreadReply) => {
+    const text = editText.trim();
+    if (!text) return;
+    setSaving(true);
+    try {
+      await onEdit(reply, text);
+      setEditingId(null);
+      toast.success("Reply updated on YouTube");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That reply couldn’t be updated.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="ml-7 mt-2 border-l-2 border-border pl-3" aria-live="polite">
+      {(!state || state.status === "loading") && (
+        <div className="space-y-1.5" aria-busy="true" aria-label="Loading replies">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+      )}
+      {state?.status === "error" && (
+        <p className="text-xs text-muted-foreground">
+          {state.message}{" "}
+          <button type="button" onClick={onRetry} className="font-medium text-primary">
+            Try again
+          </button>
+        </p>
+      )}
+      {state?.status === "ready" && state.replies.length === 0 && (
+        <p className="text-xs text-muted-foreground">No replies yet.</p>
+      )}
+      {state?.status === "ready" && state.replies.length > 0 && (
+        <ul className="space-y-2">
+          {state.replies.map((reply) => (
+            <li key={reply.id} className="text-sm">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="truncate font-medium text-foreground">
+                  {reply.authorName ?? "Unknown"}
+                </span>
+                {reply.isOwn && (
+                  <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-primary">
+                    {reply.autoReply ? "Auto-reply" : "You"}
+                  </span>
+                )}
+                <span className="shrink-0">{timeAgo(reply.publishedAt)}</span>
+                {reply.isOwn && editingId !== reply.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(reply.id);
+                      setEditText(reply.text);
+                    }}
+                    className="ml-auto flex shrink-0 items-center gap-1 font-medium text-primary hover:underline"
+                    aria-label="Edit reply"
+                  >
+                    <Pencil className="h-3 w-3" /> Edit
+                  </button>
+                )}
+              </div>
+              {editingId === reply.id ? (
+                <div className="mt-1 space-y-1.5">
+                  <Textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    rows={2}
+                    aria-label="Edit your reply"
+                    className="resize-y py-1.5 text-sm"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="h-8 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void save(reply)}
+                      disabled={saving || !editText.trim() || editText.trim() === reply.text}
+                      className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                    >
+                      {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-0.5 whitespace-pre-line break-words text-muted-foreground">
+                  {reply.text}
+                </p>
+              )}
+            </li>
+          ))}
+          {state.more && (
+            <li className="text-[11px] text-muted-foreground">
+              Showing the first {state.replies.length} replies.
+            </li>
+          )}
+        </ul>
       )}
     </div>
   );

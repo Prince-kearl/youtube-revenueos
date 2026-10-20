@@ -580,8 +580,8 @@ const page = readFileSync("src/routes/comments.tsx", "utf8").replace(/\s+/g, " "
 test("the page queues bulk replies on the server instead of sending them one by one", () => {
   // No loop of direct sends from the browser any more.
   assert.doesNotMatch(page, /for \(const id of ids\) \{[^}]*onSendReply/);
-  assert.match(page, /postQueue\(\{ mode: "selected", items: items\.slice\(i, i \+ 500\) \}\)/);
-  assert.match(page, /postQueue\(\{ mode: "all" \}\)/);
+  assert.match(page, /postQueue\(\{ mode: "selected", items: items\.slice\(i, i \+ 500\), ai \}\)/);
+  assert.match(page, /postQueue\(\{ mode: "all", ai \}\)/);
   // A confirmation first, saying how many go out today.
   assert.match(
     page,

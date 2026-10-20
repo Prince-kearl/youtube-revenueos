@@ -19,12 +19,19 @@ import {
   ReplyQueueError,
   type QueueItem,
 } from "@/lib/server/comment-reply-queue";
-import { GENERIC_REPLY, matchRule, personalizeReply } from "@/lib/comment-rule-match";
+import {
+  AI_DEFAULT_INTENT,
+  GENERIC_REPLY,
+  matchRule,
+  personalizeReply,
+} from "@/lib/comment-rule-match";
+import { getActiveProviderInfo } from "@/lib/server/ai-generation";
 
 // The Comment Automation reply queue (see lib/server/comment-reply-queue.ts).
 //
 //   GET     progress and today's allowance for the caller's channel
-//   POST    queue replies: { mode: "selected", items } or { mode: "all" }
+//   POST    queue replies: { mode: "selected", items } or { mode: "all" }; with ai: true each
+//           reply is written by AI for its own comment when it is sent
 //   DELETE  cancel this channel's replies still waiting
 //
 // Every request is the caller's own: Comment Automation must be enabled for their workspace role,
@@ -53,9 +60,10 @@ const queueSchema = z.discriminatedUnion("mode", [
         )
         .min(1)
         .max(500),
+      ai: z.boolean().optional(),
     })
     .strict(),
-  z.object({ mode: z.literal("all") }).strict(),
+  z.object({ mode: z.literal("all"), ai: z.boolean().optional() }).strict(),
 ]);
 
 function json(body: unknown, init?: ResponseInit) {
@@ -151,7 +159,7 @@ export const Route = createFileRoute("/api/comment-replies")({
             channel.id,
             new Date(),
           );
-          return json({ data: status });
+          return json({ data: { ...status, aiAvailable: getActiveProviderInfo() !== null } });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof ReplyQueueError)
@@ -180,6 +188,11 @@ export const Route = createFileRoute("/api/comment-replies")({
           const parsed = queueSchema.safeParse(body);
           if (!parsed.success) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           const input = parsed.data;
+          // AI mode: each reply is written for its own comment when it is sent; the text queued
+          // now is only the intent (the rule's template), never posted as is.
+          const ai = input.ai === true;
+          if (ai && !getActiveProviderInfo())
+            return json({ error: "AI_NOT_CONFIGURED" }, { status: 503 });
 
           const { service, token } = await accessTokenFor(channel.id);
           const items: QueueItem[] = [];
@@ -216,8 +229,11 @@ export const Route = createFileRoute("/api/comment-replies")({
               if (!comment) continue;
               items.push({
                 comment,
-                replyText: personalizeReply(item.replyText, comment.authorName),
+                replyText: ai
+                  ? item.replyText
+                  : personalizeReply(item.replyText, comment.authorName),
                 ruleId: item.ruleId && validRules.has(item.ruleId) ? item.ruleId : null,
+                mode: ai ? "ai" : "text",
               });
             }
           } else {
@@ -236,11 +252,11 @@ export const Route = createFileRoute("/api/comment-replies")({
                 const rule = matchRule(comment, rules, videoIdByRuleVideoId);
                 items.push({
                   comment,
-                  replyText: personalizeReply(
-                    rule?.reply_template ?? GENERIC_REPLY,
-                    comment.authorName,
-                  ),
+                  replyText: ai
+                    ? (rule?.reply_template ?? AI_DEFAULT_INTENT)
+                    : personalizeReply(rule?.reply_template ?? GENERIC_REPLY, comment.authorName),
                   ruleId: rule?.id ?? null,
+                  mode: ai ? "ai" : "text",
                 });
               }
               pageToken = result.nextPageToken;

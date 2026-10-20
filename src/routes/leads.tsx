@@ -58,6 +58,8 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/modals";
+import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
+import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/leads")({
@@ -97,7 +99,30 @@ type LeadMessage = {
   text: string;
   pinned: boolean;
   created_at: string;
+  /** The YouTube comment this message is (a comment or reply on the channel), when it is one. */
+  youtube_comment_id?: string | null;
 };
+
+/** A lead you can talk to on YouTube: a commenter whose YouTube channel id is known. */
+const isYoutubeLead = (lead: { platform: string; username: string | null }) =>
+  lead.platform === "YouTube Comment" && /^UC[A-Za-z0-9_-]{22}$/.test(lead.username ?? "");
+
+/** How often an open YouTube conversation checks for new replies. */
+const YOUTUBE_SYNC_MS = 60_000;
+
+function leadErrorMessage(error: string | undefined): string {
+  const messages: Record<string, string> = {
+    DAILY_REPLY_LIMIT: "Today’s reply limit is reached. Try again tomorrow.",
+    QUOTA_RESERVE_REACHED: "Today’s YouTube quota for replies is used up. Try again tomorrow.",
+    YOUTUBE_QUOTA_EXCEEDED: "YouTube’s daily quota is used up. Try again tomorrow.",
+    NO_THREAD: "We couldn’t find a comment of theirs on your channel to reply to.",
+    REPLIES_DISABLED: "Replies are turned off for their comment.",
+    YOUTUBE_INSUFFICIENT_SCOPE: "Reconnect your YouTube channel in Settings to send replies.",
+    YOUTUBE_REAUTH_REQUIRED: "Reconnect your YouTube channel in Settings.",
+    CHANNEL_NOT_FOUND: "Connect your YouTube channel in Settings to send replies.",
+  };
+  return (error && messages[error]) || "That reply couldn’t be sent. Please try again.";
+}
 
 const STATUS_ORDER: LeadStatus[] = [
   "new",
@@ -298,6 +323,10 @@ function LeadInbox() {
     "idle",
   );
   const [sendingNote, setSendingNote] = useState(false);
+  const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  // YouTube leads: the composer replies on YouTube by default; a note stays private.
+  const [composeMode, setComposeMode] = useState<"youtube" | "note">("youtube");
+  const [syncTick, setSyncTick] = useState(0);
   const [summarizing, setSummarizing] = useState(false);
   const [linking, setLinking] = useState(false);
 
@@ -364,6 +393,9 @@ function LeadInbox() {
   const groupKey = selectedId
     ? [selectedId, ...linkedChildren.map((c) => c.id)].sort().join(",")
     : "";
+  const youtubeLead = selectedGroup.find(isYoutubeLead) ?? null;
+  const replyingOnYoutube = youtubeLead !== null && composeMode === "youtube";
+  const channelQuery = activeChannelId ? `&channelId=${encodeURIComponent(activeChannelId)}` : "";
   const unreadCount = topLevelLeads.filter((l) => l.unread).length;
   const newCount = topLevelLeads.filter((l) => l.status === "new").length;
   const bookedCount = topLevelLeads.filter(
@@ -407,18 +439,38 @@ function LeadInbox() {
     }
     const groupIds = groupKey.split(",").filter(Boolean);
     const controller = new AbortController();
-    setMessagesStatus("loading");
-    Promise.all(
-      groupIds.map((id) =>
-        fetch(`/api/leads/messages?leadId=${id}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then(async (response) => {
-          const body = (await response.json()) as MessagesResponse;
+    // A background re-check keeps showing the conversation while it loads.
+    if (syncTick === 0) setMessagesStatus("loading");
+    const stored = (id: string) =>
+      fetch(`/api/leads/messages?leadId=${id}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      }).then(async (response) => {
+        const body = (await response.json()) as MessagesResponse;
+        if (!response.ok || !body.data) throw new Error();
+        return body.data;
+      });
+    // A YouTube lead: receive their new comments and replies from YouTube first. If YouTube can't
+    // be reached, the stored conversation still shows.
+    const synced = (id: string) =>
+      fetch(`/api/leads/youtube?leadId=${id}${channelQuery}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const body = (await response.json()) as { data?: { messages: LeadMessage[] } };
           if (!response.ok || !body.data) throw new Error();
-          return body.data;
-        }),
-      ),
+          return body.data.messages;
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") throw error;
+          return stored(id);
+        });
+    Promise.all(
+      groupIds.map((id) => {
+        const lead = leads.find((l) => l.id === id);
+        return lead && isYoutubeLead(lead) ? synced(id) : stored(id);
+      }),
     )
       .then((lists) => {
         const merged = lists
@@ -432,7 +484,41 @@ function LeadInbox() {
         setMessagesStatus("error");
       });
     return () => controller.abort();
-  }, [selectedId, groupKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, groupKey, syncTick]);
+
+  // Check an open YouTube conversation for new replies now and then.
+  const hasYoutubeLead = youtubeLead !== null;
+  useEffect(() => {
+    setSyncTick(0);
+    if (!hasYoutubeLead) return;
+    const timer = setInterval(() => setSyncTick((n) => n + 1), YOUTUBE_SYNC_MS);
+    return () => clearInterval(timer);
+  }, [selectedId, hasYoutubeLead]);
+
+  // Sends the draft as a public reply in the lead's YouTube comment thread.
+  const replyOnYoutube = async () => {
+    if (!selected || !youtubeLead || !draft.trim()) return;
+    setSendingNote(true);
+    try {
+      const response = await fetch(`/api/leads/youtube?${channelQuery.slice(1)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: youtubeLead.id, text: draft.trim() }),
+      });
+      const body = (await response.json()) as MessageMutationResponse;
+      if (!response.ok || !body.data) throw new Error(leadErrorMessage(body.error));
+      setMessages((prev) => [...prev, body.data as LeadMessage]);
+      updateLead(selected.id, { updated_at: new Date().toISOString() });
+      setDraft("");
+      toast.success(`Replied to ${youtubeLead.name} on YouTube`);
+      if (selected.status === "new") void patchLead(selected.id, { status: "contacted" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : leadErrorMessage(undefined));
+    } finally {
+      setSendingNote(false);
+    }
+  };
 
   const addNote = async () => {
     if (!selected || !draft.trim()) return;
@@ -993,7 +1079,11 @@ function LeadInbox() {
                                 isYou ? "text-primary-foreground/70" : "text-muted-foreground",
                               )}
                             >
-                              {m.kind === "comment" ? "YouTube comment reply" : "Note"}
+                              {m.kind === "comment"
+                                ? isYou
+                                  ? "Your reply on YouTube"
+                                  : "YouTube comment"
+                                : "Private note"}
                               {sourceLead ? ` · ${sourceLead.platform}` : ""}
                             </p>
                             {m.text}
@@ -1004,24 +1094,56 @@ function LeadInbox() {
                 </div>
 
                 <div className="shrink-0 border-t border-border p-4">
+                  {youtubeLead && (
+                    <div
+                      role="group"
+                      aria-label="Message type"
+                      className="mb-2 inline-flex rounded-full bg-accent p-0.5 text-xs font-medium"
+                    >
+                      {(
+                        [
+                          ["youtube", "Reply on YouTube"],
+                          ["note", "Private note"],
+                        ] as const
+                      ).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setComposeMode(mode)}
+                          aria-pressed={composeMode === mode}
+                          className={cn(
+                            "rounded-full px-3 py-1",
+                            composeMode === mode
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      void addNote();
+                      void (replyingOnYoutube ? replyOnYoutube() : addNote());
                     }}
                     className="flex items-end gap-2 rounded-2xl border border-border bg-accent/10 p-1.5 pl-3.5 focus-within:border-primary"
                   >
                     <input
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      placeholder="Add a private note…"
+                      placeholder={
+                        replyingOnYoutube ? `Reply to ${youtubeLead.name}…` : "Add a private note…"
+                      }
+                      maxLength={4000}
                       className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     />
                     <button
                       type="submit"
                       disabled={sendingNote || !draft.trim()}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
-                      aria-label="Save note"
+                      aria-label={replyingOnYoutube ? "Send reply on YouTube" : "Save note"}
                     >
                       {sendingNote ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1031,7 +1153,9 @@ function LeadInbox() {
                     </button>
                   </form>
                   <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
-                    Private note only — not sent to {selected.name}.
+                    {replyingOnYoutube
+                      ? "Posted publicly as a reply to their comment on YouTube. Their replies show up here."
+                      : `Private note only — not sent to ${selected.name}.`}
                     {externalLinksForGroup(selected).length > 0 && (
                       <>
                         {" "}

@@ -224,10 +224,10 @@ function rankSearchMatches<T>(
 }
 
 export function DashboardLayout({
-  title,
   children,
   hideAppNav,
 }: {
+  /** The page's name. Not shown in the top bar (each page has its own heading). */
   title: string;
   children: ReactNode;
   hideAppNav?: boolean;
@@ -854,9 +854,6 @@ export function DashboardLayout({
             <div className={hideAppNav ? "" : "md:hidden"}>
               <Logo collapsed />
             </div>
-            <h2 className="truncate text-[15px] font-semibold tracking-tight text-primary">
-              {title}
-            </h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div ref={searchContainerRef} className="relative hidden lg:block">

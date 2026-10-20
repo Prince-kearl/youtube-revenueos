@@ -12,6 +12,13 @@ import {
   YoutubeQuotaExceededError,
   type YoutubeCommentSummary,
 } from "./google-oauth";
+import {
+  generateCommentReply,
+  getActiveProviderInfo,
+  type CommentReplyInput,
+} from "./ai-generation";
+import { recordAiUsage } from "./ai-usage";
+import { loadVideoReplyContext, type VideoReplyContext } from "./comment-reply-context";
 
 // The Comment Automation reply queue (table comment_reply_jobs).
 //
@@ -46,9 +53,15 @@ export const STALE_CLAIM_MS = 10 * 60_000;
 export const MAX_ATTEMPTS = 3;
 /** At most this many jobs are queued per request. */
 export const MAX_QUEUE_PER_REQUEST = 2_000;
+/** One processing call stops starting new replies after this long (AI replies take seconds each). */
+export const PROCESS_TIME_BUDGET_MS = 25_000;
+/** The ai_usage task an AI-written queued reply is recorded under. */
+export const AI_QUEUE_TASK = "comment_reply_auto";
 
 export type JobStatus = "queued" | "sending" | "sent" | "failed" | "skipped";
 export type QueuePause = "daily_limit" | "quota" | "reconnect" | null;
+/** "text": reply_text is posted as is. "ai": reply_text is the intent; AI writes the reply when it is sent. */
+export type ReplyMode = "text" | "ai";
 
 export class ReplyQueueError extends Error {
   constructor(readonly code: string) {
@@ -106,7 +119,15 @@ export async function replyAllowance(
       .eq("status", "sent")
       .gte("created_at", day);
     if (error) throw new ReplyQueueError("DATABASE_ERROR");
-    sentToday = count ?? 0;
+    // Replies sent from the Lead Inbox (lib/server/lead-youtube.ts) count towards the same cap.
+    const { count: leadReplies, error: leadError } = await service
+      .from("youtube_quota_events")
+      .select("id", { count: "exact", head: true })
+      .in("channel_id", channelIds)
+      .eq("operation", "lead.reply")
+      .gte("created_at", day);
+    if (leadError) throw new ReplyQueueError("DATABASE_ERROR");
+    sentToday = (count ?? 0) + (leadReplies ?? 0);
   }
   // Every unit any Tubify user spent today: the quota is the app's, not the workspace's.
   let used = 0;
@@ -144,8 +165,10 @@ export async function replyAllowance(
 export interface QueueItem {
   /** The comment as YouTube reported it (never as a browser described it). */
   comment: YoutubeCommentSummary;
+  /** The reply to post ("text"), or the creator's intent for it ("ai"). */
   replyText: string;
   ruleId: string | null;
+  mode?: ReplyMode;
 }
 
 const chunks = <T>(list: T[], size: number) =>
@@ -221,6 +244,7 @@ export async function enqueueReplies(
       author_avatar_url: item.comment.authorAvatarUrl,
       comment_text: item.comment.text,
       reply_text: item.replyText,
+      reply_mode: item.mode ?? "text",
       status: "queued",
       attempts: 0,
     });
@@ -242,6 +266,7 @@ export async function enqueueReplies(
         .update({
           status: "queued",
           reply_text: item.replyText,
+          reply_mode: item.mode ?? "text",
           rule_id: item.ruleId,
           attempts: 0,
           last_error: null,
@@ -329,12 +354,23 @@ export async function queueStatus(
 export interface ProcessDependencies {
   now: () => Date;
   sleep: (ms: number) => Promise<void>;
+  /** Writes an AI reply (null: the comment should get no reply). Replaceable in tests. */
+  writeReply?: (input: CommentReplyInput) => Promise<string | null>;
 }
 
 const defaultDependencies: ProcessDependencies = {
   now: () => new Date(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
+
+/** An AI reply could not be written: no provider, the provider failed, or no video details. */
+class AiReplyError extends Error {
+  constructor(
+    readonly code: "AI_NOT_CONFIGURED" | "AI_REPLY_FAILED" | "VIDEO_CONTEXT_UNAVAILABLE",
+  ) {
+    super(code);
+  }
+}
 
 export interface ProcessResult {
   sent: number;
@@ -356,11 +392,12 @@ type Job = {
   author_avatar_url: string | null;
   comment_text: string;
   reply_text: string;
+  reply_mode: ReplyMode;
   attempts: number;
 };
 
 const JOB_COLUMNS =
-  "id, workspace_id, channel_id, created_by, rule_id, youtube_comment_id, youtube_video_id, author_name, author_channel_id, author_avatar_url, comment_text, reply_text, attempts";
+  "id, workspace_id, channel_id, created_by, rule_id, youtube_comment_id, youtube_video_id, author_name, author_channel_id, author_avatar_url, comment_text, reply_text, reply_mode, attempts";
 
 /**
  * Sends up to `maxReplies` of one workspace's queued replies (never more than today's allowance),
@@ -376,6 +413,7 @@ export async function processWorkspaceQueue(
 ): Promise<ProcessResult> {
   const result: ProcessResult = { sent: 0, failed: 0, skipped: 0, paused: null };
   const now = dependencies.now();
+  const startedAt = Date.now();
 
   // A job claimed long ago (a crashed or timed-out run) goes back to the queue.
   unwrap(
@@ -395,29 +433,77 @@ export async function processWorkspaceQueue(
     return result;
   }
 
-  const tokens = new Map<string, string | null>();
-  const tokenFor = async (channelId: string): Promise<string | null> => {
+  type ChannelAccess = { token: string; youtubeChannelId: string };
+  const tokens = new Map<string, ChannelAccess | null>();
+  const tokenFor = async (channelId: string): Promise<ChannelAccess | null> => {
     if (tokens.has(channelId)) return tokens.get(channelId)!;
     const row = unwrap(
       await service
         .from("youtube_channels")
         .select(
-          "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+          "id, youtube_channel_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
         )
         .eq("id", channelId)
         .eq("workspace_id", workspaceId)
         .maybeSingle(),
-    ) as { connection?: Parameters<typeof normalizeYoutubeConnectionRow>[0] } | null;
+    ) as {
+      youtube_channel_id?: string;
+      connection?: Parameters<typeof normalizeYoutubeConnectionRow>[0];
+    } | null;
     const connection = normalizeYoutubeConnectionRow(row?.connection);
     const token = connection ? await getValidAccessToken(service, connection) : null;
-    tokens.set(channelId, token);
-    return token;
+    const access =
+      token && row?.youtube_channel_id ? { token, youtubeChannelId: row.youtube_channel_id } : null;
+    tokens.set(channelId, access);
+    return access;
+  };
+
+  // AI mode: the reply is written now, for this one comment, from the video's own details
+  // (loaded once per video per run, and only for the job's own channel).
+  const contexts = new Map<string, VideoReplyContext | null>();
+  const writeAiReply = async (job: Job, channel: ChannelAccess): Promise<string | null> => {
+    const provider = getActiveProviderInfo();
+    if (!provider && !dependencies.writeReply) throw new AiReplyError("AI_NOT_CONFIGURED");
+    const key = `${job.channel_id}:${job.youtube_video_id}`;
+    if (!contexts.has(key))
+      contexts.set(
+        key,
+        await loadVideoReplyContext(service, {
+          channelId: job.channel_id,
+          youtubeChannelId: channel.youtubeChannelId,
+          youtubeVideoId: job.youtube_video_id,
+          accessToken: channel.token,
+        }),
+      );
+    const context = contexts.get(key);
+    if (!context) throw new AiReplyError("VIDEO_CONTEXT_UNAVAILABLE");
+    const { channelName, ...video } = context;
+    let text: string | null;
+    try {
+      text = await (dependencies.writeReply ?? generateCommentReply)({
+        channelName,
+        video,
+        comment: { authorName: job.author_name, text: job.comment_text },
+        guidance: job.reply_text,
+      });
+    } catch {
+      throw new AiReplyError("AI_REPLY_FAILED");
+    }
+    if (provider)
+      await recordAiUsage(service, {
+        userId: job.created_by,
+        provider: provider.provider,
+        model: provider.model,
+        task: AI_QUEUE_TASK,
+      });
+    return text;
   };
   const setJob = async (id: string, fields: Record<string, unknown>) =>
     unwrap(await service.from("comment_reply_jobs").update(fields).eq("id", id).select("id"));
 
   let attempted = 0;
   while (attempted < budget) {
+    if (Date.now() - startedAt > PROCESS_TIME_BUDGET_MS) break;
     const next = unwrap(
       await service
         .from("comment_reply_jobs")
@@ -461,8 +547,8 @@ export async function processWorkspaceQueue(
     }
 
     try {
-      const token = await tokenFor(job.channel_id);
-      if (!token) {
+      const channel = await tokenFor(job.channel_id);
+      if (!channel) {
         await setJob(job.id, {
           status: "failed",
           last_error: "CHANNEL_DISCONNECTED",
@@ -471,7 +557,22 @@ export async function processWorkspaceQueue(
         result.failed += 1;
         continue;
       }
-      await postYoutubeCommentReply(token, job.youtube_comment_id, job.reply_text);
+      let replyText = job.reply_text;
+      if (job.reply_mode === "ai") {
+        const written = await writeAiReply(job, channel);
+        if (!written) {
+          // The AI judged the comment spam or abuse: no reply, and nothing spent on YouTube.
+          await setJob(job.id, { status: "skipped", last_error: "AI_SKIPPED", claimed_at: null });
+          result.skipped += 1;
+          continue;
+        }
+        replyText = written;
+      }
+      const posted = await postYoutubeCommentReply(
+        channel.token,
+        job.youtube_comment_id,
+        replyText,
+      );
       const recorded = await service.from("comment_automation_replies").insert({
         channel_id: job.channel_id,
         rule_id: job.rule_id,
@@ -479,7 +580,7 @@ export async function processWorkspaceQueue(
         youtube_video_id: job.youtube_video_id,
         author_name: job.author_name,
         comment_text: job.comment_text,
-        reply_text: job.reply_text,
+        reply_text: replyText,
         status: "sent",
       });
       // 23505: a reply to this comment was recorded at the same moment another way — still sent.
@@ -487,6 +588,7 @@ export async function processWorkspaceQueue(
         throw new ReplyQueueError("DATABASE_ERROR");
       await setJob(job.id, {
         status: "sent",
+        reply_text: replyText,
         sent_at: dependencies.now().toISOString(),
         last_error: null,
         claimed_at: null,
@@ -503,7 +605,12 @@ export async function processWorkspaceQueue(
         authorChannelId: job.author_channel_id,
         authorAvatarUrl: job.author_avatar_url,
         commentText: job.comment_text,
-        replyText: job.reply_text,
+        replyText,
+        youtube: {
+          channelId: job.channel_id,
+          threadId: job.youtube_comment_id,
+          replyId: posted.id,
+        },
       });
       result.sent += 1;
       if (attempted < budget) await dependencies.sleep(PACE_MS);
@@ -523,10 +630,15 @@ export async function processWorkspaceQueue(
         result.paused = "reconnect";
         break;
       }
+      if (error instanceof AiReplyError && error.code === "AI_NOT_CONFIGURED") {
+        // Nothing this job can fix: it (and the rest) stay queued until AI is available again.
+        await setJob(job.id, { status: "queued", claimed_at: null, attempts: job.attempts - 1 });
+        break;
+      }
       const giveUp = job.attempts >= MAX_ATTEMPTS;
       await setJob(job.id, {
         status: giveUp ? "failed" : "queued",
-        last_error: "YOUTUBE_COMMENT_REPLY_FAILED",
+        last_error: error instanceof AiReplyError ? error.code : "YOUTUBE_COMMENT_REPLY_FAILED",
         claimed_at: null,
       });
       if (giveUp) result.failed += 1;
@@ -602,6 +714,8 @@ export async function upsertLeadForReply(
     authorAvatarUrl: string | null;
     commentText: string;
     replyText: string;
+    /** Where on YouTube: kept so the Lead Inbox can continue the conversation in that thread. */
+    youtube?: { channelId: string; threadId: string; replyId: string | null };
   },
 ): Promise<void> {
   const username = input.authorChannelId ?? input.authorName;
@@ -637,9 +751,26 @@ export async function upsertLeadForReply(
       leadId = created.id as string;
     }
 
+    const where = input.youtube
+      ? { channel_id: input.youtube.channelId, youtube_thread_id: input.youtube.threadId }
+      : {};
     await client.from("lead_messages").insert([
-      { lead_id: leadId, from_who: "lead", kind: "comment", text: input.commentText },
-      { lead_id: leadId, from_who: "you", kind: "comment", text: input.replyText },
+      {
+        lead_id: leadId,
+        from_who: "lead",
+        kind: "comment",
+        text: input.commentText,
+        ...where,
+        ...(input.youtube ? { youtube_comment_id: input.youtube.threadId } : {}),
+      },
+      {
+        lead_id: leadId,
+        from_who: "you",
+        kind: "comment",
+        text: input.replyText,
+        ...where,
+        ...(input.youtube?.replyId ? { youtube_comment_id: input.youtube.replyId } : {}),
+      },
     ]);
     await client
       .from("leads")

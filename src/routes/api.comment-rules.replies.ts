@@ -201,7 +201,7 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
               return json({ error: "REPLIES_DISABLED" }, { status: 409 });
             replyText = personalizeReply(input.replyText, verified.authorName);
 
-            await postYoutubeCommentReply(accessToken, verified.id, replyText);
+            const posted = await postYoutubeCommentReply(accessToken, verified.id, replyText);
             await service.from("youtube_quota_events").insert({
               user_id: user.id,
               channel_id: channelId,
@@ -232,6 +232,7 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
               authorAvatarUrl: verified.authorAvatarUrl,
               commentText: verified.text,
               replyText,
+              youtube: { channelId, threadId: verified.id, replyId: posted.id },
             });
             return json({ data }, { status: 201 });
           } catch (postError) {

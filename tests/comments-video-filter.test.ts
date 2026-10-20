@@ -204,7 +204,11 @@ test("long lists render a page at a time, starting over on any filter or search 
 test("rows are compact: one-line reply box, capped comment text, video named only when mixed", () => {
   assert.match(commentsPage, /rows=\{1\}/);
   assert.match(commentsPage, /className="min-h-\[2\.25rem\] resize-y py-1\.5 text-sm"/);
-  assert.match(commentsPage, /line-clamp-4 break-words/);
+  // Capped until the comment is opened (which also shows its replies).
+  assert.match(
+    commentsPage,
+    /break-words text-sm text-muted-foreground \$\{open \? "" : "line-clamp-4"\}/,
+  );
   assert.match(commentsPage, /showVideo=\{!videoFilter\}/);
 });
 
