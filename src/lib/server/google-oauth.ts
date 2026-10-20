@@ -528,6 +528,53 @@ export interface YoutubeCommentSummary {
   canReply: boolean | null;
 }
 
+// A commentThreads.list item. The comment's own text/author live under
+// snippet.topLevelComment.snippet — the thread's snippet only carries thread-level fields
+// (canReply, totalReplyCount, videoId, etc).
+type YoutubeCommentThreadItem = {
+  id: string;
+  snippet: {
+    videoId: string;
+    channelId?: string;
+    canReply?: boolean;
+    topLevelComment?: {
+      snippet?: {
+        parentId?: string;
+        textDisplay?: string;
+        authorDisplayName?: string;
+        authorProfileImageUrl?: string;
+        authorChannelId?: { value?: string };
+        likeCount?: number;
+        publishedAt?: string;
+        updatedAt?: string;
+      };
+    };
+  };
+};
+
+function mapCommentThreads(items: YoutubeCommentThreadItem[] | undefined): YoutubeCommentSummary[] {
+  const comments: YoutubeCommentSummary[] = [];
+  for (const item of items ?? []) {
+    const threadSnippet = item.snippet;
+    const snippet = threadSnippet.topLevelComment?.snippet;
+    if (!snippet) continue;
+    comments.push({
+      id: item.id,
+      videoId: threadSnippet.videoId,
+      parentCommentId: snippet.parentId ?? null,
+      authorName: snippet.authorDisplayName ?? null,
+      authorChannelId: snippet.authorChannelId?.value ?? null,
+      authorAvatarUrl: snippet.authorProfileImageUrl ?? null,
+      text: snippet.textDisplay ?? "",
+      likeCount: Number(snippet.likeCount ?? 0),
+      publishedAt: snippet.publishedAt ?? null,
+      updatedAt: snippet.updatedAt ?? null,
+      canReply: threadSnippet.canReply ?? null,
+    });
+  }
+  return comments.filter((comment) => comment.text);
+}
+
 export async function fetchRecentYoutubeComments(
   accessToken: string,
   videoIds: string[],
@@ -535,54 +582,80 @@ export async function fetchRecentYoutubeComments(
 ): Promise<YoutubeCommentSummary[]> {
   const comments: YoutubeCommentSummary[] = [];
   for (const videoId of videoIds.slice(0, 12)) {
-    // The actual comment text/author live under snippet.topLevelComment.snippet — the thread's
-    // own snippet only carries thread-level fields (canReply, totalReplyCount, videoId, etc).
-    const response = await youtubeApiRequest<{
-      items?: Array<{
-        id: string;
-        snippet: {
-          videoId: string;
-          canReply?: boolean;
-          topLevelComment?: {
-            snippet?: {
-              parentId?: string;
-              textDisplay?: string;
-              authorDisplayName?: string;
-              authorProfileImageUrl?: string;
-              authorChannelId?: { value?: string };
-              likeCount?: number;
-              publishedAt?: string;
-              updatedAt?: string;
-            };
-          };
-        };
-      }>;
-    }>(accessToken, "commentThreads", {
-      part: "snippet",
-      videoId,
-      maxResults: String(Math.min(limitPerVideo, 100)),
-      order: "time",
-    });
-    for (const item of response.items ?? []) {
-      const threadSnippet = item.snippet;
-      const snippet = threadSnippet.topLevelComment?.snippet;
-      if (!snippet) continue;
-      comments.push({
-        id: item.id,
-        videoId: threadSnippet.videoId,
-        parentCommentId: snippet.parentId ?? null,
-        authorName: snippet.authorDisplayName ?? null,
-        authorChannelId: snippet.authorChannelId?.value ?? null,
-        authorAvatarUrl: snippet.authorProfileImageUrl ?? null,
-        text: snippet.textDisplay ?? "",
-        likeCount: Number(snippet.likeCount ?? 0),
-        publishedAt: snippet.publishedAt ?? null,
-        updatedAt: snippet.updatedAt ?? null,
-        canReply: threadSnippet.canReply ?? null,
-      });
-    }
+    const response = await youtubeApiRequest<{ items?: YoutubeCommentThreadItem[] }>(
+      accessToken,
+      "commentThreads",
+      {
+        part: "snippet",
+        videoId,
+        maxResults: String(Math.min(limitPerVideo, 100)),
+        order: "time",
+      },
+    );
+    comments.push(...mapCommentThreads(response.items));
   }
-  return comments.filter((comment) => comment.text);
+  return comments;
+}
+
+/**
+ * Comment threads looked up by id (at most 50 per request, 1 quota unit each), with the channel
+ * each belongs to — so a caller can confirm a comment is on its own channel before replying to it.
+ * An id YouTube has no thread for is simply missing from the result.
+ */
+export async function fetchCommentThreadsByIds(
+  accessToken: string,
+  threadIds: string[],
+): Promise<Array<YoutubeCommentSummary & { channelId: string | null }>> {
+  const found: Array<YoutubeCommentSummary & { channelId: string | null }> = [];
+  for (let i = 0; i < threadIds.length; i += 50) {
+    const chunk = threadIds.slice(i, i + 50);
+    const response = await youtubeApiRequest<{ items?: YoutubeCommentThreadItem[] }>(
+      accessToken,
+      "commentThreads",
+      { part: "snippet", id: chunk.join(","), maxResults: "50" },
+    );
+    const channelById = new Map(
+      (response.items ?? []).map((item) => [item.id, item.snippet.channelId ?? null]),
+    );
+    for (const comment of mapCommentThreads(response.items))
+      found.push({ ...comment, channelId: channelById.get(comment.id) ?? null });
+  }
+  return found;
+}
+
+/**
+ * One page (up to 100, newest first) of the top-level comments on every video of a channel —
+ * commentThreads.list with allThreadsRelatedToChannelId, 1 quota unit a page whatever the number
+ * of videos. Pass the previous page's nextPageToken to continue; null when there are no more.
+ */
+export async function fetchChannelCommentsPage(
+  accessToken: string,
+  youtubeChannelId: string,
+  pageToken: string | null,
+): Promise<{ comments: YoutubeCommentSummary[]; nextPageToken: string | null }> {
+  const params: Record<string, string> = {
+    part: "snippet",
+    allThreadsRelatedToChannelId: youtubeChannelId,
+    maxResults: "100",
+    order: "time",
+  };
+  if (pageToken) params.pageToken = pageToken;
+  const response = await youtubeApiRequest<{
+    items?: YoutubeCommentThreadItem[];
+    nextPageToken?: string;
+  }>(accessToken, "commentThreads", params);
+  return {
+    comments: mapCommentThreads(response.items),
+    nextPageToken: response.nextPageToken ?? null,
+  };
+}
+
+/** YouTube refused for quota (the project's daily quota, or a rate limit): try again later. */
+export class YoutubeQuotaExceededError extends Error {
+  constructor() {
+    super("YOUTUBE_QUOTA_EXCEEDED");
+    this.name = "YoutubeQuotaExceededError";
+  }
 }
 
 export class YoutubeInsufficientScopeError extends Error {
@@ -616,6 +689,14 @@ export async function postYoutubeCommentReply(
         ?.errors?.[0]?.reason;
       if (reason === "insufficientPermissions" || reason === "forbidden") {
         throw new YoutubeInsufficientScopeError();
+      }
+      if (
+        reason === "quotaExceeded" ||
+        reason === "dailyLimitExceeded" ||
+        reason === "rateLimitExceeded" ||
+        reason === "userRateLimitExceeded"
+      ) {
+        throw new YoutubeQuotaExceededError();
       }
     }
     throw new Error(`YOUTUBE_COMMENT_REPLY_FAILED:${response.status}`);

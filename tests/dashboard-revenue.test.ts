@@ -389,8 +389,10 @@ test("amounts are formatted without losing small revenue or inventing zeros", ()
 test("the freshness note says how far the data goes and that recent days can change", async () => {
   const { view, summary } = await load(seed(), A1);
   assert.equal(summary.dataQuality.freshness.latestStoredDay, "2026-10-07");
+  // One short line under the chart; the full wording is its tooltip.
+  assert.equal(view.freshnessNote, "Through Oct 7 · may still change");
   assert.equal(
-    view.freshnessNote,
+    view.freshnessDetail,
     "Estimated YouTube revenue through Oct 7 · the most recent days can still change",
   );
   // A fully settled period carries no caveat.
@@ -401,7 +403,8 @@ test("the freshness note says how far the data goes and that recent days can cha
       freshness: { ...summary.dataQuality.freshness, provisionalDays: [], pendingDays: [] },
     },
   });
-  assert.equal(settled.freshnessNote, "Estimated YouTube revenue through Oct 7");
+  assert.equal(settled.freshnessNote, "Through Oct 7");
+  assert.equal(settled.freshnessDetail, "Estimated YouTube revenue through Oct 7");
 });
 
 test("a connected channel with nothing stored yet is 'empty', and no channel is 'not connected'", async () => {
@@ -531,4 +534,12 @@ test("the mapping module calculates no revenue of its own and calls nothing", ()
   assert.ok(!/fetch\(|googleapis|supabase|lib\/server/i.test(rules.replace(/^\s*\/\/.*$/gm, "")));
   for (const match of rules.matchAll(/import\s+(type\s+)?[^;]*?from\s+"([^"]+)"/g))
     assert.ok(match[1], `${match[2]} is imported as a type only by the rules`);
+});
+
+test("the Revenue Trends line is one short line, with the full wording as its tooltip", () => {
+  const page = readFileSync("src/routes/dashboard.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(
+    page,
+    /<p className="truncate text-sm text-muted-foreground" title=\{revenue\.freshnessDetail \|\| undefined\} > \{revenue\.freshnessNote \|\| "Estimated YouTube revenue over time"\} <\/p>/,
+  );
 });

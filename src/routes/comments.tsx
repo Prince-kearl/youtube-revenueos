@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   MessageSquare,
@@ -16,6 +16,8 @@ import {
   Inbox,
   RefreshCw,
   Loader2,
+  Play,
+  Clock,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCarousel } from "@/components/KpiCarousel";
@@ -44,8 +46,21 @@ import { useLocalStore } from "@/lib/local-store";
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
+import { GENERIC_REPLY, matchRule } from "@/lib/comment-rule-match";
+
+// ?video=<video id> opens the comments of that one video (the Videos page links here from a
+// video's comment count). Only a short, URL-safe id is accepted, and it is checked again where it
+// is read (the router also passes the raw parameter through from the root route). The comments
+// API is the real check: it takes only a YouTube video id on the caller's own channel.
+const VIDEO_PARAM = /^[A-Za-z0-9_-]{1,64}$/;
+const videoParam = (value: unknown): string | undefined =>
+  typeof value === "string" && VIDEO_PARAM.test(value) ? value : undefined;
 
 export const Route = createFileRoute("/comments")({
+  validateSearch: (search: Record<string, unknown>): { video?: string } => {
+    const video = videoParam(search.video);
+    return video ? { video } : {};
+  },
   component: Comments,
 });
 
@@ -63,7 +78,6 @@ const iconBg: Record<string, string> = {
   green: "bg-brand-green/15 text-brand-green",
 };
 
-const GENERIC_REPLY = "Thanks for your comment! 🙌";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type YoutubeComment = {
@@ -80,7 +94,40 @@ type YoutubeComment = {
   canReply: boolean | null;
 };
 type YoutubeVideoOption = { id: string; title: string };
+/** The video a one-video comments view is about, for the preview at the top of the dialog. */
+type VideoPreview = {
+  id: string;
+  title: string;
+  thumbnail: string | null;
+  publishedAt: string | null;
+  duration: string | null;
+  views: number;
+  comments: number | null;
+};
 type SavedVideoOption = { id: string; title: string; youtube_video_id: string };
+/** The server-side reply queue for bulk auto-replies (GET /api/comment-replies). */
+type ReplyQueue = {
+  counts: { queued: number; sending: number; sent: number; failed: number; skipped: number };
+  allowance: {
+    dailyCap: number;
+    sentToday: number;
+    workspaceRemaining: number;
+    quotaRemainingReplies: number;
+    remaining: number;
+  };
+  pendingCommentIds: string[];
+};
+/** Why the queue stopped for now: today's limits, YouTube's quota, a reconnect, or an error. */
+type QueuePause = "daily_limit" | "quota" | "reconnect" | "error" | null;
+type QueueOutcome = {
+  queued: number;
+  alreadyReplied: number;
+  alreadyQueued: number;
+  notOnChannel: number;
+  truncated: boolean;
+  status: ReplyQueue;
+};
+type QueueItemInput = { youtubeCommentId: string; replyText: string; ruleId: string | null };
 type RecentReply = {
   id: string;
   youtube_comment_id: string;
@@ -95,7 +142,16 @@ type RecentReply = {
 
 type CommentsResponse =
   | { status: "not_connected"; data: null }
-  | { status: "connected"; data: { comments: YoutubeComment[]; videos: YoutubeVideoOption[] } }
+  | {
+      status: "connected";
+      data: {
+        comments: YoutubeComment[];
+        videos: YoutubeVideoOption[];
+        video?: VideoPreview;
+        /** All-videos view: where the next page of comments starts; null when there is none. */
+        nextPageToken?: string | null;
+      };
+    }
   | { error: string };
 type RulesResponse = { data?: CommentRule[]; activeRulesThirtyDaysAgo?: number; error?: string };
 type RuleMutationResponse = { data?: CommentRule; error?: string };
@@ -117,34 +173,16 @@ function errorMessage(error: string): string {
     YOUTUBE_DATA_UNAVAILABLE: "YouTube isn’t responding right now. Please try again in a moment.",
     YOUTUBE_INSUFFICIENT_SCOPE: "Reconnect your YouTube channel to enable auto-replies.",
     YOUTUBE_COMMENT_REPLY_FAILED: "That reply couldn’t be sent. Please try again.",
+    ALREADY_REPLIED: "That comment already has a reply.",
+    ALREADY_QUEUED: "A reply to that comment is already queued.",
+    DAILY_REPLY_LIMIT: "Today’s auto-reply limit is reached. Replies continue tomorrow.",
+    QUOTA_RESERVE_REACHED: "Today’s YouTube quota for replies is used up. Try again tomorrow.",
+    YOUTUBE_QUOTA_EXCEEDED: "YouTube’s daily quota is used up. Try again tomorrow.",
+    COMMENT_NOT_FOUND: "That comment wasn’t found on your channel.",
+    REPLIES_DISABLED: "Replies are turned off for that comment.",
+    YOUTUBE_REAUTH_REQUIRED: "Reconnect your YouTube channel in Settings.",
   };
   return messages[error] ?? "Something went wrong. Try again.";
-}
-
-// videoIdByRuleVideoId maps a rule's video (our internal videos.id, the value stored in
-// rule.video.id) to that video's real YouTube video ID, since incoming comments are keyed by the
-// latter (see fetchRecentYoutubeComments) — without this a rule scoped to "this video only" would
-// never actually match anything, or would need string comparison across two different ID spaces.
-function matchRule(
-  comment: YoutubeComment,
-  rules: CommentRule[],
-  videoIdByRuleVideoId: Map<string, string>,
-): CommentRule | undefined {
-  const active = rules.filter(
-    (r) => r.active && (!r.video || videoIdByRuleVideoId.get(r.video.id) === comment.videoId),
-  );
-  if (/@\w+/.test(comment.text)) {
-    const handleRule = active.find((r) => r.trigger_type === "handle");
-    if (handleRule) return handleRule;
-  }
-  for (const r of active.filter((r) => r.trigger_type === "keyword")) {
-    if (r.keywords.some((k) => comment.text.toLowerCase().includes(k.toLowerCase()))) return r;
-  }
-  if (comment.text.trim().endsWith("?")) {
-    const questionRule = active.find((r) => r.trigger_type === "question");
-    if (questionRule) return questionRule;
-  }
-  return undefined;
 }
 
 function timeAgo(iso: string | null): string {
@@ -160,6 +198,14 @@ function timeAgo(iso: string | null): string {
 
 function Comments() {
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
+  const requestedVideo = videoParam(Route.useSearch().video);
+  // "Show all videos" switches the dialog straight away (and also clears the address); a new
+  // ?video= starts a one-video view again.
+  const [showAllVideos, setShowAllVideos] = useState(false);
+  useEffect(() => setShowAllVideos(false), [requestedVideo]);
+  const videoFilter = showAllVideos ? undefined : requestedVideo;
+  const [videoPreview, setVideoPreview] = useState<VideoPreview | null>(null);
+  const navigate = useNavigate();
 
   const [rules, setRules] = useState<CommentRule[]>([]);
   const [activeRulesThirtyDaysAgo, setActiveRulesThirtyDaysAgo] = useState<number | null>(null);
@@ -180,6 +226,8 @@ function Comments() {
     "loading" | "ready" | "error" | "not_connected" | "reauth"
   >("loading");
   const [commentsRetryToken, setCommentsRetryToken] = useState(0);
+  const [nextCommentsPage, setNextCommentsPage] = useState<string | null>(null);
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
   const [viewingComments, setViewingComments] = useState(false);
 
   const [quota, setQuota] = useState<{ used: number; max: number } | null>(null);
@@ -253,11 +301,94 @@ function Comments() {
   };
   useEffect(loadRecentReplies, [activeChannelId]);
 
+  // The server-side reply queue for bulk replies: its progress, and — while this page is open —
+  // asking the server for the next small batch every few seconds. The server sends only within
+  // the workspace's daily limit and the app's quota reserve; what is left goes out on following
+  // days (a daily job), whether or not this page is open.
+  const [replyQueue, setReplyQueue] = useState<ReplyQueue | null>(null);
+  const [queuePause, setQueuePause] = useState<QueuePause>(null);
+  const loadReplyQueue = () => {
+    const params = new URLSearchParams();
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    fetch(`/api/comment-replies?${params.toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json()) as { data?: ReplyQueue };
+        if (response.ok && body.data) setReplyQueue(body.data);
+      })
+      .catch(() => {});
+  };
+  useEffect(loadReplyQueue, [activeChannelId]);
+  const queueWaiting = replyQueue ? replyQueue.counts.queued + replyQueue.counts.sending : 0;
+  useEffect(() => {
+    if (!queueWaiting || queuePause) return;
+    const timer = setTimeout(() => {
+      fetch("/api/comment-replies/process", { method: "POST", cache: "no-store" })
+        .then(async (response) => {
+          const body = (await response.json()) as { data?: { paused: QueuePause } };
+          setQueuePause(response.ok && body.data ? body.data.paused : "error");
+        })
+        .catch(() => setQueuePause("error"))
+        .finally(() => {
+          loadReplyQueue();
+          loadRecentReplies();
+        });
+    }, 3000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyQueue, queuePause]);
+  const queuedCommentIds = useMemo(
+    () => new Set(replyQueue?.pendingCommentIds ?? []),
+    [replyQueue],
+  );
+  const postQueue = async (body: unknown): Promise<QueueOutcome> => {
+    const params = new URLSearchParams();
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    const response = await fetch(`/api/comment-replies?${params.toString()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json()) as { data?: QueueOutcome; error?: string };
+    if (!response.ok || !result.data)
+      throw new Error(errorMessage(result.error ?? "YOUTUBE_DATA_UNAVAILABLE"));
+    setReplyQueue(result.data.status);
+    setQueuePause(null);
+    return result.data;
+  };
+  // Selected comments, 500 per request (the server's limit).
+  const queueSelectedReplies = async (items: QueueItemInput[]): Promise<QueueOutcome> => {
+    const total: QueueOutcome = {
+      queued: 0,
+      alreadyReplied: 0,
+      alreadyQueued: 0,
+      notOnChannel: 0,
+      truncated: false,
+      status: replyQueue as ReplyQueue,
+    };
+    for (let i = 0; i < items.length; i += 500) {
+      const part = await postQueue({ mode: "selected", items: items.slice(i, i + 500) });
+      total.queued += part.queued;
+      total.alreadyReplied += part.alreadyReplied;
+      total.alreadyQueued += part.alreadyQueued;
+      total.notOnChannel += part.notOnChannel;
+      total.status = part.status;
+    }
+    return total;
+  };
+  const queueAllReplies = () => postQueue({ mode: "all" });
+  const cancelReplyQueue = async () => {
+    const params = new URLSearchParams();
+    if (activeChannelId) params.set("channelId", activeChannelId);
+    await fetch(`/api/comment-replies?${params.toString()}`, { method: "DELETE" }).catch(() => {});
+    loadReplyQueue();
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     setCommentsStatus("loading");
     const params = new URLSearchParams();
     if (activeChannelId) params.set("channelId", activeChannelId);
+    if (videoFilter) params.set("videoId", videoFilter);
     fetch(`/api/youtube/comments?${params.toString()}`, {
       cache: "no-store",
       signal: controller.signal,
@@ -275,6 +406,8 @@ function Comments() {
         if (!response.ok || !("data" in body) || !body.data) throw new Error();
         setComments(body.data.comments);
         setCommentVideos(body.data.videos);
+        setVideoPreview(body.data.video ?? null);
+        setNextCommentsPage(body.data.nextPageToken ?? null);
         setCommentsStatus("ready");
       })
       .catch((error: unknown) => {
@@ -282,7 +415,45 @@ function Comments() {
         setCommentsStatus("error");
       });
     return () => controller.abort();
-  }, [activeChannelId, commentsRetryToken]);
+  }, [activeChannelId, commentsRetryToken, videoFilter]);
+
+  // Arriving from a video's comment count: show its comments straight away.
+  useEffect(() => {
+    if (videoFilter) setViewingComments(true);
+  }, [videoFilter]);
+  // The next page (up to 100) of comments across every video, added to what is already shown.
+  const loadMoreComments = async () => {
+    if (!nextCommentsPage || loadingMoreComments) return;
+    setLoadingMoreComments(true);
+    try {
+      const params = new URLSearchParams({ pageToken: nextCommentsPage });
+      if (activeChannelId) params.set("channelId", activeChannelId);
+      const response = await fetch(`/api/youtube/comments?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const body = (await response.json()) as CommentsResponse;
+      if (!response.ok || !("data" in body) || !body.data) throw new Error();
+      const page = body.data;
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...page.comments.filter((c) => !seen.has(c.id))];
+      });
+      setCommentVideos((prev) => {
+        const seen = new Set(prev.map((v) => v.id));
+        return [...prev, ...page.videos.filter((v) => !seen.has(v.id))];
+      });
+      setNextCommentsPage(page.nextPageToken ?? null);
+    } catch {
+      toast.error("We couldn’t load more comments. Please try again.");
+    } finally {
+      setLoadingMoreComments(false);
+    }
+  };
+
+  const clearVideoFilter = () => {
+    setShowAllVideos(true);
+    void navigate({ to: "/comments", search: {}, replace: true });
+  };
 
   const saveRule = async (input: CommentRuleInput, id?: string) => {
     const params = new URLSearchParams();
@@ -419,25 +590,33 @@ function Comments() {
             Auto-reply by keyword, @handle, or question.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Phones: the three actions share one row equally, with short labels (the full names
+            stay their accessible names). Wider screens: as before. */}
+        <div className="flex w-full items-center gap-1.5 sm:w-auto sm:flex-wrap sm:gap-2">
           <Link
             to="/leads"
-            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
+            aria-label="Lead Inbox"
+            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-2.5 text-xs font-medium hover:bg-accent sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
           >
-            <Inbox className="h-4 w-4" /> Lead Inbox
+            <Inbox className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden">Inbox</span>
+            <span className="hidden sm:inline">Lead Inbox</span>
           </Link>
           <button
             onClick={() => setViewingComments(true)}
-            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-3.5 text-sm font-medium hover:bg-accent"
+            aria-label="View All Comments"
+            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-2.5 text-xs font-medium hover:bg-accent sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
           >
-            <Eye className="h-4 w-4" /> View All Comments
+            <Eye className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden">Comments</span>
+            <span className="hidden sm:inline">View All Comments</span>
           </button>
           <button
             onClick={() => setCreating(true)}
             data-onboarding-step="comments"
-            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
           >
-            <Plus className="h-4 w-4" /> New Rule
+            <Plus className="h-4 w-4 shrink-0" /> New Rule
           </button>
         </div>
       </div>
@@ -716,7 +895,27 @@ function Comments() {
       />
       <AllCommentsDialog
         open={viewingComments}
-        onOpenChange={setViewingComments}
+        onOpenChange={(next) => {
+          setViewingComments(next);
+          // Closing the one-video view returns the page to its usual recent comments.
+          if (!next && videoFilter) clearVideoFilter();
+        }}
+        moreOnYoutube={
+          !videoFilter && nextCommentsPage
+            ? { loading: loadingMoreComments, onLoad: () => void loadMoreComments() }
+            : null
+        }
+        videoFilter={
+          videoFilter
+            ? {
+                title:
+                  commentVideos.find((v) => v.id === videoFilter)?.title ??
+                  (commentsStatus === "loading" ? "…" : "this video"),
+                onClear: clearVideoFilter,
+                preview: videoPreview?.id === videoFilter ? videoPreview : null,
+              }
+            : null
+        }
         status={commentsStatus}
         onRetry={() => setCommentsRetryToken((n) => n + 1)}
         comments={comments}
@@ -725,10 +924,24 @@ function Comments() {
         videoIdByRuleVideoId={videoIdByRuleVideoId}
         repliedCommentIds={repliedCommentIds}
         onSendReply={sendReply}
+        queue={{
+          state: replyQueue,
+          pause: queuePause,
+          queuedIds: queuedCommentIds,
+          onQueueSelected: queueSelectedReplies,
+          onQueueAll: queueAllReplies,
+          onCancel: cancelReplyQueue,
+        }}
       />
     </DashboardLayout>
   );
 }
+
+const compactCount = (value: number) =>
+  new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+
+// The comments dialog renders a long list this many at a time.
+const COMMENTS_PAGE = 40;
 
 function AllCommentsDialog({
   open,
@@ -741,9 +954,25 @@ function AllCommentsDialog({
   videoIdByRuleVideoId,
   repliedCommentIds,
   onSendReply,
+  videoFilter,
+  moreOnYoutube,
+  queue,
 }: {
   open: boolean;
+  /** The server-side reply queue: progress, today's allowance, and how to add to or cancel it. */
+  queue: {
+    state: ReplyQueue | null;
+    pause: QueuePause;
+    queuedIds: Set<string>;
+    onQueueSelected: (items: QueueItemInput[]) => Promise<QueueOutcome>;
+    onQueueAll: () => Promise<QueueOutcome>;
+    onCancel: () => Promise<void>;
+  };
   onOpenChange: (v: boolean) => void;
+  /** Showing one video's comments (from the Videos page), and how to go back to all. */
+  videoFilter: { title: string; onClear: () => void; preview: VideoPreview | null } | null;
+  /** More comments are on YouTube than have been loaded so far, and how to fetch them. */
+  moreOnYoutube: { loading: boolean; onLoad: () => void } | null;
   status: "loading" | "ready" | "error" | "not_connected" | "reauth";
   onRetry: () => void;
   comments: YoutubeComment[];
@@ -784,7 +1013,9 @@ function AllCommentsDialog({
     return (c.authorName ?? "").toLowerCase().includes(q) || c.text.toLowerCase().includes(q);
   });
 
-  const pending = visible.filter((c) => !repliedCommentIds.has(c.id) && c.canReply !== false);
+  const pending = visible.filter(
+    (c) => !repliedCommentIds.has(c.id) && !queue.queuedIds.has(c.id) && c.canReply !== false,
+  );
   const allPendingSelected = pending.length > 0 && pending.every((c) => selected.has(c.id));
 
   const toggleAll = () =>
@@ -815,71 +1046,134 @@ function AllCommentsDialog({
     }
   };
 
-  const replySelected = async () => {
-    const ids = [...selected];
+  // Bulk replies go to the server's queue (never a loop of sends from this browser), after a
+  // confirmation that says how many can go out today.
+  const [confirming, setConfirming] = useState<null | "selected" | "all">(null);
+  const summarize = (outcome: QueueOutcome) =>
+    [
+      `Queued ${outcome.queued} repl${outcome.queued === 1 ? "y" : "ies"}`,
+      outcome.alreadyReplied ? `${outcome.alreadyReplied} already replied` : "",
+      outcome.alreadyQueued ? `${outcome.alreadyQueued} already queued` : "",
+      outcome.notOnChannel ? `${outcome.notOnChannel} not found on your channel` : "",
+      outcome.truncated ? "the newest 2,000 comments this time" : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const confirmQueue = async () => {
+    const mode = confirming;
+    if (!mode) return;
     setBulkSending(true);
-    let sent = 0;
-    for (const id of ids) {
-      const comment = comments.find((c) => c.id === id);
-      if (!comment) continue;
-      const rule = matchRule(comment, rules, videoIdByRuleVideoId);
-      try {
-        await onSendReply(comment, rule, rule?.reply_template ?? GENERIC_REPLY);
-        sent += 1;
-      } catch {
-        // individual failure — continue the batch, summarized below
-      }
+    try {
+      const outcome =
+        mode === "all"
+          ? await queue.onQueueAll()
+          : await queue.onQueueSelected(
+              [...selected].flatMap((id) => {
+                const comment = comments.find((c) => c.id === id);
+                if (!comment) return [];
+                const rule = matchRule(comment, rules, videoIdByRuleVideoId);
+                return [
+                  {
+                    youtubeCommentId: id,
+                    replyText: rule?.reply_template ?? GENERIC_REPLY,
+                    ruleId: rule?.id ?? null,
+                  },
+                ];
+              }),
+            );
+      setSelected(new Set());
+      toast.success(summarize(outcome));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We couldn’t queue those replies.");
+    } finally {
+      setBulkSending(false);
+      setConfirming(null);
     }
-    setBulkSending(false);
-    setSelected(new Set());
-    toast.success(`Auto-replied to ${sent} of ${ids.length} comment${ids.length === 1 ? "" : "s"}`);
+  };
+  const allowance = queue.state?.allowance ?? null;
+  const waiting = queue.state ? queue.state.counts.queued + queue.state.counts.sending : 0;
+  const pauseText: Record<Exclude<QueuePause, null>, string> = {
+    daily_limit: "today’s limit reached — continues tomorrow",
+    quota: "YouTube’s daily quota is used up — continues tomorrow",
+    reconnect: "reconnect YouTube in Settings to continue",
+    error: "paused — retries when you reopen this page",
   };
 
+  // Long lists render a page at a time; any change of filter, search or comments starts over.
+  const [shown, setShown] = useState(COMMENTS_PAGE);
+  useEffect(() => setShown(COMMENTS_PAGE), [filter, q, comments, open]);
+  const rendered = visible.slice(0, shown);
+  // While more comments are on YouTube, the counts are of what has been loaded so far.
+  const more = moreOnYoutube ? "+" : "";
+
+  // Phones: a full-screen sheet. Wider screens: a centred window at most 85% of the screen tall.
+  // Either way the header (title, video, search, filters) and the footer (bulk reply) stay put
+  // and only the list between them scrolls, however many comments there are.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>All Comments</DialogTitle>
-          <DialogDescription>Reply individually or in bulk.</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl">
+        <div className="shrink-0 space-y-3 border-b border-border px-4 pb-3 pt-5 sm:px-6 sm:pt-6">
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle>{videoFilter ? "Video Comments" : "All Comments"}</DialogTitle>
+            <DialogDescription>Reply individually or in bulk.</DialogDescription>
+          </DialogHeader>
+          {videoFilter && (
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-accent/30 p-2.5">
+              {videoFilter.preview?.thumbnail ? (
+                <img
+                  src={videoFilter.preview.thumbnail}
+                  alt=""
+                  loading="lazy"
+                  className="aspect-video w-24 shrink-0 rounded-md object-cover sm:w-32"
+                />
+              ) : (
+                <div className="flex aspect-video w-24 shrink-0 items-center justify-center rounded-md bg-accent text-muted-foreground sm:w-32">
+                  <Play className="h-4 w-4" aria-hidden />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground">Comments on</p>
+                <p className="line-clamp-2 text-sm font-semibold leading-snug">
+                  {videoFilter.preview?.title ?? videoFilter.title}
+                </p>
+                {videoFilter.preview && (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {[
+                      videoFilter.preview.publishedAt &&
+                        new Date(videoFilter.preview.publishedAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }),
+                      videoFilter.preview.duration,
+                      `${compactCount(videoFilter.preview.views)} views`,
+                      videoFilter.preview.comments !== null &&
+                        `${compactCount(videoFilter.preview.comments)} comments`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={videoFilter.onClear}
+                  className="mt-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Show all videos
+                </button>
+              </div>
+            </div>
+          )}
 
-        {status === "loading" && (
-          <div className="space-y-2 py-4" aria-label="Loading comments" aria-busy="true">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))}
-          </div>
-        )}
-
-        {status === "not_connected" && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Connect a YouTube channel in Settings to see your comments.
-          </p>
-        )}
-
-        {status === "reauth" && <YoutubeReauthNotice />}
-
-        {status === "error" && (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <p className="text-sm text-muted-foreground">We couldn’t load your comments.</p>
-            <button
-              onClick={onRetry}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Try again
-            </button>
-          </div>
-        )}
-
-        {status === "ready" && (
-          <>
-            <div className="border-b border-border pb-3">
+          {status === "ready" && (
+            <>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by username or keyword..."
+                  aria-label="Search comments"
                   className="h-9 w-full rounded-full border border-border bg-accent/20 pl-9 pr-9 text-sm outline-none focus:border-primary"
                 />
                 {query && (
@@ -892,72 +1186,221 @@ function AllCommentsDialog({
                   </button>
                 )}
               </div>
-            </div>
+              {/* One row of filters; it scrolls sideways rather than wrapping on narrow screens. */}
+              <div
+                role="group"
+                aria-label="Filter comments"
+                className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:-mx-6 sm:px-6"
+              >
+                {(
+                  [
+                    ["all", `All (${comments.length}${more})`],
+                    ["unreplied", `Unreplied (${unrepliedCount}${more})`],
+                    ["replied", `Replied (${repliedCount})`],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    aria-pressed={filter === key}
+                    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-medium ${filter === key ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-3">
-              {(
-                [
-                  ["all", `All (${comments.length})`],
-                  ["unreplied", `Unreplied (${unrepliedCount})`],
-                  ["replied", `Replied (${repliedCount})`],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`rounded-full px-2.5 py-1.5 text-xs font-medium ${filter === key ? "bg-primary text-primary-foreground" : "bg-accent text-muted-foreground hover:text-foreground"}`}
-                >
-                  {label}
-                </button>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6">
+          {status === "loading" && (
+            <div className="space-y-2" aria-label="Loading comments" aria-busy="true">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
               ))}
             </div>
+          )}
 
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={allPendingSelected}
-                  onCheckedChange={toggleAll}
-                  disabled={pending.length === 0}
-                />
-                Select all pending ({pending.length})
-              </label>
+          {status === "not_connected" && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Connect a YouTube channel in Settings to see your comments.
+            </p>
+          )}
+
+          {status === "reauth" && <YoutubeReauthNotice />}
+
+          {status === "error" && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-sm text-muted-foreground">We couldn’t load your comments.</p>
               <button
-                onClick={() => void replySelected()}
-                disabled={selected.size === 0 || bulkSending}
-                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                onClick={onRetry}
+                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
               >
-                {bulkSending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Zap className="h-3.5 w-3.5" />
-                )}
-                Auto-reply to {selected.size || ""} selected
+                <RefreshCw className="h-3.5 w-3.5" /> Try again
               </button>
             </div>
+          )}
 
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+          {status === "ready" && (
+            <div className="space-y-2">
+              {/* Empty: say what was looked at, so "nothing here" never reads as "not loaded". */}
               {visible.length === 0 && (
-                <p className="p-6 text-center text-sm text-muted-foreground">
-                  {q
-                    ? `No comments match "${query.trim()}".`
-                    : `No ${filter === "all" ? "" : filter} comments.`}
-                </p>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  {comments.length === 0 ? (
+                    <>
+                      <p className="font-medium text-foreground">
+                        {videoFilter ? "This video has no comments yet" : "No comments yet"}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        {videoFilter
+                          ? "YouTube returned no comments for it."
+                          : "YouTube returned no comments on any of your videos."}{" "}
+                        New comments appear here when you open this again.
+                      </p>
+                    </>
+                  ) : q ? (
+                    <p>No comments match &quot;{query.trim()}&quot;.</p>
+                  ) : filter === "replied" ? (
+                    <p>You haven&apos;t replied to any of these comments yet.</p>
+                  ) : filter === "unreplied" ? (
+                    <p>Every comment here has a reply.</p>
+                  ) : (
+                    <p>No comments.</p>
+                  )}
+                </div>
               )}
-              {visible.map((c) => (
+              {rendered.map((c) => (
                 <CommentRow
                   key={c.id}
                   comment={c}
                   videoTitle={videoTitle(c.videoId)}
                   rule={matchRule(c, rules, videoIdByRuleVideoId)}
                   replied={repliedCommentIds.has(c.id)}
+                  queued={queue.queuedIds.has(c.id)}
                   sending={sendingIds.has(c.id)}
                   selected={selected.has(c.id)}
                   onToggleSelect={() => toggleOne(c.id)}
                   onReply={(text) => void replyOne(c, text)}
+                  showVideo={!videoFilter}
                 />
               ))}
+              {visible.length > rendered.length && (
+                <button
+                  type="button"
+                  onClick={() => setShown((n) => n + COMMENTS_PAGE)}
+                  className="w-full rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Show more ({visible.length - rendered.length} more)
+                </button>
+              )}
+              {/* Everything loaded is shown: fetch the next page of comments from YouTube. */}
+              {visible.length <= rendered.length && moreOnYoutube && (
+                <button
+                  type="button"
+                  onClick={moreOnYoutube.onLoad}
+                  disabled={moreOnYoutube.loading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+                >
+                  {moreOnYoutube.loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Load more from YouTube
+                </button>
+              )}
             </div>
-          </>
+          )}
+        </div>
+
+        {status === "ready" && (
+          <div
+            className="shrink-0 space-y-2 border-t border-border bg-background/80 px-4 py-3 backdrop-blur sm:px-6"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            {waiting > 0 && (
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span className="flex min-w-0 items-center gap-1.5" aria-live="polite">
+                  {!queue.pause && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />}
+                  <span className="truncate">
+                    {waiting} waiting · {allowance?.sentToday ?? 0} sent today
+                    {queue.pause ? ` · ${pauseText[queue.pause]}` : ""}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void queue.onCancel()}
+                  className="shrink-0 font-medium text-primary hover:underline"
+                >
+                  Cancel remaining
+                </button>
+              </div>
+            )}
+            {confirming ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                  {confirming === "all"
+                    ? `Reply to every unreplied comment on your channel (the newest 2,000 at a time)? `
+                    : `Queue ${selected.size} repl${selected.size === 1 ? "y" : "ies"}? `}
+                  {allowance
+                    ? `Up to ${
+                        confirming === "all"
+                          ? allowance.remaining
+                          : Math.min(selected.size, allowance.remaining)
+                      } go out today (limit ${allowance.dailyCap} a day); the rest continue on the following days.`
+                    : "They go out a few at a time within today’s limit; the rest continue on the following days."}
+                </p>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(null)}
+                    className="h-9 rounded-full border border-border px-3.5 text-xs font-medium hover:bg-accent"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmQueue()}
+                    disabled={bulkSending}
+                    className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                  >
+                    {bulkSending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Queue
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex min-w-0 items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={allPendingSelected}
+                    onCheckedChange={toggleAll}
+                    disabled={pending.length === 0}
+                  />
+                  <span className="truncate" title="Select every comment still waiting for a reply">
+                    Select all ({pending.length})
+                  </span>
+                </label>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!videoFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming("all")}
+                      className="h-9 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                      title="Queue replies to every unreplied comment on your channel"
+                    >
+                      All on YouTube
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setConfirming("selected")}
+                    disabled={selected.size === 0 || bulkSending}
+                    className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Auto-reply{selected.size ? ` to ${selected.size}` : ""}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -969,13 +1412,19 @@ function CommentRow({
   videoTitle,
   rule,
   replied,
+  queued,
   sending,
   selected,
   onToggleSelect,
   onReply,
+  showVideo,
 }: {
   comment: YoutubeComment;
+  /** A reply to it is waiting in the queue. */
+  queued: boolean;
   videoTitle: string;
+  /** Name the video on the row (off when every row is on the same video). */
+  showVideo: boolean;
   rule: CommentRule | undefined;
   replied: boolean;
   sending: boolean;
@@ -992,7 +1441,7 @@ function CommentRow({
           className="mt-0.5"
           checked={selected}
           onCheckedChange={onToggleSelect}
-          disabled={replied}
+          disabled={replied || queued}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
@@ -1001,19 +1450,30 @@ function CommentRow({
               {timeAgo(comment.publishedAt)}
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-muted-foreground">&quot;{comment.text}&quot;</p>
-          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="truncate">{videoTitle}</span>
-            {rule && (
-              <span className="shrink-0 rounded bg-brand-purple/15 px-1.5 py-0.5 text-brand-purple">
-                {rule.name}
-              </span>
-            )}
-          </div>
+          <p
+            className="mt-0.5 line-clamp-4 break-words text-sm text-muted-foreground"
+            title={comment.text}
+          >
+            &quot;{comment.text}&quot;
+          </p>
+          {(showVideo || rule) && (
+            <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+              {showVideo && <span className="truncate">{videoTitle}</span>}
+              {rule && (
+                <span className="shrink-0 rounded bg-brand-purple/15 px-1.5 py-0.5 text-brand-purple">
+                  {rule.name}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {replied ? (
           <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-success">
             <Check className="h-3.5 w-3.5" /> Replied
+          </span>
+        ) : queued ? (
+          <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" /> Queued
           </span>
         ) : comment.canReply === false ? (
           <span className="shrink-0 text-xs text-muted-foreground">Replies disabled</span>
@@ -1033,13 +1493,14 @@ function CommentRow({
         )}
       </div>
 
-      {!replied && comment.canReply !== false && (
+      {!replied && !queued && comment.canReply !== false && (
         <div className="ml-7 mt-2">
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            rows={2}
-            className="text-sm"
+            rows={1}
+            aria-label={`Reply to ${comment.authorName ?? "commenter"}`}
+            className="min-h-[2.25rem] resize-y py-1.5 text-sm"
             placeholder="Reply text..."
           />
         </div>

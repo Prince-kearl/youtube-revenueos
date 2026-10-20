@@ -109,9 +109,12 @@ async function videos(db: FakeDb, url: string) {
 
 /** The three notes exactly as each page produces them for one channel. */
 async function notes(db: FakeDb, channelId: string | null, videoId = VIDEO_ID) {
-  const dashboard = mapDashboardRevenue(
+  const dashboardView = mapDashboardRevenue(
     await summary(db, dashboardRevenueUrls(channelId).summary),
-  ).freshnessNote;
+  );
+  // The short line shown under the chart, and its full wording (the tooltip).
+  const dashboard = dashboardView.freshnessNote;
+  const dashboardDetail = dashboardView.freshnessDetail;
   const analytics = mapAnalyticsRevenue(await summary(db, analyticsSummaryUrl(channelId))).kpi
     .freshnessNote;
   let page = EMPTY_VIDEOS_REVENUE;
@@ -123,10 +126,12 @@ async function notes(db: FakeDb, channelId: string | null, videoId = VIDEO_ID) {
         await videos(db, request.changeUrl),
       ),
     );
-  return { dashboard, analytics, videos: describeVideosRevenue(page), page };
+  return { dashboard, dashboardDetail, analytics, videos: describeVideosRevenue(page), page };
 }
 
-const HEALTHY_NOTE =
+// The Dashboard and Analytics line is one short line; its full wording is kept for the tooltip.
+const HEALTHY_NOTE = "Through Oct 7 · may still change";
+const HEALTHY_DETAIL =
   "Estimated YouTube revenue through Oct 7 · the most recent days can still change";
 const HEALTHY_VIDEOS_NOTE =
   "Revenue is estimated YouTube revenue for the last 365 days through Oct 7. " +
@@ -185,6 +190,7 @@ test("Settings uses that mapping and nothing else to word the toast", () => {
 test("no sync error and no missing days: every note is worded exactly as before", async () => {
   const result = await notes(seed(), A1);
   assert.equal(result.dashboard, HEALTHY_NOTE);
+  assert.equal(result.dashboardDetail, HEALTHY_DETAIL);
   assert.equal(result.analytics, HEALTHY_NOTE);
   assert.equal(result.videos, HEALTHY_VIDEOS_NOTE);
   assert.equal(result.page.notice, null);
@@ -192,8 +198,10 @@ test("no sync error and no missing days: every note is worded exactly as before"
 
 test("a failed latest update is said on all three pages, with the date kept", async () => {
   const result = await notes(seed({ lastError: "YOUTUBE_ANALYTICS_QUERY_FAILED:401" }), A1);
-  assert.equal(result.dashboard, `${HEALTHY_NOTE} · ${SYNC_ERROR}`);
-  assert.equal(result.analytics, `${HEALTHY_NOTE} · ${SYNC_ERROR}`);
+  // One short qualifier: the failure takes the place of "may still change".
+  assert.equal(result.dashboard, "Through Oct 7 · last update failed");
+  assert.equal(result.analytics, result.dashboard);
+  assert.equal(result.dashboardDetail, `${HEALTHY_DETAIL} · ${SYNC_ERROR}`);
   assert.equal(result.videos, `${HEALTHY_VIDEOS_NOTE} The latest update didn't complete.`);
   for (const note of Object.values({ ...result, page: "" }))
     assert.doesNotMatch(
@@ -205,8 +213,9 @@ test("a failed latest update is said on all three pages, with the date kept", as
 
 test("missing days without a sync error are called incomplete data, not a failed update", async () => {
   const result = await notes(seed({ missingNewestDays: 2 }), A1);
+  assert.equal(result.dashboard, "Through Oct 5 · some data pending");
   assert.equal(
-    result.dashboard,
+    result.dashboardDetail,
     `Estimated YouTube revenue through Oct 5 · the most recent days can still change · ${MISSING}`,
   );
   assert.equal(result.analytics, result.dashboard);
@@ -223,8 +232,10 @@ test("a sync error together with missing days gives one notice, not two", async 
     seed({ lastError: "YOUTUBE_PLAYLISTITEMS_FAILED:401", missingNewestDays: 2 }),
     A1,
   );
-  assert.match(result.dashboard, /through Oct 5 .* · the latest update didn't complete$/);
-  for (const note of [result.dashboard, result.analytics, result.videos]) {
+  assert.equal(result.dashboard, "Through Oct 5 · last update failed");
+  assert.doesNotMatch(result.dashboard, /pending/);
+  assert.match(result.dashboardDetail, /through Oct 5 .* · the latest update didn't complete$/);
+  for (const note of [result.dashboardDetail, result.videos]) {
     assert.equal(note.match(/the latest update didn't complete/gi)?.length, 1);
     assert.doesNotMatch(note, /still unavailable/i);
   }
@@ -237,7 +248,7 @@ test("a problem on one channel never appears while another channel is viewed", a
   assert.equal(healthy.analytics, HEALTHY_NOTE);
   assert.equal(healthy.videos, HEALTHY_VIDEOS_NOTE);
   // …and the affected channel still says so.
-  assert.match((await notes(db, A1)).dashboard, /didn't complete$/);
+  assert.match((await notes(db, A1)).dashboard, /last update failed$/);
 });
 
 test("a channel with nothing stored yet stays the plain empty state unless its update failed", async () => {

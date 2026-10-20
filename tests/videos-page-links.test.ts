@@ -28,11 +28,30 @@ test("the list has no YouTube links: the video's analytics page has 'Open on You
 });
 
 test("phones: the card's title and thumbnail open analytics, with no separate 'View analytics'", () => {
-  const card = page.slice(page.indexOf("function VideoCard("), page.indexOf("function VideoRow("));
+  const card = page.slice(page.indexOf("function VideoCard("), page.indexOf("function CardStat("));
+  // The row (thumbnail included) is covered by the title's link, stretched with ::after over the
+  // whole row; only the comment count, a separate link to Comment Automation, sits above it.
   assert.match(
     card,
-    /<Link\s+to="\/videos\/\$videoId"\s+params=\{\{ videoId: video\.id \}\}\s+className="group flex[^"]*"\s*>\s*<VideoThumbnail video=\{video\} \/>[\s\S]*?\{video\.title\}[\s\S]*?<\/Link>/,
+    /<li className="group relative flex items-center gap-3 rounded-xl card-gradient-outline px-4 py-3">\s*<VideoThumbnail video=\{video\} \/>/,
+  );
+  assert.match(
+    card,
+    /<Link\s+to="\/videos\/\$videoId"\s+params=\{\{ videoId: video\.id \}\}\s+className="[^"]*after:absolute after:inset-0 after:content-\[''\][^"]*"\s*>\s*\{video\.title\}\s*<\/Link>/,
   );
   assert.doesNotMatch(card, /View analytics/);
-  assert.equal(card.match(/to="\/videos\/\$videoId"/g)?.length, 1, "one link per card");
+  assert.equal(card.match(/to="\/videos\/\$videoId"/g)?.length, 1, "one analytics link per row");
+});
+
+test("dropdown options are readable in the dark theme", () => {
+  // The dark theme tells the browser it is dark, so native lists (a <select>'s options) are
+  // drawn dark too — not light text on the browser's white list.
+  const styles = readFileSync("src/styles.css", "utf8").replace(/\r\n/g, "\n");
+  const dark = styles.slice(
+    styles.indexOf("\n.dark {"),
+    styles.indexOf("}", styles.indexOf("\n.dark {")),
+  );
+  assert.match(dark, /color-scheme: dark;/);
+  // The sort menu sets its options' colours as well.
+  assert.match(page, /\[&>option\]:bg-card \[&>option\]:text-foreground/);
 });

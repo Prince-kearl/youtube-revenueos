@@ -137,6 +137,43 @@ export function revenueDataNoticeText(
   return options.sentence ? `${text[0].toUpperCase()}${text.slice(1)}.` : text;
 }
 
+const REVENUE_DATA_NOTICE_SHORT: Record<Exclude<RevenueDataNotice, null>, string> = {
+  sync_error: "last update failed",
+  missing_days: "some data pending",
+};
+
+/**
+ * The one-line freshness label under a revenue figure: "Through Oct 16", then at most one short
+ * qualifier — a data problem if there is one, otherwise "may still change" while the latest days
+ * are not final. The full wording (revenueFreshnessDetail) is kept for a tooltip.
+ */
+export function revenueFreshnessLine(
+  latestStoredDay: string,
+  unsettled: boolean,
+  notice: RevenueDataNotice,
+): string {
+  const qualifier = notice
+    ? REVENUE_DATA_NOTICE_SHORT[notice]
+    : unsettled
+      ? "may still change"
+      : "";
+  return `Through ${dayLabel(latestStoredDay)}${qualifier ? ` · ${qualifier}` : ""}`;
+}
+
+/** The full freshness wording, for the tooltip on revenueFreshnessLine. */
+export function revenueFreshnessDetail(
+  lead: string,
+  latestStoredDay: string,
+  unsettled: boolean,
+  notice: RevenueDataNotice,
+): string {
+  return (
+    `${lead} through ${dayLabel(latestStoredDay)}` +
+    (unsettled ? " · the most recent days can still change" : "") +
+    (notice ? ` · ${revenueDataNoticeText(notice)}` : "")
+  );
+}
+
 /** The notice to keep when two responses are combined. */
 export function strongerRevenueDataNotice(
   a: RevenueDataNotice,
@@ -215,6 +252,8 @@ export interface DashboardRevenueView {
   split: DashboardRevenueSplitRow[];
   /** One short line saying how current the data is; "" when there is nothing to say. */
   freshnessNote: string;
+  /** The same in full, for a tooltip on the short line. */
+  freshnessDetail: string;
 }
 
 function figure(amount: RevenueAmountView): RevenueFigure {
@@ -247,6 +286,7 @@ export const EMPTY_DASHBOARD_REVENUE: DashboardRevenueView = {
   trend: [],
   split: [],
   freshnessNote: "",
+  freshnessDetail: "",
 };
 
 const SPLIT_LABELS = { ads: "Ad Revenue", premium: "YouTube Premium", other: "Other" } as const;
@@ -304,16 +344,21 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
   const changePercent = earned.change.revenueComparable ? change.percent : null;
   const hasStoredData = freshness.latestStoredDay !== null;
   const notice = revenueDataNotice(dataQuality);
+  const unsettled = freshness.provisionalDays.length > 0 || freshness.pendingDays.length > 0;
   const freshnessNote = hasStoredData
-    ? `Estimated YouTube revenue through ${dayLabel(freshness.latestStoredDay!)}` +
-      (freshness.provisionalDays.length > 0 || freshness.pendingDays.length > 0
-        ? " · the most recent days can still change"
-        : "") +
-      (notice ? ` · ${revenueDataNoticeText(notice)}` : "")
+    ? revenueFreshnessLine(freshness.latestStoredDay!, unsettled, notice)
     : // Nothing stored yet is the ordinary empty state; only a failed update is worth saying.
       notice === "sync_error"
       ? revenueDataNoticeText(notice, { sentence: true }).slice(0, -1)
       : "";
+  const freshnessDetail = hasStoredData
+    ? revenueFreshnessDetail(
+        "Estimated YouTube revenue",
+        freshness.latestStoredDay!,
+        unsettled,
+        notice,
+      )
+    : freshnessNote;
   const state =
     summary.status === "not_connected" ? "not_connected" : hasStoredData ? "ready" : "empty";
   // Withheld: say so, in every place an amount would have been. The trend keeps its months (with
@@ -333,6 +378,7 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
       trend: trend.map((point) => ({ ...point, revenueUsd: null })),
       split: [],
       freshnessNote: REVENUE_HIDDEN_MESSAGE,
+      freshnessDetail: REVENUE_HIDDEN_MESSAGE,
     };
   return {
     state,
@@ -348,6 +394,7 @@ export function mapDashboardRevenue(summary: RevenueSummaryResponse): DashboardR
     trend,
     split,
     freshnessNote,
+    freshnessDetail,
   };
 }
 
@@ -484,6 +531,7 @@ export function demoDashboardRevenue(demo: DemoDashboard): {
           sharePercent: lastTotal > 0 ? Math.round((usd / lastTotal) * 100) : 0,
         })),
       freshnessNote: "Sample revenue for the local demo preview",
+      freshnessDetail: "Sample revenue for the local demo preview",
     },
     topVideos: demo.topRevenueVideos.flatMap((row) => {
       const video = byId.get(row.videoId);

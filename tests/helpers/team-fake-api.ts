@@ -50,9 +50,17 @@ export interface World {
   deal_videos?: Row[];
   // The video-detail channel tests add.
   youtube_connections?: Row[];
+  // The Comment Automation reply queue tests add.
+  comment_automation_rules?: Row[];
+  comment_automation_replies?: Row[];
+  comment_reply_jobs?: Row[];
+  youtube_quota_events?: Row[];
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
    * fail the test with "unexpected request". */
-  external?: (url: URL, init: { method: string; headers: Headers }) => Response | undefined;
+  external?: (
+    url: URL,
+    init: { method: string; headers: Headers; body?: string },
+  ) => Response | undefined;
   /** Per table: inserts into it are refused by the database with this SQLSTATE (a trigger's
    * 23514, a foreign key's 23503…), as PostgREST reports it. */
   refuseWrites?: Record<string, string>;
@@ -234,6 +242,10 @@ const OPTIONAL_TABLES = [
   "workspace_branding",
   "deal_videos",
   "youtube_connections",
+  "comment_automation_rules",
+  "comment_automation_replies",
+  "comment_reply_jobs",
+  "youtube_quota_events",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -304,6 +316,10 @@ function matches(row: Row, params: URLSearchParams): boolean {
       if (actual === null || actual < operand) return false;
     } else if (operator === "lte") {
       if (actual === null || actual > operand) return false;
+    } else if (operator === "lt") {
+      if (actual === null || actual >= operand) return false;
+    } else if (operator === "gt") {
+      if (actual === null || actual <= operand) return false;
     } else if (operator === "ilike") {
       const pattern = looseIlikeEscapes ? operand.replace(/\\/g, "") : operand;
       if (actual === null || !ilike(actual, pattern)) return false;
@@ -415,7 +431,8 @@ export async function callTeamApi(
     const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
     const headers = new Headers(init?.headers ?? request?.headers);
     if (url.origin !== SUPABASE) {
-      const answer = world.external?.(url, { method, headers });
+      const body = typeof init?.body === "string" ? init.body : undefined;
+      const answer = world.external?.(url, { method, headers, body });
       if (answer) return answer;
       throw new Error(`unexpected request in test: ${method} ${url}`);
     }

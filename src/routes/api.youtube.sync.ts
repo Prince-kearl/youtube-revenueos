@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { purgeExpiredRateLimitBuckets } from "@/lib/server/rate-limit";
+import { processAllQueues } from "@/lib/server/comment-reply-queue";
 import { getServerEnv } from "@/lib/server/env";
 import {
   getValidAccessToken,
@@ -331,7 +332,16 @@ export const Route = createFileRoute("/api/youtube/sync")({
         // Then spend whatever time is left on the stored revenue-data sync: bounded work per
         // channel, least recently run first, resuming where the previous invocation stopped.
         const revenueData = await runRevenueDataBatch(service, startedAt + statsSyncTimeBudgetMs());
-        return json({ results, revenueData });
+        // Last, queued Comment Automation replies (lib/server/comment-reply-queue.ts): each
+        // workspace within its own daily cap and the app-wide quota reserve, bounded in count and
+        // time. Runs after the sync and cannot fail it.
+        let commentReplies: Awaited<ReturnType<typeof processAllQueues>> | null = null;
+        try {
+          commentReplies = await processAllQueues(service, { maxTotal: 60, timeBudgetMs: 20_000 });
+        } catch {
+          commentReplies = null;
+        }
+        return json({ results, revenueData, commentReplies });
       },
     },
   },
