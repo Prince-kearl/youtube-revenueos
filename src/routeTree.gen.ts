@@ -90,6 +90,7 @@ import { Route as ApiFreebiesUploadRouteImport } from './routes/api.freebies.upl
 import { Route as ApiLeadsLinkRouteImport } from './routes/api.leads.link'
 import { Route as ApiLeadsMessagesRouteImport } from './routes/api.leads.messages'
 import { Route as ApiLeadsSummaryRouteImport } from './routes/api.leads.summary'
+import { Route as ApiLeadsYoutubeRouteImport } from './routes/api.leads.youtube'
 import { Route as ApiOnboardingStatusRouteImport } from './routes/api.onboarding.status'
 import { Route as ApiPrePublishVideosAnalyzeRouteImport } from './routes/api.pre-publish-videos.analyze'
 import { Route as ApiReferralsClickRouteImport } from './routes/api.referrals.click'
@@ -551,6 +552,11 @@ const ApiLeadsSummaryRoute = ApiLeadsSummaryRouteImport.update({
   path: '/summary',
   getParentRoute: () => ApiLeadsRoute,
 } as any)
+const ApiLeadsYoutubeRoute = ApiLeadsYoutubeRouteImport.update({
+  id: '/youtube',
+  path: '/youtube',
+  getParentRoute: () => ApiLeadsRoute,
+} as any)
 const ApiOnboardingStatusRoute = ApiOnboardingStatusRouteImport.update({
   id: '/api/onboarding/status',
   path: '/api/onboarding/status',
@@ -908,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/leads/youtube': typeof ApiLeadsYoutubeRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
@@ -1044,6 +1051,7 @@ export interface FileRoutesByTo {
   '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/leads/youtube': typeof ApiLeadsYoutubeRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
@@ -1181,6 +1189,7 @@ export interface FileRoutesById {
   '/api/leads/link': typeof ApiLeadsLinkRoute
   '/api/leads/messages': typeof ApiLeadsMessagesRoute
   '/api/leads/summary': typeof ApiLeadsSummaryRoute
+  '/api/leads/youtube': typeof ApiLeadsYoutubeRoute
   '/api/onboarding/status': typeof ApiOnboardingStatusRoute
   '/api/pre-publish-videos/analyze': typeof ApiPrePublishVideosAnalyzeRoute
   '/api/referrals/click': typeof ApiReferralsClickRoute
@@ -1319,6 +1328,7 @@ export interface FileRouteTypes {
     | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/leads/youtube'
     | '/api/onboarding/status'
     | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
@@ -1455,6 +1465,7 @@ export interface FileRouteTypes {
     | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/leads/youtube'
     | '/api/onboarding/status'
     | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
@@ -1591,6 +1602,7 @@ export interface FileRouteTypes {
     | '/api/leads/link'
     | '/api/leads/messages'
     | '/api/leads/summary'
+    | '/api/leads/youtube'
     | '/api/onboarding/status'
     | '/api/pre-publish-videos/analyze'
     | '/api/referrals/click'
@@ -2319,6 +2331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLeadsSummaryRouteImport
       parentRoute: typeof ApiLeadsRoute
     }
+    '/api/leads/youtube': {
+      id: '/api/leads/youtube'
+      path: '/youtube'
+      fullPath: '/api/leads/youtube'
+      preLoaderRoute: typeof ApiLeadsYoutubeRouteImport
+      parentRoute: typeof ApiLeadsRoute
+    }
     '/api/onboarding/status': {
       id: '/api/onboarding/status'
       path: '/api/onboarding/status'
@@ -2794,12 +2813,14 @@ interface ApiLeadsRouteChildren {
   ApiLeadsLinkRoute: typeof ApiLeadsLinkRoute
   ApiLeadsMessagesRoute: typeof ApiLeadsMessagesRoute
   ApiLeadsSummaryRoute: typeof ApiLeadsSummaryRoute
+  ApiLeadsYoutubeRoute: typeof ApiLeadsYoutubeRoute
 }
 
 const ApiLeadsRouteChildren: ApiLeadsRouteChildren = {
   ApiLeadsLinkRoute: ApiLeadsLinkRoute,
   ApiLeadsMessagesRoute: ApiLeadsMessagesRoute,
   ApiLeadsSummaryRoute: ApiLeadsSummaryRoute,
+  ApiLeadsYoutubeRoute: ApiLeadsYoutubeRoute,
 }
 
 const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(

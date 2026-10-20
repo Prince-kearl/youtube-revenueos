@@ -568,14 +568,24 @@ function AILab() {
                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </button>
                 </PopoverTrigger>
+                {/* Phones: the search box is not focused on open, so the keyboard does not pop up,
+                    shrink the screen and push the list up over the page; tapping it still types.
+                    The list also never grows past the room it has, so nothing is cut off. */}
                 <PopoverContent
                   align="start"
-                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                  side="bottom"
+                  // Touch screens: always below the field (never flipped up over the page when the
+                  // keyboard opens), sized to the room left.
+                  avoidCollisions={window.matchMedia("(pointer: fine)").matches}
+                  collisionPadding={8}
+                  onOpenAutoFocus={(event) => {
+                    if (!window.matchMedia("(pointer: fine)").matches) event.preventDefault();
+                  }}
+                  className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] flex-col p-0"
                 >
-                  <div className="relative border-b border-border p-2">
+                  <div className="relative shrink-0 border-b border-border p-2">
                     <Search className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
-                      autoFocus
                       value={videoSearch}
                       onChange={(event) => setVideoSearch(event.target.value)}
                       placeholder="Search your videos..."
@@ -588,7 +598,7 @@ function AILab() {
                       No videos match “{videoSearch}”.
                     </p>
                   ) : (
-                    <div className="max-h-72 space-y-1 overflow-y-auto p-1.5">
+                    <div className="max-h-72 min-h-0 space-y-1 overflow-y-auto overscroll-contain p-1.5">
                       {filteredMyVideos.map((item) => (
                         <button
                           key={item.id}

@@ -119,7 +119,15 @@ export async function replyAllowance(
       .eq("status", "sent")
       .gte("created_at", day);
     if (error) throw new ReplyQueueError("DATABASE_ERROR");
-    sentToday = count ?? 0;
+    // Replies sent from the Lead Inbox (lib/server/lead-youtube.ts) count towards the same cap.
+    const { count: leadReplies, error: leadError } = await service
+      .from("youtube_quota_events")
+      .select("id", { count: "exact", head: true })
+      .in("channel_id", channelIds)
+      .eq("operation", "lead.reply")
+      .gte("created_at", day);
+    if (leadError) throw new ReplyQueueError("DATABASE_ERROR");
+    sentToday = (count ?? 0) + (leadReplies ?? 0);
   }
   // Every unit any Tubify user spent today: the quota is the app's, not the workspace's.
   let used = 0;
@@ -560,7 +568,11 @@ export async function processWorkspaceQueue(
         }
         replyText = written;
       }
-      await postYoutubeCommentReply(channel.token, job.youtube_comment_id, replyText);
+      const posted = await postYoutubeCommentReply(
+        channel.token,
+        job.youtube_comment_id,
+        replyText,
+      );
       const recorded = await service.from("comment_automation_replies").insert({
         channel_id: job.channel_id,
         rule_id: job.rule_id,
@@ -594,6 +606,11 @@ export async function processWorkspaceQueue(
         authorAvatarUrl: job.author_avatar_url,
         commentText: job.comment_text,
         replyText,
+        youtube: {
+          channelId: job.channel_id,
+          threadId: job.youtube_comment_id,
+          replyId: posted.id,
+        },
       });
       result.sent += 1;
       if (attempted < budget) await dependencies.sleep(PACE_MS);
@@ -697,6 +714,8 @@ export async function upsertLeadForReply(
     authorAvatarUrl: string | null;
     commentText: string;
     replyText: string;
+    /** Where on YouTube: kept so the Lead Inbox can continue the conversation in that thread. */
+    youtube?: { channelId: string; threadId: string; replyId: string | null };
   },
 ): Promise<void> {
   const username = input.authorChannelId ?? input.authorName;
@@ -732,9 +751,26 @@ export async function upsertLeadForReply(
       leadId = created.id as string;
     }
 
+    const where = input.youtube
+      ? { channel_id: input.youtube.channelId, youtube_thread_id: input.youtube.threadId }
+      : {};
     await client.from("lead_messages").insert([
-      { lead_id: leadId, from_who: "lead", kind: "comment", text: input.commentText },
-      { lead_id: leadId, from_who: "you", kind: "comment", text: input.replyText },
+      {
+        lead_id: leadId,
+        from_who: "lead",
+        kind: "comment",
+        text: input.commentText,
+        ...where,
+        ...(input.youtube ? { youtube_comment_id: input.youtube.threadId } : {}),
+      },
+      {
+        lead_id: leadId,
+        from_who: "you",
+        kind: "comment",
+        text: input.replyText,
+        ...where,
+        ...(input.youtube?.replyId ? { youtube_comment_id: input.youtube.replyId } : {}),
+      },
     ]);
     await client
       .from("leads")
