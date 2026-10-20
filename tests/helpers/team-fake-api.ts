@@ -246,6 +246,10 @@ const OPTIONAL_TABLES = [
   "comment_automation_replies",
   "comment_reply_jobs",
   "youtube_quota_events",
+  // The AI comment reply tests add.
+  "youtube_chapters",
+  "transcripts",
+  "ai_usage",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */

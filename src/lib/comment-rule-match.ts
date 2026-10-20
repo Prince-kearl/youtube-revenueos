@@ -58,3 +58,7 @@ export function personalizeReply(template: string, authorName: string | null): s
     : template.replace(/\s*\{name\}\s*/gi, " ").replace(/\s+([!?.,])/g, "$1");
   return text.replace(/[ \t]{2,}/g, " ").trim();
 }
+
+/** The intent an AI reply aims for when no rule matched the comment. */
+export const AI_DEFAULT_INTENT =
+  "Reply to what this comment actually says, using what the video covers.";

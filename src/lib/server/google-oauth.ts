@@ -526,6 +526,8 @@ export interface YoutubeCommentSummary {
   publishedAt: string | null;
   updatedAt: string | null;
   canReply: boolean | null;
+  /** Replies in the thread, as YouTube counts them (null when not reported). */
+  replyCount?: number | null;
 }
 
 // A commentThreads.list item. The comment's own text/author live under
@@ -537,6 +539,7 @@ type YoutubeCommentThreadItem = {
     videoId: string;
     channelId?: string;
     canReply?: boolean;
+    totalReplyCount?: number;
     topLevelComment?: {
       snippet?: {
         parentId?: string;
@@ -570,6 +573,8 @@ function mapCommentThreads(items: YoutubeCommentThreadItem[] | undefined): Youtu
       publishedAt: snippet.publishedAt ?? null,
       updatedAt: snippet.updatedAt ?? null,
       canReply: threadSnippet.canReply ?? null,
+      replyCount:
+        threadSnippet.totalReplyCount === undefined ? null : Number(threadSnippet.totalReplyCount),
     });
   }
   return comments.filter((comment) => comment.text);
@@ -703,6 +708,146 @@ export async function postYoutubeCommentReply(
   }
   const data = (await response.json()) as { id: string; snippet?: { publishedAt?: string } };
   return { id: data.id, publishedAt: data.snippet?.publishedAt ?? null };
+}
+
+// ---------- replies within a comment thread ----------
+
+/** A reply in a comment thread (comments.list), with who wrote it and what it answers. */
+export interface YoutubeCommentReply {
+  id: string;
+  parentId: string | null;
+  authorName: string | null;
+  authorChannelId: string | null;
+  authorAvatarUrl: string | null;
+  text: string;
+  likeCount: number;
+  publishedAt: string | null;
+  updatedAt: string | null;
+}
+
+type YoutubeCommentItem = {
+  id: string;
+  snippet?: {
+    parentId?: string;
+    textDisplay?: string;
+    textOriginal?: string;
+    authorDisplayName?: string;
+    authorProfileImageUrl?: string;
+    authorChannelId?: { value?: string };
+    likeCount?: number;
+    publishedAt?: string;
+    updatedAt?: string;
+  };
+};
+
+function mapCommentItems(items: YoutubeCommentItem[] | undefined): YoutubeCommentReply[] {
+  return (items ?? []).flatMap((item) => {
+    const s = item.snippet;
+    if (!s) return [];
+    return [
+      {
+        id: item.id,
+        parentId: s.parentId ?? null,
+        authorName: s.authorDisplayName ?? null,
+        authorChannelId: s.authorChannelId?.value ?? null,
+        authorAvatarUrl: s.authorProfileImageUrl ?? null,
+        // textOriginal is the author's own text (what an edit starts from); textDisplay is the
+        // rendered form, used when the original is not returned.
+        text: s.textOriginal ?? s.textDisplay ?? "",
+        likeCount: Number(s.likeCount ?? 0),
+        publishedAt: s.publishedAt ?? null,
+        updatedAt: s.updatedAt ?? null,
+      },
+    ];
+  });
+}
+
+/**
+ * The replies to one top-level comment (comments.list with parentId), oldest first, up to
+ * `maxPages` pages of 100 (1 quota unit a page). `pages` is how many were read.
+ */
+export async function fetchCommentReplies(
+  accessToken: string,
+  parentId: string,
+  maxPages = 3,
+): Promise<{ replies: YoutubeCommentReply[]; pages: number; more: boolean }> {
+  const replies: YoutubeCommentReply[] = [];
+  let pageToken: string | undefined;
+  let pages = 0;
+  do {
+    const params: Record<string, string> = {
+      part: "snippet",
+      parentId,
+      maxResults: "100",
+      textFormat: "plainText",
+    };
+    if (pageToken) params.pageToken = pageToken;
+    const response = await youtubeApiRequest<{
+      items?: YoutubeCommentItem[];
+      nextPageToken?: string;
+    }>(accessToken, "comments", params);
+    pages += 1;
+    replies.push(...mapCommentItems(response.items));
+    pageToken = response.nextPageToken;
+  } while (pageToken && pages < maxPages);
+  replies.sort((a, b) => String(a.publishedAt).localeCompare(String(b.publishedAt)));
+  return { replies, pages, more: Boolean(pageToken) };
+}
+
+/** Comments (replies included) looked up by id, 1 quota unit per 50. Missing ids are left out. */
+export async function fetchCommentsByIds(
+  accessToken: string,
+  ids: string[],
+): Promise<YoutubeCommentReply[]> {
+  const found: YoutubeCommentReply[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const response = await youtubeApiRequest<{ items?: YoutubeCommentItem[] }>(
+      accessToken,
+      "comments",
+      {
+        part: "snippet",
+        id: ids.slice(i, i + 50).join(","),
+        textFormat: "plainText",
+      },
+    );
+    found.push(...mapCommentItems(response.items));
+  }
+  return found;
+}
+
+/**
+ * Changes the text of a comment the authorized channel wrote (comments.update, 50 quota units).
+ * YouTube itself refuses an edit to anyone else's comment; callers check ownership first anyway.
+ */
+export async function updateYoutubeComment(
+  accessToken: string,
+  commentId: string,
+  text: string,
+): Promise<void> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/comments");
+  url.searchParams.set("part", "snippet");
+  const response = await youtubeFetch(accessToken, url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: commentId, snippet: { textOriginal: text } }),
+  });
+  if (!response.ok) {
+    if (response.status === 403) {
+      const body = await response.json().catch(() => null);
+      const reason = (body as { error?: { errors?: Array<{ reason?: string }> } } | null)?.error
+        ?.errors?.[0]?.reason;
+      if (reason === "insufficientPermissions" || reason === "forbidden")
+        throw new YoutubeInsufficientScopeError();
+      if (
+        reason === "quotaExceeded" ||
+        reason === "dailyLimitExceeded" ||
+        reason === "rateLimitExceeded" ||
+        reason === "userRateLimitExceeded"
+      )
+        throw new YoutubeQuotaExceededError();
+    }
+    throw new Error(`YOUTUBE_COMMENT_UPDATE_FAILED:${response.status}`);
+  }
 }
 
 export interface YoutubeAnalyticsQuery {

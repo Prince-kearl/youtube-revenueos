@@ -77,7 +77,9 @@ import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.cha
 import { Route as ApiBillingCheckoutRouteImport } from './routes/api.billing.checkout'
 import { Route as ApiBillingPortalRouteImport } from './routes/api.billing.portal'
 import { Route as ApiBillingSubscriptionRouteImport } from './routes/api.billing.subscription'
+import { Route as ApiCommentRepliesDraftRouteImport } from './routes/api.comment-replies.draft'
 import { Route as ApiCommentRepliesProcessRouteImport } from './routes/api.comment-replies.process'
+import { Route as ApiCommentRepliesThreadRouteImport } from './routes/api.comment-replies.thread'
 import { Route as ApiCommentRulesRepliesRouteImport } from './routes/api.comment-rules.replies'
 import { Route as ApiDestinationsTopVideosRouteImport } from './routes/api.destinations.top-videos'
 import { Route as ApiEmailAudienceRouteImport } from './routes/api.email.audience'
@@ -482,12 +484,22 @@ const ApiBillingSubscriptionRoute = ApiBillingSubscriptionRouteImport.update({
   path: '/api/billing/subscription',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommentRepliesDraftRoute = ApiCommentRepliesDraftRouteImport.update({
+  id: '/draft',
+  path: '/draft',
+  getParentRoute: () => ApiCommentRepliesRoute,
+} as any)
 const ApiCommentRepliesProcessRoute =
   ApiCommentRepliesProcessRouteImport.update({
     id: '/process',
     path: '/process',
     getParentRoute: () => ApiCommentRepliesRoute,
   } as any)
+const ApiCommentRepliesThreadRoute = ApiCommentRepliesThreadRouteImport.update({
+  id: '/thread',
+  path: '/thread',
+  getParentRoute: () => ApiCommentRepliesRoute,
+} as any)
 const ApiCommentRulesRepliesRoute = ApiCommentRulesRepliesRouteImport.update({
   id: '/replies',
   path: '/replies',
@@ -883,7 +895,9 @@ export interface FileRoutesByFullPath {
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-replies/draft': typeof ApiCommentRepliesDraftRoute
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
+  '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
@@ -1017,7 +1031,9 @@ export interface FileRoutesByTo {
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-replies/draft': typeof ApiCommentRepliesDraftRoute
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
+  '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
@@ -1152,7 +1168,9 @@ export interface FileRoutesById {
   '/api/billing/checkout': typeof ApiBillingCheckoutRoute
   '/api/billing/portal': typeof ApiBillingPortalRoute
   '/api/billing/subscription': typeof ApiBillingSubscriptionRoute
+  '/api/comment-replies/draft': typeof ApiCommentRepliesDraftRoute
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
+  '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
@@ -1288,7 +1306,9 @@ export interface FileRouteTypes {
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
+    | '/api/comment-replies/draft'
     | '/api/comment-replies/process'
+    | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
@@ -1422,7 +1442,9 @@ export interface FileRouteTypes {
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
+    | '/api/comment-replies/draft'
     | '/api/comment-replies/process'
+    | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
@@ -1556,7 +1578,9 @@ export interface FileRouteTypes {
     | '/api/billing/checkout'
     | '/api/billing/portal'
     | '/api/billing/subscription'
+    | '/api/comment-replies/draft'
     | '/api/comment-replies/process'
+    | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
@@ -2204,11 +2228,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBillingSubscriptionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/comment-replies/draft': {
+      id: '/api/comment-replies/draft'
+      path: '/draft'
+      fullPath: '/api/comment-replies/draft'
+      preLoaderRoute: typeof ApiCommentRepliesDraftRouteImport
+      parentRoute: typeof ApiCommentRepliesRoute
+    }
     '/api/comment-replies/process': {
       id: '/api/comment-replies/process'
       path: '/process'
       fullPath: '/api/comment-replies/process'
       preLoaderRoute: typeof ApiCommentRepliesProcessRouteImport
+      parentRoute: typeof ApiCommentRepliesRoute
+    }
+    '/api/comment-replies/thread': {
+      id: '/api/comment-replies/thread'
+      path: '/thread'
+      fullPath: '/api/comment-replies/thread'
+      preLoaderRoute: typeof ApiCommentRepliesThreadRouteImport
       parentRoute: typeof ApiCommentRepliesRoute
     }
     '/api/comment-rules/replies': {
@@ -2679,11 +2717,15 @@ const VideosRouteWithChildren =
   VideosRoute._addFileChildren(VideosRouteChildren)
 
 interface ApiCommentRepliesRouteChildren {
+  ApiCommentRepliesDraftRoute: typeof ApiCommentRepliesDraftRoute
   ApiCommentRepliesProcessRoute: typeof ApiCommentRepliesProcessRoute
+  ApiCommentRepliesThreadRoute: typeof ApiCommentRepliesThreadRoute
 }
 
 const ApiCommentRepliesRouteChildren: ApiCommentRepliesRouteChildren = {
+  ApiCommentRepliesDraftRoute: ApiCommentRepliesDraftRoute,
   ApiCommentRepliesProcessRoute: ApiCommentRepliesProcessRoute,
+  ApiCommentRepliesThreadRoute: ApiCommentRepliesThreadRoute,
 }
 
 const ApiCommentRepliesRouteWithChildren =
