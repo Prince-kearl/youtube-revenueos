@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addMember,
+  addSubscription,
   addUser,
   addWorkspace,
   callTeamApi,
@@ -62,6 +63,9 @@ async function fixture(
   const wA = addWorkspace(world, owner);
   addMember(world, wA, editor, "editor");
   const wB = addWorkspace(world, other);
+  // Comment Automation and Lead Inbox are paid features.
+  addSubscription(world, owner, "scale");
+  addSubscription(world, other, "scale");
   const channelA = uuid();
   const channelB = uuid();
   const future = new Date(Date.now() + 3_600_000).toISOString();
@@ -492,24 +496,28 @@ test("an AI draft is refused before the AI for a comment on another channel or a
   });
 });
 
-test("AI drafts stop at the plan's AI limit, and say so when AI is not configured", async () => {
+test("AI drafts stop at the plan's daily draft limit, and say so when AI is not configured", async () => {
   const f = await fixture({ threads: [{ id: "cmtOwn00001", channel: YT_A }] });
   const off = await draft(f, f.owner, { youtubeCommentId: "cmtOwn00001" });
   assert.deepEqual([off.status, off.body], [503, { error: "AI_NOT_CONFIGURED" }]);
   assert.deepEqual(f.youtube, []);
   await withAi(async () => {
-    // The free plan allows 3 a minute.
-    for (let i = 0; i < 3; i += 1)
+    // Starter: 30 drafts a day (like chat, counted separately from chat and from analyses).
+    (f.world.subscriptions as Row[]).find((s) => s.user_id === f.owner)!.plan_id = "starter";
+    const earlier = new Date(Date.now() - 10 * 60_000).toISOString();
+    for (let i = 0; i < 30; i += 1)
       f.world.ai_usage!.push({
         id: uuid(),
         user_id: f.owner,
-        task: "comment_reply_draft",
-        created_at: new Date().toISOString(),
+        task: i < 29 ? "comment_reply_draft" : "assistant_chat",
+        created_at: earlier,
       });
+    const under = await draft(f, f.owner, { youtubeCommentId: "cmtOwn00001" });
+    assert.equal(under.status, 200, "chat messages do not count towards drafts");
     const limited = await draft(f, f.owner, { youtubeCommentId: "cmtOwn00001" });
     assert.equal(limited.status, 429);
-    assert.equal((limited.body as Row).error, "RATE_LIMIT_EXCEEDED");
-    assert.deepEqual(f.ai, []);
+    assert.equal((limited.body as Row).error, "AI_DRAFT_LIMIT_EXCEEDED");
+    assert.equal(f.ai.length, 1);
   });
 });
 
@@ -648,4 +656,28 @@ test("comment and video text are fenced as data, and the output is checked", () 
   assert.equal(sanitizeCommentReply('"Thanks!"', null), "Thanks!");
   const long = sanitizeCommentReply(`${"Great point. ".repeat(60)}`, null)!;
   assert.ok(long.length <= 400 && long.endsWith("."));
+});
+
+test("without a paid plan threads, edits and AI drafts are refused before YouTube or the AI", async () => {
+  await withAi(async () => {
+    const f = await fixture({
+      threads: [{ id: "cmtOwn00001", channel: YT_A }],
+      replies: THREAD_REPLIES,
+    });
+    f.world.subscriptions = f.world.subscriptions.filter((s) => s.user_id !== f.owner);
+    const statuses = [
+      (await getThread(f, f.owner, "cmtOwn00001")).status,
+      (
+        await editReply(f, f.owner, {
+          commentId: "cmtOwn00001",
+          replyId: "cmtOwn00001.r2",
+          text: "x",
+        })
+      ).status,
+      (await draft(f, f.owner, { youtubeCommentId: "cmtOwn00001" })).status,
+    ];
+    assert.deepEqual(statuses, [402, 402, 402]);
+    assert.deepEqual(f.youtube, []);
+    assert.deepEqual(f.ai, []);
+  });
 });

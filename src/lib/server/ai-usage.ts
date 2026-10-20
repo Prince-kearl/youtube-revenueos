@@ -373,7 +373,33 @@ export const CHAT_DAILY_LIMITS = { starter: 30, pro: 100, scale: 300 } as const;
  * be read it lets the message through rather than blocking chat (the allowance, which customers
  * pay for, is the control that fails closed).
  */
-export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance> {
+export function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance> {
+  return enforceDailyAiLimit(ctx, CHAT_TASK, {
+    error: "CHAT_LIMIT_EXCEEDED",
+    message: "You've sent a lot of messages today. Please try again tomorrow.",
+  });
+}
+
+/** The ai_usage task of an AI-written comment reply draft (Comment Automation, "Write with AI"). */
+export const COMMENT_REPLY_DRAFT_TASK = "comment_reply_draft";
+
+/**
+ * AI reply drafts are short, like chat messages: the same per-minute burst limit and per-day cap
+ * by plan as chat, counted separately from chat, and never against the monthly analysis
+ * allowance.
+ */
+export function enforceCommentReplyDraftLimit(ctx: AiQuotaContext): Promise<AiAllowance> {
+  return enforceDailyAiLimit(ctx, COMMENT_REPLY_DRAFT_TASK, {
+    error: "AI_DRAFT_LIMIT_EXCEEDED",
+    message: "You've written a lot of AI replies today. Please try again tomorrow.",
+  });
+}
+
+async function enforceDailyAiLimit(
+  ctx: AiQuotaContext,
+  task: string,
+  refusal: { error: string; message: string },
+): Promise<AiAllowance> {
   const providerInfo = getActiveProviderInfo();
   if (!providerInfo) return NOTHING_RESERVED;
   if (!ctx.plan.limits) throw subscriptionRequired(ctx.plan);
@@ -381,7 +407,7 @@ export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance
   // The transition keeps the previous chat limits (the "free" burst tier, 10 a day).
   const transition = ctx.plan.source === "transition";
   try {
-    await checkAiRateLimit(service, ctx.userId, CHAT_TASK, ctx.plan.plan ?? "free");
+    await checkAiRateLimit(service, ctx.userId, task, ctx.plan.plan ?? "free");
   } catch (error) {
     if (!(error instanceof AiRateLimitError)) throw error;
     throw jsonResponse({ error: "RATE_LIMIT_EXCEEDED", window: error.window }, 429);
@@ -390,7 +416,7 @@ export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance
     .from("ai_usage")
     .select("id", { count: "exact", head: true })
     .eq("user_id", ctx.userId)
-    .eq("task", CHAT_TASK)
+    .eq("task", task)
     .gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
   const dailyLimit =
     transition || !ctx.plan.plan
@@ -399,9 +425,9 @@ export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance
   if (!countError && count !== null && count >= dailyLimit)
     throw jsonResponse(
       {
-        error: "CHAT_LIMIT_EXCEEDED",
+        error: refusal.error,
         limit: dailyLimit,
-        message: "You've sent a lot of messages today. Please try again tomorrow.",
+        message: refusal.message,
       },
       429,
     );
@@ -411,7 +437,7 @@ export async function enforceChatLimit(ctx: AiQuotaContext): Promise<AiAllowance
       user_id: ctx.userId,
       provider: providerInfo.provider,
       model: providerInfo.model,
-      task: CHAT_TASK,
+      task: task,
       cache_hit: false,
     })
     .select("id")

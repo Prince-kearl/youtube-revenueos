@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addMember,
+  addSubscription,
   addUser,
   addWorkspace,
   callTeamApi,
@@ -39,6 +40,9 @@ async function fixture(
   const wA = addWorkspace(world, owner);
   addMember(world, wA, editor, "editor");
   const wB = addWorkspace(world, other);
+  // Comment Automation and Lead Inbox are paid features.
+  addSubscription(world, owner, "scale");
+  addSubscription(world, other, "scale");
   const channelA = uuid();
   const channelB = uuid();
   const future = new Date(Date.now() + 3_600_000).toISOString();
@@ -387,4 +391,14 @@ test("send stops at the daily reply cap, which counts replies sent from the inbo
   } finally {
     delete env.COMMENT_REPLY_DAILY_CAP;
   }
+});
+
+test("without a paid plan the conversation is refused before YouTube", async () => {
+  const f = await fixture({ threads: LEAD_THREADS, page: ["thrLead0001"] });
+  f.world.subscriptions = f.world.subscriptions.filter((s) => s.user_id !== f.owner);
+  const r = await receive(f, f.owner, f.lead);
+  const s = await send(f, f.owner, { leadId: f.lead, text: "hi" });
+  assert.deepEqual([r.status, s.status], [402, 402]);
+  assert.deepEqual(f.youtube, []);
+  assert.deepEqual(f.posted, []);
 });
