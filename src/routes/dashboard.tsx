@@ -720,10 +720,15 @@ function Dashboard() {
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl lg:col-span-2">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex shrink-0 items-start justify-between">
-            <div>
+          <div className="flex shrink-0 items-start justify-between gap-3">
+            <div className="min-w-0">
               <h3 className="text-lg font-semibold">Revenue Trends</h3>
-              <p className="text-sm text-muted-foreground">
+              {/* One short line ("Through Oct 16 · may still change"); the full wording is the
+                  tooltip. */}
+              <p
+                className="truncate text-sm text-muted-foreground"
+                title={revenue.freshnessDetail || undefined}
+              >
                 {revenue.freshnessNote || "Estimated YouTube revenue over time"}
               </p>
             </div>

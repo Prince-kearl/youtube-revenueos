@@ -170,7 +170,7 @@ test("the revenue sparkline is the canonical monthly trend", async () => {
   );
   assert.equal(view.kpi.latest!.label, "Oct 2026");
   assert.equal(view.kpi.latest!.incomplete, true);
-  assert.match(view.kpi.freshnessNote, /^Estimated YouTube revenue through Oct 7/);
+  assert.match(view.kpi.freshnessNote, /^Through Oct 7/);
 });
 
 // ---------- 3. Revenue by Source ----------

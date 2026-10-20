@@ -4,6 +4,7 @@ import {
   Eye,
   Filter,
   Info,
+  MessageCircle,
   Play,
   Plus,
   RefreshCw,
@@ -371,7 +372,7 @@ function Videos() {
               aria-label="Sort videos"
               value={sort}
               onChange={(event) => setSort(event.target.value as SortOption)}
-              className="bg-transparent text-foreground outline-none"
+              className="bg-transparent text-foreground outline-none [&>option]:bg-card [&>option]:text-foreground"
             >
               <option value="recent">Most recent</option>
               <option value="views">Most views</option>
@@ -468,11 +469,14 @@ function Videos() {
             </EmptyState>
           )}
 
-          <div className="mt-6 space-y-3 sm:hidden">
-            {filteredVideos.map((video) => (
-              <VideoCard key={video.id} video={video} />
-            ))}
-          </div>
+          {/* Phones: a card per video, with its stats as icons beside the date. */}
+          {filteredVideos.length > 0 && (
+            <ul className="mt-6 space-y-3 sm:hidden">
+              {filteredVideos.map((video) => (
+                <VideoCard key={video.id} video={video} />
+              ))}
+            </ul>
+          )}
 
           {state.data?.nextPageToken && (
             <div className="mt-5 flex justify-center">
@@ -573,42 +577,61 @@ function MessageState({
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
   return (
-    <div className="relative block rounded-xl card-gradient-outline p-4">
-      {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
-          YouTube in its header. */}
-      <Link
-        to="/videos/$videoId"
-        params={{ videoId: video.id }}
-        className="group flex items-center gap-3"
-      >
-        <VideoThumbnail video={video} />
-        <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 font-medium group-hover:text-primary">{video.title}</span>
-          <span className="mt-1 block text-xs text-muted-foreground">
+    <li className="group relative flex items-center gap-3 rounded-xl card-gradient-outline px-4 py-3">
+      <VideoThumbnail video={video} />
+      <div className="min-w-0 flex-1">
+        {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
+            YouTube in its header. The title's link covers the whole row (::after), so a tap
+            anywhere opens it; the comment count is a separate link layered above it. */}
+        <Link
+          to="/videos/$videoId"
+          params={{ videoId: video.id }}
+          className="line-clamp-2 font-medium after:absolute after:inset-0 after:content-[''] group-hover:text-primary"
+        >
+          {video.title}
+        </Link>
+        {/* Date and length, then views, likes and comments as icons on the same line. */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>
             {formatDate(video.publishedAt)}
             {video.duration ? ` · ${video.duration}` : ""}
           </span>
-        </span>
-      </Link>
-      <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-accent/30 p-2.5 text-center text-xs">
-        <div>
-          <p className="text-muted-foreground">Views</p>
-          <p className="mt-0.5 font-medium">{formatCount(video.views)}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Likes</p>
-          <p className="mt-0.5 font-medium">
-            {video.likes === null ? "Unavailable" : formatCount(video.likes)}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Comments</p>
-          <p className="mt-0.5 font-medium">
-            {video.comments === null ? "Unavailable" : formatCount(video.comments)}
-          </p>
+          <span className="flex items-center gap-3">
+            <CardStat icon={Eye} value={video.views} noun="views" />
+            <CardStat icon={ThumbsUp} value={video.likes} noun="likes" />
+            {/* The comment count opens Comment Automation on this video's comments. */}
+            <Link
+              to="/comments"
+              search={{ video: video.id }}
+              className="relative z-10 -m-1.5 rounded-md p-1.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <CardStat icon={MessageCircle} value={video.comments} noun="comments" />
+            </Link>
+          </span>
         </div>
       </div>
-    </div>
+    </li>
+  );
+}
+
+// One count on a phone row: an icon and the number, with the full wording ("88 views") as
+// hidden text for screen readers and as a tooltip. A count YouTube does not provide shows a dash and is named unavailable.
+function CardStat({
+  icon: Icon,
+  value,
+  noun,
+}: {
+  icon: typeof Eye;
+  value: number | null;
+  noun: string;
+}) {
+  const label = value === null ? `${noun} unavailable` : `${formatCount(value)} ${noun}`;
+  return (
+    <span className="flex items-center gap-1 tabular-nums" title={label}>
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span aria-hidden>{value === null ? "–" : formatCount(value)}</span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 

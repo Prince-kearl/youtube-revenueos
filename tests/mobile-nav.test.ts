@@ -34,13 +34,24 @@ test("both the workspace app and the admin console use the same dock", () => {
 test("pill icons sit in fixed slots (no spreading), and every one has a name", () => {
   assert.match(
     dock,
-    /"flex h-full w-14 min-w-0 shrink items-center justify-center rounded-full transition-colors"/,
+    /"group flex h-full w-14 min-w-0 shrink items-center justify-center rounded-full outline-none"/,
   );
   assert.doesNotMatch(dock, /flex-1 items-center justify-center rounded-full/);
   assert.match(
     dock,
     /"aria-label": inPanel && !item\.shortLabel \? undefined : item\.label, title: inPanel \? undefined : item\.label,/,
   );
+});
+
+test("the current page is highlighted like the desktop rail: a red, outlined, perfect circle", () => {
+  // The same class the desktop rail uses, on a square (so truly circular) inside the slot.
+  assert.match(dock, /item\.active \? "glass-active-nav"/);
+  assert.match(
+    dock,
+    /"flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-primary min-\[360px\]:h-10 min-\[360px\]:w-10"/,
+  );
+  const layout = readFileSync("src/components/DashboardLayout.tsx", "utf8");
+  assert.match(layout, /\$\{active \? "glass-active-nav" :/);
 });
 
 test("the pill and the round button have the same height at every width", () => {

@@ -50,6 +50,11 @@ export interface World {
   deal_videos?: Row[];
   // The video-detail channel tests add.
   youtube_connections?: Row[];
+  // The Comment Automation reply queue tests add.
+  comment_automation_rules?: Row[];
+  comment_automation_replies?: Row[];
+  comment_reply_jobs?: Row[];
+  youtube_quota_events?: Row[];
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
    * fail the test with "unexpected request". */
   external?: (
@@ -275,6 +280,10 @@ const OPTIONAL_TABLES = [
   "workspace_branding",
   "deal_videos",
   "youtube_connections",
+  "comment_automation_rules",
+  "comment_automation_replies",
+  "comment_reply_jobs",
+  "youtube_quota_events",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -345,6 +354,10 @@ function matches(row: Row, params: URLSearchParams): boolean {
       if (actual === null || actual < operand) return false;
     } else if (operator === "lte") {
       if (actual === null || actual > operand) return false;
+    } else if (operator === "lt") {
+      if (actual === null || actual >= operand) return false;
+    } else if (operator === "gt") {
+      if (actual === null || actual <= operand) return false;
     } else if (operator === "ilike") {
       const pattern = looseIlikeEscapes ? operand.replace(/\\/g, "") : operand;
       if (actual === null || !ilike(actual, pattern)) return false;

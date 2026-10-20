@@ -32,6 +32,8 @@ export interface GoogleCall {
   bearer: string;
   metrics: string | null;
   status: number;
+  /** The request's query parameters (absent for the token endpoint). */
+  params?: Record<string, string>;
 }
 
 export interface DbWrite {
@@ -56,6 +58,15 @@ export interface Scenario {
   }) => number | undefined;
   /** Videos the uploads playlist lists (default: none). */
   videoIds?: string[];
+  /** When set, videos.list answers each requested id from this map instead: "own" is on the
+   * connected channel, "foreign" on someone else's; an id not in it does not exist. */
+  videosById?: Record<string, "own" | "foreign">;
+  /** commentThreads.list: how many top-level comments each video has (default: none). */
+  commentsByVideo?: Record<string, number>;
+  /** commentThreads.list for the whole channel (allThreadsRelatedToChannelId): the pages, in
+   * order, each listing the video id of every comment on it; page n > 1 is asked for with
+   * pageToken "page-<n>". */
+  channelCommentPages?: string[][];
 }
 
 export interface RunResult {
@@ -189,7 +200,13 @@ export async function runRoute(
       const bearer = (headers.get("Authorization") ?? "").replace(/^Bearer /, "");
       const metrics = url.searchParams.get("metrics");
       const status = scenario.api?.({ resource, attempt, bearer, metrics }) ?? 200;
-      google.push({ resource, bearer, metrics, status });
+      google.push({
+        resource,
+        bearer,
+        metrics,
+        status,
+        params: Object.fromEntries(url.searchParams),
+      });
       if (status !== 200) return json({ error: { code: status } }, status);
       if (resource === "channels")
         return json({
@@ -204,6 +221,73 @@ export async function runRoute(
         });
       if (resource === "playlistItems")
         return json({ items: videoIds.map((videoId) => ({ contentDetails: { videoId } })) });
+      if (resource === "videos" && scenario.videosById) {
+        const ids = (url.searchParams.get("id") ?? "").split(",").filter(Boolean);
+        return json({
+          items: ids
+            .filter((id) => scenario.videosById![id])
+            .map((id) => ({
+              id,
+              snippet: {
+                title: `Title of ${id}`,
+                publishedAt: "2026-09-01T00:00:00Z",
+                channelId:
+                  scenario.videosById![id] === "own"
+                    ? channelRow.youtube_channel_id
+                    : "UCsomeoneElsesChannel00",
+                thumbnails: {},
+              },
+              contentDetails: { duration: "PT1M" },
+              statistics: { viewCount: "1", likeCount: "0", commentCount: "0" },
+              status: { privacyStatus: "public" },
+            })),
+        });
+      }
+      if (resource === "commentThreads" && url.searchParams.get("allThreadsRelatedToChannelId")) {
+        const pages = scenario.channelCommentPages ?? [];
+        const token = url.searchParams.get("pageToken");
+        const index = token ? Number(token.replace("page-", "")) - 1 : 0;
+        const onPage = pages[index] ?? [];
+        return json({
+          items: onPage.map((videoId, n) => ({
+            id: `thread-p${index + 1}-${n}`,
+            snippet: {
+              videoId,
+              canReply: true,
+              topLevelComment: {
+                snippet: {
+                  textDisplay: `Comment ${n} on page ${index + 1}`,
+                  authorDisplayName: "Viewer",
+                  likeCount: 0,
+                  publishedAt: "2026-09-02T00:00:00Z",
+                },
+              },
+            },
+          })),
+          ...(index + 1 < pages.length ? { nextPageToken: `page-${index + 2}` } : {}),
+        });
+      }
+      if (resource === "commentThreads") {
+        const videoId = url.searchParams.get("videoId") ?? "";
+        const count = scenario.commentsByVideo?.[videoId] ?? 0;
+        return json({
+          items: Array.from({ length: count }, (_, n) => ({
+            id: `thread-${videoId}-${n}`,
+            snippet: {
+              videoId,
+              canReply: true,
+              topLevelComment: {
+                snippet: {
+                  textDisplay: `Comment ${n} on ${videoId}`,
+                  authorDisplayName: "Viewer",
+                  likeCount: 0,
+                  publishedAt: "2026-09-02T00:00:00Z",
+                },
+              },
+            },
+          })),
+        });
+      }
       if (resource === "videos")
         return json({
           items: videoIds.map((id, index) => ({

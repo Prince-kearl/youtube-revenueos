@@ -207,18 +207,22 @@ export function MobileDock({
             {primary.map((item) =>
               destination(
                 item,
-                cn(
-                  "flex h-full w-14 min-w-0 shrink items-center justify-center rounded-full transition-colors",
-                  item.active
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
-                ),
-                <>
+                "group flex h-full w-14 min-w-0 shrink items-center justify-center rounded-full outline-none",
+                // The highlight is the desktop rail's (glass-active-nav: red tint, red outline),
+                // drawn as a true circle inside the slot, so the slot keeps the pill's spacing.
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-primary min-[360px]:h-10 min-[360px]:w-10",
+                    item.active
+                      ? "glass-active-nav"
+                      : "text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
+                  )}
+                >
                   <item.Icon
                     className="h-5 w-5 shrink-0 min-[360px]:h-[22px] min-[360px]:w-[22px]"
                     strokeWidth={1.75}
                   />
-                </>,
+                </span>,
                 false,
               ),
             )}
