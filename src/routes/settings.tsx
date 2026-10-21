@@ -30,6 +30,7 @@ import {
   X,
   Copy,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Switch } from "@/components/ui/switch";
@@ -1603,36 +1604,92 @@ type BillingSubscriptionResponse = {
   data?: { subscription: BillingSubscription | null; plans: BillingPlan[] };
 };
 
+/** After Stripe's checkout: how long, and how often, to wait for the subscription to be recorded. */
+const CHECKOUT_CONFIRM_MS = 60_000;
+const CHECKOUT_POLL_MS = 2_500;
+
+const isActiveSubscription = (subscription: BillingSubscription | null) =>
+  subscription !== null && (subscription.status === "active" || subscription.status === "trialing");
+
 function BillingPanel() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
+  // Back from Stripe's checkout: the subscription is recorded when Stripe tells the server (its
+  // webhook), which can take a few seconds. Until the server reports it, the page says it is
+  // confirming — it never claims a subscription the server has not recorded.
+  const [confirming, setConfirming] = useState<"no" | "waiting" | "late">("no");
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("checkout") === "success") {
-      toast.success("Subscription confirmed — welcome aboard!");
+    const returnedFromCheckout =
+      new URLSearchParams(window.location.search).get("checkout") === "success";
+    if (returnedFromCheckout) {
       window.history.replaceState({}, "", window.location.pathname);
+      setConfirming("waiting");
     }
-    fetch("/api/billing/subscription", { cache: "no-store" })
-      .then(async (response) => {
-        const body = (await response.json()) as BillingSubscriptionResponse;
-        if (!response.ok || !body.data) throw new Error();
-        setSubscription(body.data.subscription);
-        setPlans(body.data.plans);
-        setStatus("ready");
-      })
-      .catch(() => setStatus("error"));
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const started = Date.now();
+    const load = () =>
+      fetch("/api/billing/subscription", { cache: "no-store" })
+        .then(async (response) => {
+          const body = (await response.json()) as BillingSubscriptionResponse;
+          if (!response.ok || !body.data) throw new Error();
+          if (cancelled) return;
+          setSubscription(body.data.subscription);
+          setPlans(body.data.plans);
+          setStatus("ready");
+          if (!returnedFromCheckout) return;
+          if (isActiveSubscription(body.data.subscription)) {
+            setConfirming("no");
+            toast.success("Subscription confirmed — welcome aboard!");
+          } else if (Date.now() - started < CHECKOUT_CONFIRM_MS) {
+            timer = setTimeout(() => void load(), CHECKOUT_POLL_MS);
+          } else {
+            setConfirming("late");
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (returnedFromCheckout && Date.now() - started < CHECKOUT_CONFIRM_MS) {
+            timer = setTimeout(() => void load(), CHECKOUT_POLL_MS);
+            return;
+          }
+          setStatus("error");
+          if (returnedFromCheckout) setConfirming("late");
+        });
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
-  const activePlan =
-    subscription && (subscription.status === "active" || subscription.status === "trialing")
-      ? plans.find((p) => p.id === subscription.plan_id)
-      : null;
+  const activePlan = isActiveSubscription(subscription)
+    ? plans.find((p) => p.id === subscription?.plan_id)
+    : null;
 
   return (
     <div className="relative rounded-xl card-gradient-outline p-6 space-y-6">
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-      {status === "loading" ? (
+      {confirming === "waiting" && !activePlan ? (
+        <div role="status" aria-live="polite">
+          <p className="flex items-center gap-2 text-lg font-semibold">
+            <Loader2 className="h-4 w-4 animate-spin" /> Confirming your subscription…
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Stripe is letting us know about your payment. This usually takes a few seconds.
+          </p>
+        </div>
+      ) : confirming === "late" && !activePlan ? (
+        <div role="status">
+          <p className="text-lg font-semibold">We haven’t received your subscription yet</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            If you completed the payment, it can take a little longer to reach us. Refresh this page
+            in a minute; if your plan still isn’t shown, contact support.
+          </p>
+        </div>
+      ) : status === "loading" ? (
         <p className="text-sm text-muted-foreground">Loading your plan…</p>
       ) : status === "error" ? (
         <p className="text-sm text-muted-foreground">We couldn't load your billing status.</p>
