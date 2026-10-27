@@ -277,13 +277,14 @@ export const Route = createFileRoute("/api/youtube/sync")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
           let ownedQuery = client
             .from("youtube_channels")
             .select("id")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) ownedQuery = ownedQuery.eq("id", requestedChannelId);

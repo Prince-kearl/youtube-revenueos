@@ -174,6 +174,7 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id, channel_name, channel_handle, subscriber_count")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (input.channelId) channelQuery = channelQuery.eq("id", input.channelId);

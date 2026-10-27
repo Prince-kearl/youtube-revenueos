@@ -153,7 +153,7 @@ export const Route = createFileRoute("/api/youtube/audience")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireWorkspaceFeature(request, "audience");
+          const { client, user, workspaceId } = await requireWorkspaceFeature(request, "audience");
           const requestUrl = new URL(request.url);
           const requestedChannelId = requestUrl.searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
@@ -164,6 +164,7 @@ export const Route = createFileRoute("/api/youtube/audience")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, user_id, youtube_channel_id")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getWorkspaceContext } from "@/lib/server/workspace";
+import { canManageWorkspaceMembers, getWorkspaceContext } from "@/lib/server/workspace";
 import { channelCapacity, overChannelLimit } from "@/lib/server/plan-access";
 import {
   assertYoutubeOAuthConfigured,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/server/google-oauth";
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
-import { safeAppPath } from "@/lib/server/safe-redirect";
+import { safeAppPath, withYoutubeStatus } from "@/lib/server/safe-redirect";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
 import {
@@ -38,24 +38,32 @@ export const Route = createFileRoute("/api/youtube/callback")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
+          const safeReturnTo = safeAppPath(getCookie(request, "yt_oauth_return"), "/settings");
           if (url.searchParams.get("error"))
-            return redirectToApp("/settings?youtube=denied", url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "denied"), url.origin);
 
           const code = url.searchParams.get("code");
           const state = url.searchParams.get("state");
           const expectedState = getCookie(request, "yt_oauth_state");
-          const safeReturnTo = safeAppPath(getCookie(request, "yt_oauth_return"), "/settings");
           if (!code || !state || !expectedState || state !== expectedState) {
-            return redirectToApp(`${safeReturnTo}?youtube=invalid_state`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "invalid_state"), url.origin);
           }
 
           const {
             client,
             user,
             workspaceId,
+            workspaceRole,
             setCookieHeaders,
             plan: workspacePlan,
           } = await getWorkspaceContext(request, { requirePlan: false });
+          // Only the workspace's owner or a manager may attach a Google account's YouTube access to
+          // it — checked before the code is exchanged, so nothing is stored for anyone else.
+          if (!canManageWorkspaceMembers(workspaceRole))
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "not_allowed"), url.origin);
+          // Connections (encrypted tokens) and channel rows are written server-side only; every
+          // query below names this workspace explicitly.
+          const service = createServiceSupabaseClient();
           // Must match the redirect_uri used in the authorization request — GOOGLE_REDIRECT_URI is
           // the single authoritative source for both, never the callback request's own host/origin.
           assertYoutubeOAuthConfigured();
@@ -64,7 +72,10 @@ export const Route = createFileRoute("/api/youtube/callback")({
             // Google omits refresh_token on repeat consent without access_type=offline&prompt=consent
             // having actually forced a new grant — ask the user to reauthorize rather than storing a
             // connection that will silently stop working once the access token expires.
-            return redirectToApp(`${safeReturnTo}?youtube=reauthorize_required`, url.origin);
+            return redirectToApp(
+              withYoutubeStatus(safeReturnTo, "reauthorize_required"),
+              url.origin,
+            );
           }
 
           const identity = tokens.id_token
@@ -75,7 +86,6 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // rights to — for most creators that's one, but for a legacy Brand Account manager it can
           // be several. Every one of them is discovered here; none are silently dropped.
           const discovered = await fetchAuthorizedYoutubeChannels(tokens.access_token);
-          const service = createServiceSupabaseClient();
           await service.from("youtube_quota_events").insert({
             user_id: user.id,
             operation: "channels.list",
@@ -90,7 +100,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
             // design — see YoutubeReauthNotice / the settings help copy for the workaround
             // (have the channel owner connect it directly, then invite this user as a Tubify
             // workspace member).
-            return redirectToApp(`${safeReturnTo}?youtube=no_channels_found`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "no_channels_found"), url.origin);
           }
 
           const accessTokenCiphertext = await encryptSecretToBytea(tokens.access_token);
@@ -103,7 +113,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // openid scope was added.
           let exactMatchConnectionId: string | null = null;
           if (identity) {
-            const { data: existing } = await client
+            const { data: existing } = await service
               .from("youtube_connections")
               .select("id")
               .eq("workspace_id", workspaceId)
@@ -118,7 +128,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // youtube-connection-resolution.ts for exactly why and how this is scoped conservatively.
           let eligibleLegacyConnections: LegacyConnectionCandidate[] = [];
           if (identity && !exactMatchConnectionId && discovered.length > 0) {
-            const { data: matchingChannels } = await client
+            const { data: matchingChannels } = await service
               .from("youtube_channels")
               .select("connection_id")
               .eq("workspace_id", workspaceId)
@@ -134,9 +144,10 @@ export const Route = createFileRoute("/api/youtube/callback")({
               ),
             ];
             if (candidateConnectionIds.length > 0) {
-              const { data: legacyConnections } = await client
+              const { data: legacyConnections } = await service
                 .from("youtube_connections")
                 .select("id, access_token_ciphertext, refresh_token_ciphertext")
+                .eq("workspace_id", workspaceId)
                 .in("id", candidateConnectionIds)
                 .is("google_subject_id", null);
               eligibleLegacyConnections = (legacyConnections ?? []).map((row) => ({
@@ -162,13 +173,16 @@ export const Route = createFileRoute("/api/youtube/callback")({
               workspaceId,
               candidateConnectionIds: plan.candidateConnectionIds,
             });
-            return redirectToApp(`${safeReturnTo}?youtube=connection_ambiguous`, url.origin);
+            return redirectToApp(
+              withYoutubeStatus(safeReturnTo, "connection_ambiguous"),
+              url.origin,
+            );
           }
 
           let connectionId: string;
           if (plan.action === "reuse" || plan.action === "reconcile") {
             connectionId = plan.connectionId;
-            const { error: updateError } = await client
+            const { error: updateError } = await service
               .from("youtube_connections")
               .update({
                 access_token_ciphertext: accessTokenCiphertext,
@@ -182,13 +196,14 @@ export const Route = createFileRoute("/api/youtube/callback")({
                 google_subject_id: identity?.sub ?? null,
                 google_email: identity?.email ?? null,
               })
-              .eq("id", connectionId);
+              .eq("id", connectionId)
+              .eq("workspace_id", workspaceId);
             if (updateError) {
               if (updateError.code === UNIQUE_VIOLATION && identity) {
                 // Extremely narrow race: something else attached this exact sub to a different
                 // connection in the moment between our plan and this write. Recover by adopting
                 // whatever now holds that sub rather than failing the whole connect.
-                const { data: raced } = await client
+                const { data: raced } = await service
                   .from("youtube_connections")
                   .select("id")
                   .eq("workspace_id", workspaceId)
@@ -196,17 +211,20 @@ export const Route = createFileRoute("/api/youtube/callback")({
                   .maybeSingle();
                 if (!raced) {
                   console.error("YouTube connection update failed", updateError.message);
-                  return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                  return redirectToApp(
+                    withYoutubeStatus(safeReturnTo, "storage_failed"),
+                    url.origin,
+                  );
                 }
                 connectionId = raced.id;
               } else {
                 console.error("YouTube connection update failed", updateError.message);
-                return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                return redirectToApp(withYoutubeStatus(safeReturnTo, "storage_failed"), url.origin);
               }
             }
           } else {
             // plan.action === "create" — no exact match and no safely-adoptable legacy connection.
-            const { data: inserted, error: insertError } = await client
+            const { data: inserted, error: insertError } = await service
               .from("youtube_connections")
               .insert({
                 workspace_id: workspaceId,
@@ -228,7 +246,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
                 // google_subject_id) unique index let exactly one win. Adopt that one instead of
                 // failing this request; its tokens are just as valid as the ones we would have
                 // written.
-                const { data: raced } = await client
+                const { data: raced } = await service
                   .from("youtube_connections")
                   .select("id")
                   .eq("workspace_id", workspaceId)
@@ -236,19 +254,22 @@ export const Route = createFileRoute("/api/youtube/callback")({
                   .maybeSingle();
                 if (!raced) {
                   console.error("YouTube connection insert failed", insertError?.message);
-                  return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                  return redirectToApp(
+                    withYoutubeStatus(safeReturnTo, "storage_failed"),
+                    url.origin,
+                  );
                 }
                 connectionId = raced.id;
               } else {
                 console.error("YouTube connection insert failed", insertError?.message);
-                return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+                return redirectToApp(withYoutubeStatus(safeReturnTo, "storage_failed"), url.origin);
               }
             } else {
               connectionId = inserted.id;
             }
           }
 
-          const { data: existingRows } = await client
+          const { data: existingRows } = await service
             .from("youtube_channels")
             .select("youtube_channel_id, connection_id")
             .eq("workspace_id", workspaceId);
@@ -275,17 +296,17 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // Safe to attach: channels.list(mine=true) just proved this token can access them.
           if (reconnect.refreshIds.length > 0) {
             const rediscoveredIds = reconnect.refreshIds;
-            const { error: repointError } = await client
+            const { error: repointError } = await service
               .from("youtube_channels")
               .update({ connection_id: connectionId })
               .eq("workspace_id", workspaceId)
               .in("youtube_channel_id", rediscoveredIds);
             if (repointError) {
               console.error("YouTube channel reconnect failed", repointError.message);
-              return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+              return redirectToApp(withYoutubeStatus(safeReturnTo, "storage_failed"), url.origin);
             }
             // Clear the stale flag now instead of leaving "Reconnect required" until the next sync.
-            await client
+            await service
               .from("youtube_channels")
               .update({ last_sync_status: "never_synced", last_sync_error: null })
               .eq("workspace_id", workspaceId)
@@ -294,7 +315,11 @@ export const Route = createFileRoute("/api/youtube/callback")({
             // Drop connections this just superseded. The FK is ON DELETE RESTRICT, so one that
             // still backs another channel is refused by the database and left untouched.
             for (const supersededId of reconnect.supersededConnectionIds) {
-              await client.from("youtube_connections").delete().eq("id", supersededId);
+              await service
+                .from("youtube_connections")
+                .delete()
+                .eq("id", supersededId)
+                .eq("workspace_id", workspaceId);
             }
           }
           const connectIds = new Set(reconnect.connectIds);
@@ -303,7 +328,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
           if (newChannels.length === 0) {
             // Every discovered channel is already connected to this workspace — nothing new to
             // add, but the connection's tokens were still refreshed above.
-            return redirectToApp(`${safeReturnTo}?youtube=already_connected`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "already_connected"), url.origin);
           }
 
           if (newChannels.length > 1) {
@@ -332,14 +357,19 @@ export const Route = createFileRoute("/api/youtube/callback")({
               youtubeChannelId: channel.channelId,
             });
           } catch {
-            return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "storage_failed"), url.origin);
           }
           if (!capacity.ok)
             return redirectToApp(
-              `${safeReturnTo}?youtube=${capacity.reason === "subscription_required" ? "subscription_required" : "channel_limit"}`,
+              withYoutubeStatus(
+                safeReturnTo,
+                capacity.reason === "subscription_required"
+                  ? "subscription_required"
+                  : "channel_limit",
+              ),
               url.origin,
             );
-          const { error: upsertError } = await client.from("youtube_channels").upsert(
+          const { error: upsertError } = await service.from("youtube_channels").upsert(
             {
               user_id: user.id,
               workspace_id: workspaceId,
@@ -368,7 +398,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
               details: upsertError.details,
               hint: upsertError.hint,
             });
-            return redirectToApp(`${safeReturnTo}?youtube=storage_failed`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "storage_failed"), url.origin);
           }
           // A connection made at the same moment may have taken the last place (see
           // overChannelLimit): this channel is detached again, its row kept.
@@ -379,15 +409,15 @@ export const Route = createFileRoute("/api/youtube/callback")({
             over = true;
           }
           if (over) {
-            await client
+            await service
               .from("youtube_channels")
               .update({ connection_id: null })
               .eq("workspace_id", workspaceId)
               .eq("youtube_channel_id", channel.channelId);
-            return redirectToApp(`${safeReturnTo}?youtube=channel_limit`, url.origin);
+            return redirectToApp(withYoutubeStatus(safeReturnTo, "channel_limit"), url.origin);
           }
 
-          const response = redirectToApp(`${safeReturnTo}?youtube=connected`, url.origin);
+          const response = redirectToApp(withYoutubeStatus(safeReturnTo, "connected"), url.origin);
           response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_state"));
           response.headers.append("Set-Cookie", buildExpiredCookie("yt_oauth_return"));
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);

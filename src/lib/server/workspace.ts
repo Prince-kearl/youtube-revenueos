@@ -52,6 +52,29 @@ function forbidden(error: string, status = 403): Response {
 // Every real account has exactly one active workspace membership (their own, as owner, or one
 // they were invited into — see handle_new_user() and api.workspace.members.ts) — v1 doesn't
 // support belonging to more than one workspace, so there's no ambiguity to resolve here.
+/**
+ * The caller's session, workspace and role in it — without the plan lookup getWorkspaceContext
+ * makes. For steps that only need to know who may act (e.g. starting a YouTube connection).
+ */
+export async function getWorkspaceMembership(request: Request) {
+  const { client, user, setCookieHeaders } = await requireSessionUser(request);
+  const { data: membership } = await client
+    .from("workspace_members")
+    .select("workspace_id, role")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (!membership) throw forbidden("NO_WORKSPACE");
+  return {
+    client,
+    user,
+    setCookieHeaders,
+    workspaceId: membership.workspace_id as string,
+    workspaceRole: membership.role as WorkspaceRole,
+  };
+}
+
 export async function getWorkspaceContext(
   request: Request,
   options: WorkspaceContextOptions = {},

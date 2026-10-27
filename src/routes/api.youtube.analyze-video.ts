@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/youtube/analyze-video")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const url = new URL(request.url);
           const videoId = videoIdSchema.parse(url.searchParams.get("videoId"));
           const rawChannelId = url.searchParams.get("channelId");
@@ -39,6 +39,7 @@ export const Route = createFileRoute("/api/youtube/analyze-video")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id, channel_name, channel_handle")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);

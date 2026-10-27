@@ -52,10 +52,15 @@ async function parseJson(request: Request) {
 
 type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
-async function findOwnedChannel(client: SupabaseClientLike, requestedId: string | null) {
+async function findOwnedChannel(
+  client: SupabaseClientLike,
+  workspaceId: string,
+  requestedId: string | null,
+) {
   let query = client
     .from("youtube_channels")
     .select("id, youtube_channel_id, workspace_id")
+    .eq("workspace_id", workspaceId)
     .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedId) query = query.eq("id", requestedId);
@@ -79,7 +84,11 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
             "comment_automation",
           );
           const url = new URL(request.url);
-          const channel = await findOwnedChannel(client, url.searchParams.get("channelId"));
+          const channel = await findOwnedChannel(
+            client,
+            workspaceId,
+            url.searchParams.get("channelId"),
+          );
           if (channel.workspaceId !== workspaceId)
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
           const channelId = channel.id;
@@ -142,7 +151,11 @@ export const Route = createFileRoute("/api/comment-rules/replies")({
             "comment_automation",
           );
           const url = new URL(request.url);
-          const channel = await findOwnedChannel(client, url.searchParams.get("channelId"));
+          const channel = await findOwnedChannel(
+            client,
+            workspaceId,
+            url.searchParams.get("channelId"),
+          );
           if (channel.workspaceId !== workspaceId)
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
           const channelId = channel.id;

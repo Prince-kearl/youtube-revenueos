@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import type { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { getWorkspaceContext } from "@/lib/server/workspace";
 
 const settingsSchema = z.object({
   auto_sync_videos: z.boolean(),
@@ -29,11 +30,13 @@ function json(body: unknown, init?: ResponseInit) {
 
 async function getOwnedChannel(
   client: Awaited<ReturnType<typeof requireSessionUser>>["client"],
+  workspaceId: string,
   requestedChannelId?: string | null,
 ) {
   let query = client
     .from("youtube_channels")
     .select("id")
+    .eq("workspace_id", workspaceId)
     .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedChannelId) query = query.eq("id", requestedChannelId);
@@ -47,11 +50,13 @@ export const Route = createFileRoute("/api/youtube/settings")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client, workspaceId } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          const channel = await getOwnedChannel(client, requestedChannelId);
+          const channel = await getOwnedChannel(client, workspaceId, requestedChannelId);
           if (!channel) {
             return requestedChannelId
               ? json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 })
@@ -71,11 +76,13 @@ export const Route = createFileRoute("/api/youtube/settings")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client, workspaceId } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
-          const channel = await getOwnedChannel(client, requestedChannelId);
+          const channel = await getOwnedChannel(client, workspaceId, requestedChannelId);
           if (!channel) return json({ error: "YOUTUBE_NOT_CONNECTED" }, { status: 409 });
           const input = settingsSchema.parse(await request.json());
           const { data, error } = await client

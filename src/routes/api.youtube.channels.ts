@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { canManageWorkspaceMembers, getWorkspaceContext } from "@/lib/server/workspace";
+import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { softDisconnectChannel } from "@/lib/server/youtube-disconnect";
 
 const idSchema = z.string().uuid();
@@ -21,16 +22,25 @@ export const Route = createFileRoute("/api/youtube/channels")({
       // see the DELETE handler below for why that distinction matters.
       GET: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          // The CURRENT workspace's channels only — not every workspace the caller belongs to.
+          const { client, workspaceId, workspaceRole } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
           const { data: channels, error } = await client
             .from("youtube_channels")
             .select(
               "id, connection_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id, connected_at, last_synced_at, last_sync_status, last_sync_error",
             )
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          return json({ data: channels ?? [] });
+          // Whether this caller may connect or disconnect channels (owner or manager), so the
+          // page can show those controls only to them; the routes check it again.
+          return json({
+            data: channels ?? [],
+            canManage: canManageWorkspaceMembers(workspaceRole),
+          });
         } catch (error) {
           if (error instanceof Response) return error;
           const message = error instanceof Error ? error.message : "";
@@ -42,16 +52,30 @@ export const Route = createFileRoute("/api/youtube/channels")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { workspaceId, workspaceRole } = await getWorkspaceContext(request, {
+            requirePlan: false,
+          });
+          // Disconnecting removes the workspace's access to a channel: owner or manager only.
+          if (!canManageWorkspaceMembers(workspaceRole))
+            return json(
+              {
+                error: "FORBIDDEN",
+                message: "Only the workspace owner or a manager can disconnect a channel.",
+              },
+              { status: 403 },
+            );
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
+          // Every step names the caller's current workspace; a channel of any other workspace is
+          // "not found". Server-side writes: channel and connection rows are not writable by
+          // client roles.
+          const client = createServiceSupabaseClient();
 
           // Disconnecting removes ACCESS, not HISTORY (see youtube-disconnect.ts): the channel row
           // is detached from its Google connection and kept, so its videos, daily stats, sync
           // state and link/click/lead attribution all survive and are picked up again if the
           // same channel is reconnected. The stored credentials are deleted unless another
-          // channel still uses the same connection. Every query runs on the caller's own
-          // RLS-scoped client, exactly as the hard delete did before.
+          // channel still uses the same connection.
           const fail = (operation: string, error: { message: string } | null): never => {
             console.error("YouTube disconnect failed", { operation, message: error?.message });
             throw new Error("DISCONNECT_DATABASE_ERROR");
@@ -63,6 +87,7 @@ export const Route = createFileRoute("/api/youtube/channels")({
                   .from("youtube_channels")
                   .select("id, connection_id")
                   .eq("id", channelId)
+                  .eq("workspace_id", workspaceId)
                   .maybeSingle();
                 if (error) fail("load", error);
                 return data
@@ -73,14 +98,16 @@ export const Route = createFileRoute("/api/youtube/channels")({
                 const { error } = await client
                   .from("youtube_channels")
                   .update({ connection_id: null })
-                  .eq("id", channelId);
+                  .eq("id", channelId)
+                  .eq("workspace_id", workspaceId);
                 if (error) fail("detach", error);
               },
               async attachChannel(channelId, connectionId) {
                 const { error } = await client
                   .from("youtube_channels")
                   .update({ connection_id: connectionId })
-                  .eq("id", channelId);
+                  .eq("id", channelId)
+                  .eq("workspace_id", workspaceId);
                 if (error) fail("reattach", error);
               },
               async countOtherChannelsUsingConnection(connectionId, exceptChannelId) {
@@ -89,6 +116,8 @@ export const Route = createFileRoute("/api/youtube/channels")({
                   .select("id", { count: "exact", head: true })
                   .eq("connection_id", connectionId)
                   .neq("id", exceptChannelId);
+                // (Counted across every workspace on purpose: the credentials must never be
+                // deleted while ANY channel still uses them.)
                 if (error) fail("count", error);
                 return count ?? 0;
               },
@@ -99,6 +128,7 @@ export const Route = createFileRoute("/api/youtube/channels")({
                   .from("youtube_connections")
                   .delete()
                   .eq("id", connectionId)
+                  .eq("workspace_id", workspaceId)
                   .select("id");
                 if (error) fail("delete_connection", error);
                 if (!data || data.length === 0)
@@ -108,6 +138,8 @@ export const Route = createFileRoute("/api/youtube/channels")({
             id,
           );
 
+          if (result.status === "not_found")
+            return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
           return json({ success: true, status: result.status });
         } catch (error) {
           if (error instanceof Response) return error;

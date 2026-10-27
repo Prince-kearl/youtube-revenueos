@@ -33,6 +33,7 @@ export async function ownedCommentChannel(
   let query = client
     .from("youtube_channels")
     .select("id, youtube_channel_id, workspace_id")
+    .eq("workspace_id", workspaceId)
     .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedId) query = query.eq("id", requestedId);

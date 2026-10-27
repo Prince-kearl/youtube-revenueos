@@ -170,7 +170,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const requestUrl = new URL(request.url);
           const requestedChannelId = requestUrl.searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
@@ -183,6 +183,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             .select(
               "id, user_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count",
             )
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
@@ -465,7 +466,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             });
           }
 
-          const { error: channelSyncError } = await client
+          const { error: channelSyncError } = await serviceClient
             .from("youtube_channels")
             .update({
               channel_name: channel.title,

@@ -44,7 +44,10 @@ export const Route = createFileRoute("/api/youtube/comments")({
       // not exist and one on another channel get the same 404, and nothing is fetched for it.
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireWorkspaceFeature(request, "comment_automation");
+          const { client, user, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const searchParams = new URL(request.url).searchParams;
           const requestedChannelId = searchParams.get("channelId");
           const requestedVideoId = searchParams.get("videoId");
@@ -56,6 +59,7 @@ export const Route = createFileRoute("/api/youtube/comments")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, youtube_channel_id")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);

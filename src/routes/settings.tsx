@@ -51,6 +51,7 @@ import { ToggleRowSkeleton } from "@/components/skeletons";
 import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
+import { YOUTUBE_CALLBACK_MESSAGES } from "@/lib/youtube-connect-messages";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { HIDDEN_CONNECTED_ACCOUNTS } from "@/lib/feature-flags";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
@@ -837,13 +838,18 @@ function ConnectedAccountsPanel() {
   const [loading, setLoading] = useState(true);
   const [integrationsLoading, setIntegrationsLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [canManageChannels, setCanManageChannels] = useState(false);
   const [connecting, setConnecting] = useState<ExternalProvider | null>(null);
 
   useEffect(() => {
     fetch("/api/youtube/channels")
       .then(async (response) => {
-        const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+        const body = (await response.json()) as {
+          data?: ConnectedYoutubeChannel[];
+          canManage?: boolean;
+        };
         setChannels(response.ok ? (body.data ?? []) : []);
+        setCanManageChannels(response.ok && body.canManage === true);
       })
       .catch(() => setChannels([]))
       .finally(() => setLoading(false));
@@ -872,11 +878,18 @@ function ConnectedAccountsPanel() {
     setDisconnecting(true);
     try {
       const response = await fetch(`/api/youtube/channels?id=${channel.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("disconnect_failed");
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? "Couldn't disconnect YouTube. Try again.");
+      }
       setChannels((current) => current.filter((item) => item.id !== channel.id));
       toast.success("YouTube disconnected");
-    } catch {
-      toast.error("Couldn't disconnect YouTube. Try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message !== "Failed to fetch"
+          ? error.message
+          : "Couldn't disconnect YouTube. Try again.",
+      );
     } finally {
       setDisconnecting(false);
     }
@@ -933,12 +946,14 @@ function ConnectedAccountsPanel() {
         : () => {
             window.location.href = "/api/youtube/auth?returnTo=/settings";
           },
-      actionLabel: channels.length
-        ? disconnecting
-          ? "Disconnecting…"
-          : "Disconnect active"
-        : "Connect",
-      disabled: loading || disconnecting,
+      actionLabel: !canManageChannels
+        ? "Owner or manager only"
+        : channels.length
+          ? disconnecting
+            ? "Disconnecting…"
+            : "Disconnect active"
+          : "Connect",
+      disabled: loading || disconnecting || !canManageChannels,
       rowLoading: loading,
       destructiveWhenConnected: true,
     },
@@ -1119,39 +1134,6 @@ interface ExternalIntegration {
   updated_at: string;
 }
 
-const YOUTUBE_CALLBACK_MESSAGES: Record<string, { type: "success" | "error"; text: string }> = {
-  connected: { type: "success", text: "YouTube channel connected." },
-  denied: { type: "error", text: "YouTube connection was cancelled." },
-  invalid_state: {
-    type: "error",
-    text: "That connection request expired or was invalid — try again.",
-  },
-  reauthorize_required: { type: "error", text: "Please reconnect and approve access again." },
-  storage_failed: { type: "error", text: "We couldn't save your YouTube connection. Try again." },
-  no_workspace: {
-    type: "error",
-    text: "We couldn't find your workspace — please sign out and back in, then try again.",
-  },
-  already_connected: { type: "success", text: "That YouTube account is already connected." },
-  channel_limit: {
-    type: "error",
-    text: "Your plan's channel limit is reached, so no new channel was added. Disconnect one or upgrade in Billing to add another. Channels already connected were renewed.",
-  },
-  subscription_required: {
-    type: "error",
-    text: "Connecting a new channel needs an active subscription. Choose a plan in Billing — your first subscription starts with a 14-day free trial.",
-  },
-  connection_ambiguous: {
-    type: "error",
-    text: "We couldn't safely confirm this is the same Google account as an existing connection in this workspace, so nothing was changed. Contact support if you expected this to reconnect automatically.",
-  },
-  no_channels_found: {
-    type: "error",
-    text: "Google didn't return a channel this account owns or manages. If you were invited as an Editor/Manager/Viewer on someone else's channel (YouTube Studio → Settings → Permissions), that access isn't visible to any app's API — ask the channel owner to connect it directly, then invite you to this workspace instead.",
-  },
-  error: { type: "error", text: "Something went wrong connecting YouTube." },
-};
-
 function YouTubeIntegrationPanel() {
   const navigate = useNavigate();
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
@@ -1172,14 +1154,21 @@ function YouTubeIntegrationPanel() {
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [pendingConnectionId, setPendingConnectionId] = useState<string | null>(null);
   const [findMoreConnectionIds, setFindMoreConnectionIds] = useState<string[] | null>(null);
+  // Only the workspace owner or a manager may connect or disconnect channels (the server
+  // enforces it; this only decides which controls to show).
+  const [canManage, setCanManage] = useState(false);
 
   const loadChannels = async () => {
     setLoading(true);
     try {
       const response = await fetch("/api/youtube/channels");
-      const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+      const body = (await response.json()) as {
+        data?: ConnectedYoutubeChannel[];
+        canManage?: boolean;
+      };
       const nextChannels = response.ok ? (body.data ?? []) : [];
       setChannels(nextChannels);
+      setCanManage(response.ok && body.canManage === true);
       if (
         nextChannels.length &&
         (!activeChannelId || !nextChannels.some((channel) => channel.id === activeChannelId))
@@ -1286,11 +1275,18 @@ function YouTubeIntegrationPanel() {
     setDisconnectingId(id);
     try {
       const response = await fetch(`/api/youtube/channels?id=${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("DELETE_FAILED");
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? "Couldn't disconnect that channel. Try again.");
+      }
       toast.success("YouTube channel disconnected");
       await loadChannels();
-    } catch {
-      toast.error("Couldn't disconnect that channel. Try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message !== "Failed to fetch"
+          ? error.message
+          : "Couldn't disconnect that channel. Try again.",
+      );
     } finally {
       setDisconnectingId(null);
     }
@@ -1301,7 +1297,7 @@ function YouTubeIntegrationPanel() {
       <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">YouTube Integration</h3>
-        {!loading && channels.length > 0 && (
+        {!loading && channels.length > 0 && canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() =>
@@ -1368,13 +1364,19 @@ function YouTubeIntegrationPanel() {
                 </p>
               </div>
             </div>
-            <a
-              href="/api/youtube/auth"
-              data-onboarding-step="channel"
-              className="whitespace-nowrap rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Connect YouTube Channel
-            </a>
+            {canManage ? (
+              <a
+                href="/api/youtube/auth"
+                data-onboarding-step="channel"
+                className="whitespace-nowrap rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Connect YouTube Channel
+              </a>
+            ) : (
+              <p className="text-sm text-muted-foreground sm:max-w-[16rem] sm:text-right">
+                Ask the workspace owner or a manager to connect a channel.
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -1427,13 +1429,15 @@ function YouTubeIntegrationPanel() {
                 >
                   {channel.id === activeChannelId ? "Active channel" : "Use this channel"}
                 </button>
-                <button
-                  onClick={() => disconnect(channel.id)}
-                  disabled={disconnectingId === channel.id || syncing}
-                  className="rounded-full border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:opacity-60"
-                >
-                  {disconnectingId === channel.id ? "Disconnecting…" : "Disconnect"}
-                </button>
+                {canManage && (
+                  <button
+                    onClick={() => disconnect(channel.id)}
+                    disabled={disconnectingId === channel.id || syncing}
+                    className="rounded-full border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:opacity-60"
+                  >
+                    {disconnectingId === channel.id ? "Disconnecting…" : "Disconnect"}
+                  </button>
+                )}
               </div>
             </div>
             {channel.last_sync_status === "reauth_required" && (

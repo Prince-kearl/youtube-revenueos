@@ -300,6 +300,11 @@ export const MONEY_COLUMNS: Record<string, string[]> = {
 
 const RESERVED_PARAMS = ["select", "order", "limit", "offset", "on_conflict", "columns"];
 
+/** Tables client roles cannot touch at all (202610270001): only the server reads and writes them. */
+export const SERVER_ONLY_TABLES = ["youtube_connections"];
+/** Tables client roles may read (through RLS) but never write (202610270001). Always enforced. */
+export const SERVER_WRITE_TABLES = ["youtube_channels"];
+
 /** Tables the migrations leave no member-facing write privilege on. */
 export const MEMBER_READ_ONLY_TABLES = [
   "deals",
@@ -477,7 +482,13 @@ export async function callTeamApi(
     const headers = new Headers(init?.headers ?? request?.headers);
     if (url.origin !== SUPABASE) {
       const body =
-        typeof init?.body === "string" ? init.body : request ? await request.clone().text() : null;
+        typeof init?.body === "string"
+          ? init.body
+          : init?.body instanceof URLSearchParams
+            ? init.body.toString()
+            : request
+              ? await request.clone().text()
+              : null;
       const answer = world.external?.(url, { method, headers, body });
       if (answer) return answer;
       throw new Error(`unexpected request in test: ${method} ${url}`);
@@ -600,6 +611,14 @@ export async function callTeamApi(
       method === "GET" || method === "HEAD" || prefer.includes("return=representation");
     const memberWrite =
       method !== "GET" && method !== "HEAD" && MEMBER_READ_ONLY_TABLES.includes(String(table));
+    if (
+      as === "user" &&
+      (SERVER_ONLY_TABLES.includes(String(table)) ||
+        (method !== "GET" && method !== "HEAD" && SERVER_WRITE_TABLES.includes(String(table))))
+    ) {
+      refusedMoneyReads.push(`${method} ${String(table)}${url.search}`);
+      return json({ code: "42501", message: `permission denied for table ${String(table)}` }, 403);
+    }
     if (
       world.protectMoney &&
       as === "user" &&

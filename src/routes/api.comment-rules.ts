@@ -34,10 +34,15 @@ async function parseJson(request: Request) {
 
 type SupabaseClientLike = Awaited<ReturnType<typeof requireWorkspaceFeature>>["client"];
 
-async function findOwnedChannel(client: SupabaseClientLike, requestedId: string | null) {
+async function findOwnedChannel(
+  client: SupabaseClientLike,
+  workspaceId: string,
+  requestedId: string | null,
+) {
   let query = client
     .from("youtube_channels")
     .select("id")
+    .eq("workspace_id", workspaceId)
     .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (requestedId) query = query.eq("id", requestedId);
@@ -114,9 +119,13 @@ export const Route = createFileRoute("/api/comment-rules")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "comment_automation");
+          const { client, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const channelId = await findOwnedChannel(
             client,
+            workspaceId,
             new URL(request.url).searchParams.get("channelId"),
           );
           const { data, error } = await client
@@ -160,9 +169,16 @@ export const Route = createFileRoute("/api/comment-rules")({
       },
       POST: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "comment_automation");
+          const { client, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const url = new URL(request.url);
-          const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
+          const channelId = await findOwnedChannel(
+            client,
+            workspaceId,
+            url.searchParams.get("channelId"),
+          );
           const input = ruleSchema.parse(await parseJson(request));
           const { data, error } = await client
             .from("comment_automation_rules")
@@ -189,10 +205,17 @@ export const Route = createFileRoute("/api/comment-rules")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "comment_automation");
+          const { client, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const url = new URL(request.url);
           const id = idSchema.parse(url.searchParams.get("id"));
-          const channelId = await findOwnedChannel(client, url.searchParams.get("channelId"));
+          const channelId = await findOwnedChannel(
+            client,
+            workspaceId,
+            url.searchParams.get("channelId"),
+          );
           const input = ruleSchema.partial().parse(await parseJson(request));
           const update: Record<string, unknown> = {};
           if (input.name !== undefined) update.name = input.name;

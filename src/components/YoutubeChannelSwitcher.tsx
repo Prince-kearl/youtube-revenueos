@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, Youtube } from "lucide-react";
 import { useLocalStore, writeStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { youtubeCallbackMessage } from "@/lib/youtube-connect-messages";
 
 export type ConnectedYoutubeChannel = {
   id: string;
@@ -21,13 +23,31 @@ export function YoutubeChannelSwitcher() {
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
   const [loading, setLoading] = useState(true);
+  const [canManage, setCanManage] = useState(false);
+
+  // Back from Google after "Connect another channel" on any page but Settings (which shows these
+  // itself): say how it went, instead of silently dropping ?youtube=<status>.
+  useEffect(() => {
+    if (window.location.pathname === "/settings") return;
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get("youtube");
+    if (!status) return;
+    const message = youtubeCallbackMessage(status);
+    if (message) (message.type === "success" ? toast.success : toast.error)(message.text);
+    url.searchParams.delete("youtube");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/youtube/channels", { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
-        const body = (await response.json()) as { data?: ConnectedYoutubeChannel[] };
+        const body = (await response.json()) as {
+          data?: ConnectedYoutubeChannel[];
+          canManage?: boolean;
+        };
         if (!response.ok) throw new Error("channels_failed");
+        setCanManage(body.canManage === true);
         return body.data ?? [];
       })
       .then((items) => {
@@ -114,13 +134,15 @@ export function YoutubeChannelSwitcher() {
           })}
         </div>
       )}
-      <a
-        href={connectHref}
-        className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-left text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-      >
-        <Plus className="h-3.5 w-3.5 shrink-0" />
-        Connect another channel
-      </a>
+      {canManage && (
+        <a
+          href={connectHref}
+          className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-left text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3.5 w-3.5 shrink-0" />
+          Connect another channel
+        </a>
+      )}
     </div>
   );
 }

@@ -57,11 +57,13 @@ async function parseJson(request: Request): Promise<unknown> {
 
 async function findOwnedChannel(
   client: Awaited<ReturnType<typeof requireSessionUser>>["client"],
+  workspaceId: string,
   id?: string,
 ) {
   let query = client
     .from("youtube_channels")
     .select("id, user_id, youtube_channel_id")
+    .eq("workspace_id", workspaceId)
     .not("connection_id", "is", null)
     .order("connected_at", { ascending: false });
   if (id) query = query.eq("id", id);
@@ -108,7 +110,7 @@ export const Route = createFileRoute("/api/videos")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const url = new URL(request.url);
           const rawChannelId = url.searchParams.get("channelId");
           const rawYoutubeVideoId = url.searchParams.get("youtubeVideoId");
@@ -120,6 +122,7 @@ export const Route = createFileRoute("/api/videos")({
           let channelQuery = client
             .from("youtube_channels")
             .select("id, user_id, youtube_channel_id, channel_name, channel_handle")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (channelId) channelQuery = channelQuery.eq("id", channelId);
@@ -196,9 +199,9 @@ export const Route = createFileRoute("/api/videos")({
       },
       POST: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const input = saveVideoSchema.parse(await parseJson(request));
-          const channel = await findOwnedChannel(client, input.channelId);
+          const channel = await findOwnedChannel(client, workspaceId, input.channelId);
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const service = createServiceSupabaseClient();
@@ -280,7 +283,7 @@ export const Route = createFileRoute("/api/videos")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateVideoSchema.parse(await parseJson(request));
           const { data: existing, error: existingError } = await client
@@ -330,7 +333,7 @@ export const Route = createFileRoute("/api/videos")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const { data: existing, error: existingError } = await client
             .from("videos")

@@ -21,11 +21,15 @@ export const Route = createFileRoute("/api/youtube/quota")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requireWorkspaceFeature(request, "comment_automation");
+          const { client, workspaceId } = await requireWorkspaceFeature(
+            request,
+            "comment_automation",
+          );
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           let channelQuery = client
             .from("youtube_channels")
             .select("id")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);

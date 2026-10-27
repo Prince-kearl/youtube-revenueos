@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { applySetCookies } from "@/lib/server/supabase-ssr";
-import { getWorkspaceContext } from "@/lib/server/workspace";
+import { canManageWorkspaceMembers, getWorkspaceContext } from "@/lib/server/workspace";
 import { channelCapacity, overChannelLimit, subscriptionRequired } from "@/lib/server/plan-access";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { fetchAuthorizedYoutubeChannels } from "@/lib/server/google-oauth";
@@ -37,19 +37,27 @@ async function parseJson(request: Request) {
   }
 }
 
-// Loads the connection's live token pair, scoped to the caller's own workspace via the
-// RLS-filtered `client` — never the service-role client — so a caller can't discover or add
-// channels under a connection belonging to a workspace they aren't a member of.
-async function loadOwnedConnectionSecret(
-  client: Awaited<ReturnType<typeof getWorkspaceContext>>["client"],
-  connectionId: string,
-) {
-  return client
+// Loads the connection's live token pair — only a connection of the caller's CURRENT workspace.
+// Workspace membership alone is not enough: someone who belongs to two workspaces must never
+// list or attach the other workspace's Google connection (its owner's YouTube access) here. Read
+// server-side; the tokens never reach the caller.
+async function loadOwnedConnectionSecret(workspaceId: string, connectionId: string) {
+  return createServiceSupabaseClient()
     .from("youtube_connections")
     .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
     .eq("id", connectionId)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
 }
+
+const notAllowed = () =>
+  json(
+    {
+      error: "FORBIDDEN",
+      message: "Only the workspace owner or a manager can connect YouTube channels.",
+    },
+    { status: 403 },
+  );
 
 export const Route = createFileRoute("/api/youtube/connections")({
   server: {
@@ -61,14 +69,15 @@ export const Route = createFileRoute("/api/youtube/connections")({
       // screen at all, since the connection's existing token already covers it.
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId, setCookieHeaders } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId, workspaceRole, setCookieHeaders } =
+            await getWorkspaceContext(request, { requirePlan: false });
+          if (!canManageWorkspaceMembers(workspaceRole))
+            return withCookies(notAllowed(), setCookieHeaders);
           const url = new URL(request.url);
           const connectionId = idSchema.parse(url.searchParams.get("discover"));
 
           const { data: connection, error: connectionError } = await loadOwnedConnectionSecret(
-            client,
+            workspaceId,
             connectionId,
           );
           if (connectionError)
@@ -130,10 +139,10 @@ export const Route = createFileRoute("/api/youtube/connections")({
       // fetchYoutubeVideoById's expectedChannelId checks).
       POST: async ({ request }) => {
         try {
-          const { client, user, workspaceId, setCookieHeaders, plan } = await getWorkspaceContext(
-            request,
-            { requirePlan: false },
-          );
+          const { client, user, workspaceId, workspaceRole, setCookieHeaders, plan } =
+            await getWorkspaceContext(request, { requirePlan: false });
+          if (!canManageWorkspaceMembers(workspaceRole))
+            return withCookies(notAllowed(), setCookieHeaders);
           const input = addSchema.parse(await parseJson(request));
 
           // The plan's channel limit, before anything is read from Google or written.
@@ -166,7 +175,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
                 );
 
           const { data: connection, error: connectionError } = await loadOwnedConnectionSecret(
-            client,
+            workspaceId,
             input.connectionId,
           );
           if (connectionError)
@@ -190,7 +199,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
               setCookieHeaders,
             );
 
-          const { data: upserted, error: upsertError } = await client
+          const { data: upserted, error: upsertError } = await service
             .from("youtube_channels")
             .upsert(
               {
@@ -229,7 +238,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
               over = true;
             }
             if (over) {
-              await client
+              await service
                 .from("youtube_channels")
                 .update({ connection_id: null })
                 .eq("workspace_id", workspaceId)

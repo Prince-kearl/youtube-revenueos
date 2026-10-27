@@ -122,7 +122,7 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
       GET: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "analytics");
-          const { client, user } = ctx;
+          const { client, user, workspaceId } = ctx;
           // Revenue per traffic source follows the workspace's revenue visibility; for a caller
           // who may not see it the metric is not requested from YouTube at all.
           const revenueAccess = await resolveRevenueAccess(ctx);
@@ -134,18 +134,28 @@ export const Route = createFileRoute("/api/youtube/breakdowns")({
           const { startDate, endDate } = dateRange(input.range);
           let channelQuery = client
             .from("youtube_channels")
-            .select(
-              "id, youtube_channel_id, uploads_playlist_id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
-            )
+            .select("id, youtube_channel_id, uploads_playlist_id")
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
           const { data: channel, error: channelError } = await channelQuery.limit(1).maybeSingle();
-          const connection = normalizeYoutubeConnectionRow(channel?.connection);
-          if (channelError || !channel || !connection)
+          if (channelError || !channel)
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
+          // The channel's tokens never go through the caller's own client: read server-side, for
+          // the channel just confirmed to be in the caller's workspace.
           const serviceClient = createServiceSupabaseClient();
+          const { data: secretRow } = await serviceClient
+            .from("youtube_channels")
+            .select(
+              "id, connection:youtube_connections!connection_id(id, access_token_ciphertext, refresh_token_ciphertext, token_expiry)",
+            )
+            .eq("id", channel.id)
+            .eq("workspace_id", workspaceId)
+            .maybeSingle();
+          const connection = normalizeYoutubeConnectionRow(secretRow?.connection);
+          if (!connection) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
           const accessToken = await getValidAccessToken(serviceClient, connection);
           const [videoBreakdown, trafficBreakdown] = await Promise.all([
             queryBreakdown(

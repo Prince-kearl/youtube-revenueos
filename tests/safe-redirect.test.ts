@@ -61,6 +61,9 @@ async function youtubeAuth(returnTo: string) {
       });
     if (url.origin === SUPABASE && url.pathname === "/auth/v1/user")
       return json({ id: CALLER, aud: "authenticated", role: "authenticated", email: "a@test" });
+    // The caller is the owner of their workspace (only an owner or manager may connect).
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/workspace_members")
+      return json({ workspace_id: "22222222-2222-4222-8222-222222222222", role: "owner" });
     if (url.origin === SUPABASE && url.pathname === "/rest/v1/youtube_channels")
       return json([{ id: "11111111-1111-4111-8111-111111111111" }]);
     throw new Error(`unexpected request: ${url}`);

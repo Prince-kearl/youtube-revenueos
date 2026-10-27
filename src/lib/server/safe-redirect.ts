@@ -20,3 +20,12 @@ export function safeAppPath(candidate: string | null | undefined, fallback: stri
     return fallback;
   }
 }
+
+/** `path` (a safe app path) with `youtube=<status>` added — after any query it already has, and
+ * before any #fragment. */
+export function withYoutubeStatus(path: string, status: string): string {
+  const hashAt = path.indexOf("#");
+  const base = hashAt === -1 ? path : path.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : path.slice(hashAt);
+  return `${base}${base.includes("?") ? "&" : "?"}youtube=${encodeURIComponent(status)}${hash}`;
+}

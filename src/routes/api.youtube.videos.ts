@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client } = await requirePaidSession(request);
+          const { client, workspaceId } = await requirePaidSession(request);
           const url = new URL(request.url);
           const rawChannelId = url.searchParams.get("channelId");
           const requestedChannelId = rawChannelId ? idSchema.parse(rawChannelId) : null;
@@ -51,6 +51,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
             .select(
               "id, user_id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, view_count, video_count, uploads_playlist_id",
             )
+            .eq("workspace_id", workspaceId)
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (requestedChannelId) channelQuery = channelQuery.eq("id", requestedChannelId);
@@ -115,7 +116,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
             limit,
           );
 
-          const { error: channelUpdateError } = await client
+          const { error: channelUpdateError } = await serviceClient
             .from("youtube_channels")
             .update({
               channel_name: channel.title,

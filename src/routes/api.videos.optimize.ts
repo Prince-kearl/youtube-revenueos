@@ -52,6 +52,7 @@ export const Route = createFileRoute("/api/videos/optimize")({
           const { data: channel, error: channelError } = await client
             .from("youtube_channels")
             .select("id")
+            .eq("workspace_id", workspaceId)
             .eq("id", input.channelId)
             .maybeSingle();
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
