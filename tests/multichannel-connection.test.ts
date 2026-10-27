@@ -761,3 +761,84 @@ test("legacy connection (no Google account id yet, needs reconnecting): reconnec
   const v = await videos(f, f.owner, channelId);
   assert.equal(v.status, 200, v.text);
 });
+
+// ---------- more than two channels ----------
+
+const account = (n: number): GoogleAccount => ({
+  sub: `google-sub-extra-${n}`,
+  email: `extra${n}@gmail.test`,
+  channels: [
+    { id: `UCextra${String(n).padStart(17, "0")}`, title: `Extra ${n}`, videos: [`vidExtra${n}`] },
+  ],
+});
+
+test("more than two channels: Scale connects five (different Google accounts), each keeps its own data", async () => {
+  const f = fixture("scale");
+  const accounts = [ALICE, BRAND, account(3), account(4), account(5)];
+  for (const a of accounts)
+    assert.equal(
+      (await connect(f, f.owner, a)).landing,
+      "https://app.test/settings?youtube=connected",
+      a.email,
+    );
+  assert.equal(channels(f).filter((c) => c.connection_id).length, 5);
+  assert.equal(connections(f).length, 5);
+  const list = await listChannels(f, f.owner);
+  assert.equal((list.body.data as Row[]).length, 5);
+  for (const a of accounts) {
+    const row = rowFor(f, a.channels[0].id)!;
+    const v = await videos(f, f.owner, row.id as string);
+    assert.deepEqual(
+      ((v.body.data as Row).videos as Row[]).map((x) => x.id),
+      a.channels[0].videos,
+      a.email,
+    );
+  }
+  // Disconnecting the third leaves the other four working.
+  await disconnect(f, f.owner, rowFor(f, account(3).channels[0].id)!.id as string);
+  assert.equal(((await listChannels(f, f.owner)).body.data as Row[]).length, 4);
+});
+
+test("more than two channels from ONE Google account: all three can be added through the picker", async () => {
+  const f = fixture("scale");
+  const three: GoogleAccount = {
+    ...MANAGER_OF_TWO,
+    channels: [
+      ...MANAGER_OF_TWO.channels,
+      { id: "UCmultiThreeEEEEEEEEEEEE", title: "Multi Three", videos: ["vidMulti003"] },
+    ],
+  };
+  const pending = new URL((await connect(f, f.owner, three)).landing!).searchParams.get(
+    "pendingConnectionId",
+  )!;
+  for (const c of three.channels) {
+    const add = await callTeamApi(routes.connections, f.world, {
+      as: f.owner,
+      method: "POST",
+      path: "/api/youtube/connections",
+      body: { connectionId: pending, channelId: c.id },
+    });
+    assert.equal(add.status, 201, `${c.title}: ${add.text}`);
+  }
+  assert.deepEqual(
+    channels(f)
+      .map((c) => c.channel_name)
+      .sort(),
+    ["Multi One", "Multi Three", "Multi Two"],
+  );
+  assert.equal(connections(f).length, 1, "one Google connection backs all three");
+});
+
+test("Pro allows three channels; the fourth is refused with the plan message, the first three untouched", async () => {
+  const f = fixture("pro");
+  for (const a of [ALICE, BRAND, account(3)])
+    assert.equal(
+      (await connect(f, f.owner, a)).landing,
+      "https://app.test/settings?youtube=connected",
+    );
+  assert.equal(
+    (await connect(f, f.owner, account(4))).landing,
+    "https://app.test/settings?youtube=channel_limit",
+  );
+  assert.equal(channels(f).filter((c) => c.connection_id).length, 3);
+});
