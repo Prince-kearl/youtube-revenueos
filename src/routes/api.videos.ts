@@ -55,6 +55,33 @@ async function parseJson(request: Request): Promise<unknown> {
   }
 }
 
+/**
+ * Whether a stored video belongs to one of the caller's CURRENT workspace's channels. Row-level
+ * security alone admits any workspace the caller is a member of; a video of another workspace is
+ * the same "not found" as one that does not exist.
+ */
+async function videoInWorkspace(
+  client: Awaited<ReturnType<typeof requireSessionUser>>["client"],
+  workspaceId: string,
+  id: string,
+): Promise<boolean | "error"> {
+  const { data: video, error } = await client
+    .from("videos")
+    .select("id, channel_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return "error";
+  if (!video?.channel_id) return false;
+  const { data: channel, error: channelError } = await client
+    .from("youtube_channels")
+    .select("id")
+    .eq("id", video.channel_id as string)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (channelError) return "error";
+  return Boolean(channel);
+}
+
 async function findOwnedChannel(
   client: Awaited<ReturnType<typeof requireSessionUser>>["client"],
   workspaceId: string,
@@ -286,12 +313,8 @@ export const Route = createFileRoute("/api/videos")({
           const { client, workspaceId } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateVideoSchema.parse(await parseJson(request));
-          const { data: existing, error: existingError } = await client
-            .from("videos")
-            .select("id")
-            .eq("id", id)
-            .maybeSingle();
-          if (existingError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const existing = await videoInWorkspace(client, workspaceId, id);
+          if (existing === "error") return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!existing) return json({ error: "NOT_FOUND" }, { status: 404 });
 
           const update: Record<string, unknown> = {};
@@ -335,12 +358,8 @@ export const Route = createFileRoute("/api/videos")({
         try {
           const { client, workspaceId } = await requirePaidSession(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
-          const { data: existing, error: existingError } = await client
-            .from("videos")
-            .select("id")
-            .eq("id", id)
-            .maybeSingle();
-          if (existingError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const existing = await videoInWorkspace(client, workspaceId, id);
+          if (existing === "error") return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!existing) return json({ error: "NOT_FOUND" }, { status: 404 });
           const { error } = await client.from("videos").delete().eq("id", id);
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });

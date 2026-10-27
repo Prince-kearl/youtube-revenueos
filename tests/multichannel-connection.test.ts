@@ -603,8 +603,13 @@ test("UI: connect/disconnect controls show only to an owner or manager; every pa
   assert.match(settings, /disabled: loading \|\| disconnecting \|\| !canManageChannels,/);
   assert.match(switcher, /\{canManage && \( <a href=\{connectHref\}/);
   // Back from Google on a page other than Settings: the outcome is shown, then cleared.
+  assert.match(switcher, /export function YoutubeConnectionOutcome\(\)/);
   assert.match(switcher, /if \(window\.location\.pathname === "\/settings"\) return;/);
   assert.match(switcher, /const message = youtubeCallbackMessage\(status\);/);
+  // Always mounted (the switcher itself is inside a menu that only exists while open).
+  assert.match(flat("src/components/DashboardLayout.tsx"), /<YoutubeConnectionOutcome \/>/);
+  // Settings opens its YouTube panel for a ?youtube= outcome (message, channel picker).
+  assert.match(settings, /: youtube \? "YouTube Integration" : "Profile",/);
   const messages = flat("src/lib/youtube-connect-messages.ts");
   for (const status of [
     "connected",
@@ -615,4 +620,144 @@ test("UI: connect/disconnect controls show only to an owner or manager; every pa
     "invalid_state",
   ])
     assert.match(messages, new RegExp(`${status}: [{]`), status);
+});
+
+// ---------- MC-8: missing or expired session ----------
+
+test("MC-8 'Connect' without a session goes to sign-in (never raw JSON), remembering a safe page", async () => {
+  const f = fixture();
+  const r = await callTeamApi(routes.auth, f.world, {
+    as: null,
+    method: "GET",
+    path: "/api/youtube/auth",
+    query: `?returnTo=${encodeURIComponent("/comments?video=abc")}`,
+  });
+  assert.equal(r.status, 302);
+  assert.equal(
+    r.headers.get("location"),
+    `/?next=${encodeURIComponent("/comments?video=abc")}&reason=session_expired`,
+  );
+  const cookie = r.headers.getSetCookie().find((c) => c.startsWith("post_login_next="))!;
+  assert.match(
+    cookie,
+    /^post_login_next=%2Fcomments%3Fvideo%3Dabc; Path=\/; HttpOnly; SameSite=Lax; Max-Age=600/,
+  );
+  assert.equal(f.google.length, 0, "Google is not opened without a session");
+});
+
+test("MC-8 a return path that is off the app, an API or an auth route is never remembered", async () => {
+  const f = fixture();
+  for (const [returnTo, expected] of [
+    ["https://evil.test/x", "/settings"],
+    ["//evil.test", "/settings"],
+    [String.raw`/\evil.test`, "/settings"],
+    ["/api/youtube/auth", "/dashboard"],
+    ["/auth/callback?code=1", "/dashboard"],
+    ["/api", "/dashboard"],
+  ] as const) {
+    const r = await callTeamApi(routes.auth, f.world, {
+      as: null,
+      method: "GET",
+      path: "/api/youtube/auth",
+      query: `?returnTo=${encodeURIComponent(returnTo)}`,
+    });
+    assert.equal(
+      r.headers.get("location"),
+      `/?next=${encodeURIComponent(expected)}&reason=session_expired`,
+      returnTo,
+    );
+  }
+  const { postLoginPath } = await import("../src/lib/safe-redirect");
+  assert.equal(postLoginPath("/analytics?range=28d#top"), "/analytics?range=28d#top");
+  assert.equal(postLoginPath("/apiary"), "/apiary", "only the /api and /auth routes are refused");
+  assert.equal(postLoginPath(null), "/dashboard");
+});
+
+test("MC-8 a session that expired during Google's consent: sign in again, nothing stored", async () => {
+  const f = fixture();
+  f.codes.set("c-late", ALICE);
+  const r = await callTeamApi(routes.callback, f.world, {
+    as: null,
+    method: "GET",
+    path: "/api/youtube/callback",
+    query: "?code=c-late&state=s1",
+    headers: { cookie: "yt_oauth_state=s1; yt_oauth_return=%2Fvideos" },
+  });
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get("location"), "/?next=%2Fvideos&reason=session_expired");
+  assert.equal(f.google.length, 0, "the code was not exchanged");
+  assert.deepEqual([connections(f).length, channels(f).length], [0, 0]);
+});
+
+test("MC-8 after signing in, the person lands back where they were and can connect again", async () => {
+  const f = fixture();
+  await connect(f, f.owner, ALICE);
+  // What the sign-in page does next: /api/youtube/auth?returnTo=<next>&ifNeeded=1.
+  const back = await callTeamApi(routes.auth, f.world, {
+    as: f.owner,
+    method: "GET",
+    path: "/api/youtube/auth",
+    query: `?returnTo=${encodeURIComponent("/comments?video=abc")}&ifNeeded=1`,
+  });
+  assert.equal(back.headers.get("location"), "/comments?video=abc");
+  // And "Connect" now goes to Google as normal.
+  const again = await connect(f, f.owner, BRAND);
+  assert.equal(again.landing, "https://app.test/settings?youtube=connected");
+
+  const { readFileSync } = await import("node:fs");
+  const flat = (p: string) => readFileSync(p, "utf8").replace(/\s+/g, " ");
+  const signIn = flat("src/routes/index.tsx");
+  assert.match(signIn, /setNextPath\(next \? postLoginPath\(next\) : null\);/);
+  assert.match(
+    signIn,
+    /returnTo=\$\{encodeURIComponent\(nextPath \?\? "\/dashboard"\)\}&ifNeeded=1/,
+  );
+  assert.match(signIn, /Your session has expired\. Sign in again to continue/);
+  const authCallback = flat("src/routes/auth.callback.tsx");
+  assert.match(
+    authCallback,
+    /const next = postLoginPath\(getCookie\(request, POST_LOGIN_COOKIE\)\);/,
+  );
+  assert.match(authCallback, /buildExpiredCookie\(POST_LOGIN_COOKIE\)/);
+});
+
+test("legacy connection (no Google account id yet, needs reconnecting): reconnecting adopts it — no duplicate, history kept", async () => {
+  const f = fixture();
+  const { encryptSecretToBytea } = await import("../src/lib/server/crypto");
+  const legacyId = "0e000000-0000-4000-8000-000000000001";
+  const channelId = "0c000000-0000-4000-8000-000000000001";
+  connections(f).push({
+    id: legacyId,
+    workspace_id: f.wA,
+    user_id: f.owner,
+    google_subject_id: null,
+    google_email: null,
+    access_token_ciphertext: await encryptSecretToBytea("old-at"),
+    refresh_token_ciphertext: await encryptSecretToBytea("old-rt"),
+    token_expiry: new Date(Date.now() - 60_000).toISOString(),
+    granted_scopes: [],
+    status: "reauth_required",
+  });
+  channels(f).push({
+    id: channelId,
+    workspace_id: f.wA,
+    user_id: f.owner,
+    youtube_channel_id: ALICE.channels[0].id,
+    channel_name: "Alice Cooks",
+    connection_id: legacyId,
+    connected_at: "2026-01-01T00:00:00Z",
+    last_sync_status: "reauth_required",
+  });
+  const { landing } = await connect(f, f.owner, ALICE);
+  assert.equal(landing, "https://app.test/settings?youtube=already_connected");
+  assert.equal(connections(f).length, 1, "the legacy connection was adopted, not duplicated");
+  const conn = connections(f)[0];
+  assert.deepEqual([conn.id, conn.google_subject_id, conn.status], [legacyId, ALICE.sub, "active"]);
+  const row = channels(f)[0];
+  assert.deepEqual(
+    [channels(f).length, row.id, row.connection_id, row.last_sync_status],
+    [1, channelId, legacyId, "never_synced"],
+  );
+  const v = await videos(f, f.owner, channelId);
+  assert.equal(v.status, 200, v.text);
 });

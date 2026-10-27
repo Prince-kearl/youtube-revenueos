@@ -25,19 +25,6 @@ export function YoutubeChannelSwitcher() {
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);
 
-  // Back from Google after "Connect another channel" on any page but Settings (which shows these
-  // itself): say how it went, instead of silently dropping ?youtube=<status>.
-  useEffect(() => {
-    if (window.location.pathname === "/settings") return;
-    const url = new URL(window.location.href);
-    const status = url.searchParams.get("youtube");
-    if (!status) return;
-    const message = youtubeCallbackMessage(status);
-    if (message) (message.type === "success" ? toast.success : toast.error)(message.text);
-    url.searchParams.delete("youtube");
-    window.history.replaceState({}, "", url.toString());
-  }, []);
-
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/youtube/channels", { signal: controller.signal, cache: "no-store" })
@@ -145,4 +132,24 @@ export function YoutubeChannelSwitcher() {
       )}
     </div>
   );
+}
+
+/**
+ * Back from Google after "Connect another channel" on any page but Settings (which shows these in
+ * its YouTube panel): says how it went instead of silently dropping ?youtube=<status>. Rendered
+ * by DashboardLayout on every page — not inside the switcher, which lives in a menu that is only
+ * mounted while open.
+ */
+export function YoutubeConnectionOutcome() {
+  useEffect(() => {
+    if (window.location.pathname === "/settings") return;
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get("youtube");
+    if (!status) return;
+    const message = youtubeCallbackMessage(status);
+    if (message) (message.type === "success" ? toast.success : toast.error)(message.text);
+    url.searchParams.delete("youtube");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+  return null;
 }

@@ -5,10 +5,13 @@ export function YoutubeReauthNotice({
   channelName,
   onRetry,
   compact = false,
+  canReconnect = true,
 }: {
   channelName?: string | null;
   onRetry?: () => void;
   compact?: boolean;
+  /** False for a member who may not reconnect channels (only an owner or manager may). */
+  canReconnect?: boolean;
 }) {
   return (
     <Alert variant="destructive" className={compact ? "py-2.5" : undefined}>
@@ -19,15 +22,19 @@ export function YoutubeReauthNotice({
           {channelName
             ? `${channelName} can no longer be accessed with the saved authorization.`
             : "The saved YouTube authorization can no longer be used."}{" "}
-          Renew access to load current channel data.
+          {canReconnect
+            ? "Renew access to load current channel data."
+            : "Ask the workspace owner or a manager to reconnect it."}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <a
-            href="/api/youtube/auth?returnTo=/settings"
-            className="inline-flex items-center rounded-full bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"
-          >
-            Reconnect YouTube
-          </a>
+          {canReconnect && (
+            <a
+              href="/api/youtube/auth?returnTo=/settings"
+              className="inline-flex items-center rounded-full bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reconnect YouTube
+            </a>
+          )}
           {onRetry && (
             <button
               type="button"

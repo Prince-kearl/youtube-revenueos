@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { applySetCookies, createSessionSupabaseClient } from "@/lib/server/supabase-ssr";
 import { getServerEnv } from "@/lib/server/env";
+import { buildExpiredCookie, getCookie } from "@/lib/server/cookies";
+import { POST_LOGIN_COOKIE, postLoginPath } from "@/lib/safe-redirect";
 
 function redirectResponse(location: string): Response {
   return new Response(null, { status: 302, headers: { Location: location } });
@@ -29,8 +31,13 @@ export const Route = createFileRoute("/auth/callback")({
             return redirectResponse(`${appUrl}/?auth_error=code_exchange_failed`);
           }
 
-          const youtubeAuthUrl = `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent("/dashboard")}&ifNeeded=1`;
-          return applySetCookies(redirectResponse(youtubeAuthUrl), setCookieHeaders);
+          // Where the person was going before signing in (set by signInRedirect), else the
+          // dashboard — always a safe app page.
+          const next = postLoginPath(getCookie(request, POST_LOGIN_COOKIE));
+          const youtubeAuthUrl = `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent(next)}&ifNeeded=1`;
+          const response = applySetCookies(redirectResponse(youtubeAuthUrl), setCookieHeaders);
+          response.headers.append("Set-Cookie", buildExpiredCookie(POST_LOGIN_COOKIE));
+          return response;
         } catch (error) {
           console.error("Supabase auth callback failed", error);
           return redirectResponse(`${appUrl}/?auth_error=callback_failed`);

@@ -76,6 +76,7 @@ import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
 import {
   YoutubeChannelSwitcher,
+  YoutubeConnectionOutcome,
   ACTIVE_YOUTUBE_CHANNEL_KEY,
 } from "@/components/YoutubeChannelSwitcher";
 import { IS_LOCAL_DEMO, DEMO_YOUTUBE_DASHBOARD } from "@/lib/demo-youtube";
@@ -849,6 +850,7 @@ export function DashboardLayout({
       <div
         className={`flex h-full min-h-0 flex-col transition-all duration-200 ${hideAppNav ? "" : collapsed ? "md:pl-[var(--sidebar-offset-collapsed)]" : "md:pl-[var(--sidebar-offset-expanded)]"}`}
       >
+        <YoutubeConnectionOutcome />
         <header className="glass-bar z-20 flex h-[68px] shrink-0 items-center justify-between gap-3 px-4 backdrop-blur-2xl sm:px-6 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
             <div className={hideAppNav ? "" : "md:hidden"}>

@@ -5,6 +5,7 @@ import {
   buildGoogleAuthorizationUrl,
 } from "@/lib/server/google-oauth";
 import { buildSetCookie } from "@/lib/server/cookies";
+import { signInRedirect } from "@/lib/server/sign-in-redirect";
 import { safeAppPath, withYoutubeStatus } from "@/lib/server/safe-redirect";
 
 function redirectNoWorkspace() {
@@ -20,12 +21,11 @@ export const Route = createFileRoute("/api/youtube/auth")({
       // Entry point for the "Connect YouTube Channel" button — requires an existing Supabase
       // session (cookie) and redirects the browser straight to Google's consent screen.
       GET: async ({ request }) => {
+        const requestUrl = new URL(request.url);
+        const safeReturnTo = safeAppPath(requestUrl.searchParams.get("returnTo"), "/settings");
         try {
           const { client, workspaceId, workspaceRole, setCookieHeaders } =
             await getWorkspaceMembership(request);
-          const requestUrl = new URL(request.url);
-          const returnTo = requestUrl.searchParams.get("returnTo");
-          const safeReturnTo = safeAppPath(returnTo, "/settings");
           const back = (path: string) => {
             const response = new Response(null, { status: 302, headers: { Location: path } });
             for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
@@ -73,16 +73,17 @@ export const Route = createFileRoute("/api/youtube/auth")({
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
           return response;
         } catch (error) {
+          // A top-level navigation, not a fetch: never a raw JSON error page.
           if (error instanceof Response) {
-            // A top-level navigation, not a fetch: someone with no workspace yet is sent to
-            // Settings with an explanation instead of a raw JSON error page.
+            // No session, or it expired: sign in, then come back here to try again.
+            if (error.status === 401) return signInRedirect(safeReturnTo);
+            // Signed in but no workspace yet: Settings explains.
             if (error.status === 403) return redirectNoWorkspace();
-            return error;
           }
-          console.error("YouTube OAuth authorization request failed", error);
-          return new Response(JSON.stringify({ error: "SERVER_MISCONFIGURED" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
+          console.error("YouTube OAuth authorization request failed");
+          return new Response(null, {
+            status: 302,
+            headers: { Location: withYoutubeStatus(safeReturnTo, "error") },
           });
         }
       },

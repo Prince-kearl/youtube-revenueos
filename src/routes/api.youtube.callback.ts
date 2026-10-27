@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/google-oauth";
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
+import { signInRedirect } from "@/lib/server/sign-in-redirect";
 import { safeAppPath, withYoutubeStatus } from "@/lib/server/safe-redirect";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
@@ -427,6 +428,12 @@ export const Route = createFileRoute("/api/youtube/callback")({
           // friendly redirect like every other failure mode here, instead of dumping raw JSON in
           // the browser (this is a top-level OAuth redirect, not a fetch the app can read).
           if (error instanceof Response) {
+            // The session expired while the person was on Google's consent screen: sign in again,
+            // then come back to the page they started from (nothing was stored).
+            if (error.status === 401)
+              return signInRedirect(
+                safeAppPath(getCookie(request, "yt_oauth_return"), "/settings"),
+              );
             if (error.status === 403) {
               try {
                 const body = (await error.clone().json()) as { error?: string };

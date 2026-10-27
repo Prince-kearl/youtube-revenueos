@@ -71,8 +71,13 @@ export const Route = createFileRoute("/settings")({
   component: Settings,
   // Lets links from elsewhere in the app (e.g. a YouTube reconnect prompt) open straight to the
   // relevant panel instead of always landing on Profile and making the user find it themselves.
-  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: string; youtube?: string } => ({
     tab: typeof search.tab === "string" ? search.tab : undefined,
+    // The outcome of a YouTube connection (?youtube=connected, pick_channels, channel_limit…).
+    youtube:
+      typeof search.youtube === "string" && /^[a-z_]{1,40}$/.test(search.youtube)
+        ? search.youtube
+        : undefined,
   }),
 });
 
@@ -88,8 +93,12 @@ const menu = [
 ];
 
 function Settings() {
-  const { tab } = Route.useSearch();
-  const [active, setActive] = useState(tab && menu.some((m) => m.label === tab) ? tab : "Profile");
+  const { tab, youtube } = Route.useSearch();
+  // Back from Google (?youtube=…): open the YouTube Integration panel, which reports the outcome
+  // and shows the channel picker — on the default Profile panel both were silently missing.
+  const [active, setActive] = useState(
+    tab && menu.some((m) => m.label === tab) ? tab : youtube ? "YouTube Integration" : "Profile",
+  );
   // The initializer above only runs on mount, so navigating to /settings with a different ?tab=
   // while already on this page (e.g. replaying the getting-started guide from within Settings
   // itself) wouldn't otherwise switch the visible panel — only the URL.
@@ -1442,7 +1451,11 @@ function YouTubeIntegrationPanel() {
             </div>
             {channel.last_sync_status === "reauth_required" && (
               <div className="mt-4">
-                <YoutubeReauthNotice channelName={channel.channel_name} compact />
+                <YoutubeReauthNotice
+                  channelName={channel.channel_name}
+                  compact
+                  canReconnect={canManage}
+                />
               </div>
             )}
           </div>
