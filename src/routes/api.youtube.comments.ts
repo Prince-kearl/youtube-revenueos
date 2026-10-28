@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/youtube-tokens";
 import {
   fetchChannelCommentsPage,
-  fetchRecentYoutubeComments,
+  fetchRecentYoutubeCommentsDetailed,
   fetchYoutubeVideoById,
   fetchYoutubeVideosByIds,
 } from "@/lib/server/google-oauth";
@@ -96,7 +96,11 @@ export const Route = createFileRoute("/api/youtube/comments")({
                 return json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
               throw error;
             }
-            const comments = await fetchRecentYoutubeComments(accessToken, [video.id], 100);
+            const { comments, skippedVideoIds } = await fetchRecentYoutubeCommentsDetailed(
+              accessToken,
+              [video.id],
+              100,
+            );
             void service.from("youtube_quota_events").insert({
               user_id: user.id,
               channel_id: channel.id,
@@ -118,6 +122,8 @@ export const Route = createFileRoute("/api/youtube/comments")({
                   duration: video.duration,
                   views: video.views,
                   comments: video.comments,
+                  // YouTube does not allow comments on it (e.g. made for kids).
+                  commentsDisabled: skippedVideoIds.includes(video.id),
                 },
               },
             });

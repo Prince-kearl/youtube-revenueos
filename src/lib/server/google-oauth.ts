@@ -580,26 +580,64 @@ function mapCommentThreads(items: YoutubeCommentThreadItem[] | undefined): Youtu
   return comments.filter((comment) => comment.text);
 }
 
+/**
+ * Recent top-level comments on up to 12 videos. A video whose comments are turned off (YouTube
+ * answers 403 commentsDisabled — every "made for kids" video, for one) or that no longer exists
+ * (404) has no comments to read: it is skipped and listed in `skippedVideoIds`, instead of failing
+ * the whole read (which left a channel "Partially synced" on every sync). The quota running out,
+ * missing permissions or any other failure still throws.
+ */
+export async function fetchRecentYoutubeCommentsDetailed(
+  accessToken: string,
+  videoIds: string[],
+  limitPerVideo = 50,
+): Promise<{ comments: YoutubeCommentSummary[]; skippedVideoIds: string[] }> {
+  const comments: YoutubeCommentSummary[] = [];
+  const skippedVideoIds: string[] = [];
+  for (const videoId of videoIds.slice(0, 12)) {
+    const response = await youtubeFetch(
+      accessToken,
+      youtubeApiUrl("commentThreads", {
+        part: "snippet",
+        videoId,
+        maxResults: String(Math.min(limitPerVideo, 100)),
+        order: "time",
+      }),
+    );
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: { errors?: Array<{ reason?: string }> };
+      } | null;
+      const reason = body?.error?.errors?.[0]?.reason;
+      if (
+        (response.status === 403 && reason === "commentsDisabled") ||
+        (response.status === 404 && (reason === "videoNotFound" || reason === undefined))
+      ) {
+        skippedVideoIds.push(videoId);
+        continue;
+      }
+      if (
+        response.status === 403 &&
+        (reason === "quotaExceeded" ||
+          reason === "dailyLimitExceeded" ||
+          reason === "rateLimitExceeded" ||
+          reason === "userRateLimitExceeded")
+      )
+        throw new YoutubeQuotaExceededError();
+      throw new Error(`YOUTUBE_COMMENTTHREADS_FAILED:${response.status}`);
+    }
+    const data = (await response.json()) as { items?: YoutubeCommentThreadItem[] };
+    comments.push(...mapCommentThreads(data.items));
+  }
+  return { comments, skippedVideoIds };
+}
+
 export async function fetchRecentYoutubeComments(
   accessToken: string,
   videoIds: string[],
   limitPerVideo = 50,
 ): Promise<YoutubeCommentSummary[]> {
-  const comments: YoutubeCommentSummary[] = [];
-  for (const videoId of videoIds.slice(0, 12)) {
-    const response = await youtubeApiRequest<{ items?: YoutubeCommentThreadItem[] }>(
-      accessToken,
-      "commentThreads",
-      {
-        part: "snippet",
-        videoId,
-        maxResults: String(Math.min(limitPerVideo, 100)),
-        order: "time",
-      },
-    );
-    comments.push(...mapCommentThreads(response.items));
-  }
-  return comments;
+  return (await fetchRecentYoutubeCommentsDetailed(accessToken, videoIds, limitPerVideo)).comments;
 }
 
 /**

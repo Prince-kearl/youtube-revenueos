@@ -35,6 +35,7 @@ test("own video: that video's comments only, whatever its age, and its title", a
     duration: "1:00",
     views: 1,
     comments: 0,
+    commentsDisabled: false,
   });
   // One ownership lookup and one comments request — not the channel's recent uploads.
   assert.deepEqual(

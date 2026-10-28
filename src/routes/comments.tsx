@@ -131,6 +131,8 @@ type VideoPreview = {
   duration: string | null;
   views: number;
   comments: number | null;
+  /** YouTube does not allow comments on this video (e.g. made for kids). */
+  commentsDisabled?: boolean;
 };
 type SavedVideoOption = { id: string; title: string; youtube_video_id: string };
 /** The server-side reply queue for bulk auto-replies (GET /api/comment-replies). */
@@ -1345,13 +1347,16 @@ function AllCommentsDialog({
                   {comments.length === 0 ? (
                     <>
                       <p className="font-medium text-foreground">
-                        {videoFilter ? "This video has no comments yet" : "No comments yet"}
+                        {videoFilter?.preview?.commentsDisabled
+                          ? "Comments are turned off for this video"
+                          : videoFilter
+                            ? "This video has no comments yet"
+                            : "No comments yet"}
                       </p>
                       <p className="mt-1 text-xs">
-                        {videoFilter
-                          ? "YouTube returned no comments for it."
-                          : "YouTube returned no comments on any of your videos."}{" "}
-                        New comments appear here when you open this again.
+                        {videoFilter?.preview?.commentsDisabled
+                          ? "YouTube doesn’t allow comments on it — for example, a video made for kids. You can change this in YouTube Studio."
+                          : `${videoFilter ? "YouTube returned no comments for it." : "YouTube returned no comments on any of your videos."} New comments appear here when you open this again.`}
                       </p>
                     </>
                   ) : q ? (

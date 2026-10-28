@@ -1144,6 +1144,19 @@ interface ExternalIntegration {
   updated_at: string;
 }
 
+/** "Partially synced", saying which part could not be synced (last_sync_error: "videos,comments"…). */
+function partialSyncLabel(error: string | null | undefined): string {
+  const parts = (error ?? "")
+    .split(",")
+    .filter((part) => ["videos", "comments", "chapters"].includes(part));
+  if (!parts.length) return "Partially synced";
+  const list =
+    parts.length === 1
+      ? parts[0]
+      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `Partially synced · ${list} couldn’t be synced — try Sync now`;
+}
+
 function YouTubeIntegrationPanel() {
   const navigate = useNavigate();
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
@@ -1442,7 +1455,7 @@ function YouTubeIntegrationPanel() {
                         : channel.last_sync_status === "failed"
                           ? "Sync failed"
                           : channel.last_sync_status === "partial"
-                            ? "Partially synced"
+                            ? partialSyncLabel(channel.last_sync_error)
                             : channel.last_synced_at
                               ? `Connected · last synced ${new Date(channel.last_synced_at).toLocaleString()}`
                               : "Connected · Not synced yet"}
