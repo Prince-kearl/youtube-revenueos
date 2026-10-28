@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   addMember,
   addSubscription,
@@ -841,4 +842,64 @@ test("Pro allows three channels; the fourth is refused with the plan message, th
     "https://app.test/settings?youtube=channel_limit",
   );
   assert.equal(channels(f).filter((c) => c.connection_id).length, 3);
+});
+
+// ---------- disconnected channels stay visible, with a way back ----------
+
+test("disconnected channels are listed (this workspace only, display fields only) and reconnect to the same record", async () => {
+  const f = fixture();
+  await connect(f, f.owner, ALICE);
+  await connect(f, f.owner, BRAND);
+  await connect(f, f.other, account(9)); // workspace B
+  await disconnect(f, f.other, rowFor(f, account(9).channels[0].id, f.wB)!.id as string);
+  const brandId = rowFor(f, BRAND.channels[0].id)!.id as string;
+  await disconnect(f, f.owner, brandId);
+
+  const list = await listChannels(f, f.owner);
+  const body = list.body as { data: Row[]; disconnected: Row[]; canManage: boolean };
+  assert.deepEqual(
+    body.data.map((c) => c.channel_name),
+    ["Alice Cooks"],
+  );
+  assert.deepEqual(
+    body.disconnected.map((c) => [c.id, c.channel_name]),
+    [[brandId, "Brand Tech"]],
+    "not B's",
+  );
+  assert.deepEqual(Object.keys(body.disconnected[0]).sort(), [
+    "channel_handle",
+    "channel_name",
+    "id",
+    "last_synced_at",
+    "subscriber_count",
+    "thumbnail",
+    "youtube_channel_id",
+  ]);
+  // An editor sees them too, but cannot manage them.
+  const editorList = (await listChannels(f, f.editor)).body as {
+    disconnected: Row[];
+    canManage: boolean;
+  };
+  assert.deepEqual([editorList.disconnected.length, editorList.canManage], [1, false]);
+
+  // Reconnecting brings back the same record, and it leaves the disconnected list.
+  await connect(f, f.owner, BRAND);
+  const after = (await listChannels(f, f.owner)).body as { data: Row[]; disconnected: Row[] };
+  assert.ok(after.data.some((c) => c.id === brandId));
+  assert.equal(after.disconnected.length, 0);
+});
+
+test("Settings shows the disconnected channels with Reconnect for an owner or manager", () => {
+  const settings = readFileSync("src/routes/settings.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(
+    settings,
+    /<DisconnectedChannels channels=\{disconnectedChannels\} canManage=\{canManage\} \/>/,
+  );
+  assert.match(settings, /Disconnected channels/);
+  assert.match(
+    settings,
+    /Their history is kept\. Reconnect one to bring it back exactly where it left off\./,
+  );
+  assert.match(settings, /On Google’s screen, choose “\{channel\.channel_name\}”\./);
+  assert.match(settings, /Ask the workspace owner or a manager to reconnect it\./);
 });

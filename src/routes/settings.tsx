@@ -53,7 +53,7 @@ import { useLocalStore } from "@/lib/local-store";
 import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
 import { YOUTUBE_CALLBACK_MESSAGES } from "@/lib/youtube-connect-messages";
 import { POST_CONNECT_STATUSES, syncNewlyConnectedChannels } from "@/lib/youtube-post-connect-sync";
-import { channelSyncView } from "@/lib/channel-sync-status";
+import { channelSyncView, relativeTime } from "@/lib/channel-sync-status";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { HIDDEN_CONNECTED_ACCOUNTS } from "@/lib/feature-flags";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
@@ -1145,6 +1145,92 @@ interface ExternalIntegration {
   updated_at: string;
 }
 
+type DisconnectedYoutubeChannel = {
+  id: string;
+  youtube_channel_id: string;
+  channel_name: string;
+  channel_handle: string | null;
+  thumbnail: string | null;
+  subscriber_count: number | null;
+  last_synced_at: string | null;
+};
+
+/**
+ * Channels this workspace disconnected. Their history (videos, stats, links, leads) is kept, so
+ * they are listed here with a way back instead of silently disappearing. Google grants an app
+ * one channel per sign-in, so "Reconnect" goes through Google's screen — where the person picks
+ * this channel — and the callback reattaches the same record.
+ */
+function DisconnectedChannels({
+  channels,
+  canManage,
+}: {
+  channels: DisconnectedYoutubeChannel[];
+  canManage: boolean;
+}) {
+  return (
+    <section aria-labelledby="disconnected-channels-heading" className="space-y-3">
+      <div>
+        <h4 id="disconnected-channels-heading" className="font-semibold">
+          Disconnected channels
+        </h4>
+        <p className="text-sm text-muted-foreground">
+          Their history is kept. Reconnect one to bring it back exactly where it left off.
+        </p>
+      </div>
+      <ul className="space-y-2">
+        {channels.map((channel) => (
+          <li
+            key={channel.id}
+            className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              {channel.thumbnail ? (
+                <img
+                  referrerPolicy="no-referrer"
+                  src={channel.thumbnail}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-2xl object-cover opacity-70"
+                />
+              ) : (
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent text-muted-foreground">
+                  <Youtube className="h-5 w-5" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate font-medium">{channel.channel_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Not connected
+                  {channel.last_synced_at
+                    ? ` · last updated ${relativeTime(channel.last_synced_at)}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+            {canManage ? (
+              <div className="flex flex-col items-start gap-1 sm:items-end">
+                <a
+                  href={`/api/youtube/auth?returnTo=${encodeURIComponent("/settings")}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Reconnect
+                </a>
+                <p className="text-[11px] text-muted-foreground">
+                  On Google’s screen, choose “{channel.channel_name}”.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground sm:max-w-[14rem] sm:text-right">
+                Ask the workspace owner or a manager to reconnect it.
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function YouTubeIntegrationPanel() {
   const navigate = useNavigate();
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
@@ -1168,6 +1254,10 @@ function YouTubeIntegrationPanel() {
   // Only the workspace owner or a manager may connect or disconnect channels (the server
   // enforces it; this only decides which controls to show).
   const [canManage, setCanManage] = useState(false);
+  // Channels this workspace disconnected (history kept), offered for reconnecting.
+  const [disconnectedChannels, setDisconnectedChannels] = useState<DisconnectedYoutubeChannel[]>(
+    [],
+  );
 
   const loadChannels = async () => {
     setLoading(true);
@@ -1175,10 +1265,12 @@ function YouTubeIntegrationPanel() {
       const response = await fetch("/api/youtube/channels");
       const body = (await response.json()) as {
         data?: ConnectedYoutubeChannel[];
+        disconnected?: DisconnectedYoutubeChannel[];
         canManage?: boolean;
       };
       const nextChannels = response.ok ? (body.data ?? []) : [];
       setChannels(nextChannels);
+      setDisconnectedChannels(response.ok ? (body.disconnected ?? []) : []);
       setCanManage(response.ok && body.canManage === true);
       if (
         nextChannels.length &&
@@ -1515,6 +1607,10 @@ function YouTubeIntegrationPanel() {
             )}
           </div>
         ))
+      )}
+
+      {!loading && disconnectedChannels.length > 0 && (
+        <DisconnectedChannels channels={disconnectedChannels} canManage={canManage} />
       )}
 
       <div

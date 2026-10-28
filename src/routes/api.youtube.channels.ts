@@ -35,10 +35,23 @@ export const Route = createFileRoute("/api/youtube/channels")({
             .not("connection_id", "is", null)
             .order("connected_at", { ascending: false });
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          // Channels this workspace disconnected: their rows (and all their history) are kept,
+          // so Settings can list them with a "Reconnect" — instead of them silently vanishing.
+          // Same workspace, display fields only.
+          const { data: disconnected, error: disconnectedError } = await client
+            .from("youtube_channels")
+            .select(
+              "id, youtube_channel_id, channel_name, channel_handle, thumbnail, subscriber_count, last_synced_at",
+            )
+            .eq("workspace_id", workspaceId)
+            .is("connection_id", null)
+            .order("last_synced_at", { ascending: false, nullsFirst: false });
+          if (disconnectedError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           // Whether this caller may connect or disconnect channels (owner or manager), so the
           // page can show those controls only to them; the routes check it again.
           return json({
             data: channels ?? [],
+            disconnected: disconnected ?? [],
             canManage: canManageWorkspaceMembers(workspaceRole),
           });
         } catch (error) {
