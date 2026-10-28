@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { channelCapacity, overChannelLimit, resolveWorkspacePlan } from "./plan-access";
 import type { YoutubeChannelSummary } from "./google-oauth";
+import { notifyWorkspace } from "./notify";
 
 // Client connect links (table channel_connect_invites, migration 202610280001).
 //
@@ -181,10 +182,10 @@ export async function attachInviteChannel(
   }
   if (!capacity.ok) {
     await release();
-    return {
-      status:
-        capacity.reason === "subscription_required" ? "subscription_required" : "channel_limit",
-    };
+    const status =
+      capacity.reason === "subscription_required" ? "subscription_required" : "channel_limit";
+    await notifyInviteOutcome(service, invite, { status, channelTitle: channel.title });
+    return { status };
   }
 
   // The channel's previous connection (a reconnect), superseded by the client's new grant.
@@ -238,6 +239,10 @@ export async function attachInviteChannel(
         .eq("id", row.id as string)
         .eq("workspace_id", workspaceId);
       await release();
+      await notifyInviteOutcome(service, invite, {
+        status: "channel_limit",
+        channelTitle: channel.title,
+      });
       return { status: "channel_limit" };
     }
   }
@@ -254,5 +259,48 @@ export async function attachInviteChannel(
       .delete()
       .eq("id", superseded)
       .eq("workspace_id", workspaceId);
+  await notifyInviteOutcome(service, invite, { status: "connected", channelTitle: channel.title });
   return { status: "connected", channelId: row.id as string, channelTitle: channel.title };
+}
+
+/**
+ * Tells the workspace (its notification bell) what happened to a client link: the client
+ * connected their channel — or tried to, and was turned away by the plan, so the agency can act
+ * instead of the client silently failing. Awaited (a serverless function may stop right after
+ * responding) and best effort (notifyWorkspace never throws).
+ */
+async function notifyInviteOutcome(
+  service: SupabaseClient,
+  invite: InviteRow,
+  outcome: {
+    status: "connected" | "channel_limit" | "subscription_required";
+    channelTitle: string;
+  },
+): Promise<void> {
+  if (!invite.created_by) return;
+  const who = invite.label ? ` (${invite.label})` : "";
+  const channel = `“${outcome.channelTitle.slice(0, 80)}”`;
+  const message =
+    outcome.status === "connected"
+      ? {
+          type: "check" as const,
+          title: "A client connected their channel",
+          message: `${channel} was connected through your link${who}. It’s in your channel list now.`,
+        }
+      : outcome.status === "channel_limit"
+        ? {
+            type: "alert" as const,
+            title: "A client couldn’t connect — channel limit reached",
+            message: `${channel} tried to connect through your link${who}, but this workspace is at its channel limit. Disconnect a channel or upgrade, then ask them to open the link again.`,
+          }
+        : {
+            type: "alert" as const,
+            title: "A client couldn’t connect — no active plan",
+            message: `${channel} tried to connect through your link${who}, but this workspace has no active plan. Choose a plan in Billing, then ask them to open the link again.`,
+          };
+  await notifyWorkspace(service, {
+    workspaceId: invite.workspace_id,
+    userId: invite.created_by,
+    ...message,
+  });
 }

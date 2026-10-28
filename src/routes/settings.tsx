@@ -1265,6 +1265,8 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
       if (!response.ok || !body.data) return;
       // A client finished connecting since the last look: refresh the channel list above.
       const used = new Set(body.data.filter((i) => i.state === "used").map((i) => i.id));
+      // A client finished connecting: refresh the channel list above (the notification bell
+      // announces it — once).
       if (seenUsed.current && [...used].some((id) => !seenUsed.current!.has(id))) onConnected();
       seenUsed.current = used;
       setInvites(body.data);
@@ -1276,6 +1278,17 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // While a link is waiting for its client, look again every 20 seconds (only while this page is
+  // open and visible), so a client connecting shows up here straight away.
+  const waiting = invites.some((invite) => invite.state === "valid");
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 20_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting]);
 
   const create = async () => {
     setCreating(true);

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   addMember,
   addSubscription,
@@ -454,4 +455,53 @@ test("only a Superadmin sets a workspace's agency channel limit; it is audit-log
   // Cleared: the plan's own limit applies again.
   assert.equal((await patch(superadmin, { channelLimitOverride: null })).status, 200);
   assert.equal(f.world.workspaces.find((w) => w.id === f.wA)!.channel_limit_override, null);
+});
+
+// ---------- the agency is told ----------
+
+test("the agency is notified when a client connects — and when a client is turned away by the plan", async () => {
+  const f = fixture("starter"); // 1 channel
+  const notes = () => f.world.notifications as Row[];
+  const t1 = tokenOf((await createLink(f, f.owner, "NIMA")).body.data.url as string);
+  await clientConnects(f, t1, CLIENT);
+  const connected = notes().filter((n) => n.title === "A client connected their channel");
+  assert.equal(connected.length, 1);
+  assert.equal(connected[0].workspace_id, f.wA, "the agency's workspace, nobody else's");
+  assert.equal(connected[0].type, "check");
+  assert.match(String(connected[0].message), /“NIMA CEO” was connected through your link \(NIMA\)/);
+
+  // The workspace is now full: the next client is turned away, and the agency is told.
+  const t2 = tokenOf((await createLink(f, f.owner, "Kian")).body.data.url as string);
+  await clientConnects(f, t2, { ...CLIENT_TWO, channels: [CLIENT_TWO.channels[0]] });
+  const refused = notes().filter((n) => /channel limit reached/.test(String(n.title)));
+  assert.equal(refused.length, 1);
+  assert.equal(refused[0].type, "alert");
+  assert.match(
+    String(refused[0].message),
+    /“Kian Boschman” tried to connect through your link \(Kian\)/,
+  );
+
+  // Nothing for a cancelled or failed attempt, and nothing in any other workspace.
+  const before = notes().length;
+  const t3 = tokenOf((await createLink(f, f.owner)).body.data.url as string);
+  await clientConnects(f, t3, CLIENT, { denied: true });
+  await clientConnects(f, t3, "fail");
+  assert.equal(notes().length, before);
+  assert.ok(notes().every((n) => n.workspace_id === f.wA));
+});
+
+test("the bell re-checks while the app is open; an open invite list re-checks while a link waits", () => {
+  const flat = (p: string) => readFileSync(p, "utf8").replace(/\s+/g, " ");
+  const layout = flat("src/components/DashboardLayout.tsx");
+  assert.match(layout, /const NOTIFICATION_POLL_MS = 60_000;/);
+  assert.match(layout, /const timer = setInterval\(load, NOTIFICATION_POLL_MS\);/);
+  assert.match(layout, /document\.addEventListener\("visibilitychange", onVisible\);/);
+  // New ones pop up once.
+  assert.match(layout, /if \(!seen\.has\(item\.id\) && !item\.read && !item\.archived\)/);
+  const settings = flat("src/routes/settings.tsx");
+  assert.match(
+    settings,
+    /const waiting = invites\.some\(\(invite\) => invite\.state === "valid"\);/,
+  );
+  assert.match(settings, /\}, 20_000\);/);
 });

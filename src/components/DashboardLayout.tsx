@@ -224,6 +224,9 @@ function rankSearchMatches<T>(
     .map((row) => row.item);
 }
 
+/** How often an open, visible app re-checks its notifications. */
+const NOTIFICATION_POLL_MS = 60_000;
+
 export function DashboardLayout({
   children,
   hideAppNav,
@@ -281,16 +284,42 @@ export function DashboardLayout({
     return () => controller.abort();
   }, []);
 
+  // The notification bell: loaded on arrival, then re-checked every minute while this tab is
+  // visible (and as soon as it becomes visible again), so news such as "A client connected their
+  // channel" shows up without reloading. Anything new since the last look also pops up briefly.
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/notifications", { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const body = (await response.json()) as { data?: AppNotification[] };
-        setNotifs(body.data ?? []);
-      })
-      .catch(() => {});
-    return () => controller.abort();
+    let seen: Set<string> | null = null;
+    const load = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetch("/api/notifications", { signal: controller.signal, cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) return;
+          const body = (await response.json()) as { data?: AppNotification[] };
+          const items = body.data ?? [];
+          if (seen) {
+            for (const item of items)
+              if (!seen.has(item.id) && !item.read && !item.archived)
+                (item.type === "alert" ? toast.warning : toast.success)(item.title, {
+                  description: item.message,
+                });
+          }
+          seen = new Set(items.map((item) => item.id));
+          setNotifs(items);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, NOTIFICATION_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const isLocked = (to: string) => {
