@@ -52,6 +52,7 @@ import { clearAllStores } from "@/lib/local-store";
 import { useLocalStore } from "@/lib/local-store";
 import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
 import { YOUTUBE_CALLBACK_MESSAGES } from "@/lib/youtube-connect-messages";
+import { POST_CONNECT_STATUSES, syncNewlyConnectedChannels } from "@/lib/youtube-post-connect-sync";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { HIDDEN_CONNECTED_ACCOUNTS } from "@/lib/feature-flags";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
@@ -1216,6 +1217,15 @@ function YouTubeIntegrationPanel() {
         else toast.error(message.text);
         if (status === "connected") void goToNextOnboardingStep(navigate, "channel");
       }
+      // Sync a just-connected (or re-authorized) channel now, not at the nightly run.
+      if (status && POST_CONNECT_STATUSES.has(status)) {
+        setSyncing(true);
+        void syncNewlyConnectedChannels((kind, text) =>
+          kind === "success" ? toast.success(text) : toast.error(text),
+        )
+          .then((synced) => (synced > 0 ? loadChannels() : undefined))
+          .finally(() => setSyncing(false));
+      }
     }
     if (status) {
       const url = new URL(window.location.href);
@@ -1337,7 +1347,16 @@ function YouTubeIntegrationPanel() {
           connectionIds={
             pendingConnectionId ? [pendingConnectionId] : (findMoreConnectionIds ?? [])
           }
-          onAdded={() => void loadChannels()}
+          onAdded={() => {
+            void loadChannels();
+            // The picked channel was just added: sync it now, not at the nightly run.
+            setSyncing(true);
+            void syncNewlyConnectedChannels((kind, text) =>
+              kind === "success" ? toast.success(text) : toast.error(text),
+            )
+              .then((synced) => (synced > 0 ? loadChannels() : undefined))
+              .finally(() => setSyncing(false));
+          }}
           onDismiss={() => {
             setPendingConnectionId(null);
             setFindMoreConnectionIds(null);

@@ -4,6 +4,7 @@ import { useLocalStore, writeStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { youtubeCallbackMessage } from "@/lib/youtube-connect-messages";
+import { POST_CONNECT_STATUSES, syncNewlyConnectedChannels } from "@/lib/youtube-post-connect-sync";
 
 export type ConnectedYoutubeChannel = {
   id: string;
@@ -150,6 +151,11 @@ export function YoutubeConnectionOutcome() {
     if (message) (message.type === "success" ? toast.success : toast.error)(message.text);
     url.searchParams.delete("youtube");
     window.history.replaceState({}, "", url.toString());
+    // Sync a just-connected (or re-authorized) channel now, not at the nightly run.
+    if (POST_CONNECT_STATUSES.has(status))
+      void syncNewlyConnectedChannels((kind, text) =>
+        kind === "success" ? toast.success(text) : toast.error(text),
+      );
   }, []);
   return null;
 }

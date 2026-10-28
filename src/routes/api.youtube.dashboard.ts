@@ -1,3 +1,4 @@
+import { fillHeatmapDays } from "@/lib/engagement-heatmap";
 import { createFileRoute } from "@tanstack/react-router";
 import { requirePaidSession } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
@@ -448,11 +449,16 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
                 metrics: ["views"],
                 dimensions: ["day"],
               })) as AnalyticsPayload;
-              engagementHeatmap = analyticsRows(heatmapPayload).map((row) => ({
-                date: String(row.day ?? ""),
-                views: Number(row.views ?? 0),
-              }));
-              if (!engagementHeatmap.length) engagementHeatmapStatus = "unavailable";
+              // Every day of the window: YouTube leaves out days with no views (a channel with no
+              // recent views gets no rows at all) — that is "no views", not "unavailable".
+              engagementHeatmap = fillHeatmapDays(
+                analyticsRows(heatmapPayload).map((row) => ({
+                  date: String(row.day ?? ""),
+                  views: Number(row.views ?? 0),
+                })),
+                heatmapStart,
+                endDate,
+              );
             } catch (error) {
               engagementHeatmapStatus = optionalSectionFailureStatus(error);
               logOptionalFailure("engagement_heatmap", channelRow.user_id, channelRow.id, error);
