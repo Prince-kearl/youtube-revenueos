@@ -1364,7 +1364,7 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
           maxLength={80}
           placeholder="Client name (optional)"
           aria-label="Client name (optional)"
-          className="h-10 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+          className="h-10 w-full min-w-0 shrink-0 rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary sm:w-auto sm:flex-1"
         />
         <button
           type="submit"
