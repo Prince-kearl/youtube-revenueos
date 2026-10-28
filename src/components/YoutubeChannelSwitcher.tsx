@@ -16,6 +16,9 @@ export type ConnectedYoutubeChannel = {
   view_count?: number;
   video_count?: number;
   last_sync_status?: string;
+  /** Shared by a client through a connect link (their Google grant), and the client's email. */
+  shared_by_client?: boolean;
+  client_email?: string | null;
 };
 
 export const ACTIVE_YOUTUBE_CHANNEL_KEY = "yroos.activeYoutubeChannelId";

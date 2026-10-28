@@ -288,6 +288,8 @@ const OPTIONAL_TABLES = [
   "youtube_chapters",
   "transcripts",
   "ai_usage",
+  // Client connect links.
+  "channel_connect_invites",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -301,7 +303,7 @@ export const MONEY_COLUMNS: Record<string, string[]> = {
 const RESERVED_PARAMS = ["select", "order", "limit", "offset", "on_conflict", "columns"];
 
 /** Tables client roles cannot touch at all (202610270001): only the server reads and writes them. */
-export const SERVER_ONLY_TABLES = ["youtube_connections"];
+export const SERVER_ONLY_TABLES = ["youtube_connections", "channel_connect_invites"];
 /** Tables client roles may read (through RLS) but never write (202610270001). Always enforced. */
 export const SERVER_WRITE_TABLES = ["youtube_channels"];
 

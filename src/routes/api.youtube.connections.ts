@@ -42,12 +42,17 @@ async function parseJson(request: Request) {
 // list or attach the other workspace's Google connection (its owner's YouTube access) here. Read
 // server-side; the tokens never reach the caller.
 async function loadOwnedConnectionSecret(workspaceId: string, connectionId: string) {
-  return createServiceSupabaseClient()
-    .from("youtube_connections")
-    .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
-    .eq("id", connectionId)
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
+  return (
+    createServiceSupabaseClient()
+      .from("youtube_connections")
+      .select("id, access_token_ciphertext, refresh_token_ciphertext, token_expiry")
+      .eq("id", connectionId)
+      .eq("workspace_id", workspaceId)
+      // A client's authorization granted through a connect link is never browsed or used to attach
+      // more channels: the client shared ONE channel, not their Google account.
+      .is("granted_via_invite_id", null)
+      .maybeSingle()
+  );
 }
 
 const notAllowed = () =>

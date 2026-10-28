@@ -242,7 +242,8 @@ test("S1 connect the first channel: OAuth → stored connection and channel → 
   const google = new URL(start.headers.get("location")!);
   assert.equal(google.origin + google.pathname, "https://accounts.google.com/o/oauth2/v2/auth");
   assert.equal(google.searchParams.get("access_type"), "offline");
-  assert.equal(google.searchParams.get("prompt"), "consent");
+  // select_account: Google always shows its account / channel picker (one channel per sign-in).
+  assert.equal(google.searchParams.get("prompt"), "select_account consent");
   assert.equal(landing, "https://app.test/settings?youtube=connected");
 
   assert.equal(connections(f).length, 1);

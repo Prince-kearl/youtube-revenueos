@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import { Search, MoreHorizontal, Pencil, RefreshCw, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/ui-bits";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -34,6 +34,8 @@ type Workspace = {
   planName: string | null;
   planStatus: PlanStatus;
   mrrCents: number;
+  /** An agency workspace's channel limit (null: the plan's own limit applies). */
+  channelLimitOverride: number | null;
 };
 
 const statusColor: Record<PlanStatus, string> = {
@@ -53,6 +55,7 @@ export function OrganizationsSection() {
   const [retryNonce, setRetryNonce] = useState(0);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Workspace | null>(null);
+  const [limitEditing, setLimitEditing] = useState<Workspace | null>(null);
 
   const load = () => {
     setStatus((prev) => (prev === "ready" ? "ready" : "loading"));
@@ -93,6 +96,27 @@ export function OrganizationsSection() {
       load();
     } catch {
       toast.error("Couldn't rename that workspace. Please try again.");
+    }
+  };
+
+  const saveChannelLimit = async (w: Workspace, limit: number | null) => {
+    try {
+      const response = await fetch(`/api/admin/workspaces?id=${w.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelLimitOverride: limit }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "SAVE_FAILED");
+      toast.success(
+        limit === null
+          ? `${w.name} now uses its plan's channel limit`
+          : `${w.name} can now connect up to ${limit} channels`,
+      );
+      setLimitEditing(null);
+      load();
+    } catch {
+      toast.error("Couldn't change the channel limit. Please try again.");
     }
   };
 
@@ -173,12 +197,18 @@ export function OrganizationsSection() {
                   <DropdownMenuItem onSelect={() => setEditing(w)}>
                     <Pencil className="mr-2 h-4 w-4" /> Rename workspace
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setLimitEditing(w)}>
+                    <Youtube className="mr-2 h-4 w-4" /> Agency channel limit
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {w.planName && <Tag label={w.planName} color="blue" />}
+              {w.channelLimitOverride !== null && (
+                <Tag label={`Agency · ${w.channelLimitOverride} channels`} color="purple" />
+              )}
               <span
                 className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${statusColor[w.planStatus]}`}
               >
@@ -214,6 +244,12 @@ export function OrganizationsSection() {
         workspace={editing}
         onOpenChange={(v) => !v && setEditing(null)}
         onSave={rename}
+      />
+      <ChannelLimitDialog
+        open={!!limitEditing}
+        workspace={limitEditing}
+        onOpenChange={(v) => !v && setLimitEditing(null)}
+        onSave={saveChannelLimit}
       />
     </div>
   );
@@ -261,6 +297,77 @@ function RenameDialog({
               Cancel
             </Button>
             <Button type="submit">Save Changes</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * An agency workspace (e.g. one managing many clients' channels) can be allowed more channels
+ * than its plan includes. Empty = the plan's own limit. It never grants a plan by itself.
+ */
+function ChannelLimitDialog({
+  open,
+  workspace,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  workspace: Workspace | null;
+  onOpenChange: (v: boolean) => void;
+  onSave: (w: Workspace, limit: number | null) => void;
+}) {
+  const [value, setValue] = useState("");
+  useEffect(() => {
+    if (open && workspace) setValue(workspace.channelLimitOverride?.toString() ?? "");
+  }, [open, workspace]);
+  if (!workspace) return null;
+  const trimmed = value.trim();
+  const parsed = trimmed === "" ? null : Number(trimmed);
+  const valid = parsed === null || (Number.isInteger(parsed) && parsed >= 1 && parsed <= 500);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agency channel limit</DialogTitle>
+          <DialogDescription>
+            How many YouTube channels {workspace.name} may connect. Leave empty to use its plan’s
+            limit. It only raises the limit of a plan the workspace already has.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (valid) onSave(workspace, parsed);
+          }}
+          className="space-y-3"
+        >
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Channels (1–500)</Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={500}
+              placeholder="Plan limit"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              aria-invalid={!valid}
+            />
+            {!valid && (
+              <p className="text-xs text-destructive">Enter a whole number from 1 to 500.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!valid}>
+              Save
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

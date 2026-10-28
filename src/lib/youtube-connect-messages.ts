@@ -19,7 +19,10 @@ export const YOUTUBE_CALLBACK_MESSAGES: Record<
     type: "error",
     text: "We couldn't find your workspace — please sign out and back in, then try again.",
   },
-  already_connected: { type: "success", text: "That YouTube account is already connected." },
+  already_connected: {
+    type: "success",
+    text: "Google gave access to a channel that's already connected, so its access was renewed. To add a different channel, choose it on Google's screen. For a client's channel you manage through YouTube Studio permissions, send the client a connect link (Settings → YouTube Integration → Invite a client).",
+  },
   channel_limit: {
     type: "error",
     text: "Your plan's channel limit is reached, so no new channel was added. Disconnect one or upgrade in Billing to add another. Channels already connected were renewed.",
@@ -34,7 +37,7 @@ export const YOUTUBE_CALLBACK_MESSAGES: Record<
   },
   no_channels_found: {
     type: "error",
-    text: "Google didn't return a channel this account owns or manages. If you were invited as an Editor/Manager/Viewer on someone else's channel (YouTube Studio → Settings → Permissions), that access isn't visible to any app's API — ask the channel owner to connect it directly, then invite you to this workspace instead.",
+    text: "Google didn't return a channel for that account. If you manage a client's channel through YouTube Studio permissions, Google doesn't let apps use that access — send the client a connect link instead (Settings → YouTube Integration → Invite a client).",
   },
   not_allowed: {
     type: "error",

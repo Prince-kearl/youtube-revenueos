@@ -30,7 +30,44 @@ export const PLAN_LIMITS = {
 } as const;
 
 export type PaidPlan = keyof typeof PLAN_LIMITS;
-export type PlanLimits = (typeof PLAN_LIMITS)[PaidPlan];
+/** A plan's limits; `channels` may be raised for an agency workspace (channel_limit_override). */
+export type PlanLimits = {
+  readonly channels: number;
+  readonly aiAnalysesPerMonth: number;
+  readonly teamManagement: boolean;
+};
+
+/**
+ * An agency workspace's channel limit, set by platform staff (workspaces.channel_limit_override):
+ * the larger of the plan's and the override. It never grants access by itself — only raises the
+ * channel count of a plan the workspace already has. Read on its own and tolerantly: if it cannot
+ * be read (or the column does not exist yet), the plan's own limit applies.
+ */
+async function channelLimitOverride(
+  service: SupabaseClient,
+  workspaceId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await service
+      .from("workspaces")
+      .select("channel_limit_override")
+      .eq("id", workspaceId)
+      .maybeSingle();
+    if (error) return null;
+    const value = Number(
+      (data as { channel_limit_override?: number | null } | null)?.channel_limit_override,
+    );
+    return Number.isInteger(value) && value >= 1 && value <= 500 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function withChannelOverride(limits: PlanLimits, override: number | null): PlanLimits {
+  return override !== null && override > limits.channels
+    ? { ...limits, channels: override }
+    : limits;
+}
 
 /**
  * The existing-customer transition (below): the access these workspaces had BEFORE plans were
@@ -204,10 +241,11 @@ export async function resolveWorkspacePlan(
             .limit(1)
             .maybeSingle();
     if (subscriptionError) return UNAVAILABLE;
+    const override = await channelLimitOverride(service, input.workspaceId);
     if (subscription && isPaidPlan(subscription.plan_id))
       return {
         plan: subscription.plan_id,
-        limits: PLAN_LIMITS[subscription.plan_id],
+        limits: withChannelOverride(PLAN_LIMITS[subscription.plan_id], override),
         source: "subscription",
         status: subscription.status as "active" | "trialing",
         periodEnd: (subscription.current_period_end as string | null) ?? null,
@@ -215,7 +253,7 @@ export async function resolveWorkspacePlan(
     if (staffException && (await isPlatformSuperadmin(service, input.userId)))
       return {
         plan: "scale",
-        limits: PLAN_LIMITS.scale,
+        limits: withChannelOverride(PLAN_LIMITS.scale, override),
         source: "staff_exception",
         status: "active",
         periodEnd: null,

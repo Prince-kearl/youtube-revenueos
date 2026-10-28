@@ -42,6 +42,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as ApiCampaignsRouteImport } from './routes/api.campaigns'
 import { Route as ApiCommentRepliesRouteImport } from './routes/api.comment-replies'
 import { Route as ApiCommentRulesRouteImport } from './routes/api.comment-rules'
+import { Route as ApiConnectInvitesRouteImport } from './routes/api.connect-invites'
 import { Route as ApiDealsRouteImport } from './routes/api.deals'
 import { Route as ApiDescriptionTemplatesRouteImport } from './routes/api.description-templates'
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
@@ -59,6 +60,7 @@ import { Route as ApiUploadsRouteImport } from './routes/api.uploads'
 import { Route as ApiVersionRouteImport } from './routes/api.version'
 import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as ConnectTokenRouteImport } from './routes/connect.$token'
 import { Route as FSlugRouteImport } from './routes/f.$slug'
 import { Route as PrePublishIdRouteImport } from './routes/pre-publish.$id'
 import { Route as RSlugRouteImport } from './routes/r.$slug'
@@ -81,6 +83,9 @@ import { Route as ApiCommentRepliesDraftRouteImport } from './routes/api.comment
 import { Route as ApiCommentRepliesProcessRouteImport } from './routes/api.comment-replies.process'
 import { Route as ApiCommentRepliesThreadRouteImport } from './routes/api.comment-replies.thread'
 import { Route as ApiCommentRulesRepliesRouteImport } from './routes/api.comment-rules.replies'
+import { Route as ApiConnectInvitesPickRouteImport } from './routes/api.connect-invites.pick'
+import { Route as ApiConnectInvitesPublicRouteImport } from './routes/api.connect-invites.public'
+import { Route as ApiConnectInvitesStartRouteImport } from './routes/api.connect-invites.start'
 import { Route as ApiDestinationsTopVideosRouteImport } from './routes/api.destinations.top-videos'
 import { Route as ApiEmailAudienceRouteImport } from './routes/api.email.audience'
 import { Route as ApiFeaturesAccessRouteImport } from './routes/api.features.access'
@@ -310,6 +315,11 @@ const ApiCommentRulesRoute = ApiCommentRulesRouteImport.update({
   path: '/api/comment-rules',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiConnectInvitesRoute = ApiConnectInvitesRouteImport.update({
+  id: '/api/connect-invites',
+  path: '/api/connect-invites',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDealsRoute = ApiDealsRouteImport.update({
   id: '/api/deals',
   path: '/api/deals',
@@ -393,6 +403,11 @@ const ApiVideosRoute = ApiVideosRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectTokenRoute = ConnectTokenRouteImport.update({
+  id: '/connect/$token',
+  path: '/connect/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FSlugRoute = FSlugRouteImport.update({
@@ -505,6 +520,21 @@ const ApiCommentRulesRepliesRoute = ApiCommentRulesRepliesRouteImport.update({
   id: '/replies',
   path: '/replies',
   getParentRoute: () => ApiCommentRulesRoute,
+} as any)
+const ApiConnectInvitesPickRoute = ApiConnectInvitesPickRouteImport.update({
+  id: '/pick',
+  path: '/pick',
+  getParentRoute: () => ApiConnectInvitesRoute,
+} as any)
+const ApiConnectInvitesPublicRoute = ApiConnectInvitesPublicRouteImport.update({
+  id: '/public',
+  path: '/public',
+  getParentRoute: () => ApiConnectInvitesRoute,
+} as any)
+const ApiConnectInvitesStartRoute = ApiConnectInvitesStartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => ApiConnectInvitesRoute,
 } as any)
 const ApiDestinationsTopVideosRoute =
   ApiDestinationsTopVideosRouteImport.update({
@@ -866,6 +896,7 @@ export interface FileRoutesByFullPath {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-replies': typeof ApiCommentRepliesRouteWithChildren
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
+  '/api/connect-invites': typeof ApiConnectInvitesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
@@ -883,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
@@ -905,6 +937,9 @@ export interface FileRoutesByFullPath {
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
   '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/connect-invites/pick': typeof ApiConnectInvitesPickRoute
+  '/api/connect-invites/public': typeof ApiConnectInvitesPublicRoute
+  '/api/connect-invites/start': typeof ApiConnectInvitesStartRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
@@ -1003,6 +1038,7 @@ export interface FileRoutesByTo {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-replies': typeof ApiCommentRepliesRouteWithChildren
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
+  '/api/connect-invites': typeof ApiConnectInvitesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
@@ -1020,6 +1056,7 @@ export interface FileRoutesByTo {
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
@@ -1042,6 +1079,9 @@ export interface FileRoutesByTo {
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
   '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/connect-invites/pick': typeof ApiConnectInvitesPickRoute
+  '/api/connect-invites/public': typeof ApiConnectInvitesPublicRoute
+  '/api/connect-invites/start': typeof ApiConnectInvitesStartRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
@@ -1141,6 +1181,7 @@ export interface FileRoutesById {
   '/api/campaigns': typeof ApiCampaignsRoute
   '/api/comment-replies': typeof ApiCommentRepliesRouteWithChildren
   '/api/comment-rules': typeof ApiCommentRulesRouteWithChildren
+  '/api/connect-invites': typeof ApiConnectInvitesRouteWithChildren
   '/api/deals': typeof ApiDealsRoute
   '/api/description-templates': typeof ApiDescriptionTemplatesRoute
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
@@ -1158,6 +1199,7 @@ export interface FileRoutesById {
   '/api/version': typeof ApiVersionRoute
   '/api/videos': typeof ApiVideosRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
@@ -1180,6 +1222,9 @@ export interface FileRoutesById {
   '/api/comment-replies/process': typeof ApiCommentRepliesProcessRoute
   '/api/comment-replies/thread': typeof ApiCommentRepliesThreadRoute
   '/api/comment-rules/replies': typeof ApiCommentRulesRepliesRoute
+  '/api/connect-invites/pick': typeof ApiConnectInvitesPickRoute
+  '/api/connect-invites/public': typeof ApiConnectInvitesPublicRoute
+  '/api/connect-invites/start': typeof ApiConnectInvitesStartRoute
   '/api/destinations/top-videos': typeof ApiDestinationsTopVideosRoute
   '/api/email/audience': typeof ApiEmailAudienceRoute
   '/api/features/access': typeof ApiFeaturesAccessRoute
@@ -1280,6 +1325,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-replies'
     | '/api/comment-rules'
+    | '/api/connect-invites'
     | '/api/deals'
     | '/api/description-templates'
     | '/api/destinations'
@@ -1297,6 +1343,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
+    | '/connect/$token'
     | '/f/$slug'
     | '/pre-publish/$id'
     | '/r/$slug'
@@ -1319,6 +1366,9 @@ export interface FileRouteTypes {
     | '/api/comment-replies/process'
     | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
+    | '/api/connect-invites/pick'
+    | '/api/connect-invites/public'
+    | '/api/connect-invites/start'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
@@ -1417,6 +1467,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-replies'
     | '/api/comment-rules'
+    | '/api/connect-invites'
     | '/api/deals'
     | '/api/description-templates'
     | '/api/destinations'
@@ -1434,6 +1485,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
+    | '/connect/$token'
     | '/f/$slug'
     | '/pre-publish/$id'
     | '/r/$slug'
@@ -1456,6 +1508,9 @@ export interface FileRouteTypes {
     | '/api/comment-replies/process'
     | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
+    | '/api/connect-invites/pick'
+    | '/api/connect-invites/public'
+    | '/api/connect-invites/start'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
@@ -1554,6 +1609,7 @@ export interface FileRouteTypes {
     | '/api/campaigns'
     | '/api/comment-replies'
     | '/api/comment-rules'
+    | '/api/connect-invites'
     | '/api/deals'
     | '/api/description-templates'
     | '/api/destinations'
@@ -1571,6 +1627,7 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/api/videos'
     | '/auth/callback'
+    | '/connect/$token'
     | '/f/$slug'
     | '/pre-publish/$id'
     | '/r/$slug'
@@ -1593,6 +1650,9 @@ export interface FileRouteTypes {
     | '/api/comment-replies/process'
     | '/api/comment-replies/thread'
     | '/api/comment-rules/replies'
+    | '/api/connect-invites/pick'
+    | '/api/connect-invites/public'
+    | '/api/connect-invites/start'
     | '/api/destinations/top-videos'
     | '/api/email/audience'
     | '/api/features/access'
@@ -1692,6 +1752,7 @@ export interface RootRouteChildren {
   ApiCampaignsRoute: typeof ApiCampaignsRoute
   ApiCommentRepliesRoute: typeof ApiCommentRepliesRouteWithChildren
   ApiCommentRulesRoute: typeof ApiCommentRulesRouteWithChildren
+  ApiConnectInvitesRoute: typeof ApiConnectInvitesRouteWithChildren
   ApiDealsRoute: typeof ApiDealsRoute
   ApiDescriptionTemplatesRoute: typeof ApiDescriptionTemplatesRoute
   ApiDestinationsRoute: typeof ApiDestinationsRouteWithChildren
@@ -1709,6 +1770,7 @@ export interface RootRouteChildren {
   ApiVersionRoute: typeof ApiVersionRoute
   ApiVideosRoute: typeof ApiVideosRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  ConnectTokenRoute: typeof ConnectTokenRoute
   FSlugRoute: typeof FSlugRoute
   RSlugRoute: typeof RSlugRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
@@ -1995,6 +2057,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCommentRulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/connect-invites': {
+      id: '/api/connect-invites'
+      path: '/api/connect-invites'
+      fullPath: '/api/connect-invites'
+      preLoaderRoute: typeof ApiConnectInvitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/deals': {
       id: '/api/deals'
       path: '/api/deals'
@@ -2112,6 +2181,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/$token': {
+      id: '/connect/$token'
+      path: '/connect/$token'
+      fullPath: '/connect/$token'
+      preLoaderRoute: typeof ConnectTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/f/$slug': {
@@ -2267,6 +2343,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/comment-rules/replies'
       preLoaderRoute: typeof ApiCommentRulesRepliesRouteImport
       parentRoute: typeof ApiCommentRulesRoute
+    }
+    '/api/connect-invites/pick': {
+      id: '/api/connect-invites/pick'
+      path: '/pick'
+      fullPath: '/api/connect-invites/pick'
+      preLoaderRoute: typeof ApiConnectInvitesPickRouteImport
+      parentRoute: typeof ApiConnectInvitesRoute
+    }
+    '/api/connect-invites/public': {
+      id: '/api/connect-invites/public'
+      path: '/public'
+      fullPath: '/api/connect-invites/public'
+      preLoaderRoute: typeof ApiConnectInvitesPublicRouteImport
+      parentRoute: typeof ApiConnectInvitesRoute
+    }
+    '/api/connect-invites/start': {
+      id: '/api/connect-invites/start'
+      path: '/start'
+      fullPath: '/api/connect-invites/start'
+      preLoaderRoute: typeof ApiConnectInvitesStartRouteImport
+      parentRoute: typeof ApiConnectInvitesRoute
     }
     '/api/destinations/top-videos': {
       id: '/api/destinations/top-videos'
@@ -2762,6 +2859,21 @@ const ApiCommentRulesRouteWithChildren = ApiCommentRulesRoute._addFileChildren(
   ApiCommentRulesRouteChildren,
 )
 
+interface ApiConnectInvitesRouteChildren {
+  ApiConnectInvitesPickRoute: typeof ApiConnectInvitesPickRoute
+  ApiConnectInvitesPublicRoute: typeof ApiConnectInvitesPublicRoute
+  ApiConnectInvitesStartRoute: typeof ApiConnectInvitesStartRoute
+}
+
+const ApiConnectInvitesRouteChildren: ApiConnectInvitesRouteChildren = {
+  ApiConnectInvitesPickRoute: ApiConnectInvitesPickRoute,
+  ApiConnectInvitesPublicRoute: ApiConnectInvitesPublicRoute,
+  ApiConnectInvitesStartRoute: ApiConnectInvitesStartRoute,
+}
+
+const ApiConnectInvitesRouteWithChildren =
+  ApiConnectInvitesRoute._addFileChildren(ApiConnectInvitesRouteChildren)
+
 interface ApiDestinationsRouteChildren {
   ApiDestinationsTopVideosRoute: typeof ApiDestinationsTopVideosRoute
 }
@@ -2959,6 +3071,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCampaignsRoute: ApiCampaignsRoute,
   ApiCommentRepliesRoute: ApiCommentRepliesRouteWithChildren,
   ApiCommentRulesRoute: ApiCommentRulesRouteWithChildren,
+  ApiConnectInvitesRoute: ApiConnectInvitesRouteWithChildren,
   ApiDealsRoute: ApiDealsRoute,
   ApiDescriptionTemplatesRoute: ApiDescriptionTemplatesRoute,
   ApiDestinationsRoute: ApiDestinationsRouteWithChildren,
@@ -2976,6 +3089,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionRoute: ApiVersionRoute,
   ApiVideosRoute: ApiVideosRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  ConnectTokenRoute: ConnectTokenRoute,
   FSlugRoute: FSlugRoute,
   RSlugRoute: RSlugRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,

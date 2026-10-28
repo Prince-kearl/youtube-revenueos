@@ -393,8 +393,14 @@ test("the approved policy, as configured", () => {
     windowSeconds: 3600,
     limit: 1,
   });
+  // The public client-connect-link pages (lookup, start, pick).
+  assert.deepEqual(RATE_LIMIT_POLICY.connectInvite, [
+    { name: "10m", windowSeconds: 600, limit: 30 },
+    { name: "day", windowSeconds: 86400, limit: 200 },
+  ]);
   // Nothing else: no referral-click rule, and no shared allowance for unidentified senders.
   assert.deepEqual(Object.keys(RATE_LIMIT_POLICY).sort(), [
+    "connectInvite",
     "leadMagnetView",
     "linkClick",
     "optin",

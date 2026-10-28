@@ -1126,6 +1126,9 @@ interface ConnectedYoutubeChannel {
   last_sync_status:
     "never_synced" | "syncing" | "success" | "partial" | "failed" | "reauth_required";
   last_sync_error: string | null;
+  /** Shared by a client through a connect link (their Google grant), and the client's email. */
+  shared_by_client?: boolean;
+  client_email?: string | null;
 }
 
 type ExternalProvider = "google_analytics" | "stripe" | "kit" | "instagram";
@@ -1227,6 +1230,190 @@ function DisconnectedChannels({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+type ConnectInvite = {
+  id: string;
+  label: string | null;
+  state: "valid" | "expired" | "used" | "revoked";
+  expiresAt: string;
+  usedAt: string | null;
+  channelName: string | null;
+  createdAt: string;
+  url?: string;
+};
+
+/**
+ * "Invite a client": a channel someone manages for a client through YouTube Studio permissions
+ * cannot be reached through their own Google login (Google's rule), so the client connects it
+ * themselves through a link — without a Tubify account, and sharing only that one channel.
+ * Owners and managers only (the API checks it again).
+ */
+function InviteClients({ onConnected }: { onConnected: () => void }) {
+  const [invites, setInvites] = useState<ConnectInvite[]>([]);
+  const [label, setLabel] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [fresh, setFresh] = useState<{ id: string; url: string } | null>(null);
+  const seenUsed = useRef<Set<string> | null>(null);
+
+  const load = async () => {
+    try {
+      const response = await fetch("/api/connect-invites", { cache: "no-store" });
+      const body = (await response.json()) as { data?: ConnectInvite[] };
+      if (!response.ok || !body.data) return;
+      // A client finished connecting since the last look: refresh the channel list above.
+      const used = new Set(body.data.filter((i) => i.state === "used").map((i) => i.id));
+      if (seenUsed.current && [...used].some((id) => !seenUsed.current!.has(id))) onConnected();
+      seenUsed.current = used;
+      setInvites(body.data);
+    } catch {
+      // The list simply stays as it was.
+    }
+  };
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const create = async () => {
+    setCreating(true);
+    try {
+      const response = await fetch("/api/connect-invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim() || null }),
+      });
+      const body = (await response.json()) as { data?: ConnectInvite; message?: string };
+      if (!response.ok || !body.data?.url)
+        throw new Error(body.message ?? "We couldn’t create a link. Please try again.");
+      setFresh({ id: body.data.id, url: body.data.url });
+      setLabel("");
+      await load();
+      try {
+        await navigator.clipboard.writeText(body.data.url);
+        toast.success("Link created and copied — send it to your client");
+      } catch {
+        toast.success("Link created — copy it below and send it to your client");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We couldn’t create a link.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const revoke = async (invite: ConnectInvite) => {
+    const response = await fetch(`/api/connect-invites?id=${invite.id}`, { method: "DELETE" });
+    if (response.ok) {
+      toast.success("Link revoked — it no longer works");
+      if (fresh?.id === invite.id) setFresh(null);
+      await load();
+    } else toast.error("We couldn’t revoke that link. Please try again.");
+  };
+
+  const stateText = (invite: ConnectInvite) =>
+    invite.state === "used"
+      ? `Connected${invite.channelName ? ` · ${invite.channelName}` : ""}`
+      : invite.state === "valid"
+        ? `Waiting for the client · expires ${new Date(invite.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+        : invite.state === "expired"
+          ? "Expired"
+          : "Revoked";
+
+  return (
+    <section
+      aria-labelledby="invite-clients-heading"
+      className="space-y-3 rounded-xl border border-border bg-accent/20 p-5"
+    >
+      <div>
+        <h4 id="invite-clients-heading" className="font-semibold">
+          Invite a client
+        </h4>
+        <p className="text-sm text-muted-foreground">
+          Manage a client’s channel through YouTube Studio permissions? Google doesn’t let apps use
+          that access, so send the client a link instead: they sign in with their own Google account
+          and share just that one channel with this workspace. They don’t need a Tubify account, and
+          can remove access anytime from their Google account.
+        </p>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void create();
+        }}
+        className="flex flex-col gap-2 sm:flex-row"
+      >
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          maxLength={80}
+          placeholder="Client name (optional)"
+          aria-label="Client name (optional)"
+          className="h-10 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+        />
+        <button
+          type="submit"
+          disabled={creating}
+          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+          Create connect link
+        </button>
+      </form>
+      {fresh && (
+        <div className="space-y-1.5">
+          <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center">
+            <code className="min-w-0 flex-1 truncate text-xs" title={fresh.url}>
+              {fresh.url}
+            </code>
+            <button
+              type="button"
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(fresh.url)
+                  .then(() => toast.success("Link copied"))
+                  .catch(() => toast.error("Couldn’t copy — select the link and copy it"))
+              }
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copy link
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            This link is shown once. It works one time and expires in 7 days.
+          </p>
+        </div>
+      )}
+      {invites.length > 0 && (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {invites.slice(0, 20).map((invite) => (
+            <li
+              key={invite.id}
+              className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-medium">{invite.label ?? "Client link"}</p>
+                <p
+                  className={`truncate text-xs ${invite.state === "used" ? "text-success" : "text-muted-foreground"}`}
+                >
+                  {stateText(invite)}
+                </p>
+              </div>
+              {invite.state === "valid" && (
+                <button
+                  type="button"
+                  onClick={() => void revoke(invite)}
+                  className="shrink-0 text-xs font-semibold text-destructive hover:underline"
+                >
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -1437,6 +1624,8 @@ function YouTubeIntegrationPanel() {
                 setFindMoreConnectionIds([
                   ...new Set(
                     channels
+                      // A client's grant is never browsed for more channels.
+                      .filter((channel) => !channel.shared_by_client)
                       .map((channel) => channel.connection_id)
                       .filter((id): id is string => Boolean(id)),
                   ),
@@ -1545,6 +1734,8 @@ function YouTubeIntegrationPanel() {
                   <p className="truncate font-semibold">{channel.channel_name}</p>
                   <p className="text-sm text-muted-foreground">
                     {channel.subscriber_count.toLocaleString()} subscribers
+                    {channel.shared_by_client &&
+                      ` · Shared by a client${channel.client_email ? ` (${channel.client_email})` : ""}`}
                   </p>
                   {(() => {
                     const view = channelSyncView(channel);
@@ -1612,6 +1803,8 @@ function YouTubeIntegrationPanel() {
       {!loading && disconnectedChannels.length > 0 && (
         <DisconnectedChannels channels={disconnectedChannels} canManage={canManage} />
       )}
+
+      {!loading && canManage && <InviteClients onConnected={() => void loadChannels()} />}
 
       <div
         className="space-y-4"

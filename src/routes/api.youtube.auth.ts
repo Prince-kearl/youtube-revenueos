@@ -4,7 +4,7 @@ import {
   assertYoutubeOAuthConfigured,
   buildGoogleAuthorizationUrl,
 } from "@/lib/server/google-oauth";
-import { buildSetCookie } from "@/lib/server/cookies";
+import { buildExpiredCookie, buildSetCookie } from "@/lib/server/cookies";
 import { signInRedirect } from "@/lib/server/sign-in-redirect";
 import { safeAppPath, withYoutubeStatus } from "@/lib/server/safe-redirect";
 
@@ -70,6 +70,8 @@ export const Route = createFileRoute("/api/youtube/auth")({
             "Set-Cookie",
             buildSetCookie("yt_oauth_return", safeReturnTo, { maxAge: 600 }),
           );
+          // A client connect link opened in this browser earlier must not take over this one.
+          response.headers.append("Set-Cookie", buildExpiredCookie("yt_invite"));
           for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
           return response;
         } catch (error) {

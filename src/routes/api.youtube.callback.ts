@@ -10,6 +10,7 @@ import {
 import { encryptSecretToBytea } from "@/lib/server/crypto";
 import { getCookie, buildExpiredCookie } from "@/lib/server/cookies";
 import { signInRedirect } from "@/lib/server/sign-in-redirect";
+import { handleInviteCallback, INVITE_COOKIE } from "@/lib/server/connect-invite-callback";
 import { safeAppPath, withYoutubeStatus } from "@/lib/server/safe-redirect";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getServerEnv } from "@/lib/server/env";
@@ -39,6 +40,20 @@ export const Route = createFileRoute("/api/youtube/callback")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
+          // A client connect link (no Tubify session): handled on its own path, which checks
+          // the state, the link, and Google's answer itself (lib/server/connect-invite-callback.ts).
+          const inviteToken = getCookie(request, INVITE_COOKIE);
+          if (inviteToken) {
+            const isLocal = url.origin.includes("localhost") || url.origin.includes("127.0.0.1");
+            return handleInviteCallback({
+              appUrl: isLocal ? url.origin : (getServerEnv("APP_URL") ?? url.origin),
+              token: inviteToken,
+              code: url.searchParams.get("code"),
+              state: url.searchParams.get("state"),
+              expectedState: getCookie(request, "yt_oauth_state"),
+              denied: Boolean(url.searchParams.get("error")),
+            });
+          }
           const safeReturnTo = safeAppPath(getCookie(request, "yt_oauth_return"), "/settings");
           if (url.searchParams.get("error"))
             return redirectToApp(withYoutubeStatus(safeReturnTo, "denied"), url.origin);

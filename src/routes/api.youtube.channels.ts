@@ -47,10 +47,28 @@ export const Route = createFileRoute("/api/youtube/channels")({
             .is("connection_id", null)
             .order("last_synced_at", { ascending: false, nullsFirst: false });
           if (disconnectedError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          // Channels a client shared through a connect link: marked with the client's Google email
+          // (they are the client's grant, not the workspace's own Google account). Server-side
+          // read, this workspace only; if it cannot be read, nothing is marked.
+          const sharedBy = new Map<string, string | null>();
+          {
+            const { data: grants, error: grantsError } = await createServiceSupabaseClient()
+              .from("youtube_connections")
+              .select("id, google_email")
+              .eq("workspace_id", workspaceId)
+              .not("granted_via_invite_id", "is", null);
+            if (!grantsError)
+              for (const g of grants ?? [])
+                sharedBy.set(g.id as string, (g.google_email as string | null) ?? null);
+          }
           // Whether this caller may connect or disconnect channels (owner or manager), so the
           // page can show those controls only to them; the routes check it again.
           return json({
-            data: channels ?? [],
+            data: (channels ?? []).map((channel) => ({
+              ...channel,
+              shared_by_client: sharedBy.has(channel.connection_id as string),
+              client_email: sharedBy.get(channel.connection_id as string) ?? null,
+            })),
             disconnected: disconnected ?? [],
             canManage: canManageWorkspaceMembers(workspaceRole),
           });

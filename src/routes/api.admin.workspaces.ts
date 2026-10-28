@@ -5,7 +5,16 @@ import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
 import { trustedLivemode } from "@/lib/server/stripe-mode";
 
-const patchSchema = z.object({ name: z.string().trim().min(1).max(120) });
+// Rename, and/or set an agency workspace's channel limit (null clears it: the plan's applies).
+const patchSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    channelLimitOverride: z.number().int().min(1).max(500).nullable().optional(),
+  })
+  .strict()
+  .refine((value) => value.name !== undefined || value.channelLimitOverride !== undefined, {
+    message: "nothing to change",
+  });
 const idSchema = z.string().uuid();
 
 function json(body: unknown, init?: ResponseInit) {
@@ -84,6 +93,18 @@ export const Route = createFileRoute("/api/admin/workspaces")({
             .in("id", ownerIds.length ? ownerIds : ["00000000-0000-0000-0000-000000000000"]);
           const ownerById = new Map((owners ?? []).map((o) => [o.id, o]));
 
+          // Agency channel limits, read on their own so a missing column never breaks this list.
+          const overrideById = new Map<string, number>();
+          {
+            const { data: overrides, error: overridesError } = await service
+              .from("workspaces")
+              .select("id, channel_limit_override")
+              .not("channel_limit_override", "is", null);
+            if (!overridesError)
+              for (const o of overrides ?? [])
+                overrideById.set(o.id as string, Number(o.channel_limit_override));
+          }
+
           const memberCountByWorkspace = new Map<string, number>();
           for (const m of membersResult.data ?? []) {
             if (m.status !== "active") continue;
@@ -125,6 +146,7 @@ export const Route = createFileRoute("/api/admin/workspaces")({
               planName: sub ? (planNameBySlug.get(sub.plan_id) ?? sub.plan_id) : null,
               planStatus: planStatusLabel(sub?.status ?? null),
               mrrCents,
+              channelLimitOverride: overrideById.get(w.id) ?? null,
             };
           });
 
@@ -152,21 +174,49 @@ export const Route = createFileRoute("/api/admin/workspaces")({
             .maybeSingle();
           if (!existing) return json({ error: "WORKSPACE_NOT_FOUND" }, { status: 404 });
 
-          const { data: updated, error } = await service
-            .from("workspaces")
-            .update({ name: input.name })
-            .eq("id", id)
-            .select("id, name")
-            .single();
-          if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-
-          await logAdminAudit(service, {
-            adminUserId: user.id,
-            action: "workspace_renamed",
-            target: existing.name,
-            oldValue: { name: existing.name },
-            newValue: { name: updated.name },
-          });
+          let updated: { id: string; name: string; channel_limit_override?: number | null } = {
+            id: existing.id as string,
+            name: existing.name as string,
+          };
+          if (input.name !== undefined) {
+            const { data, error } = await service
+              .from("workspaces")
+              .update({ name: input.name })
+              .eq("id", id)
+              .select("id, name")
+              .single();
+            if (error || !data) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            updated = { ...updated, ...data };
+            await logAdminAudit(service, {
+              adminUserId: user.id,
+              action: "workspace_renamed",
+              target: existing.name,
+              oldValue: { name: existing.name },
+              newValue: { name: data.name },
+            });
+          }
+          if (input.channelLimitOverride !== undefined) {
+            const { data: before } = await service
+              .from("workspaces")
+              .select("channel_limit_override")
+              .eq("id", id)
+              .maybeSingle();
+            const { data, error } = await service
+              .from("workspaces")
+              .update({ channel_limit_override: input.channelLimitOverride })
+              .eq("id", id)
+              .select("id, name, channel_limit_override")
+              .single();
+            if (error || !data) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            updated = { ...updated, ...data };
+            await logAdminAudit(service, {
+              adminUserId: user.id,
+              action: "workspace_channel_limit_changed",
+              target: updated.name,
+              oldValue: { channelLimitOverride: before?.channel_limit_override ?? null },
+              newValue: { channelLimitOverride: data.channel_limit_override ?? null },
+            });
+          }
           return json({ data: updated });
         } catch (error) {
           if (error instanceof Response) return error;

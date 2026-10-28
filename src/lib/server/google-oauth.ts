@@ -75,7 +75,10 @@ export function buildGoogleAuthorizationUrl(state: string): string {
   // access_type=offline + prompt=consent is required to reliably get a refresh_token back,
   // otherwise the creator would have to reconnect every time the access token expires.
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("prompt", "consent");
+  // select_account: Google always shows its account / channel picker (a Google account can own or
+  // manage several channels; Google grants an app ONE per sign-in, the one picked there) instead
+  // of silently reusing whichever account the browser is signed into. consent: see above.
+  url.searchParams.set("prompt", "select_account consent");
   url.searchParams.set("include_granted_scopes", "true");
   url.searchParams.set("state", state);
   return url.toString();
