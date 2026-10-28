@@ -53,6 +53,7 @@ import { useLocalStore } from "@/lib/local-store";
 import { youtubeSyncToast, type YoutubeSyncResponse } from "@/lib/youtube-sync-toast";
 import { YOUTUBE_CALLBACK_MESSAGES } from "@/lib/youtube-connect-messages";
 import { POST_CONNECT_STATUSES, syncNewlyConnectedChannels } from "@/lib/youtube-post-connect-sync";
+import { channelSyncView } from "@/lib/channel-sync-status";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { HIDDEN_CONNECTED_ACCOUNTS } from "@/lib/feature-flags";
 import { goToNextOnboardingStep, openOnboardingGuide } from "@/lib/onboarding";
@@ -1144,19 +1145,6 @@ interface ExternalIntegration {
   updated_at: string;
 }
 
-/** "Partially synced", saying which part could not be synced (last_sync_error: "videos,comments"…). */
-function partialSyncLabel(error: string | null | undefined): string {
-  const parts = (error ?? "")
-    .split(",")
-    .filter((part) => ["videos", "comments", "chapters"].includes(part));
-  if (!parts.length) return "Partially synced";
-  const list =
-    parts.length === 1
-      ? parts[0]
-      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-  return `Partially synced · ${list} couldn’t be synced — try Sync now`;
-}
-
 function YouTubeIntegrationPanel() {
   const navigate = useNavigate();
   const [channels, setChannels] = useState<ConnectedYoutubeChannel[]>([]);
@@ -1281,6 +1269,27 @@ function YouTubeIntegrationPanel() {
     }
   };
 
+  // "Try again" on one channel's status: sync just that channel.
+  const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
+  const syncChannel = async (channelId: string) => {
+    setSyncingChannelId(channelId);
+    try {
+      const response = await fetch(`/api/youtube/sync?channelId=${encodeURIComponent(channelId)}`, {
+        method: "POST",
+      });
+      const body = (await response.json()) as YoutubeSyncResponse;
+      if (!response.ok) throw new Error(body.error ?? "sync_failed");
+      await loadChannels();
+      const result = youtubeSyncToast(body);
+      if (result.kind === "error") toast.error(result.message);
+      else toast.success(result.message);
+    } catch {
+      toast.error("We couldn’t update this channel right now. Please try again in a few minutes.");
+    } finally {
+      setSyncingChannelId(null);
+    }
+  };
+
   const syncNow = async () => {
     setSyncing(true);
     try {
@@ -1295,8 +1304,8 @@ function YouTubeIntegrationPanel() {
     } catch (error) {
       toast.error(
         error instanceof Error && error.message === "YOUTUBE_NOT_CONNECTED"
-          ? "Connect YouTube before syncing."
-          : "YouTube sync couldn't be completed.",
+          ? "Connect a YouTube channel first, then update it."
+          : "We couldn’t update your channel right now. Please try again in a few minutes.",
       );
     } finally {
       setSyncing(false);
@@ -1445,21 +1454,35 @@ function YouTubeIntegrationPanel() {
                   <p className="text-sm text-muted-foreground">
                     {channel.subscriber_count.toLocaleString()} subscribers
                   </p>
-                  <p
-                    className={`mt-1 text-sm ${channel.last_sync_status === "failed" || channel.last_sync_status === "reauth_required" ? "text-destructive" : channel.last_sync_status === "partial" ? "text-warning" : "text-success"}`}
-                  >
-                    {channel.last_sync_status === "syncing"
-                      ? "Syncing…"
-                      : channel.last_sync_status === "reauth_required"
-                        ? "Reconnect required"
-                        : channel.last_sync_status === "failed"
-                          ? "Sync failed"
-                          : channel.last_sync_status === "partial"
-                            ? partialSyncLabel(channel.last_sync_error)
-                            : channel.last_synced_at
-                              ? `Connected · last synced ${new Date(channel.last_synced_at).toLocaleString()}`
-                              : "Connected · Not synced yet"}
-                  </p>
+                  {(() => {
+                    const view = channelSyncView(channel);
+                    const tone =
+                      view.tone === "error"
+                        ? "text-destructive"
+                        : view.tone === "warn"
+                          ? "text-warning"
+                          : view.tone === "info"
+                            ? "text-muted-foreground"
+                            : "text-success";
+                    return (
+                      <p className={`mt-1 text-sm ${tone}`} role="status">
+                        {view.text}
+                        {view.retry && (
+                          <>
+                            {" "}
+                            <button
+                              type="button"
+                              onClick={() => void syncChannel(channel.id)}
+                              disabled={syncingChannelId !== null || syncing}
+                              className="font-semibold text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                            >
+                              {syncingChannelId === channel.id ? "Updating…" : "Try again"}
+                            </button>
+                          </>
+                        )}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 lg:shrink-0">

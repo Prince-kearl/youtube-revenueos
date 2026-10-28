@@ -90,7 +90,7 @@ test("quota and other failures still fail the read (they are not 'comments off')
   });
 });
 
-test("the one-video comments view says comments are turned off, and Settings says what part failed", () => {
+test("the one-video comments view says comments are turned off, and Settings explains a partial update in plain words", () => {
   const flat = (p: string) => readFileSync(p, "utf8").replace(/\s+/g, " ");
   assert.match(
     flat("src/routes/api.youtube.comments.ts"),
@@ -98,7 +98,6 @@ test("the one-video comments view says comments are turned off, and Settings say
   );
   const page = flat("src/routes/comments.tsx");
   assert.match(page, /"Comments are turned off for this video"/);
-  const settings = flat("src/routes/settings.tsx");
-  assert.match(settings, /\? partialSyncLabel\(channel\.last_sync_error\)/);
-  assert.match(settings, /Partially synced · \$\{list\} couldn’t be synced — try Sync now/);
+  // Settings words a partial update in plain language (see channel-sync-status.test.ts).
+  assert.match(flat("src/routes/settings.tsx"), /const view = channelSyncView\(channel\);/);
 });

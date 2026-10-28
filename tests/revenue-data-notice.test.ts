@@ -143,7 +143,7 @@ const HEALTHY_VIDEOS_NOTE =
 test("Settings: a clean sync with a completed revenue-data sync keeps the success message", () => {
   const complete = { status: "success", revenueData: { status: "complete" } };
   assert.deepEqual(youtubeSyncToast(complete), { kind: "success", message: YOUTUBE_SYNC_COMPLETE });
-  assert.equal(YOUTUBE_SYNC_COMPLETE, "YouTube sync complete");
+  assert.equal(YOUTUBE_SYNC_COMPLETE, "Your channel data is up to date");
   // "paused" is the revenue-data sync stopping at its request budget to resume next run — not a
   // problem. A response without the field (older servers) is not one either.
   for (const revenueData of [{ status: "paused" }, null, undefined])
@@ -156,7 +156,10 @@ test("Settings: a clean sync with a completed revenue-data sync keeps the succes
 test("Settings: a failed revenue-data sync is a warning, and never an authorization message", () => {
   const toast = youtubeSyncToast({ status: "success", revenueData: { status: "failed" } });
   assert.deepEqual(toast, { kind: "success", message: YOUTUBE_SYNC_WARNINGS });
-  assert.equal(toast.message, "YouTube sync completed with warnings");
+  assert.equal(
+    toast.message,
+    "Your channel is updated — a few details didn’t come through. You can try again later.",
+  );
   assert.doesNotMatch(toast.message, /authoriz|reconnect|renew/i);
   // A partly failed channel sync is the warning it always was, whatever the revenue-data sync did.
   for (const revenueData of [{ status: "complete" }, { status: "failed" }, null])
@@ -171,7 +174,10 @@ test("Settings: a genuine reauthorization result keeps its own error message", (
     kind: "error",
     message: YOUTUBE_SYNC_REAUTH,
   });
-  assert.equal(YOUTUBE_SYNC_REAUTH, "YouTube authorization needs to be renewed before syncing.");
+  assert.equal(
+    YOUTUBE_SYNC_REAUTH,
+    "YouTube access has expired. Reconnect your channel in Settings to update it.",
+  );
   // Still that message even if a revenue-data result were attached.
   assert.equal(
     youtubeSyncToast({ status: "reauth_required", revenueData: { status: "failed" } }).message,

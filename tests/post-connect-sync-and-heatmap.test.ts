@@ -78,7 +78,7 @@ test("post-connect sync: only never-synced channels are synced, one request each
   );
   assert.equal(synced, 1);
   assert.deepEqual(calls, ["GET /api/youtube/channels", "POST /api/youtube/sync?channelId=b"]);
-  assert.deepEqual(notes, ["success: Brand: youtube sync complete"]);
+  assert.deepEqual(notes, ["success: Brand: your channel data is up to date"]);
 });
 
 test("post-connect sync: nothing to sync, or the list cannot be read — no sync request at all", async () => {

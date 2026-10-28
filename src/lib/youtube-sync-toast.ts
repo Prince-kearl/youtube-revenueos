@@ -24,9 +24,11 @@ export interface YoutubeSyncToast {
   message: string;
 }
 
-export const YOUTUBE_SYNC_COMPLETE = "YouTube sync complete";
-export const YOUTUBE_SYNC_WARNINGS = "YouTube sync completed with warnings";
-export const YOUTUBE_SYNC_REAUTH = "YouTube authorization needs to be renewed before syncing.";
+export const YOUTUBE_SYNC_COMPLETE = "Your channel data is up to date";
+export const YOUTUBE_SYNC_WARNINGS =
+  "Your channel is updated — a few details didn’t come through. You can try again later.";
+export const YOUTUBE_SYNC_REAUTH =
+  "YouTube access has expired. Reconnect your channel in Settings to update it.";
 
 export function youtubeSyncToast(body: YoutubeSyncResponse): YoutubeSyncToast {
   if (body.status === "reauth_required") return { kind: "error", message: YOUTUBE_SYNC_REAUTH };
