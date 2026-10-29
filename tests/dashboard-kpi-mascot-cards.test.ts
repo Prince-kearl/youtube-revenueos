@@ -64,3 +64,16 @@ test("the numbers are all in the text: value, change, latest month", () => {
     assert.ok(card.includes(piece), piece);
   assert.match(card, /Math\.abs\(changePercent\)\.toFixed\(1\)/);
 });
+
+test("a sunburst of white rays sits behind the mascot and fades out", () => {
+  assert.match(card, /dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20/);
+  assert.match(
+    card,
+    /repeating-conic-gradient\(from 0deg at 76% 62%, rgba\(255, 255, 255, 0\.22\)/,
+  );
+  assert.match(card, /maskImage:\s+"radial-gradient\(circle at 76% 62%/);
+  assert.match(
+    card,
+    /dashboard-kpi-sunburst[^>]*\n?[^>]*aria-hidden|aria-hidden="true"\s+className="dashboard-kpi-sunburst/,
+  );
+});

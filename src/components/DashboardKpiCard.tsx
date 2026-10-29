@@ -118,6 +118,19 @@ export function DashboardKpiCard({
       )}
       style={{ background: t.background, borderRadius: "var(--kpi-card-radius, 16px)" }}
     >
+      {/* Sunburst: white rays radiating from behind the mascot, fading out towards the edges. */}
+      <div
+        aria-hidden="true"
+        className="dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20"
+        style={{
+          background:
+            "repeating-conic-gradient(from 0deg at 76% 62%, rgba(255, 255, 255, 0.22) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 15deg)",
+          WebkitMaskImage:
+            "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
+          maskImage:
+            "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
+        }}
+      />
       <img
         src={t.mascot}
         alt=""
