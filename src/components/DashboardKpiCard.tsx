@@ -52,8 +52,13 @@ function TrendBars({ series, dark }: { series: number[]; dark: boolean }) {
       {values.map((v, i) => (
         <span
           key={i}
-          className={cn("w-[9px] rounded-[2px]", dark ? "bg-[#c9a227]/35" : "bg-white/40")}
-          style={{ height: `${max > 0 ? Math.max(30, (Math.abs(v) / max) * 100) : 30}%` }}
+          className={cn("kpi-bar w-[9px] rounded-[2px]", dark ? "bg-[#c9a227]/35" : "bg-white/40")}
+          style={
+            {
+              height: `${max > 0 ? Math.max(30, (Math.abs(v) / max) * 100) : 30}%`,
+              "--b": i,
+            } as React.CSSProperties
+          }
         />
       ))}
     </div>
@@ -90,6 +95,7 @@ export function DashboardKpiCard({
   markerTitle,
   markerSubtitle,
   positive,
+  index = 0,
   className,
 }: {
   theme: KpiCardTheme;
@@ -103,6 +109,8 @@ export function DashboardKpiCard({
   markerTitle: string;
   markerSubtitle: string;
   positive: boolean;
+  /** Position on the page: staggers the entrance and the mascots' idle float. */
+  index?: number;
   className?: string;
 }) {
   const t = THEMES[theme];
@@ -116,28 +124,41 @@ export function DashboardKpiCard({
         dark ? "text-zinc-800" : "text-white",
         className,
       )}
-      style={{ background: t.background, borderRadius: "var(--kpi-card-radius, 16px)" }}
+      style={
+        {
+          background: t.background,
+          borderRadius: "var(--kpi-card-radius, 16px)",
+          "--i": index,
+        } as React.CSSProperties
+      }
     >
-      {/* Sunburst: white rays radiating from behind the mascot, fading out towards the edges. */}
+      {/* Sunburst: white rays radiating from behind the mascot, fading out towards the edges. The
+          fade (mask) stays put; the rays are an oversized layer under it that can turn slowly. */}
       <div
         aria-hidden="true"
-        className="dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20"
+        className="dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20 overflow-hidden"
         style={{
-          background:
-            "repeating-conic-gradient(from 0deg at 76% 62%, rgba(255, 255, 255, 0.22) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 15deg)",
           WebkitMaskImage:
             "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
           maskImage:
             "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
         }}
-      />
+      >
+        <div
+          className="kpi-rays absolute left-[76%] top-[62%] aspect-square w-[300%]"
+          style={{
+            background:
+              "repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.22) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 15deg)",
+          }}
+        />
+      </div>
       <img
         src={t.mascot}
         alt=""
         aria-hidden="true"
         draggable={false}
         decoding="async"
-        className="pointer-events-none absolute bottom-0 right-[4%] -z-10 h-[88%] max-h-[150px] w-auto max-w-[42%] sm:max-w-[46%] select-none object-contain object-bottom"
+        className="kpi-mascot pointer-events-none absolute bottom-0 right-[4%] -z-10 h-[88%] max-h-[150px] w-auto max-w-[42%] sm:max-w-[46%] select-none object-contain object-bottom"
       />
 
       {markerTitle && (

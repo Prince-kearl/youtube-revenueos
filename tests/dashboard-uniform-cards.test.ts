@@ -12,16 +12,16 @@ test("dashboard cards have no outline: no hover glow, and the shared card styles
     assert.doesNotMatch(source, /card-gradient-outline (?!dashboard-card)/);
     assert.doesNotMatch(source, /card-frost (?!dashboard-card)/);
   }
-  const outer = styles.slice(styles.indexOf(":root .dashboard-card.card-gradient-outline {"));
+  const outer = styles.slice(styles.indexOf(":root .dashboard-main .card-gradient-outline {"));
   assert.match(
     outer,
-    /^:root \.dashboard-card\.card-gradient-outline \{\n {2}border-color: transparent;\n {2}background: var\(--card\);/,
+    /^:root \.dashboard-main \.card-gradient-outline \{\n {2}border-color: transparent;\n {2}background: var\(--card\);/,
   );
-  const inner = styles.slice(styles.indexOf(":root .dashboard-card.card-frost {"));
-  assert.match(inner, /^:root \.dashboard-card\.card-frost \{\n {2}border-color: transparent;/);
+  const inner = styles.slice(styles.indexOf(":root .dashboard-main .card-frost {"));
+  assert.match(inner, /^:root \.dashboard-main \.card-frost \{\n {2}border-color: transparent;/);
   // after the iOS 26 variants of the shared styles, so it wins over them
   assert.ok(
-    styles.indexOf(":root .dashboard-card.card-gradient-outline") >
+    styles.indexOf(":root .dashboard-main .card-gradient-outline") >
       styles.indexOf(".ios26.dark .card-gradient-outline {"),
   );
 });

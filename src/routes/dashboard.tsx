@@ -549,6 +549,8 @@ function Dashboard() {
           <>
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={0}
+
               title="Estimated Revenue"
               theme="green"
               value={revenueValue(revenue.total.text)}
@@ -567,6 +569,8 @@ function Dashboard() {
             />
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={1}
+
               title="Latest Revenue"
               theme="blue"
               value={revenueValue(revenue.latest?.text ?? "—")}
@@ -587,6 +591,8 @@ function Dashboard() {
             />
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={2}
+
               title="Total Views"
               theme="purple"
               value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
@@ -601,6 +607,8 @@ function Dashboard() {
             />
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={3}
+
               title="Videos"
               theme="pink"
               value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
@@ -617,6 +625,8 @@ function Dashboard() {
             />
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={4}
+
               title="Subscribers"
               theme="yellow"
               value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
@@ -633,6 +643,8 @@ function Dashboard() {
             />
             <DashboardKpiCard
               className={kpiCardClassName}
+              index={5}
+
               title="Watch Time"
               theme="red"
               value={
@@ -1408,7 +1420,7 @@ function AudienceBreakdownCard({
                 </div>
                 <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-accent">
                   <div
-                    className="h-full rounded-full"
+                    className="dash-bar-fill h-full rounded-full"
                     style={{
                       width: `${Math.max((row.weight / maxWeight) * 100, 4)}%`,
                       backgroundColor: AUDIENCE_BAR_COLORS[i % AUDIENCE_BAR_COLORS.length],
@@ -1663,7 +1675,7 @@ function VideoInsightsCard({
                   <p className="mt-0.5 text-lg font-bold">{Math.round(device.pct)}%</p>
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-accent">
                     <div
-                      className="h-full rounded-full"
+                      className="dash-bar-fill h-full rounded-full"
                       style={{ width: `${device.pct}%`, backgroundColor: device.color }}
                     />
                   </div>
@@ -1817,14 +1829,17 @@ function EngagementHeatmap({
                   {formatShortDate(week[0]?.date)}
                 </span>
                 <div className="flex gap-1.5">
-                  {week.map((day) => (
+                  {week.map((day, dayIndex) => (
                     <div
                       key={day.date}
                       title={`${formatShortDate(day.date)}: ${formatCount(day.views)} views`}
-                      className="h-6 w-6 shrink-0 rounded-md sm:h-7 sm:w-7"
-                      style={{
-                        background: HEATMAP_LEVELS[levelIndexForValue(day.views, max)].color,
-                      }}
+                      className="dash-cell h-6 w-6 shrink-0 rounded-md sm:h-7 sm:w-7"
+                      style={
+                        {
+                          background: HEATMAP_LEVELS[levelIndexForValue(day.views, max)].color,
+                          "--c": weekIndex * 7 + dayIndex,
+                        } as React.CSSProperties
+                      }
                     />
                   ))}
                 </div>
