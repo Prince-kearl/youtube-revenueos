@@ -10,14 +10,14 @@ function rule(selector: string): string {
   return styles.slice(start, styles.indexOf("\n}\n", start));
 }
 
-test("light mode: the app shell has the sky backdrop", () => {
+test("light mode: the app shell has the light red backdrop", () => {
   const sky = rule("html:not(.dark) .dashboard-shell.min-h-screen.bg-background");
-  assert.match(sky, /background-color: #f2f9fe;/);
+  assert.match(sky, /background-color: #fef6f6;/);
   assert.match(sky, /background-size: auto;/, "not stretched by the base rule's 300% size");
-  assert.match(sky, /radial-gradient\(\s*24% 36% at 100% 0%,\s*rgba\(96, 200, 254, 0\.85\)/);
+  assert.match(sky, /radial-gradient\(\s*24% 36% at 100% 0%,\s*rgba\(254, 148, 148, 0\.85\)/);
   assert.match(
     sky,
-    /linear-gradient\(\s*180deg,\s*#a4ddfe 0px,[\s\S]*#f1f8fe 440px,[\s\S]*#eff7fe 1024px/,
+    /linear-gradient\(\s*180deg,\s*#fec0c0 0px,[\s\S]*#fef4f4 440px,[\s\S]*#fef3f3 1024px/,
   );
   // it comes after the base shell rule that clears the motion background, and outranks it
   assert.ok(
