@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { ErrorState } from "@/components/ui-bits";
-import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useLocalStore } from "@/lib/local-store";
 import type { CommandCenterResponse } from "@/lib/server/command-center";
 import { PRIORITY_LABEL } from "@/lib/video-opportunities-view";
@@ -95,15 +94,17 @@ export function RevenueCommandCenterContent({
 
   return (
     <section
-      className="card-gradient-outline relative mt-5 p-5 backdrop-blur-xl"
+      className="card-gradient-outline dashboard-card relative mt-5 p-5 backdrop-blur-xl"
       aria-labelledby="command-center-heading"
       aria-busy={state.refreshing}
       data-testid="command-center"
     >
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="command-center-heading" className="flex items-center gap-2 text-lg font-semibold">
+          <h2
+            id="command-center-heading"
+            className="flex items-center gap-2 text-lg font-semibold text-primary"
+          >
             <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" /> For you
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -188,7 +189,7 @@ function InsightCard({
   const label = insightLabel(insight.type);
   return (
     <li
-      className="card-frost relative flex flex-col p-4 backdrop-blur-lg"
+      className="card-frost dashboard-card relative flex flex-col p-4 backdrop-blur-lg"
       data-testid="command-center-opportunity"
       data-priority={insight.priority}
     >

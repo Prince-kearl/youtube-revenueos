@@ -28,7 +28,6 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { DashboardKpiCard, DashboardKpiCardSkeleton } from "@/components/DashboardKpiCard";
 import { SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useProfile } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
@@ -489,7 +488,7 @@ function Dashboard() {
         </p>
       )}
       {youtubeStatus === "not_connected" && (
-        <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="card-gradient-outline dashboard-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">Connect your YouTube channel</h3>
           </div>
@@ -509,7 +508,7 @@ function Dashboard() {
         />
       )}
       {youtubeStatus === "error" && (
-        <div className="card-gradient-outline flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="card-gradient-outline dashboard-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">We couldn't load your YouTube data</h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -718,11 +717,10 @@ function Dashboard() {
 
       {/* Trends + Alerts */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl lg:col-span-2">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+        <div className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl lg:col-span-2">
           <div className="flex shrink-0 items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-lg font-semibold">Revenue Trends</h3>
+              <h3 className="text-lg font-semibold text-primary">Revenue Trends</h3>
               {/* One short line ("Through Oct 16 · may still change"); the full wording is the
                   tooltip. */}
               <p
@@ -831,10 +829,9 @@ function Dashboard() {
 
       {/* Top videos (the revenue split by source is on Analytics) */}
       <div className="mt-5">
-        <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+        <div className="card-gradient-outline dashboard-card relative p-5 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">
+            <h3 className="text-lg font-semibold text-primary">
               {revenue.hidden ? "Top Videos by Views" : "Top Revenue Videos"}
             </h3>
             <Link to="/videos" className="text-sm font-medium text-primary hover:underline">
@@ -849,7 +846,10 @@ function Dashboard() {
           >
             {revenueLoading &&
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg">
+                <div
+                  key={i}
+                  className="card-frost dashboard-card flex items-start gap-3 p-3 backdrop-blur-lg"
+                >
                   <Skeleton className="h-14 w-24 shrink-0 rounded-lg" />
                   <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-4 w-4/5" />
@@ -865,7 +865,7 @@ function Dashboard() {
                   href={row.url ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="card-frost flex items-start gap-3 p-3 backdrop-blur-lg"
+                  className="card-frost dashboard-card flex items-start gap-3 p-3 backdrop-blur-lg"
                 >
                   <div className="relative shrink-0">
                     {row.thumbnail ? (
@@ -1050,7 +1050,7 @@ function Dashboard() {
       {/* Channel banner — kept below the dashboard's analytics and revenue content. */}
       {youtubeStatus === "loading" ? (
         <div
-          className="relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl border border-border bg-card p-5 sm:min-h-[128px] sm:p-6"
+          className="relative mb-5 min-h-[112px] shrink-0 overflow-hidden rounded-2xl bg-card p-5 shadow-sm sm:min-h-[128px] sm:p-6"
           aria-busy="true"
           aria-label="Loading connected channel"
         >
@@ -1141,7 +1141,7 @@ function Dashboard() {
       {/* Recent videos */}
       {youtubeStatus === "loading" && settings.showRecentPosts && (
         <div
-          className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl"
+          className="card-gradient-outline dashboard-card relative mb-5 p-5 backdrop-blur-xl"
           aria-busy="true"
           aria-label="Loading recent videos"
         >
@@ -1154,10 +1154,9 @@ function Dashboard() {
         </div>
       )}
       {youtubeStatus !== "loading" && settings.showRecentPosts && (
-        <div className="card-gradient-outline relative mb-5 p-5 backdrop-blur-xl">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+        <div className="card-gradient-outline dashboard-card relative mb-5 p-5 backdrop-blur-xl">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Recent videos</h3>
+            <h3 className="text-lg font-semibold text-primary">Recent videos</h3>
             <a
               href={dashboardData?.channel.url ?? "#"}
               target="_blank"
@@ -1194,7 +1193,7 @@ function PostCard({ post, compact }: { post: Post; compact?: boolean }) {
       href={post.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`card-frost group block overflow-hidden backdrop-blur-lg transition-transform hover:-translate-y-0.5 ${compact ? "w-40 shrink-0" : ""}`}
+      className={`card-frost dashboard-card group block overflow-hidden backdrop-blur-lg transition-transform hover:-translate-y-0.5 ${compact ? "w-40 shrink-0" : ""}`}
     >
       <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-brand-red/40 to-brand-purple/40">
         {post.thumbnail && (
@@ -1370,11 +1369,10 @@ function AudienceBreakdownCard({
   const hiddenCount = rows.length - visibleRows.length;
 
   return (
-    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+    <div className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl">
       <div className="flex shrink-0 items-start justify-between gap-2">
         <div>
-          <p className="text-sm text-muted-foreground">Subscribers</p>
+          <p className="text-sm font-semibold text-primary">Subscribers</p>
           <p className="mt-1 text-2xl font-bold tracking-tight">{formatCount(subscriberCount)}</p>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-accent/40 px-2.5 py-1.5 text-xs font-medium">
@@ -1436,7 +1434,7 @@ function AudienceBreakdownCard({
 function AudienceBreakdownCardSkeleton() {
   return (
     <div
-      className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl"
+      className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl"
       aria-hidden="true"
     >
       <div className="flex items-start justify-between gap-2">
@@ -1526,8 +1524,7 @@ function VideoInsightsCard({
   ];
 
   return (
-    <div className="card-gradient-outline relative p-5 backdrop-blur-xl">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+    <div className="card-gradient-outline dashboard-card relative p-5 backdrop-blur-xl">
       <div className="flex items-start gap-3">
         {latestVideo?.thumbnail ? (
           <img
@@ -1542,7 +1539,7 @@ function VideoInsightsCard({
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold">Video Insights</h3>
+          <h3 className="text-lg font-semibold text-primary">Video Insights</h3>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {latestVideo?.title ?? "No recent video"}
           </p>
@@ -1682,7 +1679,10 @@ function VideoInsightsCard({
 
 function VideoInsightsCardSkeleton() {
   return (
-    <div className="card-gradient-outline relative p-5 backdrop-blur-xl" aria-hidden="true">
+    <div
+      className="card-gradient-outline dashboard-card relative p-5 backdrop-blur-xl"
+      aria-hidden="true"
+    >
       <div className="flex items-start gap-3">
         <Skeleton className="h-14 w-14 shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1">
@@ -1775,10 +1775,9 @@ function EngagementHeatmap({
   const unavailableMessage = ENGAGEMENT_HEATMAP_UNAVAILABLE_MESSAGE[status];
 
   return (
-    <div className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl">
-      <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+    <div className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl">
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">Weekly Engagement</h3>
+        <h3 className="text-lg font-semibold text-primary">Weekly Engagement</h3>
         <div className="flex shrink-0 items-center gap-3">
           <Link to="/analytics" className="text-sm font-medium text-primary hover:underline">
             View all
@@ -1845,7 +1844,7 @@ function EngagementHeatmap({
 function EngagementHeatmapSkeleton() {
   return (
     <div
-      className="card-gradient-outline relative flex h-full flex-col p-5 backdrop-blur-xl"
+      className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl"
       aria-hidden="true"
     >
       <div className="flex shrink-0 items-center justify-between">

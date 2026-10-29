@@ -291,6 +291,23 @@
     color-mix(in srgb, var(--card) 58%, transparent);
 }
 
+/* Dashboard cards: no outline. The same plain fill and one soft shadow on every card, so the
+   page reads as one uniform surface; cards inside a card (For you items, video tiles) are a
+   flat tint instead. Scoped to .dashboard-card (the Dashboard only); `:root` keeps these above
+   the .ios26 / .ios26.dark variants of the shared card styles. */
+:root .dashboard-card.card-gradient-outline {
+  border-color: transparent;
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px -20px rgba(15, 23, 42, 0.22);
+}
+:root .dashboard-card.card-frost {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 55%, var(--card));
+  box-shadow: none;
+}
+
 /* Frosted-glass card treatment — translucent card fill + backdrop blur so the app-wide motion
    gradient (and whatever scrolls beneath) shows through softly, instead of the opaque
    .card-gradient-outline used elsewhere. Built from color-mix(var(--card)) rather than hardcoded
