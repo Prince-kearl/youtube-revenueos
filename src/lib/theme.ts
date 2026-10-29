@@ -3,7 +3,10 @@ import { useLocalStore } from "./local-store";
 
 export type ThemeMode = "light" | "dark" | "system";
 
-export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme", "system");
+// Light by default for every user and device. The ".v2" key (2026-10-29) reset everyone who was in
+// dark or system mode under the old "yroos.theme" key to light; choosing dark again in Settings →
+// Preferences is remembered as before. Keep NO_FLASH_THEME_SCRIPT in __root.tsx in sync.
+export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme.v2", "light");
 
 // Personal, per-device preference (Settings → Preferences) — was previously a single
 // Superadmin-controlled switch for every user (Customization → General); moved here so each
