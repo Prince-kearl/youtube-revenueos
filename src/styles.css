@@ -322,6 +322,115 @@
   color: var(--primary);
 }
 
+/* Phone KPI carousel: the backdrop takes the colour of the card on screen, in the same gradient
+   style as the backdrop itself (deepest in the top-right corner, a brighter patch left of
+   centre, fading to near-white by ~440px). The Dashboard's dots set data-kpi-tone on the shell.
+   Two fixed layers behind the content hold the card's colour - a light tint shaped like the
+   backdrop's vertical fade (::before) and a deep tint shaped like its corner glow and top patch
+   (::after). Their shapes are masks that never change, so only background-color animates and
+   swipes cross-fade. Light mode, phone widths only - from sm up all the cards are in view. */
+@media (max-width: 639.98px) {
+  html:not(.dark) .dashboard-shell {
+    isolation: isolate;
+  }
+  html:not(.dark) .dashboard-shell::before,
+  html:not(.dark) .dashboard-shell::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: transparent;
+    transition: background-color 0.6s ease;
+  }
+  /* the backdrop's vertical fade: full at the top, gone by ~440px */
+  html:not(.dark) .dashboard-shell::before {
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      #000 0px,
+      rgba(0, 0, 0, 0.82) 60px,
+      rgba(0, 0, 0, 0.42) 130px,
+      rgba(0, 0, 0, 0.3) 200px,
+      rgba(0, 0, 0, 0.22) 300px,
+      rgba(0, 0, 0, 0.08) 440px,
+      transparent 860px
+    );
+    mask-image: linear-gradient(
+      180deg,
+      #000 0px,
+      rgba(0, 0, 0, 0.82) 60px,
+      rgba(0, 0, 0, 0.42) 130px,
+      rgba(0, 0, 0, 0.3) 200px,
+      rgba(0, 0, 0, 0.22) 300px,
+      rgba(0, 0, 0, 0.08) 440px,
+      transparent 860px
+    );
+  }
+  /* the backdrop's top-right corner glow and the brighter patch left of centre */
+  html:not(.dark) .dashboard-shell::after {
+    -webkit-mask-image:
+      radial-gradient(
+        24% 36% at 100% 0%,
+        rgba(0, 0, 0, 0.85) 0%,
+        rgba(0, 0, 0, 0.45) 35%,
+        rgba(0, 0, 0, 0.12) 70%,
+        transparent 100%
+      ),
+      radial-gradient(36% 13% at 30% 0%, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.25) 55%, transparent 100%);
+    mask-image:
+      radial-gradient(
+        24% 36% at 100% 0%,
+        rgba(0, 0, 0, 0.85) 0%,
+        rgba(0, 0, 0, 0.45) 35%,
+        rgba(0, 0, 0, 0.12) 70%,
+        transparent 100%
+      ),
+      radial-gradient(36% 13% at 30% 0%, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.25) 55%, transparent 100%);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="green"]::before {
+    background-color: color-mix(in srgb, #8ce589 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="green"]::after {
+    background-color: color-mix(in srgb, #8ce589 85%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="blue"]::before {
+    background-color: color-mix(in srgb, #69b4fe 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="blue"]::after {
+    background-color: color-mix(in srgb, #69b4fe 85%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="purple"]::before {
+    background-color: color-mix(in srgb, #b876fd 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="purple"]::after {
+    background-color: color-mix(in srgb, #b876fd 85%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="pink"]::before {
+    background-color: color-mix(in srgb, #fd8181 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="pink"]::after {
+    background-color: color-mix(in srgb, #fd8181 85%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="yellow"]::before {
+    background-color: color-mix(in srgb, #ffd75e 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="yellow"]::after {
+    background-color: color-mix(in srgb, #ffd75e 85%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="red"]::before {
+    background-color: color-mix(in srgb, #f46968 45%, #fff);
+  }
+  html:not(.dark) .dashboard-shell[data-kpi-tone="red"]::after {
+    background-color: color-mix(in srgb, #f46968 85%, #fff);
+  }
+}
+@media (max-width: 639.98px) and (prefers-reduced-motion: reduce) {
+  html:not(.dark) .dashboard-shell::before,
+  html:not(.dark) .dashboard-shell::after {
+    transition: none;
+  }
+}
+
 /* ============ App motion (Dashboard + every app page) ============
    Transform/opacity only (GPU, no layout work). One-off entrances everywhere; the continuous
    effects (floating mascots, turning rays) and hover effects only on devices with a mouse

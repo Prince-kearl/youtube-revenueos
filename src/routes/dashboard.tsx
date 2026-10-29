@@ -196,6 +196,9 @@ const kpiCardClassName = "w-full shrink-0 snap-start sm:w-auto sm:shrink sm:snap
 // that scroll finishes — the loop reads as continuous forward motion, never a snap-back. sm+ hides
 // it since the grid layout there has no scrolling to loop.
 const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
+// The colour of each KPI card, in carousel order: on phones the page backdrop takes the colour of
+// the card on screen (styles.css, [data-kpi-tone]).
+const KPI_TONES = ["green", "blue", "purple", "pink", "yellow", "red"] as const;
 
 function Dashboard() {
   const { settings } = useChannelSettings();
@@ -689,7 +692,12 @@ function Dashboard() {
       </div>
 
       {youtubeStatus !== "loading" && (
-        <KpiCardDots scrollRef={kpiScrollRef} resetKey={youtubeStatus} count={6} />
+        <KpiCardDots
+          scrollRef={kpiScrollRef}
+          resetKey={youtubeStatus}
+          count={6}
+          tones={KPI_TONES}
+        />
       )}
 
       {(dashboardData?.analyticsStatus === "unavailable" ||
@@ -1889,18 +1897,36 @@ function EngagementHeatmapSkeleton() {
  * re-rendered the whole page (charts, heatmap, every card) on each step — steady background work
  * on a phone. The clone after the last real card maps back to dot 0, since it stands in for the
  * real first card.
+ *
+ * It also hands the current card's colour to the page (data-kpi-tone on the app shell) so the
+ * backdrop can follow the swipe - a DOM attribute, so Dashboard still does not re-render.
  */
 function KpiCardDots({
   scrollRef,
   resetKey,
   count,
+  tones,
 }: {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   /** Re-attach when the carousel's contents change (they are rendered per connection state). */
   resetKey: string;
   count: number;
+  /** Each card's colour name, in order. */
+  tones: readonly string[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  useEffect(() => {
+    const shell = scrollRef.current?.closest<HTMLElement>(".dashboard-shell");
+    const tone = tones[activeIndex];
+    if (shell && tone) shell.dataset.kpiTone = tone;
+  }, [activeIndex, scrollRef, tones]);
+  // leaving the Dashboard: other pages keep the plain backdrop
+  useEffect(() => {
+    const shell = scrollRef.current?.closest<HTMLElement>(".dashboard-shell");
+    return () => {
+      if (shell) delete shell.dataset.kpiTone;
+    };
+  }, [scrollRef]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

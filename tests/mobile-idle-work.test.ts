@@ -30,7 +30,7 @@ test("the KPI carousel's current card lives in its dots, not in Dashboard", () =
   assert.doesNotMatch(dashboard, /activeKpiIndex|setActiveKpiIndex/);
   assert.match(
     dashboard,
-    /<KpiCardDots scrollRef=\{kpiScrollRef\} resetKey=\{youtubeStatus\} count=\{6\} \/>/,
+    /<KpiCardDots\s+scrollRef=\{kpiScrollRef\}\s+resetKey=\{youtubeStatus\}\s+count=\{6\}\s+tones=\{KPI_TONES\}\s+\/>/,
   );
   assert.match(dashboard, /function KpiCardDots\(/);
   assert.match(dashboard, /const \[activeIndex, setActiveIndex\] = useState\(0\);/);

@@ -21,7 +21,7 @@ test("light mode: the app shell has the light red backdrop", () => {
   );
   // it comes after the base shell rule that clears the motion background, and outranks it
   assert.ok(
-    styles.indexOf("html:not(.dark) .dashboard-shell") >
+    styles.indexOf("html:not(.dark) .dashboard-shell.min-h-screen") >
       styles.indexOf(".dashboard-shell.min-h-screen.bg-background {"),
   );
 });
