@@ -36,6 +36,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -1283,7 +1284,7 @@ function HelpSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: bo
       >
         <SheetHeader className="shrink-0">
           <SheetTitle className="flex items-center gap-2">
-            <img src="/tubi.png" alt="" className="h-5 w-5 object-contain" />
+            <img src={BRAND.mascot} alt="" className="h-6 w-6 object-contain" />
             <span className="text-primary">Tubi</span>
           </SheetTitle>
         </SheetHeader>

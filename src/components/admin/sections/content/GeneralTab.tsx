@@ -1,14 +1,12 @@
-import { useRef } from "react";
-import { toast } from "sonner";
-import { LayoutPanelLeft, FileText, Palette, Upload } from "lucide-react";
+import { LayoutPanelLeft, FileText, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { useSiteContent } from "@/lib/stores";
+import { BRAND } from "@/lib/brand";
 import { SectionCard, Field } from "./shared";
 
-const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 const PRESET_COLORS = ["#8b5cf6", "#f59e0b", "#3b82f6", "#dc2626", "#22c55e"];
 const RADIUS_PRESETS = [
   { label: "Sharp", value: 0 },
@@ -50,32 +48,14 @@ export function GeneralTab() {
               onChange={(e) => setContent({ ...content, seoDescription: e.target.value })}
             />
           </Field>
-          <SiteIconUploadField
-            url={content.siteIconUrl}
-            onChange={(url) => setContent({ ...content, siteIconUrl: url })}
-          />
         </SectionCard>
 
         <SectionCard
           icon={<FileText className="h-4 w-4" />}
           title="Brand Logo"
-          subtitle="Visual representation of your brand"
+          subtitle="Built into the app: the same three images everywhere"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <LogoUploadField
-              label="Primary Logo (Light Mode)"
-              url={content.logoLightUrl}
-              onChange={(url) => setContent({ ...content, logoLightUrl: url })}
-              defaultUrl="/logo.png"
-            />
-            <LogoUploadField
-              label="White Logo (Dark Mode & Footer)"
-              url={content.logoDarkUrl}
-              onChange={(url) => setContent({ ...content, logoDarkUrl: url })}
-              defaultUrl="/logo.png"
-              dark
-            />
-          </div>
+          <BrandPreview />
         </SectionCard>
       </div>
 
@@ -233,116 +213,34 @@ function RadiusField({
   );
 }
 
-function LogoUploadField({
-  label,
-  url,
-  onChange,
-  dark,
-  defaultUrl,
-}: {
-  label: string;
-  url: string;
-  onChange: (url: string) => void;
-  dark?: boolean;
-  defaultUrl: string;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > MAX_LOGO_BYTES) return toast.error("Logo must be under 2MB");
-    const reader = new FileReader();
-    reader.onload = () => onChange(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
+// The brand images are built in (src/lib/brand.ts), not uploaded: each is shown where it is used.
+function BrandPreview() {
+  const items = [
+    {
+      src: BRAND.wordmark,
+      label: "Wordmark",
+      use: "Sidebar, sign-in, landing page, link previews",
+    },
+    {
+      src: BRAND.appIcon,
+      label: "App icon",
+      use: "Browser tab, home screen, collapsed sidebar, phone header",
+    },
+    { src: BRAND.mascot, label: "Mascot", use: "The Tubi assistant, calls to action" },
+  ];
   return (
-    <Field label={label}>
-      <div
-        onClick={() => inputRef.current?.click()}
-        className={cn(
-          "flex h-32 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border transition-colors hover:border-primary",
-          dark ? "bg-foreground" : "bg-accent/20",
-        )}
-      >
-        {url ? (
-          <img referrerPolicy="no-referrer" src={url} alt={label} className="h-16 max-w-[80%] object-contain" />
-        ) : (
-          <>
-            <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Click to upload</span>
-          </>
-        )}
-      </div>
-      <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
-      {url !== defaultUrl && (
-        <button
-          onClick={() => onChange(defaultUrl)}
-          className="text-xs font-medium text-primary hover:underline"
-        >
-          Reset to default
-        </button>
-      )}
-    </Field>
-  );
-}
-
-function SiteIconUploadField({ url, onChange }: { url: string; onChange: (url: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const defaultUrl = "/favicon.ico";
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > MAX_LOGO_BYTES) return toast.error("Icon must be under 2MB");
-    const reader = new FileReader();
-    reader.onload = () => onChange(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <Field label="Site Icon (Favicon)">
-      <div className="flex items-center gap-3">
-        <div
-          onClick={() => inputRef.current?.click()}
-          className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border bg-accent/20 transition-colors hover:border-primary"
-        >
-          {url?.startsWith("data:") ? (
-            <img referrerPolicy="no-referrer" src={url} alt="Site icon" className="h-9 w-9 object-contain" />
-          ) : (
-            <Upload className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-        <div className="flex flex-col items-start gap-1">
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Click to upload
-          </button>
-          {url !== defaultUrl && (
-            <button
-              onClick={() => onChange(defaultUrl)}
-              className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
-            >
-              Reset to default
-            </button>
-          )}
-        </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFile}
-          className="hidden"
-        />
-      </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">
-        Shown as the browser tab icon. Square image recommended.
-      </p>
-    </Field>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {items.map((item) => (
+        <figure key={item.label} className="rounded-lg border border-border bg-accent/20 p-3">
+          <div className="flex h-20 items-center justify-center">
+            <img src={item.src} alt={item.label} className="max-h-16 max-w-full object-contain" />
+          </div>
+          <figcaption className="mt-2">
+            <span className="block text-xs font-semibold">{item.label}</span>
+            <span className="block text-xs text-muted-foreground">{item.use}</span>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
   );
 }

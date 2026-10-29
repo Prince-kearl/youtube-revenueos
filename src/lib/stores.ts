@@ -1,6 +1,7 @@
 import { useLocalStore, uid } from "./local-store";
 import { EMPTY_ONBOARDING_STATE, type OnboardingState } from "./onboarding";
 import { dealStages as seedDealStages } from "./data";
+import { BRAND } from "./brand";
 
 // ============ DEALS ============
 export type DealStage = "Prospect" | "Pitched" | "Negotiating" | "Contracted" | "Completed";
@@ -1044,9 +1045,9 @@ const seedSiteContent = (): SiteContent => ({
   tagline: "Turn your YouTube channel into a predictable revenue engine.",
   seoDescription:
     "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links, attributes Stripe sales, and automates comment engagement.",
-  logoLightUrl: "/logo.png",
-  logoDarkUrl: "/logo.png",
-  siteIconUrl: "/favicon.ico",
+  logoLightUrl: BRAND.wordmark,
+  logoDarkUrl: BRAND.wordmark,
+  siteIconUrl: BRAND.favicon,
   primaryColor: "#0284c7",
   buttonTextColor: "#ffffff",
   accentColor: "#3b82f6",

@@ -18,6 +18,7 @@ import { NavGlowDriver } from "@/components/NavGlowDriver";
 import { installDemoApiInterceptor } from "@/lib/demo-api";
 import { brandThemeCss, type BrandTheme } from "@/lib/brand-theme";
 import { getBrandTheme } from "@/lib/brand-theme-fn";
+import { BRAND } from "@/lib/brand";
 
 // Module-level (not inside a component) so it installs during evaluation of the route tree's own
 // root module — before any route component's useEffect has a chance to fire its first fetch. A
@@ -134,13 +135,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Tubify ingests videos, auto-writes AI descriptions from transcripts, tracks multi-destination links,attributes Stripe sales, and automates comment engagement.",
       },
-      { property: "og:image", content: "/logo.png" },
-      { name: "twitter:image", content: "/logo.png" },
+      { property: "og:image", content: BRAND.wordmarkPng },
+      { name: "twitter:image", content: BRAND.wordmarkPng },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/png", href: "/logo.png" },
-      { rel: "apple-touch-icon", href: "/logo.png" },
+      { rel: "icon", type: "image/png", href: BRAND.favicon },
+      { rel: "apple-touch-icon", href: BRAND.appleTouchIcon },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

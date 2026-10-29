@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useSiteContent } from "@/lib/stores";
+import { BRAND } from "@/lib/brand";
 import { CookieConsent } from "@/components/CookieConsent";
 
 export const Route = createFileRoute("/landing")({
@@ -173,15 +174,13 @@ function NavBar() {
         }}
       >
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <img
-              referrerPolicy="no-referrer"
-              src={content.logoLightUrl}
-              alt={content.siteName}
-              className="h-8 w-8 object-contain"
-            />
-            <span className="text-lg font-bold tracking-tight text-white">{content.siteName}</span>
-          </div>
+          <img
+            src={BRAND.wordmark}
+            alt={content.siteName}
+            width={480}
+            height={248}
+            className="h-10 w-auto object-contain"
+          />
           <nav className="hidden items-center gap-7 text-sm font-medium text-white/70 md:flex">
             <a href="#" className="border-b-2 border-primary pb-1 text-white">
               Home
@@ -401,9 +400,8 @@ function DashboardMockup() {
   return (
     <div className="flex overflow-hidden rounded-[var(--card-radius)] border border-border bg-background text-left">
       <div className="hidden w-36 shrink-0 border-r border-border bg-card p-3 sm:block">
-        <div className="flex items-center gap-1.5 px-1">
-          <Youtube className="h-3.5 w-3.5 text-brand-red" />
-          <span className="text-[11px] font-bold">Tubify</span>
+        <div className="flex items-center px-1">
+          <img src={BRAND.wordmark} alt="Tubify" width={480} height={248} className="h-6 w-auto" />
         </div>
         <div className="mt-4 space-y-0.5">
           {MOCKUP_NAV.map((n) => (
@@ -976,9 +974,12 @@ function FinalCta() {
     <section className="mx-auto max-w-4xl px-6 pb-16">
       <div className="rounded-[var(--card-radius)] bg-primary p-10 text-center text-primary-foreground sm:p-14">
         <img
-          src="/tubi.png"
+          src={BRAND.mascot}
           alt=""
-          className="pointer-events-none mx-auto h-16 w-16 object-contain opacity-95"
+          width={256}
+          height={212}
+          loading="lazy"
+          className="pointer-events-none mx-auto h-20 w-auto object-contain"
         />
         <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
           {content.finalCtaHeading}
@@ -1032,15 +1033,14 @@ function FooterSection() {
       <div className="h-1 w-full bg-gradient-to-r from-primary via-brand-amber to-brand-purple" />
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 pb-16 pt-16 sm:grid-cols-5">
         <div className="col-span-2">
-          <div className="flex items-center gap-2">
-            <img
-              referrerPolicy="no-referrer"
-              src={content.logoDarkUrl}
-              alt={content.siteName}
-              className="h-8 w-8 object-contain"
-            />
-            <span className="text-lg font-bold">{content.siteName}</span>
-          </div>
+          <img
+            src={BRAND.wordmark}
+            alt={content.siteName}
+            width={480}
+            height={248}
+            loading="lazy"
+            className="h-12 w-auto object-contain"
+          />
           <p className="mt-3 max-w-xs text-sm text-background/60">{content.tagline}</p>
           {activeSocials.length > 0 && (
             <div className="mt-4 flex items-center gap-3 text-background/60">

@@ -842,7 +842,11 @@ function demoWorkspaceMembers() {
         joined_at: "2026-06-01T00:00:00.000Z",
         created_at: "2026-06-01T00:00:00.000Z",
         updated_at: "2026-06-01T00:00:00.000Z",
-        member: { name: "Demo Creator", email: "demo@tubify.local", avatar: "/logo.png" },
+        member: {
+          name: "Demo Creator",
+          email: "demo@tubify.local",
+          avatar: "/brand/tubify-mascot.webp",
+        },
       },
       {
         id: "60000000-0000-4000-8000-000000000002",
@@ -1799,7 +1803,7 @@ function demoProfile() {
       id: "demo-user-local-preview",
       email: "demo@tubify.local",
       name: "Demo Creator",
-      avatar: "/logo.png",
+      avatar: "/brand/tubify-mascot.webp",
       role: "owner",
       location: "Austin, TX",
       website: "https://youtube.com/@prince_kearl",
