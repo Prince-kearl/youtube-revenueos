@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { KpiTrendCard } from "@/components/KpiTrendCard";
-import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
+import { DashboardKpiCard, DashboardKpiCardSkeleton } from "@/components/DashboardKpiCard";
+import { SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useChannelSettings } from "@/lib/channel-settings";
@@ -544,14 +544,14 @@ function Dashboard() {
       >
         {youtubeStatus === "loading" ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <KpiTrendCardSkeleton key={i} className={kpiCardClassName} />
+            <DashboardKpiCardSkeleton key={i} className={kpiCardClassName} />
           ))
         ) : (
           <>
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Estimated Revenue"
-              accent="var(--brand-green)"
+              theme="green"
               value={revenueValue(revenue.total.text)}
               deltaLabel={revenue.changeText}
               deltaSuffix={
@@ -566,10 +566,10 @@ function Dashboard() {
               markerSubtitle={revenue.latest?.label ?? ""}
               positive={revenue.positive}
             />
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Latest Revenue"
-              accent="var(--brand-blue)"
+              theme="blue"
               value={revenueValue(revenue.latest?.text ?? "—")}
               deltaLabel={revenue.latest?.label ?? "—"}
               deltaSuffix={
@@ -586,10 +586,10 @@ function Dashboard() {
               markerSubtitle={revenue.latest?.label ?? ""}
               positive
             />
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Total Views"
-              accent="var(--brand-purple)"
+              theme="purple"
               value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
               deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
               deltaSuffix={latestMonthSuffix}
@@ -600,10 +600,10 @@ function Dashboard() {
               markerSubtitle={latestMonthLabel}
               positive={(viewsChangePct ?? 0) >= 0}
             />
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Videos"
-              accent="var(--brand-red)"
+              theme="pink"
               value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
               deltaLabel={
                 videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"
@@ -616,10 +616,10 @@ function Dashboard() {
               markerSubtitle={latestVideoMonthLabel}
               positive={(videosChangePct ?? 0) >= 0}
             />
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Subscribers"
-              accent="var(--brand-amber)"
+              theme="yellow"
               value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
               deltaLabel={
                 subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"
@@ -632,10 +632,10 @@ function Dashboard() {
               markerSubtitle={latestMonthLabel}
               positive={(subsChangePct ?? 0) >= 0}
             />
-            <KpiTrendCard
+            <DashboardKpiCard
               className={kpiCardClassName}
               title="Watch Time"
-              accent="var(--primary)"
+              theme="red"
               value={
                 dashboardData?.watchTimeStatus === "available"
                   ? `${formatHours(totalWatchTime)} hrs`
@@ -655,9 +655,9 @@ function Dashboard() {
               positive={(watchChangePct ?? 0) >= 0}
             />
             <div aria-hidden="true" className={kpiCloneClassName}>
-              <KpiTrendCard
+              <DashboardKpiCard
                 title="Estimated Revenue"
-                accent="var(--brand-green)"
+                theme="green"
                 value={revenueValue(revenue.total.text)}
                 deltaLabel={revenue.changeText}
                 deltaSuffix={
