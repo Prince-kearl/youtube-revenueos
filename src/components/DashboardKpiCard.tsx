@@ -120,7 +120,7 @@ export function DashboardKpiCard({
     // no card grows taller). From sm up: the design's layout, at least 168px, rows equal height.
     <div
       className={cn(
-        "dashboard-kpi-card relative isolate flex h-[168px] overflow-hidden px-5 py-4 shadow-[0_10px_24px_-14px_rgba(15,23,42,0.35)] sm:h-auto sm:min-h-[168px]",
+        "dashboard-kpi-card relative isolate flex h-[160px] overflow-hidden px-4 py-3.5 shadow-[0_10px_24px_-14px_rgba(15,23,42,0.35)] sm:h-auto sm:min-h-[152px]",
         dark ? "text-zinc-800" : "text-white",
         className,
       )}
@@ -158,11 +158,11 @@ export function DashboardKpiCard({
         aria-hidden="true"
         draggable={false}
         decoding="async"
-        className="kpi-mascot pointer-events-none absolute bottom-0 right-[4%] -z-10 h-[88%] max-h-[150px] w-auto max-w-[42%] sm:max-w-[46%] select-none object-contain object-bottom"
+        className="kpi-mascot pointer-events-none absolute bottom-0 right-[4%] -z-10 h-[86%] max-h-[136px] w-auto max-w-[42%] sm:max-w-[46%] select-none object-contain object-bottom"
       />
 
       {markerTitle && (
-        <div className="absolute right-3 top-3 z-10 min-w-[84px] rounded-[8px] bg-white px-3 py-1.5 text-left shadow-[0_2px_8px_rgba(15,23,42,0.08)] sm:right-4">
+        <div className="absolute right-3 top-3 z-10 min-w-[80px] rounded-[8px] bg-white px-2.5 py-1 text-left shadow-[0_2px_8px_rgba(15,23,42,0.08)] sm:right-4">
           <p className="text-[13px] font-semibold leading-tight text-zinc-900">{markerTitle}</p>
           {markerSubtitle && (
             <p className="text-xs leading-tight text-zinc-500">{markerSubtitle}</p>
@@ -187,7 +187,7 @@ export function DashboardKpiCard({
           )}
         </div>
         {changePercent !== null && (
-          <div className="mt-1.5 hidden items-center gap-2 text-sm sm:flex">
+          <div className="mt-1 hidden items-center gap-2 text-sm sm:flex">
             <ChangePill changePercent={changePercent} positive={positive} />
             {periodLabel && (
               <span
@@ -202,18 +202,16 @@ export function DashboardKpiCard({
             )}
           </div>
         )}
-        <p className="mt-2 truncate text-[2.25rem] font-bold leading-none tracking-tight">
-          {value}
-        </p>
+        <p className="mt-1.5 truncate text-[2rem] font-bold leading-none tracking-tight">{value}</p>
         <p
           className={cn(
-            "mt-1.5 line-clamp-2 text-sm leading-5",
+            "mt-1 line-clamp-2 text-sm leading-5",
             dark ? "text-zinc-700" : "text-white/90",
           )}
         >
           {deltaLabel} {deltaSuffix}
         </p>
-        <div className="mt-auto pt-2">
+        <div className="mt-auto pt-1.5">
           <TrendBars series={series} dark={dark} />
         </div>
       </div>
@@ -224,7 +222,7 @@ export function DashboardKpiCard({
 export function DashboardKpiCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("h-[168px] animate-pulse bg-muted sm:h-auto sm:min-h-[168px]", className)}
+      className={cn("h-[160px] animate-pulse bg-muted sm:h-auto sm:min-h-[152px]", className)}
       style={{ borderRadius: "var(--kpi-card-radius, 16px)" }}
       aria-hidden="true"
     />

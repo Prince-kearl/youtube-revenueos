@@ -42,14 +42,14 @@ test("the mascot images ship in public/kpi, small, and are decorative", () => {
   assert.match(card, /alt=""\s+aria-hidden="true"/);
 });
 
-test("phones: every card is the same fixed height; from sm up at least the design's 168px", () => {
+test("phones: every card is the same fixed height (160px); from sm up at least 152px", () => {
   assert.match(
     card,
-    /dashboard-kpi-card relative isolate flex h-\[168px\][^"]*sm:h-auto sm:min-h-\[168px\]/,
+    /dashboard-kpi-card relative isolate flex h-\[160px\] overflow-hidden px-4 py-3\.5[^"]*sm:h-auto sm:min-h-\[152px\]/,
   );
   // the change badge moves onto the title row on phones, so no card grows taller there
   assert.match(card, /<span className="sm:hidden">\s+<ChangePill/);
-  assert.match(card, /mt-1\.5 hidden items-center gap-2 text-sm sm:flex/);
+  assert.match(card, /mt-1 hidden items-center gap-2 text-sm sm:flex/);
   assert.match(card, /line-clamp-2/);
 });
 
