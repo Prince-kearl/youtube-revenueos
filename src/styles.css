@@ -434,6 +434,44 @@
   animation: none;
 }
 
+/* Light mode: the app's sky backdrop — sky blue along the top (deepest in the top-right corner,
+   brightest left of centre), fading to a pale blue-white from about 440px down. Matched to the
+   design reference at 1536x1024 (every sampled point within 13/255 per channel). The shell fills
+   the viewport and its content scrolls inside it, so the sky stays put while pages scroll.
+   Dark mode and the iOS 26 wallpaper (below) are unchanged. */
+html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
+  background-color: #f2f9fe;
+  /* the base .min-h-screen.bg-background rule sizes its moving wash at 300%; this one is static */
+  background-size: auto;
+  background-position: 0 0;
+  background-image:
+    radial-gradient(
+      24% 36% at 100% 0%,
+      rgba(96, 200, 254, 0.85) 0%,
+      rgba(96, 200, 254, 0.45) 35%,
+      rgba(96, 200, 254, 0.12) 70%,
+      rgba(96, 200, 254, 0) 100%
+    ),
+    radial-gradient(
+      36% 13% at 30% 0%,
+      rgba(110, 204, 254, 0.6) 0%,
+      rgba(110, 204, 254, 0.25) 55%,
+      rgba(110, 204, 254, 0) 100%
+    ),
+    radial-gradient(18% 10% at 0% 0%, rgba(220, 240, 254, 0.45) 0%, rgba(220, 240, 254, 0) 100%),
+    linear-gradient(
+      180deg,
+      #a4ddfe 0px,
+      #b4e2fd 60px,
+      #d8eefd 130px,
+      #e3f3fe 200px,
+      #e8f5fe 300px,
+      #f1f8fe 440px,
+      #f4f9fe 860px,
+      #eff7fe 1024px
+    );
+}
+
 /* With the wallpaper on, the shell's own opaque fill would otherwise sit on top of and completely
    hide the .ios26_light/.ios26_dark image set on <body> — go transparent here so it shows through
    the gaps around cards/nav instead, the way the rest of this system's glass surfaces already
@@ -441,6 +479,7 @@
    image means nothing to reveal, so the shell stays opaque when just .ios26 is on. */
 .ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
   background-color: transparent;
+  background-image: none;
 }
 
 /* Motion glow ring (landing page nav pill) — a light continuously travels around the border via a
@@ -648,6 +687,15 @@
 }
 .ios26.dark .glass-bar {
   border-bottom: 1px solid color-mix(in srgb, white 8%, transparent);
+}
+/* Light mode: the header sits straight on the sky backdrop — no line under it (it read as a stray
+   white stripe) and no backdrop blur (page content scrolls in <main> below the header, never under
+   it, so the blur only washed the sky's top edge out). :root (not html) so this outranks
+   `:root:not(.ios26) .glass-bar` above. */
+:root:not(.dark) .glass-bar {
+  border-bottom-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Active nav item — a tinted glass capsule instead of a flat fill. Both states key off
