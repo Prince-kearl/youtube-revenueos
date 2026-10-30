@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const styles = readFileSync("src/styles.css", "utf8").replace(/\r\n/g, "\n");
 const glow = readFileSync("src/components/ui/glowing-effect.tsx", "utf8");
-const card = readFileSync("src/components/DashboardKpiCard.tsx", "utf8");
 
 const block = (start: string) =>
   styles.slice(styles.indexOf(start), styles.indexOf("\n}\n", styles.indexOf(start)));
@@ -30,18 +29,12 @@ test("every app page: cards lose their outline and glow, titles take the brand c
 test("motion: entrances are one-off and only fill backwards, so hover transforms still apply", () => {
   assert.match(
     styles,
-    /\.dashboard-kpi-card \{\n {2}animation: dash-rise 0\.55s cubic-bezier\(0\.2, 0\.7, 0\.2, 1\) backwards;\n {2}animation-delay: calc\(var\(--i, 0\) \* 70ms\);/,
-  );
-  assert.match(
-    styles,
     /\.dashboard-main \.card-gradient-outline \{\n {2}animation: dash-rise 0\.6s cubic-bezier\(0\.2, 0\.7, 0\.2, 1\) 0\.35s backwards;/,
   );
   assert.doesNotMatch(
     styles.slice(styles.indexOf("@keyframes dash-rise")),
     /dash-(rise|grow-y|grow-x|pop) [^;]* both;/,
   );
-  // hovers use the individual transform properties, which compose with running animations
-  assert.match(styles, /\.dashboard-kpi-card:hover \{\n {4}translate: 0 -3px;/);
 });
 
 test("nothing loops; hovers only with a mouse; everything stops for reduced motion", () => {
@@ -60,20 +53,15 @@ test("nothing loops; hovers only with a mouse; everything stops for reduced moti
     reduced.indexOf("{") + 1,
     reduced.indexOf("{", reduced.indexOf("{") + 1),
   );
-  for (const sel of [
-    ".kpi-dot-chart",
-    ".dash-bar-fill",
-    ".dash-cell",
-    ".dashboard-main .card-frost",
-  ])
+  for (const sel of [".dash-bar-fill", ".dash-cell", ".dashboard-main .card-frost"])
     assert.ok(selectors.includes(sel), sel);
 });
 
-test("KPI cards are staggered by their index; their dot chart grows in", () => {
-  assert.match(card, /"--i": index,/);
-  assert.match(card, /className="kpi-dot-chart h-\[76px\] w-full"/);
-  assert.match(
-    styles,
-    /\.kpi-dot-chart \{\n {2}transform-origin: bottom;\n {2}animation: dash-grow-y/,
-  );
+test("the dashboard is back on the original KPI card, with no leftovers of the redesigns", () => {
+  const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
+  assert.match(dashboard, /import \{ KpiTrendCard \} from "@\/components\/KpiTrendCard";/);
+  assert.equal(dashboard.match(/<KpiTrendCard\b/g)?.length, 7, "six cards and the loop clone");
+  assert.doesNotMatch(dashboard, /DashboardKpiCard|kpiCards/);
+  assert.doesNotMatch(styles, /font-dot|kpi-dot-chart|kpi-rays|kpi-mascot/);
+  assert.ok(!existsSync("src/components/DashboardKpiCard.tsx"));
 });

@@ -25,12 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import {
-  DashboardKpiCard,
-  DashboardKpiCardSkeleton,
-  type KpiStat,
-} from "@/components/DashboardKpiCard";
-import { SkeletonCircle } from "@/components/skeletons";
+import { KpiTrendCard } from "@/components/KpiTrendCard";
+import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useProfile } from "@/lib/stores";
@@ -202,8 +198,8 @@ const kpiCardClassName = "w-full shrink-0 snap-start sm:w-auto sm:shrink sm:snap
 const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
 // The colour of each KPI card, in carousel order: on phones the page backdrop takes the colour of
 // the card on screen (styles.css, [data-kpi-tone]).
-// (Revenue is green; the other cards use the red accent.)
-const KPI_TONES = ["green", "red", "red", "red", "red", "red"] as const;
+// (Each matches its card's accent: brand green, blue, purple, red, amber, primary.)
+const KPI_TONES = ["green", "blue", "purple", "pink", "yellow", "red"] as const;
 
 function Dashboard() {
   const { settings } = useChannelSettings();
@@ -470,172 +466,6 @@ function Dashboard() {
   const subsChangePct = pctChange(subsSeries);
   const watchChangePct = pctChange(watchSeries);
   const videosChangePct = pctChange(videosSeries);
-  // ---- KPI cards (one list; the phone carousel's loop clone repeats the first card) ----
-  // "Last month" / "This month" are calendar months; a month with no data shows "—" rather
-  // than a made-up zero. Revenue figures come from the canonical revenue view (revenue.trend)
-  // and are withheld from viewers who may not see revenue.
-  const kpiNow = new Date();
-  const kpiMonthKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const thisMonthKey = kpiMonthKey(kpiNow);
-  const lastMonthKey = kpiMonthKey(new Date(kpiNow.getFullYear(), kpiNow.getMonth() - 1, 1));
-  const revenueMonth = (key: string) => {
-    if (revenueLoading) return "…";
-    if (revenue.hidden) return "—";
-    const usd = revenue.trend.find((p) => p.monthKey.slice(0, 7) === key)?.revenueUsd;
-    return usd === null || usd === undefined ? "—" : formatUsdCompact(usd);
-  };
-  const revenueStats: [KpiStat, KpiStat, KpiStat] = [
-    { label: "Last month", value: revenueMonth(lastMonthKey) },
-    { label: "This month", value: revenueMonth(thisMonthKey) },
-    { label: revenue.periodLabel || "Period", value: revenueValue(revenue.total.text) },
-  ];
-  const analyticsMonth = (
-    key: string,
-    pick: (r: DashboardAnalyticsRow) => number,
-    fmt: (n: number) => string,
-  ) => {
-    const row = analyticsRows.find((r) => r.month?.slice(0, 7) === key);
-    return row ? fmt(pick(row)) : "—";
-  };
-  const videosMonth = (key: string) =>
-    dashboardData ? String(videosByMonth.find((v) => v.month === key)?.count ?? 0) : "—";
-  const percentDelta = (
-    pct: number | null,
-    text: string,
-    fallback: { emphasis: string; text: string },
-  ) =>
-    pct === null
-      ? { direction: null, ...fallback }
-      : {
-          direction: pct >= 0 ? ("up" as const) : ("down" as const),
-          emphasis: `${Math.abs(pct).toFixed(1)}%`,
-          text,
-        };
-  const hrs = (min: number) => `${formatHours(min)} hrs`;
-  const views = (r: DashboardAnalyticsRow) => Number(r.views ?? 0);
-  const gained = (r: DashboardAnalyticsRow) => Number(r.subscribersGained ?? 0);
-  const watched = (r: DashboardAnalyticsRow) => Number(r.watchTimeMinutes ?? 0);
-  const kpiCards = [
-    {
-      title: "Estimated Revenue",
-      accent: "green" as const,
-      href: "/analytics",
-      value: revenueValue(revenue.total.text),
-      delta:
-        revenue.changePercent === null
-          ? { direction: null, emphasis: revenue.changeText, text: revenue.comparisonLabel }
-          : {
-              direction: revenue.positive ? ("up" as const) : ("down" as const),
-              emphasis: `${Math.abs(revenue.changePercent).toFixed(1)}%`,
-              text: revenue.total.partial
-                ? `${revenue.comparisonLabel} · partly reported`
-                : revenue.comparisonLabel,
-            },
-      chart: { kind: "bars" as const, series: revenue.series, highlight: "all" as const },
-      stats: revenueStats,
-    },
-    {
-      title: "Latest Revenue",
-      accent: "red" as const,
-      href: "/analytics",
-      value: revenueValue(revenue.latest?.text ?? "—"),
-      delta: {
-        direction: null,
-        emphasis: "",
-        text: revenue.latest
-          ? `${revenue.latest.label} ${revenue.latest.incomplete ? "so far — still updating" : "— latest reported month"}`
-          : "No month reported yet",
-      },
-      chart: { kind: "bars" as const, series: revenue.series, highlight: "last" as const },
-      stats: revenueStats,
-    },
-    {
-      title: "Total Views",
-      accent: "red" as const,
-      href: "/analytics",
-      value: dashboardData ? formatCount(dashboardData.channel.viewCount) : "—",
-      delta: percentDelta(viewsChangePct, "vs previous month", {
-        emphasis: viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "",
-        text: latestMonthSuffix,
-      }),
-      chart: {
-        kind: "line" as const,
-        series: viewsSeries,
-        callout: viewsSeries.length
-          ? { title: formatCount(viewsSeries.at(-1) ?? 0), subtitle: latestMonthLabel }
-          : undefined,
-      },
-      stats: [
-        { label: "Last month", value: analyticsMonth(lastMonthKey, views, formatCount) },
-        { label: "This month", value: analyticsMonth(thisMonthKey, views, formatCount) },
-        {
-          label: "All time",
-          value: dashboardData ? formatCount(dashboardData.channel.viewCount) : "—",
-        },
-      ] as [KpiStat, KpiStat, KpiStat],
-    },
-    {
-      title: "Videos",
-      accent: "red" as const,
-      href: "/videos",
-      value: dashboardData ? formatCount(dashboardData.channel.videoCount) : "—",
-      delta: videosSeries.length
-        ? {
-            direction: (videosSeries.at(-1) ?? 0) > 0 ? ("up" as const) : null,
-            emphasis: String(videosSeries.at(-1) ?? 0),
-            text: latestVideoMonthSuffix,
-          }
-        : { direction: null, emphasis: "", text: "No videos published yet" },
-      chart: { kind: "grid" as const, series: videosSeries },
-      stats: [
-        { label: "Last month", value: videosMonth(lastMonthKey) },
-        { label: "This month", value: videosMonth(thisMonthKey) },
-        {
-          label: "All time",
-          value: dashboardData ? formatCount(dashboardData.channel.videoCount) : "—",
-        },
-      ] as [KpiStat, KpiStat, KpiStat],
-    },
-    {
-      title: "Subscribers",
-      accent: "red" as const,
-      href: "/audience",
-      value: dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—",
-      delta: percentDelta(subsChangePct, "vs previous month", {
-        emphasis: subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "",
-        text: `gained ${latestMonthSuffix}`,
-      }),
-      chart: { kind: "line" as const, series: subsSeries },
-      stats: [
-        { label: "Last month", value: analyticsMonth(lastMonthKey, gained, formatCount) },
-        { label: "This month", value: analyticsMonth(thisMonthKey, gained, formatCount) },
-        {
-          label: "All time",
-          value: dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—",
-        },
-      ] as [KpiStat, KpiStat, KpiStat],
-    },
-    {
-      title: "Watch Time",
-      accent: "red" as const,
-      href: "/analytics",
-      value: dashboardData?.watchTimeStatus === "available" ? hrs(totalWatchTime) : "—",
-      delta: percentDelta(watchChangePct, "vs previous month", {
-        emphasis: watchSeries.length ? signed(watchSeries.at(-1) ?? 0, hrs) : "",
-        text: latestMonthSuffix,
-      }),
-      chart: { kind: "bars" as const, series: watchSeries, highlight: "top" as const },
-      stats: [
-        { label: "Last month", value: analyticsMonth(lastMonthKey, watched, hrs) },
-        { label: "This month", value: analyticsMonth(thisMonthKey, watched, hrs) },
-        {
-          label: trendPeriodLabel || "Total",
-          value: dashboardData?.watchTimeStatus === "available" ? hrs(totalWatchTime) : "—",
-        },
-      ] as [KpiStat, KpiStat, KpiStat],
-    },
-  ];
   const firstName = profile.name.trim().split(/\s+/)[0] || profile.name;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -717,15 +547,134 @@ function Dashboard() {
       >
         {youtubeStatus === "loading" ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <DashboardKpiCardSkeleton key={i} className={kpiCardClassName} />
+            <KpiTrendCardSkeleton key={i} className={kpiCardClassName} />
           ))
         ) : (
           <>
-            {kpiCards.map((card, i) => (
-              <DashboardKpiCard key={card.title} className={kpiCardClassName} index={i} {...card} />
-            ))}
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Estimated Revenue"
+              accent="var(--brand-green)"
+              value={revenueValue(revenue.total.text)}
+              deltaLabel={revenue.changeText}
+              deltaSuffix={
+                revenue.total.partial
+                  ? `${revenue.comparisonLabel} · partly reported`
+                  : revenue.comparisonLabel
+              }
+              changePercent={revenue.changePercent}
+              periodLabel={revenue.periodLabel}
+              series={revenue.series}
+              markerTitle={revenue.latest?.text ?? "—"}
+              markerSubtitle={revenue.latest?.label ?? ""}
+              positive={revenue.positive}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Latest Revenue"
+              accent="var(--brand-blue)"
+              value={revenueValue(revenue.latest?.text ?? "—")}
+              deltaLabel={revenue.latest?.label ?? "—"}
+              deltaSuffix={
+                revenue.latest
+                  ? revenue.latest.incomplete
+                    ? "so far · still updating"
+                    : "latest reported month"
+                  : ""
+              }
+              changePercent={null}
+              periodLabel={revenue.periodLabel}
+              series={revenue.series}
+              markerTitle={revenue.latest?.text ?? "—"}
+              markerSubtitle={revenue.latest?.label ?? ""}
+              positive
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Total Views"
+              accent="var(--brand-purple)"
+              value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
+              deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
+              deltaSuffix={latestMonthSuffix}
+              changePercent={viewsChangePct}
+              periodLabel={trendPeriodLabel}
+              series={viewsSeries}
+              markerTitle={`${formatCount(viewsSeries.at(-1) ?? 0)} views`}
+              markerSubtitle={latestMonthLabel}
+              positive={(viewsChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Videos"
+              accent="var(--brand-red)"
+              value={dashboardData ? formatCount(dashboardData.channel.videoCount) : "—"}
+              deltaLabel={
+                videosSeries.length ? signed(videosSeries.at(-1) ?? 0, (n) => String(n)) : "—"
+              }
+              deltaSuffix={latestVideoMonthSuffix}
+              changePercent={videosChangePct}
+              periodLabel={trendPeriodLabel}
+              series={videosSeries}
+              markerTitle={`${videosSeries.at(-1) ?? 0} published`}
+              markerSubtitle={latestVideoMonthLabel}
+              positive={(videosChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Subscribers"
+              accent="var(--brand-amber)"
+              value={dashboardData ? formatCount(dashboardData.channel.subscriberCount) : "—"}
+              deltaLabel={
+                subsSeries.length ? signed(subsSeries.at(-1) ?? 0, (n) => String(n)) : "—"
+              }
+              deltaSuffix={`gained ${latestMonthSuffix}`}
+              changePercent={subsChangePct}
+              periodLabel={trendPeriodLabel}
+              series={subsSeries}
+              markerTitle={`+${subsSeries.at(-1) ?? 0} subs`}
+              markerSubtitle={latestMonthLabel}
+              positive={(subsChangePct ?? 0) >= 0}
+            />
+            <KpiTrendCard
+              className={kpiCardClassName}
+              title="Watch Time"
+              accent="var(--primary)"
+              value={
+                dashboardData?.watchTimeStatus === "available"
+                  ? `${formatHours(totalWatchTime)} hrs`
+                  : "—"
+              }
+              deltaLabel={
+                watchSeries.length
+                  ? signed(watchSeries.at(-1) ?? 0, (n) => `${formatHours(n)} hrs`)
+                  : "—"
+              }
+              deltaSuffix={latestMonthSuffix}
+              changePercent={watchChangePct}
+              periodLabel={trendPeriodLabel}
+              series={watchSeries}
+              markerTitle={`${formatHours(watchSeries.at(-1) ?? 0)} hrs`}
+              markerSubtitle={latestMonthLabel}
+              positive={(watchChangePct ?? 0) >= 0}
+            />
             <div aria-hidden="true" className={kpiCloneClassName}>
-              <DashboardKpiCard index={0} {...kpiCards[0]} />
+              <KpiTrendCard
+                title="Estimated Revenue"
+                accent="var(--brand-green)"
+                value={revenueValue(revenue.total.text)}
+                deltaLabel={revenue.changeText}
+                deltaSuffix={
+                  revenue.total.partial
+                    ? `${revenue.comparisonLabel} · partly reported`
+                    : revenue.comparisonLabel
+                }
+                changePercent={revenue.changePercent}
+                periodLabel={revenue.periodLabel}
+                series={revenue.series}
+                markerTitle={revenue.latest?.text ?? "—"}
+                markerSubtitle={revenue.latest?.label ?? ""}
+                positive={revenue.positive}
+              />
             </div>
           </>
         )}

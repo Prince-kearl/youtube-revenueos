@@ -431,11 +431,6 @@
   }
 }
 
-/* The dot-matrix face of the Dashboard's KPI cards (Google Font "Doto", loaded in __root). */
-.font-dot {
-  font-family: "Doto", ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
 /* ============ App motion (Dashboard + every app page) ============
    Transform/opacity only (GPU, no layout work). One-off entrances everywhere; hover effects
    only on devices with a mouse
@@ -464,11 +459,6 @@
 }
 .dashboard-main .card-gradient-outline {
   animation: dash-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s backwards;
-}
-.kpi-dot-chart {
-  transform-origin: bottom;
-  animation: dash-grow-y 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
-  animation-delay: calc(0.3s + var(--i, 0) * 70ms);
 }
 /* bars fill in (again whenever a tab change swaps them) */
 .dash-bar-fill {
@@ -524,7 +514,6 @@
   .dashboard-kpi-card,
   .dashboard-main .card-gradient-outline,
   .dashboard-main .card-frost,
-  .kpi-dot-chart,
   .dash-bar-fill,
   .dash-cell {
     animation: none !important;
