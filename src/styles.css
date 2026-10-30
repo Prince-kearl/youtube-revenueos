@@ -433,7 +433,7 @@
 
 /* ============ App motion (Dashboard + every app page) ============
    Transform/opacity only (GPU, no layout work). One-off entrances everywhere; the continuous
-   effects (floating mascots, turning rays) and hover effects only on devices with a mouse
+   effect (turning rays) and hover effects only on devices with a mouse
    (hover: hover, pointer: fine) - never on phones. Everything stops for reduced motion. */
 @keyframes dash-rise {
   from { opacity: 0; transform: translateY(12px) scale(0.985); }
@@ -450,10 +450,6 @@
 @keyframes dash-pop {
   from { opacity: 0; transform: scale(0.6); }
   to { opacity: 1; transform: none; }
-}
-@keyframes kpi-float {
-  from { translate: 0 0; }
-  to { translate: 0 -5px; }
 }
 @keyframes kpi-rays-turn {
   from { transform: translate(-50%, -50%) rotate(0deg); }
@@ -486,12 +482,6 @@
 .kpi-rays {
   transform: translate(-50%, -50%);
 }
-.kpi-mascot {
-  transform-origin: 50% 100%;
-  transition:
-    scale 0.45s cubic-bezier(0.3, 1.5, 0.5, 1),
-    rotate 0.45s cubic-bezier(0.3, 1.5, 0.5, 1);
-}
 
 @media (hover: hover) and (pointer: fine) {
   /* hover uses the separate translate/scale/rotate properties, so it stacks with the
@@ -504,15 +494,6 @@
   .dashboard-kpi-card:hover {
     translate: 0 -4px;
     box-shadow: 0 18px 34px -16px rgba(15, 23, 42, 0.4);
-  }
-  /* the mascot bobs gently, each card out of step with the next; on hover it bounces up */
-  .dashboard-kpi-card .kpi-mascot {
-    animation: kpi-float 3.2s ease-in-out infinite alternate;
-    animation-delay: calc(var(--i, 0) * -0.55s);
-  }
-  .dashboard-kpi-card:hover .kpi-mascot {
-    scale: 1.08;
-    rotate: -3deg;
   }
   /* the rays turn very slowly, a little faster under the pointer */
   .kpi-rays {
@@ -554,7 +535,6 @@
   .dashboard-main .card-gradient-outline,
   .dashboard-main .card-frost,
   .kpi-bar,
-  .kpi-mascot,
   .kpi-rays,
   .dash-bar-fill,
   .dash-cell {
@@ -562,7 +542,6 @@
     transition: none !important;
   }
   .dashboard-kpi-card:hover,
-  .dashboard-kpi-card:hover .kpi-mascot,
   .dashboard-main .card-frost:hover,
   .dash-cell:hover {
     transform: none !important;

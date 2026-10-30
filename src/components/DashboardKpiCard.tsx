@@ -1,58 +1,53 @@
 import { ArrowDownRight, ArrowUpRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// The Dashboard's KPI cards: a saturated colour on the left fading paler to the right, where the
-// metric's mascot stands, with a white callout (the latest month) in the top-right corner and a
-// small bar chart of the trend under the numbers. Colours sampled from the design reference.
-// The mascot is decorative; every number is in the text. Admin pages keep KpiTrendCard.
+// The Dashboard's KPI cards: a saturated colour fading paler to the right, white rays from the
+// top-right corner, a white callout (the latest month) in that corner, the value and its change,
+// and the trend as a bar chart across the bottom. Admin pages keep KpiTrendCard.
 
 export type KpiCardTheme = "green" | "blue" | "purple" | "pink" | "yellow" | "red";
 
-const THEMES: Record<KpiCardTheme, { background: string; mascot: string; text: "light" | "dark" }> =
-  {
-    green: {
-      background: "linear-gradient(90deg, #8ce589 0%, #91e58e 45%, #b5f0ab 72%, #cbf4bc 100%)",
-      mascot: "/kpi/kpi-revenue.webp",
-      text: "light",
-    },
-    blue: {
-      background: "linear-gradient(90deg, #69b4fe 0%, #86c3fe 45%, #a2d4fe 75%, #acdafe 100%)",
-      mascot: "/kpi/kpi-latest-revenue.webp",
-      text: "light",
-    },
-    purple: {
-      background: "linear-gradient(90deg, #b876fd 0%, #c483fd 45%, #d28ffd 75%, #d998fe 100%)",
-      mascot: "/kpi/kpi-views.webp",
-      text: "light",
-    },
-    pink: {
-      background: "linear-gradient(90deg, #fd8181 0%, #feadae 45%, #fec8c9 75%, #fed5d6 100%)",
-      mascot: "/kpi/kpi-videos.webp",
-      text: "light",
-    },
-    yellow: {
-      background: "linear-gradient(90deg, #ffe382 0%, #fee692 45%, #fee9a0 75%, #feeaa5 100%)",
-      mascot: "/kpi/kpi-subscribers.webp",
-      text: "dark",
-    },
-    red: {
-      background: "linear-gradient(90deg, #f46968 0%, #f27777 45%, #fea3a2 72%, #fed6d5 100%)",
-      mascot: "/kpi/kpi-watch-time.webp",
-      text: "light",
-    },
-  };
+const THEMES: Record<KpiCardTheme, { background: string; text: "light" | "dark" }> = {
+  green: {
+    background: "linear-gradient(90deg, #8ce589 0%, #91e58e 45%, #b5f0ab 72%, #cbf4bc 100%)",
+    text: "light",
+  },
+  blue: {
+    background: "linear-gradient(90deg, #69b4fe 0%, #86c3fe 45%, #a2d4fe 75%, #acdafe 100%)",
+    text: "light",
+  },
+  purple: {
+    background: "linear-gradient(90deg, #b876fd 0%, #c483fd 45%, #d28ffd 75%, #d998fe 100%)",
+    text: "light",
+  },
+  pink: {
+    background: "linear-gradient(90deg, #fd8181 0%, #feadae 45%, #fec8c9 75%, #fed5d6 100%)",
+    text: "light",
+  },
+  yellow: {
+    background: "linear-gradient(90deg, #ffe382 0%, #fee692 45%, #fee9a0 75%, #feeaa5 100%)",
+    text: "dark",
+  },
+  red: {
+    background: "linear-gradient(90deg, #f46968 0%, #f27777 45%, #fea3a2 72%, #fed6d5 100%)",
+    text: "light",
+  },
+};
 
 /** The trend as small bars (the latest months), heights relative to the largest. */
 function TrendBars({ series, dark }: { series: number[]; dark: boolean }) {
-  const values = series.slice(-16);
+  const values = series.slice(-18);
   if (values.length === 0) return null;
   const max = Math.max(...values.map((v) => Math.abs(v)), 0);
   return (
-    <div className="flex h-[22px] items-end gap-1" aria-hidden="true">
+    <div className="flex h-7 w-full items-end gap-1.5" aria-hidden="true">
       {values.map((v, i) => (
         <span
           key={i}
-          className={cn("kpi-bar w-[9px] rounded-[2px]", dark ? "bg-[#c9a227]/35" : "bg-white/40")}
+          className={cn(
+            "kpi-bar min-w-0 max-w-[28px] flex-1 rounded-[3px]",
+            dark ? "bg-[#c9a227]/35" : "bg-white/40",
+          )}
           style={
             {
               height: `${max > 0 ? Math.max(30, (Math.abs(v) / max) * 100) : 30}%`,
@@ -109,7 +104,7 @@ export function DashboardKpiCard({
   markerTitle: string;
   markerSubtitle: string;
   positive: boolean;
-  /** Position on the page: staggers the entrance and the mascots' idle float. */
+  /** Position on the page: staggers the entrance. */
   index?: number;
   className?: string;
 }) {
@@ -132,34 +127,27 @@ export function DashboardKpiCard({
         } as React.CSSProperties
       }
     >
-      {/* Sunburst: white rays radiating from behind the mascot, fading out towards the edges. The
-          fade (mask) stays put; the rays are an oversized layer under it that can turn slowly. */}
+      {/* Sunburst: white rays from the top-right corner (behind the callout), fading out towards
+          the edges. The fade (mask) stays put; the rays are an oversized layer under it that can
+          turn slowly. */}
       <div
         aria-hidden="true"
         className="dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20 overflow-hidden"
         style={{
           WebkitMaskImage:
-            "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
+            "radial-gradient(circle at 88% 22%, #000 0%, rgba(0, 0, 0, 0.8) 28%, rgba(0, 0, 0, 0) 72%)",
           maskImage:
-            "radial-gradient(circle at 76% 62%, #000 0%, rgba(0, 0, 0, 0.85) 30%, rgba(0, 0, 0, 0) 75%)",
+            "radial-gradient(circle at 88% 22%, #000 0%, rgba(0, 0, 0, 0.8) 28%, rgba(0, 0, 0, 0) 72%)",
         }}
       >
         <div
-          className="kpi-rays absolute left-[76%] top-[62%] aspect-square w-[300%]"
+          className="kpi-rays absolute left-[88%] top-[22%] aspect-square w-[300%]"
           style={{
             background:
               "repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.22) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 15deg)",
           }}
         />
       </div>
-      <img
-        src={t.mascot}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        decoding="async"
-        className="kpi-mascot pointer-events-none absolute bottom-0 right-[4%] -z-10 h-[86%] max-h-[136px] w-auto max-w-[42%] sm:max-w-[46%] select-none object-contain object-bottom"
-      />
 
       {markerTitle && (
         <div className="absolute right-3 top-3 z-10 min-w-[80px] rounded-[8px] bg-white px-2.5 py-1 text-left shadow-[0_2px_8px_rgba(15,23,42,0.08)] sm:right-4">
@@ -170,8 +158,9 @@ export function DashboardKpiCard({
         </div>
       )}
 
-      <div className="relative z-0 flex min-w-0 max-w-[55%] flex-col sm:max-w-[60%]">
-        <div className="flex items-center gap-2">
+      <div className="relative z-0 flex min-w-0 flex-1 flex-col">
+        {/* the rows beside the callout keep clear of it */}
+        <div className="flex items-center gap-2 pr-[92px]">
           <p
             className={cn(
               "truncate text-[15px] font-medium leading-5",
@@ -187,7 +176,7 @@ export function DashboardKpiCard({
           )}
         </div>
         {changePercent !== null && (
-          <div className="mt-1 hidden items-center gap-2 text-sm sm:flex">
+          <div className="mt-1 hidden items-center gap-2 pr-[92px] text-sm sm:flex">
             <ChangePill changePercent={changePercent} positive={positive} />
             {periodLabel && (
               <span
@@ -202,16 +191,18 @@ export function DashboardKpiCard({
             )}
           </div>
         )}
-        <p className="mt-1.5 truncate text-[2rem] font-bold leading-none tracking-tight">{value}</p>
+        <p className="mt-1.5 truncate pr-[92px] text-[2rem] font-bold leading-none tracking-tight">
+          {value}
+        </p>
         <p
           className={cn(
-            "mt-1 line-clamp-2 text-sm leading-5",
+            "mt-1 line-clamp-1 text-sm leading-5",
             dark ? "text-zinc-700" : "text-white/90",
           )}
         >
           {deltaLabel} {deltaSuffix}
         </p>
-        <div className="mt-auto pt-1.5">
+        <div className="mt-auto pt-2">
           <TrendBars series={series} dark={dark} />
         </div>
       </div>

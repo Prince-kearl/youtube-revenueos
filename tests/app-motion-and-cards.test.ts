@@ -42,10 +42,6 @@ test("motion: entrances are one-off and only fill backwards, so hover transforms
   );
   // hovers use the individual transform properties, which compose with running animations
   assert.match(styles, /\.dashboard-kpi-card:hover \{\n {4}translate: 0 -4px;/);
-  assert.match(
-    styles,
-    /\.dashboard-kpi-card:hover \.kpi-mascot \{\n {4}scale: 1\.08;\n {4}rotate: -3deg;/,
-  );
 });
 
 test("continuous effects and hovers only with a mouse; everything stops for reduced motion", () => {
@@ -53,7 +49,7 @@ test("continuous effects and hovers only with a mouse; everything stops for redu
     styles.indexOf("@media (hover: hover) and (pointer: fine) {\n  /* hover uses"),
   );
   const pointerBlock = pointer.slice(0, pointer.indexOf("\n}\n"));
-  assert.match(pointerBlock, /animation: kpi-float 3\.2s ease-in-out infinite alternate;/);
+  assert.doesNotMatch(styles, /kpi-float|kpi-mascot/);
   assert.match(pointerBlock, /animation: kpi-rays-turn 120s linear infinite;/);
   // no infinite animation outside that block in the motion section
   const motion = styles.slice(
@@ -67,7 +63,6 @@ test("continuous effects and hovers only with a mouse; everything stops for redu
   assert.match(reduced, /animation: none !important;\n {4}transition: none !important;/);
   for (const sel of [
     ".kpi-bar",
-    ".kpi-mascot",
     ".kpi-rays",
     ".dash-bar-fill",
     ".dash-cell",
@@ -84,9 +79,8 @@ test("continuous effects and hovers only with a mouse; everything stops for redu
 test("KPI cards: the rays turn under a fixed fade, and each card is staggered by its index", () => {
   assert.match(
     card,
-    /className="kpi-rays absolute left-\[76%\] top-\[62%\] aspect-square w-\[300%\]"/,
+    /className="kpi-rays absolute left-\[88%\] top-\[22%\] aspect-square w-\[300%\]"/,
   );
   assert.match(card, /"--i": index,/);
-  assert.match(card, /className="kpi-mascot /);
-  assert.match(card, /"kpi-bar w-\[9px\]/);
+  assert.match(card, /"kpi-bar min-w-0 max-w-\[28px\] flex-1/);
 });
