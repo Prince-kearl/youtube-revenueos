@@ -516,9 +516,9 @@ test("the Dashboard page no longer reads or calculates live YouTube revenue", ()
   assert.match(source, /new URLSearchParams\(\{ revenue: "0" \}\)/);
   assert.match(source, /dashboardRevenueUrls\(activeChannelId\)/);
   // The revenue cards take their numbers from the mapped canonical view.
-  assert.match(source, /value=\{revenueValue\(revenue\.total\.text\)\}/);
-  assert.match(source, /changePercent=\{revenue\.changePercent\}/);
-  assert.match(source, /series=\{revenue\.series\}/);
+  assert.match(source, /value: revenueValue\(revenue\.total\.text\),/);
+  assert.match(source, /Math\.abs\(revenue\.changePercent\)\.toFixed\(1\)/);
+  assert.match(source, /series: revenue\.series,/);
 });
 
 test("the mapping module calculates no revenue of its own and calls nothing", () => {

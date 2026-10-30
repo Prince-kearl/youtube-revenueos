@@ -7,10 +7,7 @@ const styles = readFileSync("src/styles.css", "utf8").replace(/\r\n/g, "\n");
 const TONES = ["green", "blue", "purple", "pink", "yellow", "red"];
 
 test("the carousel's dots hand the current card's colour to the shell, without re-rendering Dashboard", () => {
-  assert.match(
-    page,
-    /const KPI_TONES = \["green", "blue", "purple", "pink", "yellow", "red"\] as const;/,
-  );
+  assert.match(page, /const KPI_TONES = \["green", "red", "red", "red", "red", "red"\] as const;/);
   assert.match(page, /if \(shell && tone\) shell\.dataset\.kpiTone = tone;/);
   assert.match(
     page,

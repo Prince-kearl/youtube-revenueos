@@ -41,46 +41,39 @@ test("motion: entrances are one-off and only fill backwards, so hover transforms
     /dash-(rise|grow-y|grow-x|pop) [^;]* both;/,
   );
   // hovers use the individual transform properties, which compose with running animations
-  assert.match(styles, /\.dashboard-kpi-card:hover \{\n {4}translate: 0 -4px;/);
+  assert.match(styles, /\.dashboard-kpi-card:hover \{\n {4}translate: 0 -3px;/);
 });
 
-test("continuous effects and hovers only with a mouse; everything stops for reduced motion", () => {
-  const pointer = styles.slice(
-    styles.indexOf("@media (hover: hover) and (pointer: fine) {\n  /* hover uses"),
-  );
-  const pointerBlock = pointer.slice(0, pointer.indexOf("\n}\n"));
-  assert.doesNotMatch(styles, /kpi-float|kpi-mascot/);
-  assert.match(pointerBlock, /animation: kpi-rays-turn 120s linear infinite;/);
-  // no infinite animation outside that block in the motion section
+test("nothing loops; hovers only with a mouse; everything stops for reduced motion", () => {
   const motion = styles.slice(
     styles.indexOf("/* ============ App motion"),
-    styles.indexOf("@media (hover: hover) and (pointer: fine) {\n  /* hover uses"),
+    styles.indexOf("/* ============ App motion") + 7000,
   );
   assert.doesNotMatch(motion, /infinite/);
+  assert.doesNotMatch(styles, /kpi-rays|kpi-float|kpi-mascot/);
+  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\) \{\n {2}\/\* hover uses/);
   const reduced = styles.slice(
     styles.lastIndexOf("@media (prefers-reduced-motion: reduce) {\n  .dashboard-kpi-card,"),
   );
   assert.match(reduced, /animation: none !important;\n {4}transition: none !important;/);
+  const selectors = reduced.slice(
+    reduced.indexOf("{") + 1,
+    reduced.indexOf("{", reduced.indexOf("{") + 1),
+  );
   for (const sel of [
-    ".kpi-bar",
-    ".kpi-rays",
+    ".kpi-dot-chart",
     ".dash-bar-fill",
     ".dash-cell",
     ".dashboard-main .card-frost",
   ])
-    assert.ok(
-      reduced
-        .slice(reduced.indexOf("{") + 1, reduced.indexOf("{", reduced.indexOf("{") + 1))
-        .includes(sel),
-      sel,
-    );
+    assert.ok(selectors.includes(sel), sel);
 });
 
-test("KPI cards: the rays turn under a fixed fade, and each card is staggered by its index", () => {
-  assert.match(
-    card,
-    /className="kpi-rays absolute left-\[88%\] top-\[22%\] aspect-square w-\[300%\]"/,
-  );
+test("KPI cards are staggered by their index; their dot chart grows in", () => {
   assert.match(card, /"--i": index,/);
-  assert.match(card, /"kpi-bar min-w-0 max-w-\[28px\] flex-1/);
+  assert.match(card, /className="kpi-dot-chart h-\[76px\] w-full"/);
+  assert.match(
+    styles,
+    /\.kpi-dot-chart \{\n {2}transform-origin: bottom;\n {2}animation: dash-grow-y/,
+  );
 });

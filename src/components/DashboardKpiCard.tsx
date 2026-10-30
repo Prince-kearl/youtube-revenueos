@@ -1,210 +1,276 @@
-import { ArrowDownRight, ArrowUpRight, ChevronDown } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowDown, ArrowUp, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// The Dashboard's KPI cards: a saturated colour fading paler to the right, white rays from the
-// top-right corner, a white callout (the latest month) in that corner, the value and its change,
-// and the trend as a bar chart across the bottom. Admin pages keep KpiTrendCard.
+// The Dashboard's KPI cards: dark panels with a numbered dot-matrix label ("01  ESTIMATED
+// REVENUE"), the value in the dot-matrix face (Doto), the change in green/red, a dot-matrix
+// chart of the monthly series on the right, and a three-figure strip along the bottom (last
+// month, this month, and the long-run total). Every number is in the text; the charts are
+// decorative. Admin pages keep KpiTrendCard.
 
-export type KpiCardTheme = "green" | "blue" | "purple" | "pink" | "yellow" | "red";
+export type KpiAccent = "green" | "red";
+const ACCENT: Record<KpiAccent, string> = { green: "#22c55e", red: "#ef4444" };
+const DOT_DIM = "rgba(255, 255, 255, 0.14)";
+const DOT_MID = "rgba(255, 255, 255, 0.42)";
 
-const THEMES: Record<KpiCardTheme, { background: string; text: "light" | "dark" }> = {
-  green: {
-    background: "linear-gradient(90deg, #8ce589 0%, #91e58e 45%, #b5f0ab 72%, #cbf4bc 100%)",
-    text: "light",
-  },
-  blue: {
-    background: "linear-gradient(90deg, #69b4fe 0%, #86c3fe 45%, #a2d4fe 75%, #acdafe 100%)",
-    text: "light",
-  },
-  purple: {
-    background: "linear-gradient(90deg, #b876fd 0%, #c483fd 45%, #d28ffd 75%, #d998fe 100%)",
-    text: "light",
-  },
-  pink: {
-    background: "linear-gradient(90deg, #fd8181 0%, #feadae 45%, #fec8c9 75%, #fed5d6 100%)",
-    text: "light",
-  },
-  yellow: {
-    background: "linear-gradient(90deg, #ffe382 0%, #fee692 45%, #fee9a0 75%, #feeaa5 100%)",
-    text: "dark",
-  },
-  red: {
-    background: "linear-gradient(90deg, #f46968 0%, #f27777 45%, #fea3a2 72%, #fed6d5 100%)",
-    text: "light",
-  },
-};
+export type KpiChart =
+  | { kind: "bars"; series: number[]; highlight: "all" | "last" | "top" }
+  | { kind: "line"; series: number[]; callout?: { title: string; subtitle: string } }
+  | { kind: "grid"; series: number[] };
 
-/** The trend as small bars (the latest months), heights relative to the largest. */
-function TrendBars({ series, dark }: { series: number[]; dark: boolean }) {
-  const values = series.slice(-18);
-  if (values.length === 0) return null;
-  const max = Math.max(...values.map((v) => Math.abs(v)), 0);
+export interface KpiDelta {
+  /** Arrow and colour; null for a neutral note (e.g. "Oct 2026 so far - still updating"). */
+  direction: "up" | "down" | null;
+  /** The coloured part, e.g. "79.4%" or "4". */
+  emphasis: string;
+  /** The rest, e.g. "vs previous month". */
+  text: string;
+}
+
+export interface KpiStat {
+  label: string;
+  value: string;
+}
+
+const ROWS = 8;
+const VIEW_W = 168;
+const VIEW_H = 76;
+
+/** Dot columns: one column per month, filled up to the month's share of the largest. */
+function DotBars({
+  series,
+  accent,
+  highlight,
+}: {
+  series: number[];
+  accent: string;
+  highlight: "all" | "last" | "top";
+}) {
+  const values = series.slice(-14);
+  const n = Math.max(values.length, 1);
+  const max = Math.max(...values, 0);
+  const colW = VIEW_W / n;
+  const step = VIEW_H / ROWS;
+  const r = Math.min(colW, step) * 0.26;
+  const top = [...values].sort((a, b) => b - a)[Math.min(2, values.length - 1)] ?? Infinity;
   return (
-    <div className="flex h-7 w-full items-end gap-1.5" aria-hidden="true">
-      {values.map((v, i) => (
-        <span
-          key={i}
-          className={cn(
-            "kpi-bar min-w-0 max-w-[28px] flex-1 rounded-[3px]",
-            dark ? "bg-[#c9a227]/35" : "bg-white/40",
-          )}
-          style={
-            {
-              height: `${max > 0 ? Math.max(30, (Math.abs(v) / max) * 100) : 30}%`,
-              "--b": i,
-            } as React.CSSProperties
-          }
+    <>
+      {values.map((v, c) => {
+        const filled = max > 0 ? Math.max(1, Math.round((v / max) * ROWS)) : 1;
+        const lit =
+          highlight === "all" ||
+          (highlight === "last" && c >= values.length - 2) ||
+          (highlight === "top" && (c === values.length - 1 || (v >= top && v > 0)));
+        return Array.from({ length: ROWS }).map((_, row) => {
+          const on = row < filled;
+          return (
+            <circle
+              key={`${c}-${row}`}
+              cx={c * colW + colW / 2}
+              cy={VIEW_H - row * step - step / 2}
+              r={r}
+              fill={on ? (lit ? accent : DOT_MID) : DOT_DIM}
+              opacity={on ? 1 : 0.5}
+            />
+          );
+        });
+      })}
+    </>
+  );
+}
+
+/** A dotted line through the months (one dot per step), faint dots under it, a ring at the end. */
+function DotLine({ series, accent }: { series: number[]; accent: string }) {
+  const raw = series.length >= 2 ? series.slice(-14) : [series[0] ?? 0, series[0] ?? 0];
+  const steps = 28;
+  const min = Math.min(...raw);
+  const max = Math.max(...raw);
+  const span = max - min || 1;
+  const at = (t: number) => {
+    const x = t * (raw.length - 1);
+    const i = Math.min(Math.floor(x), raw.length - 2);
+    return raw[i] + (raw[i + 1] - raw[i]) * (x - i);
+  };
+  const step = VIEW_H / ROWS;
+  const pts = Array.from({ length: steps + 1 }, (_, k) => {
+    const t = k / steps;
+    const y = 8 + (1 - (at(t) - min) / span) * (VIEW_H - 16);
+    return { x: 4 + t * (VIEW_W - 8), y };
+  });
+  const end = pts[pts.length - 1];
+  return (
+    <>
+      {pts.map((p, k) =>
+        Array.from({ length: ROWS }).map((_, row) => {
+          const cy = VIEW_H - row * step - step / 2;
+          return cy > p.y + 3 && k % 2 === 0 ? (
+            <circle key={`f${k}-${row}`} cx={p.x} cy={cy} r={0.9} fill={DOT_DIM} />
+          ) : null;
+        }),
+      )}
+      {pts.map((p, k) => (
+        <circle
+          key={k}
+          cx={p.x}
+          cy={p.y}
+          r={1.5}
+          fill={k >= steps - 3 ? accent : "rgba(255, 255, 255, 0.85)"}
         />
       ))}
+      <circle cx={end.x} cy={end.y} r={4.5} fill="none" stroke={accent} strokeWidth={1.5} />
+      <circle cx={end.x} cy={end.y} r={2} fill={accent} />
+    </>
+  );
+}
+
+/** A grid of squares, one per month (newest bottom-right); brighter red for busier months. */
+function DotGrid({ series, accent }: { series: number[]; accent: string }) {
+  const cols = 8;
+  const rowsN = 3;
+  const cells = cols * rowsN;
+  const values = series.slice(-cells);
+  const padded = Array.from({ length: cells - values.length }, () => null as number | null).concat(
+    values,
+  );
+  const max = Math.max(...values, 0);
+  const size = 9;
+  const gap = (VIEW_W - cols * size) / (cols - 1);
+  const top = (VIEW_H - (rowsN * size + (rowsN - 1) * gap * 0.55)) / 2;
+  return (
+    <>
+      {padded.map((v, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const share = v && max > 0 ? v / max : 0;
+        return (
+          <rect
+            key={i}
+            x={col * (size + gap)}
+            y={top + row * (size + gap * 0.55)}
+            width={size}
+            height={size}
+            rx={1.5}
+            fill={v === null ? DOT_DIM : share > 0 ? accent : DOT_MID}
+            opacity={v === null ? 0.6 : share > 0 ? 0.35 + share * 0.65 : 0.55}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function KpiDotChart({ chart, accent }: { chart: KpiChart; accent: string }) {
+  return (
+    <div className="relative">
+      {chart.kind === "line" && chart.callout && (
+        <div className="absolute -top-2 right-6 z-10 rounded-[6px] border border-dashed border-white/25 bg-[#161616] px-2 py-1 text-center leading-tight">
+          <p className="font-dot text-[13px] font-bold text-white">{chart.callout.title}</p>
+          <p className="text-[10px] text-white/60">{chart.callout.subtitle}</p>
+        </div>
+      )}
+      <svg
+        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        className="kpi-dot-chart h-[76px] w-full"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {chart.kind === "bars" && (
+          <DotBars series={chart.series} accent={accent} highlight={chart.highlight} />
+        )}
+        {chart.kind === "line" && <DotLine series={chart.series} accent={accent} />}
+        {chart.kind === "grid" && <DotGrid series={chart.series} accent={accent} />}
+      </svg>
     </div>
   );
 }
 
-function ChangePill({ changePercent, positive }: { changePercent: number; positive: boolean }) {
-  return (
-    <span
-      className={cn(
-        "flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[13px] font-semibold leading-5",
-        positive ? "bg-[#dcfce7] text-[#16a34a]" : "bg-[#fee2e2] text-[#e5484d]",
-      )}
-    >
-      {positive ? (
-        <ArrowUpRight className="h-3.5 w-3.5" />
-      ) : (
-        <ArrowDownRight className="h-3.5 w-3.5" />
-      )}
-      {Math.abs(changePercent).toFixed(1)}%
-    </span>
-  );
-}
-
 export function DashboardKpiCard({
-  theme,
+  index,
   title,
   value,
-  deltaLabel,
-  deltaSuffix,
-  changePercent,
-  periodLabel,
-  series,
-  markerTitle,
-  markerSubtitle,
-  positive,
-  index = 0,
+  delta,
+  accent = "red",
+  chart,
+  stats,
+  href,
   className,
 }: {
-  theme: KpiCardTheme;
+  /** Position on the page (0-based): the "01" label and the entrance stagger. */
+  index: number;
   title: string;
   value: string;
-  deltaLabel: string;
-  deltaSuffix: string;
-  changePercent: number | null;
-  periodLabel: string;
-  series: number[];
-  markerTitle: string;
-  markerSubtitle: string;
-  positive: boolean;
-  /** Position on the page: staggers the entrance. */
-  index?: number;
+  delta: KpiDelta;
+  accent?: KpiAccent;
+  chart: KpiChart;
+  stats: [KpiStat, KpiStat, KpiStat];
+  /** Where the "..." button goes (the page with this metric's detail). */
+  href: string;
   className?: string;
 }) {
-  const t = THEMES[theme];
-  const dark = t.text === "dark";
+  const color = ACCENT[accent];
+  const up = delta.direction === "up";
   return (
-    // Phones: every card is the same fixed height (the change badge moves onto the title row so
-    // no card grows taller). From sm up: the design's layout, at least 168px, rows equal height.
+    // Phones: every card is the same fixed height. From sm up: at least that, rows equal height.
     <div
       className={cn(
-        "dashboard-kpi-card relative isolate flex h-[160px] overflow-hidden px-4 py-3.5 shadow-[0_10px_24px_-14px_rgba(15,23,42,0.35)] sm:h-auto sm:min-h-[152px]",
-        dark ? "text-zinc-800" : "text-white",
+        "dashboard-kpi-card relative flex h-[232px] flex-col overflow-hidden border border-white/[0.09] bg-[#121212] text-white shadow-[0_12px_30px_-18px_rgba(0,0,0,0.6)] sm:h-auto sm:min-h-[232px]",
         className,
       )}
       style={
         {
-          background: t.background,
-          borderRadius: "var(--kpi-card-radius, 16px)",
+          borderRadius: "var(--kpi-card-radius, 12px)",
           "--i": index,
         } as React.CSSProperties
       }
     >
-      {/* Sunburst: white rays from the top-right corner (behind the callout), fading out towards
-          the edges. The fade (mask) stays put; the rays are an oversized layer under it that can
-          turn slowly. */}
-      <div
-        aria-hidden="true"
-        className="dashboard-kpi-sunburst pointer-events-none absolute inset-0 -z-20 overflow-hidden"
-        style={{
-          WebkitMaskImage:
-            "radial-gradient(circle at 88% 22%, #000 0%, rgba(0, 0, 0, 0.8) 28%, rgba(0, 0, 0, 0) 72%)",
-          maskImage:
-            "radial-gradient(circle at 88% 22%, #000 0%, rgba(0, 0, 0, 0.8) 28%, rgba(0, 0, 0, 0) 72%)",
-        }}
-      >
-        <div
-          className="kpi-rays absolute left-[88%] top-[22%] aspect-square w-[300%]"
-          style={{
-            background:
-              "repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.22) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 15deg)",
-          }}
-        />
+      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+        <p className="font-dot truncate text-[15px] font-bold uppercase tracking-[0.08em] text-white/90">
+          <span className="mr-2 text-white/70">{String(index + 1).padStart(2, "0")}</span> {title}
+        </p>
+        <Link
+          to={href}
+          aria-label={`Open ${title} details`}
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Link>
       </div>
 
-      {markerTitle && (
-        <div className="absolute right-3 top-3 z-10 min-w-[80px] rounded-[8px] bg-white px-2.5 py-1 text-left shadow-[0_2px_8px_rgba(15,23,42,0.08)] sm:right-4">
-          <p className="text-[13px] font-semibold leading-tight text-zinc-900">{markerTitle}</p>
-          {markerSubtitle && (
-            <p className="text-xs leading-tight text-zinc-500">{markerSubtitle}</p>
-          )}
-        </div>
-      )}
-
-      <div className="relative z-0 flex min-w-0 flex-1 flex-col">
-        {/* the rows beside the callout keep clear of it */}
-        <div className="flex items-center gap-2 pr-[92px]">
-          <p
-            className={cn(
-              "truncate text-[15px] font-medium leading-5",
-              dark ? "text-zinc-700" : "text-white/95",
-            )}
-          >
-            {title}
+      <div className="flex min-h-0 flex-1 items-center gap-4 px-5 pb-3 pt-1">
+        <div className="min-w-0 flex-1">
+          <p className="font-dot truncate text-[2.25rem] font-extrabold leading-none tracking-tight sm:text-[2.75rem]">
+            {value}
           </p>
-          {changePercent !== null && (
-            <span className="sm:hidden">
-              <ChangePill changePercent={changePercent} positive={positive} />
-            </span>
-          )}
-        </div>
-        {changePercent !== null && (
-          <div className="mt-1 hidden items-center gap-2 pr-[92px] text-sm sm:flex">
-            <ChangePill changePercent={changePercent} positive={positive} />
-            {periodLabel && (
+          <p className="mt-2.5 line-clamp-2 text-sm leading-5 text-white/65">
+            {delta.direction && (
               <span
-                className={cn(
-                  "flex items-center gap-0.5 whitespace-nowrap",
-                  dark ? "text-zinc-700" : "text-white/90",
-                )}
+                className="mr-1.5 inline-flex items-center gap-1 align-[-2px] font-semibold"
+                style={{ color: up ? "#22c55e" : "#ef4444" }}
               >
-                {periodLabel}
-                <ChevronDown className="h-3.5 w-3.5" />
+                {up ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                {delta.emphasis}
               </span>
             )}
-          </div>
-        )}
-        <p className="mt-1.5 truncate pr-[92px] text-[2rem] font-bold leading-none tracking-tight">
-          {value}
-        </p>
-        <p
-          className={cn(
-            "mt-1 line-clamp-1 text-sm leading-5",
-            dark ? "text-zinc-700" : "text-white/90",
-          )}
-        >
-          {deltaLabel} {deltaSuffix}
-        </p>
-        <div className="mt-auto pt-2">
-          <TrendBars series={series} dark={dark} />
+            {!delta.direction && delta.emphasis && (
+              <span className="mr-1 font-semibold text-white/80">{delta.emphasis}</span>
+            )}
+            {delta.text}
+          </p>
         </div>
+        <div className="w-[38%] max-w-[180px] shrink-0 sm:w-[42%]">
+          <KpiDotChart chart={chart} accent={color} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 divide-x divide-white/[0.09] border-t border-white/[0.09]">
+        {stats.map((s) => (
+          <div key={s.label} className="min-w-0 px-5 py-3">
+            <p className="truncate font-mono text-[15px] font-semibold tabular-nums text-white">
+              {s.value}
+            </p>
+            <p className="truncate text-[13px] text-white/55">{s.label}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -213,8 +279,11 @@ export function DashboardKpiCard({
 export function DashboardKpiCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("h-[160px] animate-pulse bg-muted sm:h-auto sm:min-h-[152px]", className)}
-      style={{ borderRadius: "var(--kpi-card-radius, 16px)" }}
+      className={cn(
+        "h-[232px] animate-pulse border border-white/[0.06] bg-[#161616] sm:h-auto sm:min-h-[232px]",
+        className,
+      )}
+      style={{ borderRadius: "var(--kpi-card-radius, 12px)" }}
       aria-hidden="true"
     />
   );

@@ -1,74 +1,81 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 const card = readFileSync("src/components/DashboardKpiCard.tsx", "utf8");
 const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
+const root = readFileSync("src/routes/__root.tsx", "utf8");
+const styles = readFileSync("src/styles.css", "utf8").replace(/\r\n/g, "\n");
 
-test("each dashboard card has its colour theme", () => {
-  const themes = [...dashboard.matchAll(/title="([^"]+)"\s+theme="(\w+)"/g)].map(
-    (m) => `${m[1]}:${m[2]}`,
-  );
-  assert.deepEqual(themes, [
-    "Estimated Revenue:green",
-    "Latest Revenue:blue",
-    "Total Views:purple",
-    "Videos:pink",
-    "Subscribers:yellow",
-    "Watch Time:red",
-    "Estimated Revenue:green", // the phone carousel's loop clone
+test("six cards from one list, in order, with the loop clone repeating the first", () => {
+  const titles = [...dashboard.matchAll(/^ {6}title: "([^"]+)",$/gm)].map((m) => m[1]);
+  assert.deepEqual(titles, [
+    "Estimated Revenue",
+    "Latest Revenue",
+    "Total Views",
+    "Videos",
+    "Subscribers",
+    "Watch Time",
   ]);
+  assert.match(dashboard, /kpiCards\.map\(\(card, i\) => \(/);
+  assert.match(dashboard, /<DashboardKpiCard index=\{0\} \{\.\.\.kpiCards\[0\]\} \/>/);
   assert.doesNotMatch(dashboard, /KpiTrendCard/, "the dashboard no longer uses the admin card");
 });
 
-test("no mascots: no images on the cards, and the mascot files are gone", () => {
-  assert.doesNotMatch(card, /<img|mascot/i);
-  assert.ok(!existsSync("public/kpi"), "public/kpi removed");
+test("the design: dark panel, numbered dot-matrix label, dot-matrix value, three-figure strip", () => {
+  assert.match(card, /bg-\[#121212\] text-white/);
+  assert.match(card, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
+  assert.match(card, /font-dot truncate text-\[15px\] font-bold uppercase/);
+  assert.match(card, /font-dot truncate text-\[2\.25rem\] font-extrabold[^"]*sm:text-\[2\.75rem\]/);
+  assert.match(card, /grid grid-cols-3 divide-x/);
+  assert.match(root, /family=Doto:wght@400\.\.900/);
+  assert.match(styles, /\.font-dot \{\n {2}font-family: "Doto"/);
 });
 
-test("the content uses the full width, keeping clear of the callout in the top-right corner", () => {
-  assert.match(card, /relative z-0 flex min-w-0 flex-1 flex-col/);
-  assert.doesNotMatch(card, /max-w-\[55%\]|max-w-\[60%\]/);
-  assert.equal(card.match(/pr-\[92px\]/g)?.length, 3, "title row, change row and value");
-  assert.match(card, /absolute right-3 top-3 z-10 min-w-\[80px\] rounded-\[8px\] bg-white/);
-  assert.match(card, /"mt-1 line-clamp-1 text-sm leading-5"/);
-});
-
-test("the trend is a bar chart across the whole bottom of the card", () => {
-  assert.match(card, /className="flex h-7 w-full items-end gap-1\.5"/);
-  // capped, so a short history (one or two months) does not stretch across the card
-  assert.match(card, /"kpi-bar min-w-0 max-w-\[28px\] flex-1 rounded-\[3px\]"/);
-  assert.match(card, /series\.slice\(-18\)/);
-});
-
-test("the white rays come from the top-right corner, behind the callout", () => {
-  assert.match(card, /maskImage:\s+"radial-gradient\(circle at 88% 22%/);
+test("dot-matrix charts per card: revenue bars green, the rest red", () => {
+  for (const kind of ["DotBars", "DotLine", "DotGrid"])
+    assert.match(card, new RegExp(`function ${kind}\\(`));
   assert.match(
     card,
-    /className="kpi-rays absolute left-\[88%\] top-\[22%\] aspect-square w-\[300%\]"/,
+    /const ACCENT: Record<KpiAccent, string> = \{ green: "#22c55e", red: "#ef4444" \};/,
+  );
+  assert.match(dashboard, /title: "Estimated Revenue",\n {6}accent: "green" as const,/);
+  assert.equal(dashboard.match(/accent: "red" as const,/g)?.length, 5);
+});
+
+test("the strip is honest: real month figures, '—' for a month with no data, real all-time totals", () => {
+  assert.match(dashboard, /return row \? fmt\(pick\(row\)\) : "—";/);
+  assert.match(
+    dashboard,
+    /return usd === null \|\| usd === undefined \? "—" : formatUsdCompact\(usd\);/,
+  );
+  // revenue: withheld when the viewer may not see revenue; its long-run figure is the period total
+  assert.match(dashboard, /if \(revenue\.hidden\) return "—";/);
+  assert.match(
+    dashboard,
+    /\{ label: revenue\.periodLabel \|\| "Period", value: revenueValue\(revenue\.total\.text\) \}/,
+  );
+  // views / videos / subscribers: the channel's all-time totals
+  assert.match(
+    dashboard,
+    /label: "All time",\n {10}value: dashboardData \? formatCount\(dashboardData\.channel\.viewCount\)/,
   );
   assert.match(
-    card,
-    /repeating-conic-gradient\(from 0deg at 50% 50%, rgba\(255, 255, 255, 0\.22\)/,
+    dashboard,
+    /label: "All time",\n {10}value: dashboardData \? formatCount\(dashboardData\.channel\.subscriberCount\)/,
   );
 });
 
-test("phones: every card is the same fixed height (160px); from sm up at least 152px", () => {
-  assert.match(
-    card,
-    /dashboard-kpi-card relative isolate flex h-\[160px\] overflow-hidden px-4 py-3\.5[^"]*sm:h-auto sm:min-h-\[152px\]/,
-  );
-  assert.match(card, /<span className="sm:hidden">\s+<ChangePill/);
-});
-
-test("the numbers are all in the text: value, change, latest month", () => {
-  for (const piece of [
-    "{title}",
-    "{value}",
-    "{deltaLabel} {deltaSuffix}",
-    "{markerTitle}",
-    "{markerSubtitle}",
-  ])
+test("the ... button goes to the metric's page, and every number is in the text", () => {
+  assert.match(card, /<Link\s+to=\{href\}\s+aria-label=\{`Open \$\{title\} details`\}/);
+  for (const piece of ["{value}", "{delta.emphasis}", "{delta.text}", "{s.value}", "{s.label}"])
     assert.ok(card.includes(piece), piece);
-  assert.match(card, /Math\.abs\(changePercent\)\.toFixed\(1\)/);
+  assert.match(card, /aria-hidden="true"/, "charts are decorative");
+});
+
+test("phones: every card is the same fixed height", () => {
+  assert.match(
+    card,
+    /dashboard-kpi-card relative flex h-\[232px\] flex-col[^"]*sm:h-auto sm:min-h-\[232px\]/,
+  );
 });

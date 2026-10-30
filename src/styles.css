@@ -431,9 +431,14 @@
   }
 }
 
+/* The dot-matrix face of the Dashboard's KPI cards (Google Font "Doto", loaded in __root). */
+.font-dot {
+  font-family: "Doto", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 /* ============ App motion (Dashboard + every app page) ============
-   Transform/opacity only (GPU, no layout work). One-off entrances everywhere; the continuous
-   effect (turning rays) and hover effects only on devices with a mouse
+   Transform/opacity only (GPU, no layout work). One-off entrances everywhere; hover effects
+   only on devices with a mouse
    (hover: hover, pointer: fine) - never on phones. Everything stops for reduced motion. */
 @keyframes dash-rise {
   from { opacity: 0; transform: translateY(12px) scale(0.985); }
@@ -451,10 +456,6 @@
   from { opacity: 0; transform: scale(0.6); }
   to { opacity: 1; transform: none; }
 }
-@keyframes kpi-rays-turn {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to { transform: translate(-50%, -50%) rotate(360deg); }
-}
 
 /* entrances: KPI cards one after another, then the sections below */
 .dashboard-kpi-card {
@@ -464,10 +465,10 @@
 .dashboard-main .card-gradient-outline {
   animation: dash-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s backwards;
 }
-.kpi-bar {
+.kpi-dot-chart {
   transform-origin: bottom;
-  animation: dash-grow-y 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
-  animation-delay: calc(0.3s + var(--i, 0) * 70ms + var(--b, 0) * 25ms);
+  animation: dash-grow-y 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(0.3s + var(--i, 0) * 70ms);
 }
 /* bars fill in (again whenever a tab change swaps them) */
 .dash-bar-fill {
@@ -479,10 +480,6 @@
   animation-delay: calc(0.5s + var(--c, 0) * 12ms);
   transition: scale 0.18s ease;
 }
-.kpi-rays {
-  transform: translate(-50%, -50%);
-}
-
 @media (hover: hover) and (pointer: fine) {
   /* hover uses the separate translate/scale/rotate properties, so it stacks with the
      animations' transform instead of being overridden by them */
@@ -492,15 +489,8 @@
       box-shadow 0.3s ease;
   }
   .dashboard-kpi-card:hover {
-    translate: 0 -4px;
-    box-shadow: 0 18px 34px -16px rgba(15, 23, 42, 0.4);
-  }
-  /* the rays turn very slowly, a little faster under the pointer */
-  .kpi-rays {
-    animation: kpi-rays-turn 120s linear infinite;
-  }
-  .dashboard-kpi-card:hover .kpi-rays {
-    animation-duration: 30s;
+    translate: 0 -3px;
+    box-shadow: 0 20px 36px -18px rgba(0, 0, 0, 0.65);
   }
   .dashboard-main .card-gradient-outline {
     transition: box-shadow 0.3s ease;
@@ -534,8 +524,7 @@
   .dashboard-kpi-card,
   .dashboard-main .card-gradient-outline,
   .dashboard-main .card-frost,
-  .kpi-bar,
-  .kpi-rays,
+  .kpi-dot-chart,
   .dash-bar-fill,
   .dash-cell {
     animation: none !important;
@@ -548,9 +537,6 @@
     translate: none !important;
     scale: none !important;
     rotate: none !important;
-  }
-  .kpi-rays {
-    transform: translate(-50%, -50%) !important;
   }
 }
 
