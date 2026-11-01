@@ -8,19 +8,20 @@ export type ThemeMode = "light" | "dark" | "system";
 // Preferences is remembered as before. Keep NO_FLASH_THEME_SCRIPT in __root.tsx in sync.
 export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme.v2", "light");
 
-// Personal, per-device preference (Settings → Preferences) — was previously a single
-// Superadmin-controlled switch for every user (Customization → General); moved here so each
-// person can opt into the Liquid Glass / iOS 26-inspired look for their own view instead. Defaults
-// to off for every user and device; the ".v2" key reset everyone who had opted in under the old
-// default-on key. Keep NO_FLASH_THEME_SCRIPT in __root.tsx in sync. See
-// ThemeInjector for what it actually changes (an .ios26 class plus card/button/input radius CSS vars).
-export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design.v2", false);
+// Personal, per-device preference (Settings → Preferences): the Liquid Glass / iOS 26-inspired
+// look. On by default for every user and device; the ".v3" key (2026-10-30) reset everyone to on,
+// including anyone who had switched it off under the old ".v2" key (which defaulted to off).
+// Turning it off in Settings is remembered as before. Keep NO_FLASH_THEME_SCRIPT in __root.tsx in
+// sync. See ThemeInjector for what it actually changes (an .ios26 class plus card/button/input
+// radius CSS vars).
+export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design.v3", true);
 
 // Sub-preference of the above — lets someone keep the glass surfaces/rounded corners without the
 // ios26_light/ios26_dark photo backdrop (see the .ios26-wallpaper class in styles.css). Only
 // meaningful while useIos26Design is on; the Settings UI hides/disables it otherwise rather than
-// this hook enforcing that itself.
-export const useIos26Wallpaper = () => useLocalStore<boolean>("yroos.ios26Wallpaper", true);
+// this hook enforcing that itself. On by default; the ".v2" key (2026-10-30) reset everyone to on
+// along with the design itself.
+export const useIos26Wallpaper = () => useLocalStore<boolean>("yroos.ios26Wallpaper.v2", true);
 
 function prefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;

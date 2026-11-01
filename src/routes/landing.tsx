@@ -47,6 +47,7 @@ import { AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer } from "recha
 import { useSiteContent } from "@/lib/stores";
 import { BRAND } from "@/lib/brand";
 import { CookieConsent } from "@/components/CookieConsent";
+import { FeatureBento } from "@/components/landing/FeatureBento";
 
 export const Route = createFileRoute("/landing")({
   component: Landing,
@@ -104,6 +105,7 @@ function Landing() {
         <Hero />
       </div>
       <ProblemSection />
+      <FeatureBento />
       <ContentMarqueeSection />
       <ProductShowcase />
       <HowItWorks />
