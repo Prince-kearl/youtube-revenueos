@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
             workspaceRole,
             setCookieHeaders,
             plan: workspacePlan,
-          } = await getWorkspaceContext(request, { requirePlan: false });
+          } = await getWorkspaceContext(request);
           // Only the workspace's owner or a manager may attach a Google account's YouTube access to
           // it — checked before the code is exchanged, so nothing is stored for anyone else.
           if (!canManageWorkspaceMembers(workspaceRole))
@@ -449,6 +449,7 @@ export const Route = createFileRoute("/api/youtube/callback")({
               return signInRedirect(
                 safeAppPath(getCookie(request, "yt_oauth_return"), "/settings"),
               );
+            if (error.status === 402) return redirectToApp("/billing", new URL(request.url).origin);
             if (error.status === 403) {
               try {
                 const body = (await error.clone().json()) as { error?: string };

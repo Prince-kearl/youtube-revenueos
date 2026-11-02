@@ -19,14 +19,15 @@ import {
 // Team Management API. Every handler requires, in this order:
 //
 //   1. a signed-in user with an active membership  (requireWorkspaceFeature → getWorkspaceContext)
-//   2. the "team" feature enabled for their role   (requireWorkspaceFeature)
-//   3. a role that permits the specific action     (lib/team-policy.ts)
-//   4. for inviting and for changing a role only:  the workspace's team-management entitlement,
+//   2. an entitled workspace plan                   (getWorkspaceContext)
+//   3. the "team" feature enabled for their role   (requireWorkspaceFeature)
+//   4. a role that permits the specific action     (lib/team-policy.ts)
+//   5. for inviting and for changing a role only:  the workspace's team-management entitlement,
 //      resolved from the workspace OWNER's plan    (lib/server/workspace-entitlements.ts)
 //
-// Viewing and removing never need the entitlement, so a workspace that downgrades keeps its
-// members and can still shrink its team. The workspace is always the caller's own (taken from
-// their membership, never from the request), and every write is filtered by it.
+// Viewing and removing never need the team-management entitlement, so a paid workspace that
+// downgrades keeps its members and can still shrink its team. The workspace is always the caller's
+// own (taken from their membership, never from the request), and every write is filtered by it.
 //
 // All authorisation happens before the first write or outgoing request: a refused request
 // creates no account, no membership and no email.
@@ -107,12 +108,12 @@ async function countActiveOwners(
 export const Route = createFileRoute("/api/workspace/members")({
   server: {
     handlers: {
-      // Lists the caller's own workspace. Available on every plan. Each row is returned as that
-      // caller may see it: lead share, commission and cost are blanked unless the caller's role
-      // permits (see canViewCompensation) — the page is never trusted to hide them.
+      // Lists the caller's own workspace. Each row is returned as that caller may see it: lead
+      // share, commission and cost are blanked unless the caller's role permits (see
+      // canViewCompensation) — the page is never trusted to hide them.
       GET: async ({ request }) => {
         try {
-          const ctx = await requireWorkspaceFeature(request, "team", { requirePlan: false });
+          const ctx = await requireWorkspaceFeature(request, "team");
           // Read with the service-role client, scoped to the caller's workspace. The roster's
           // compensation columns are not readable through the member-facing database role, so
           // this server-side read (followed by redaction) is the only way they are served.
@@ -176,7 +177,7 @@ export const Route = createFileRoute("/api/workspace/members")({
       // for the trigger to find and activate it instead of creating a second default workspace.
       POST: async ({ request }) => {
         try {
-          const ctx = await requireWorkspaceFeature(request, "team", { requirePlan: false });
+          const ctx = await requireWorkspaceFeature(request, "team");
           const input = inviteSchema.parse(await parseJson(request));
 
           const service = createServiceSupabaseClient();
@@ -341,7 +342,7 @@ export const Route = createFileRoute("/api/workspace/members")({
       // compensation needs the hierarchy; a job title may be one's own.
       PATCH: async ({ request }) => {
         try {
-          const ctx = await requireWorkspaceFeature(request, "team", { requirePlan: false });
+          const ctx = await requireWorkspaceFeature(request, "team");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = updateSchema.parse(await parseJson(request));
 
@@ -412,7 +413,7 @@ export const Route = createFileRoute("/api/workspace/members")({
       // remove only setters and editors; anyone may leave; the last owner can never go.
       DELETE: async ({ request }) => {
         try {
-          const ctx = await requireWorkspaceFeature(request, "team", { requirePlan: false });
+          const ctx = await requireWorkspaceFeature(request, "team");
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
 
           const service = createServiceSupabaseClient();

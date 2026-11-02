@@ -23,17 +23,15 @@ const patchSchema = z
 
 const actionSchema = z.object({ action: z.enum(["mark_all_read", "clear_all"]) });
 
-// Shared per-workspace alert feed — see 202609200001_notifications.sql. Not gated by
-// requireWorkspaceFeature: like /settings and /support, notifications are always available
-// regardless of role/feature toggles (see OPEN_ROUTES in stores.ts).
+// Shared per-workspace alert feed — see 202609200001_notifications.sql. It is not gated by
+// requireWorkspaceFeature, but a workspace entitlement is required before any notification read
+// or write.
 export const Route = createFileRoute("/api/notifications")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const { data, error } = await client
             .from("notifications")
             .select("id, type, title, message, read, pinned, archived, created_at")
@@ -49,9 +47,7 @@ export const Route = createFileRoute("/api/notifications")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const input = patchSchema.parse(await request.json());
           const { data, error } = await client
@@ -73,9 +69,7 @@ export const Route = createFileRoute("/api/notifications")({
       },
       POST: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const { action } = actionSchema.parse(await request.json());
           if (action === "mark_all_read") {
             const { error } = await client
@@ -101,9 +95,7 @@ export const Route = createFileRoute("/api/notifications")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const id = idSchema.parse(new URL(request.url).searchParams.get("id"));
           const { error } = await client
             .from("notifications")

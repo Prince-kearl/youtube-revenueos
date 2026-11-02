@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { applySetCookies, requireSessionUser } from "@/lib/server/supabase-ssr";
+import { applySetCookies } from "@/lib/server/supabase-ssr";
 import { getFeatureAccessForRole } from "@/lib/server/feature-access";
-import { canManageWorkspaceMembers, type WorkspaceRole } from "@/lib/server/workspace";
+import {
+  canManageWorkspaceMembers,
+  getWorkspaceContext,
+  type WorkspaceRole,
+} from "@/lib/server/workspace";
 
 const WORKSPACE_ROLES: readonly WorkspaceRole[] = ["owner", "manager", "setter", "editor"];
 
@@ -16,7 +20,7 @@ function json(body: unknown, init?: ResponseInit) {
   });
 }
 
-// Every signed-in user calls this to learn their OWN real feature access — never anyone else's,
+// Every entitled user calls this to learn their OWN real feature access — never anyone else's,
 // UNLESS they pass ?previewRole=, which is only honored for callers whose real WORKSPACE role can
 // manage team composition (owner/manager — the same bar as inviting/editing teammates). That's
 // the "Preview as role" simulation: it asks the server what a different role in THIS workspace
@@ -33,15 +37,11 @@ export const Route = createFileRoute("/api/features/access")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user, setCookieHeaders } = await requireSessionUser(request);
-          const { data: membership } = await client
-            .from("workspace_members")
-            .select("role")
-            .eq("user_id", user.id)
-            .eq("status", "active")
-            .limit(1)
-            .maybeSingle();
-          const role = (membership?.role as WorkspaceRole | undefined) ?? "editor";
+          const {
+            client,
+            workspaceRole: role,
+            setCookieHeaders,
+          } = await getWorkspaceContext(request);
 
           const requestedPreview = new URL(request.url).searchParams.get("previewRole");
           let effectiveRole: WorkspaceRole = role;

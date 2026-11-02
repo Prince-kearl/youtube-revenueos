@@ -4,12 +4,28 @@
 export interface WorkspaceAccess {
   plan: "starter" | "pro" | "scale" | null;
   status: "active" | "trialing" | null;
-  /** "subscription" | "staff_exception" | "transition" | "none" | "unavailable" */
-  source: string;
+  source: "subscription" | "staff_exception" | "transition" | "none" | "unavailable";
   /** The end of the current period (the trial's end while trialing; the transition's end during
    * the existing-customer transition), when known. */
   periodEnd: string | null;
   isOwner: boolean;
+}
+
+/** Whether the server-confirmed workspace entitlement may enter the app. */
+export function hasWorkspaceAppAccess(
+  access: WorkspaceAccess | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!access) return false;
+  if (access.source === "subscription")
+    return access.plan !== null && (access.status === "active" || access.status === "trialing");
+  if (access.source === "staff_exception")
+    return access.plan === "scale" && access.status === "active";
+  if (access.source === "transition") {
+    const end = access.periodEnd ? Date.parse(access.periodEnd) : Number.NaN;
+    return access.plan === null && Number.isFinite(end) && end > now.getTime();
+  }
+  return false;
 }
 
 export interface PlanNotice {

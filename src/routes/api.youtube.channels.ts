@@ -23,9 +23,7 @@ export const Route = createFileRoute("/api/youtube/channels")({
       GET: async ({ request }) => {
         try {
           // The CURRENT workspace's channels only — not every workspace the caller belongs to.
-          const { client, workspaceId, workspaceRole } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId, workspaceRole } = await getWorkspaceContext(request);
           const { data: channels, error } = await client
             .from("youtube_channels")
             .select(
@@ -83,9 +81,7 @@ export const Route = createFileRoute("/api/youtube/channels")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { workspaceId, workspaceRole } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { workspaceId, workspaceRole } = await getWorkspaceContext(request);
           // Disconnecting removes the workspace's access to a channel: owner or manager only.
           if (!canManageWorkspaceMembers(workspaceRole))
             return json(

@@ -75,7 +75,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
       GET: async ({ request }) => {
         try {
           const { client, workspaceId, workspaceRole, setCookieHeaders } =
-            await getWorkspaceContext(request, { requirePlan: false });
+            await getWorkspaceContext(request);
           if (!canManageWorkspaceMembers(workspaceRole))
             return withCookies(notAllowed(), setCookieHeaders);
           const url = new URL(request.url);
@@ -145,7 +145,7 @@ export const Route = createFileRoute("/api/youtube/connections")({
       POST: async ({ request }) => {
         try {
           const { client, user, workspaceId, workspaceRole, setCookieHeaders, plan } =
-            await getWorkspaceContext(request, { requirePlan: false });
+            await getWorkspaceContext(request);
           if (!canManageWorkspaceMembers(workspaceRole))
             return withCookies(notAllowed(), setCookieHeaders);
           const input = addSchema.parse(await parseJson(request));

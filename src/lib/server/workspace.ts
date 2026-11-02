@@ -35,9 +35,8 @@ export interface WorkspaceContextOptions {
    * before the route reads anything.
    *
    * Every workspace route requires a plan unless it says otherwise, so a new route is paid by
-   * default. Only what a customer needs to subscribe, recover or manage their account opts out
-   * (`requirePlan: false`): onboarding, notifications, workspace and team settings, YouTube
-   * reconnection, support. Their data is never deleted either way.
+   * default. Only billing status and customer support opt out (`requirePlan: false`). Their data
+   * is never deleted either way.
    */
   requirePlan?: boolean;
 }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { getYoutubeOAuthConfigStatus } from "@/lib/server/google-oauth";
 import { getServerEnv } from "@/lib/server/env";
 
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/youtube/diagnostics")({
       // by Google's own design) without ever returning the client secret or any token.
       GET: async ({ request }) => {
         try {
-          await requireSessionUser(request);
+          await requirePaidSession(request);
           const status = getYoutubeOAuthConfigStatus();
           return json({
             appUrl: getServerEnv("APP_URL") ?? null,

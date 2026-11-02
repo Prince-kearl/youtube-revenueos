@@ -50,7 +50,7 @@ test("real app paths are kept, with their query and fragment", () => {
 // /api/youtube/auth?ifNeeded=1&returnTo=<attack>, must land on an app page.
 const authRoute = await import("../src/routes/api.youtube.auth");
 
-async function youtubeAuth(returnTo: string) {
+async function youtubeAuth(returnTo: string, paid = true) {
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
@@ -64,6 +64,23 @@ async function youtubeAuth(returnTo: string) {
     // The caller is the owner of their workspace (only an owner or manager may connect).
     if (url.origin === SUPABASE && url.pathname === "/rest/v1/workspace_members")
       return json({ workspace_id: "22222222-2222-4222-8222-222222222222", role: "owner" });
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/workspaces")
+      return json({
+        owner_id: CALLER,
+        created_at: "2026-10-01T00:00:00Z",
+        channel_limit_override: null,
+      });
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/subscriptions")
+      return json(
+        paid
+          ? {
+              plan_id: "pro",
+              status: "active",
+              current_period_end: "2027-01-01T00:00:00Z",
+            }
+          : null,
+      );
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/profiles") return json(null);
     if (url.origin === SUPABASE && url.pathname === "/rest/v1/youtube_channels")
       return json([{ id: "11111111-1111-4111-8111-111111111111" }]);
     throw new Error(`unexpected request: ${url}`);
@@ -106,6 +123,12 @@ test("ATTACK: /api/youtube/auth never redirects off the app", async () => {
   }
   const ok = await youtubeAuth("/dashboard");
   assert.equal(ok.headers.get("location"), "/dashboard");
+});
+
+test("an unpaid workspace is sent to Billing before YouTube is queried", async () => {
+  const response = await youtubeAuth("/dashboard", false);
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/billing");
 });
 
 test("both YouTube OAuth steps use the strict check; the old prefix check is gone", () => {

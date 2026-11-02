@@ -177,24 +177,51 @@ for (const [label, plan, status] of [
   ["an expired Scale subscription", "scale", "incomplete_expired"],
   ["a plan the app does not recognise", "enterprise-legacy", "active"],
 ] as const) {
-  test(`${label}: inviting is refused with PLAN_REQUIRED and nothing is created`, async () => {
+  const paidPlan =
+    (plan === "starter" || plan === "pro" || plan === "scale") &&
+    (status === "active" || status === "trialing");
+  const expectedError = paidPlan ? "PLAN_REQUIRED" : "SUBSCRIPTION_REQUIRED";
+  const expectedStatus = paidPlan ? 403 : 402;
+
+  test(`${label}: inviting is refused before any team change`, async () => {
     const { world, users } = team(plan, status);
     const before = snapshot(world);
     const result = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
-    assert.equal(result.status, 403);
-    assert.deepEqual(result.body, PLAN_REQUIRED);
+    assert.equal(result.status, expectedStatus);
+    assert.equal(result.body.error, expectedError);
     assertRefusedCleanly(before, world, result);
   });
 
-  test(`${label}: changing a role is refused with PLAN_REQUIRED and nothing is written`, async () => {
+  test(`${label}: changing a role is refused before any team change`, async () => {
     const { world, users, rows } = team(plan, status);
     const before = snapshot(world);
     const result = await patch(world, users.owner, rows.editor, { role: "setter" });
-    assert.equal(result.status, 403);
-    assert.deepEqual(result.body, PLAN_REQUIRED);
+    assert.equal(result.status, expectedStatus);
+    assert.equal(result.body.error, expectedError);
     assertRefusedCleanly(before, world, result);
   });
 }
+
+test("a workspace without a subscription cannot read the roster or invite a member", async () => {
+  const { world, users } = team("none");
+  const listed = await list(world, users.owner);
+  assert.equal(listed.status, 402);
+  assert.equal(listed.body.error, "SUBSCRIPTION_REQUIRED");
+  assert.equal(
+    listed.reads.some(
+      (read) =>
+        read.table === "workspace_members" && String(read.body).includes("member%3Aprofiles"),
+    ),
+    false,
+    "the protected roster is not read",
+  );
+
+  const before = snapshot(world);
+  const invited = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
+  assert.equal(invited.status, 402);
+  assert.equal(invited.body.error, "SUBSCRIPTION_REQUIRED");
+  assertRefusedCleanly(before, world, invited);
+});
 
 test("the plan is the workspace OWNER's: a manager with no subscription can invite in a Scale workspace", async () => {
   const { world, users } = team("scale");
@@ -255,7 +282,7 @@ test("if the workspace's plan cannot be determined, the action is refused — bu
   const before = snapshot(world);
   const result = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
   assert.equal(result.status, 503);
-  assert.deepEqual(result.body, { error: "ENTITLEMENT_UNAVAILABLE" });
+  assert.equal(result.body.error, "ENTITLEMENT_UNAVAILABLE");
   assertRefusedCleanly(before, world, result);
 });
 
@@ -264,7 +291,8 @@ test("a subscription lookup that fails is treated as no plan (fails closed)", as
   world.failingReads = ["subscriptions"];
   const before = snapshot(world);
   const result = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
-  assert.equal(result.status, 403);
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, "ENTITLEMENT_UNAVAILABLE");
   assertRefusedCleanly(before, world, result);
 });
 
@@ -440,6 +468,7 @@ for (const platformRole of ["user", "admin", "owner", "manager", "support", "Sup
     const world = emptyWorld();
     const user = addUser(world, "u@x.test", platformRole);
     addWorkspace(world, user);
+    addSubscription(world, user, "starter");
     assert.deepEqual(
       (await invite(world, user, { email: "n@x.test", role: "editor" })).body,
       PLAN_REQUIRED,
@@ -494,7 +523,7 @@ test("an unreadable profile does not grant the exception", async () => {
 // ---------- D. PATCH: field-level authorisation ----------
 
 test("no member below owner can change their own lead share, commission or cost", async () => {
-  for (const plan of ["scale", "pro", "none"]) {
+  for (const plan of ["scale", "pro"]) {
     const { world, users, rows } = team(plan);
     for (const [who, row] of [
       [users.manager, rows.manager],
@@ -518,7 +547,7 @@ test("no member below owner can change their own lead share, commission or cost"
 });
 
 test("a member can edit their own job title on any plan — and only that is written", async () => {
-  for (const plan of ["scale", "starter", "none"]) {
+  for (const plan of ["scale", "starter"]) {
     const { world, users, rows } = team(plan);
     const result = await patch(world, users.setter, rows.setter, { jobTitle: "Closer" });
     assert.equal(result.status, 200, plan);
@@ -555,8 +584,8 @@ test("role + compensation on a non-Scale workspace: refused whole, compensation 
   assertRefusedCleanly(before, world, result);
 });
 
-test("compensation and job title edits by an authorised manager need no plan", async () => {
-  for (const plan of ["scale", "pro", "none"]) {
+test("compensation and job title edits by an authorised manager need no Scale plan", async () => {
+  for (const plan of ["scale", "pro", "starter"]) {
     const { world, users, rows } = team(plan);
     const byOwner = await patch(world, users.owner, rows.manager, {
       commission: 20,
@@ -648,8 +677,8 @@ test("out-of-range and malformed values are rejected before any lookup", async (
 
 // ---------- E. DELETE ----------
 
-test("removing a member and cancelling an invite need no plan", async () => {
-  for (const plan of ["none", "starter", "pro", "scale"]) {
+test("removing a member and cancelling an invite need no Scale plan", async () => {
+  for (const plan of ["starter", "pro", "scale"]) {
     const { world, users, rows, workspace } = team(plan);
     const pending = addMember(world, workspace, null, "editor");
     const removed = await remove(world, users.owner, rows.setter);
@@ -785,7 +814,7 @@ for (const [viewer, sees] of [
   ["editor", ["editor"]],
 ] as const) {
   test(`the API shows a ${viewer} the compensation of: ${sees.join(", ")} — and no one else's`, async () => {
-    for (const plan of ["scale", "none"]) {
+    for (const plan of ["scale", "starter"]) {
       const { world, users, rows } = team(plan);
       const result = await list(world, users[viewer]);
       assert.equal(result.status, 200);
@@ -846,12 +875,17 @@ test("the list tells the page what it needs to choose controls, and no billing d
 });
 
 test("viewing the team works on every plan, and when the plan cannot be determined", async () => {
-  for (const plan of ["none", "starter", "pro", "scale"]) {
+  const { world: unpaidWorld, users: unpaidUsers } = team("none");
+  const unpaid = await list(unpaidWorld, unpaidUsers.editor);
+  assert.equal(unpaid.status, 402);
+  assert.equal(unpaid.body.error, "SUBSCRIPTION_REQUIRED");
+
+  for (const plan of ["starter", "pro", "scale"]) {
     const { world, users } = team(plan);
     assert.equal((await list(world, users.editor)).status, 200, plan);
   }
   const { world, users } = team("scale");
-  world.failingReads = ["workspaces"];
+  world.failReadsAfter = { workspaces: 2 };
   const result = await list(world, users.owner);
   assert.equal(result.status, 200);
   assert.deepEqual((result.body.meta as Record<string, unknown>).teamManagement, {
@@ -863,30 +897,34 @@ test("viewing the team works on every plan, and when the plan cannot be determin
 
 // ---------- H. downgrade ----------
 
-test("after a downgrade: everyone stays, roles keep working, only expansion is blocked", async () => {
+test("after a downgrade to no subscription, workspace APIs are blocked and data stays intact", async () => {
   const { world, users, rows } = team("scale");
   const sub = world.subscriptions[0];
   sub.status = "canceled";
   const before = snapshot(world);
 
   const listed = await list(world, users.manager);
-  assert.equal((listed.body.data as Listed[]).length, 5);
+  assert.equal(listed.status, 402);
+  assert.equal(listed.body.error, "SUBSCRIPTION_REQUIRED");
   assert.equal(snapshot(world), before, "nobody was removed or changed by the downgrade");
 
-  assert.deepEqual(
-    (await invite(world, users.owner, { email: "n@x.test", role: "editor" })).body,
-    PLAN_REQUIRED,
-  );
-  assert.deepEqual(
-    (await patch(world, users.owner, rows.editor, { role: "setter" })).body,
-    PLAN_REQUIRED,
-  );
-  assert.equal((await patch(world, users.owner, rows.editor, { commission: 8 })).status, 200);
-  assert.equal((await patch(world, users.editor, rows.editor, { jobTitle: "x" })).status, 200);
-  assert.equal((await remove(world, users.manager, rows.setter)).status, 200);
+  for (const result of [
+    await invite(world, users.owner, { email: "n@x.test", role: "editor" }),
+    await patch(world, users.owner, rows.editor, { role: "setter" }),
+    await patch(world, users.owner, rows.editor, { commission: 8 }),
+    await patch(world, users.editor, rows.editor, { jobTitle: "x" }),
+    await remove(world, users.manager, rows.setter),
+  ]) {
+    assert.equal(result.status, 402);
+    assert.equal(result.body.error, "SUBSCRIPTION_REQUIRED");
+    assert.deepEqual(result.writes, []);
+    assert.deepEqual(result.invitesSent, []);
+    assert.equal(snapshot(world), before, "refused requests leave the roster unchanged");
+  }
 
   // Re-subscribing restores it with no other change.
   sub.status = "active";
+  assert.equal((await list(world, users.manager)).status, 200);
   assert.equal(
     (await invite(world, users.owner, { email: "n@x.test", role: "editor" })).status,
     201,

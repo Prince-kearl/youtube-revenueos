@@ -455,10 +455,11 @@ test("S9 the plan's channel limit and a missing subscription stop a new channel"
   assert.equal(landing, "https://app.test/settings?youtube=channel_limit");
   assert.equal(rowFor(f, BRAND.channels[0].id)?.connection_id ?? null, null);
   const g = fixture(null);
-  assert.equal(
-    (await connect(g, g.owner, ALICE)).landing,
-    "https://app.test/settings?youtube=subscription_required",
-  );
+  const unpaid = await connect(g, g.owner, ALICE);
+  assert.equal(unpaid.start.status, 302);
+  assert.equal(unpaid.start.headers.get("location"), "/billing");
+  assert.equal(unpaid.landing, null, "Google is never opened without workspace access");
+  assert.equal(g.google.length, 0);
   assert.equal(g.world.youtube_channels!.length, 0);
 });
 

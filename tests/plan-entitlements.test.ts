@@ -16,8 +16,8 @@ import { createHmac } from "node:crypto";
 // Phase 4B-2: what a workspace's subscription gives it, decided on the server
 // (src/lib/server/plan-access.ts) — Starter 1 channel and 5 AI analyses a month, Pro 3 and 50,
 // Scale 10 and 250 plus team management; a 14-day trial gets its plan in full; without an active
-// or trialing subscription the paid routes refuse (402) and nothing is read, while billing,
-// settings, team and recovery stay open and no data is touched.
+// or trialing subscription the paid routes refuse (402) and nothing is read. Billing, support,
+// profile and account recovery remain available; app routes do not.
 
 const env = (globalThis as Record<string, unknown>).__env__ as Record<string, string>;
 env.OPENROUTER_API_KEY = "or-test-key";
@@ -29,9 +29,17 @@ const routes = {
   trackingLinks: await import("../src/routes/api.tracking-links"),
   notifications: await import("../src/routes/api.notifications"),
   members: await import("../src/routes/api.workspace.members"),
+  onboarding: await import("../src/routes/api.onboarding.status"),
+  branding: await import("../src/routes/api.workspace.branding"),
+  revenueVisibility: await import("../src/routes/api.workspace.revenue-visibility"),
   subscription: await import("../src/routes/api.billing.subscription"),
+  youtubeChannels: await import("../src/routes/api.youtube.channels"),
   youtubeVideos: await import("../src/routes/api.youtube.videos"),
   connections: await import("../src/routes/api.youtube.connections"),
+  youtubeSettings: await import("../src/routes/api.youtube.settings"),
+  features: await import("../src/routes/api.features.access"),
+  integrations: await import("../src/routes/api.integrations"),
+  youtubeLocation: await import("../src/routes/api.youtube.location"),
   analyzeContent: await import("../src/routes/api.videos.analyze-content"),
   webhook: await import("../src/routes/api.stripe.webhook"),
 };
@@ -179,7 +187,7 @@ test("platform staff get Scale in a workspace they belong to (the existing staff
   );
 });
 
-test("without a plan, billing, team, notifications and the plan notice stay open — and data is kept", async () => {
+test("without an entitlement, app APIs refuse before reading or writing workspace data", async () => {
   const f = world({ plan: null });
   f.rows.youtube_channels.push({
     id: uuid(),
@@ -188,14 +196,36 @@ test("without a plan, billing, team, notifications and the plan notice stay open
     connection_id: uuid(),
   });
   const before = JSON.stringify(f.rows.youtube_channels);
-  for (const [route, path] of [
+  const protectedRoutes = [
     [routes.notifications, "/api/notifications"],
     [routes.members, "/api/workspace/members"],
-    [routes.subscription, "/api/billing/subscription"],
-  ] as const) {
+    [routes.onboarding, "/api/onboarding/status"],
+    [routes.branding, "/api/workspace/branding"],
+    [routes.revenueVisibility, "/api/workspace/revenue-visibility"],
+    [routes.youtubeChannels, "/api/youtube/channels"],
+    [routes.connections, "/api/youtube/connections"],
+    [routes.youtubeSettings, "/api/youtube/settings"],
+    [routes.features, "/api/features/access"],
+    [routes.integrations, "/api/integrations"],
+    [routes.youtubeLocation, "/api/youtube/location"],
+  ] as const;
+  for (const [route, path] of protectedRoutes) {
     const r = await get(f, f.owner, route, path);
-    assert.equal(r.status, 200, `${path}: ${r.text}`);
+    assert.equal(r.status, 402, `${path}: ${r.text}`);
+    assert.ok(onlyPlanReads(r), `${path}: only entitlement data is read`);
+    assert.equal(r.writes.length, 0, `${path}: no writes on refusal`);
   }
+  const deniedWrite = await callTeamApi(routes.notifications, f.w, {
+    as: f.owner,
+    method: "POST",
+    path: "/api/notifications",
+    body: {},
+  });
+  assert.equal(deniedWrite.status, 402, "the plan check happens before request validation");
+  assert.equal(deniedWrite.writes.length, 0);
+
+  const billing = await get(f, f.owner, routes.subscription, "/api/billing/subscription");
+  assert.equal(billing.status, 200, "billing must remain accessible");
   const sub = await get(f, f.owner, routes.subscription, "/api/billing/subscription");
   assert.deepEqual(sub.body.data.access, {
     plan: null,
@@ -296,7 +326,7 @@ test("after a downgrade the workspace keeps every channel; it only cannot add an
   assert.ok(![402, 409].includes(renew.status), "renewing one of them still works");
 });
 
-test("connecting a channel needs a subscription; renewing one does not", async () => {
+test("connecting or renewing a channel requires workspace access", async () => {
   const f = world({ plan: null });
   connectedChannels(f, f.ws, 1);
   const r = await connect(f, f.owner, "UCnew");
@@ -304,7 +334,8 @@ test("connecting a channel needs a subscription; renewing one does not", async (
   assert.equal(r.body.error, "SUBSCRIPTION_REQUIRED");
   assert.deepEqual(channelWrites(r), []);
   const renew = await connect(f, f.owner, "UCown0");
-  assert.ok(![402, 409].includes(renew.status), `${renew.status}`);
+  assert.equal(renew.status, 402);
+  assert.deepEqual(channelWrites(renew), []);
   // A channel list that cannot be read refuses (never "probably under the limit").
   const g = world({ plan: "scale" });
   g.w.failingReads = ["youtube_channels"];
@@ -797,35 +828,31 @@ test("only the listed analysis tasks can be reserved — anything else is refuse
 
 // ---------- what stays open without a subscription, and what never does ----------
 
-test("essential routes stay open without a subscription; paid routes never opt out", async () => {
+test("billing, account recovery and public pages stay open; app routes require a plan", async () => {
   const { readFileSync } = await import("node:fs");
   const read = (file: string) => readFileSync(`src/routes/${file}`, "utf8");
   const gated =
     /requirePaidSession\(|getWorkspaceContext\(request\)|requireWorkspaceFeature\(request, "[a-z_]+"\)|revenueReadContext\(/;
-  // Sign-in and recovery, billing and the trial, the billing portal, account and security
-  // settings, YouTube authorization and channel settings, support, and the public pages a
-  // creator's audience uses (tracked-link redirects, lead pages, opt-ins): no plan check at all.
+  // Billing, personal account/security recovery, support and public creator pages remain
+  // available so an unpaid account can subscribe, recover access and contact support.
   for (const file of [
     "api.billing.checkout.ts",
     "api.billing.portal.ts",
     "api.billing.subscription.ts",
     "api.profile.ts",
     "api.security.recovery-codes.ts",
-    "api.settings.ts",
-    "api.features.access.ts",
-    "api.youtube.auth.ts",
-    "api.youtube.channels.ts",
-    "api.youtube.settings.ts",
     "api.support.contact.ts",
+    "api.support.tickets.ts",
     "r.$slug.ts",
     "api.freebies.public.ts",
     "api.freebies.optin.ts",
     "api.referrals.click.ts",
   ])
     assert.doesNotMatch(read(file), gated, `${file} is open without a plan`);
-  // Workspace routes a customer needs to subscribe, recover or manage their account opt out —
-  // every call in them.
+  // Workspace/app APIs must require the same server-side entitlement as their screens. The
+  // billing subscription endpoint is the intentional exception above.
   for (const file of [
+    "api.features.access.ts",
     "api.onboarding.status.ts",
     "api.notifications.ts",
     "api.workspace.members.ts",
@@ -833,12 +860,16 @@ test("essential routes stay open without a subscription; paid routes never opt o
     "api.workspace.revenue-visibility.ts",
     "api.youtube.callback.ts",
     "api.youtube.connections.ts",
+    "api.youtube.auth.ts",
+    "api.youtube.channels.ts",
+    "api.youtube.settings.ts",
+    "api.youtube.diagnostics.ts",
+    "api.youtube.location.ts",
     "api.integrations.ts",
-    "api.support.tickets.ts",
   ]) {
     const source = read(file);
-    assert.doesNotMatch(source, gated, `${file}: every call opts out`);
-    assert.match(source, /requirePlan: false/, file);
+    assert.match(source, gated, `${file}: must check workspace entitlement`);
+    assert.doesNotMatch(source, /requirePlan: false/, `${file} stays paid`);
   }
   // The paid routes — analytics, revenue, opportunities, links, deals, AI — never opt out.
   for (const file of [

@@ -344,8 +344,8 @@ test("production with a test key: a stored subscription grants no plan, no team 
     assert.equal(r.status, 402);
     assert.equal(r.body.error, "SUBSCRIPTION_REQUIRED");
     const team = await invite(f);
-    assert.equal(team.status, 403);
-    assert.equal(team.body.error, "PLAN_REQUIRED");
+    assert.equal(team.status, 402);
+    assert.equal(team.body.error, "SUBSCRIPTION_REQUIRED");
     const sub = await callTeamApi(routes.subscription, f.w, {
       as: f.owner,
       method: "GET",
@@ -471,8 +471,8 @@ test("production: only a subscription marked livemode = true grants a plan, team
       assert.equal(r.body.error, "SUBSCRIPTION_REQUIRED", label);
       assert.equal((await paid(f, f.editor)).status, 402, `${label}: nor for a member`);
       const team = await invite(f);
-      assert.equal(team.status, 403, label);
-      assert.equal(team.body.error, "PLAN_REQUIRED", label);
+      assert.equal(team.status, 402, label);
+      assert.equal(team.body.error, "SUBSCRIPTION_REQUIRED", label);
       assert.equal(team.invitesSent.length, 0, label);
       const status = await billingStatus(f);
       assert.equal(status.body.data.subscription, null, label);

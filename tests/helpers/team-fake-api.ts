@@ -687,7 +687,7 @@ export async function callTeamApi(
     }
 
     writes.push({ method, table, as, body });
-    if (method === "POST" && world.refuseWrites?.[table])
+    if (method !== "GET" && method !== "HEAD" && world.refuseWrites?.[table])
       return json({ code: world.refuseWrites[table], message: "refused by the database" }, 400);
     if (method === "POST") {
       const incoming = (Array.isArray(body) ? body : [body]) as Row[];

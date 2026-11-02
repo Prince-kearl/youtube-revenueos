@@ -262,12 +262,9 @@ test("tabs grant nothing: each tab is checked on its own, and a hub leads to a p
 
 test("the server still authorises team management itself; the nav is not the gate", () => {
   const members = read("src/routes/api.workspace.members.ts");
-  // (Phase 4B-2: viewing and removing members needs no subscription — inviting still needs Scale,
-  // which the route checks itself.)
-  assert.ok(
-    (members.match(/requireWorkspaceFeature\(request, "team", \{ requirePlan: false \}\)/g) ?? [])
-      .length >= 4,
-  );
+  // A workspace plan is required before the route applies its role and team-management rules.
+  assert.ok((members.match(/requireWorkspaceFeature\(request, "team"\)/g) ?? []).length >= 4);
+  assert.doesNotMatch(members, /requirePlan: false/);
   // The layout still applies both checks to every entry it renders.
   const layout = read("src/components/DashboardLayout.tsx");
   assert.match(

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
+import { requirePaidSession } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
 import { fetchAuthorizedYoutubeChannel } from "@/lib/server/google-oauth";
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/youtube/location")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, user } = await requireSessionUser(request);
+          const { client, user } = await requirePaidSession(request);
           // The channel open in the app's channel switcher; without one, the latest connected.
           const requested = new URL(request.url).searchParams.get("channelId");
           if (requested && !isUuid(requested)) return json(NO_LOCATION);

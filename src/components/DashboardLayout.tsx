@@ -77,6 +77,7 @@ import { NotificationRow, type AppNotification } from "@/components/Notification
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { SubscriptionNotice } from "@/components/SubscriptionNotice";
 import { MobileDock } from "@/components/MobileDock";
+import { hasWorkspaceAppAccess, type WorkspaceAccess } from "@/lib/plan-notice";
 import { openOnboardingGuide } from "@/lib/onboarding";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
@@ -235,15 +236,108 @@ function rankSearchMatches<T>(
 /** How often an open, visible app re-checks its notifications. */
 const NOTIFICATION_POLL_MS = 60_000;
 
-export function DashboardLayout({
-  children,
-  hideAppNav,
-}: {
-  /** The page's name. Not shown in the top bar (each page has its own heading). */
+type DashboardLayoutProps = {
   title: string;
   children: ReactNode;
   hideAppNav?: boolean;
-}) {
+};
+
+type AppAccessState =
+  | { status: "checking" }
+  | { status: "allowed"; userId: string }
+  | { status: "error"; userId: string };
+
+export function DashboardLayout(props: DashboardLayoutProps) {
+  const { user, loading: authLoading } = useAuthSession();
+  const navigate = useNavigate();
+  const [accessState, setAccessState] = useState<AppAccessState>({ status: "checking" });
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    if (IS_LOCAL_DEMO || authLoading) return;
+    if (!user) {
+      void navigate({ to: "/", replace: true });
+      return;
+    }
+
+    const controller = new AbortController();
+    setAccessState({ status: "checking" });
+    fetch("/api/billing/subscription", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
+          void navigate({ to: "/", replace: true });
+          return;
+        }
+        if (!response.ok) throw new Error("SUBSCRIPTION_CHECK_FAILED");
+        const body = (await response.json()) as {
+          data?: { access?: WorkspaceAccess | null };
+        };
+        if (!body.data || body.data.access?.source === "unavailable") {
+          setAccessState({ status: "error", userId: user.id });
+          return;
+        }
+        if (!hasWorkspaceAppAccess(body.data.access)) {
+          void navigate({ to: "/billing", replace: true });
+          return;
+        }
+        setAccessState({ status: "allowed", userId: user.id });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        console.error("Workspace subscription check failed", error);
+        setAccessState({ status: "error", userId: user.id });
+      });
+
+    return () => controller.abort();
+  }, [authLoading, navigate, retry, user]);
+
+  const currentAccessState =
+    accessState.status !== "checking" && accessState.userId !== user?.id
+      ? { status: "checking" as const }
+      : accessState;
+  const canRenderApp =
+    IS_LOCAL_DEMO ||
+    (!authLoading &&
+      user !== null &&
+      currentAccessState.status === "allowed" &&
+      currentAccessState.userId === user.id);
+
+  if (canRenderApp) return <DashboardLayoutContent {...props} />;
+
+  if (currentAccessState.status === "error" && currentAccessState.userId === user?.id) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <section
+          className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-sm"
+          role="alert"
+        >
+          <h1 className="text-lg font-semibold">We couldn't verify your subscription</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            App access is paused until we can confirm your workspace plan. Please try again or
+            contact support if the problem continues.
+          </p>
+          <div className="mt-5 flex justify-center gap-2">
+            <Button onClick={() => setRetry((value) => value + 1)}>Try again</Button>
+            <Button variant="outline" asChild>
+              <Link to="/billing">Billing</Link>
+            </Button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading" />
+    </div>
+  );
+}
+
+function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) {
   const { user, loading: authLoading } = useAuthSession();
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useSidebarCollapsed();

@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSessionUser } from "@/lib/server/supabase-ssr";
 import { getWorkspaceContext } from "@/lib/server/workspace";
 import { buildSetCookie, getCookie, buildExpiredCookie } from "@/lib/server/cookies";
 import {
@@ -32,9 +31,7 @@ export const Route = createFileRoute("/api/integrations")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const { data, error } = await client
             .from("connected_integrations")
             .select(
@@ -50,7 +47,7 @@ export const Route = createFileRoute("/api/integrations")({
       },
       DELETE: async ({ request }) => {
         try {
-          const { client } = await requireSessionUser(request);
+          const { client } = await getWorkspaceContext(request);
           const provider = new URL(request.url).searchParams.get("provider") ?? "";
           if (!isProvider(provider)) return json({ error: "INVALID_PROVIDER" }, { status: 422 });
           const { error } = await client
@@ -66,7 +63,7 @@ export const Route = createFileRoute("/api/integrations")({
       },
       POST: async ({ request }) => {
         try {
-          const { setCookieHeaders } = await requireSessionUser(request);
+          const { setCookieHeaders } = await getWorkspaceContext(request);
           const provider = new URL(request.url).searchParams.get("provider") ?? "";
           if (!isProvider(provider)) return json({ error: "INVALID_PROVIDER" }, { status: 422 });
           const state = crypto.randomUUID();
@@ -104,9 +101,14 @@ export async function completeProviderConnection(request: Request, provider: Ext
   const returnTo = "/settings";
   if (!state || expected !== `${provider}:${state}`)
     return redirect(`${returnTo}?integration=invalid_state`, request);
-  const { user, workspaceId, setCookieHeaders } = await getWorkspaceContext(request, {
-    requirePlan: false,
-  });
+  let context: Awaited<ReturnType<typeof getWorkspaceContext>>;
+  try {
+    context = await getWorkspaceContext(request);
+  } catch (error) {
+    if (error instanceof Response && error.status === 402) return redirect("/billing", request);
+    throw error;
+  }
+  const { user, workspaceId, setCookieHeaders } = context;
   const code = url.searchParams.get("code");
   if (!code) return redirect(`${returnTo}?integration=provider_error`, request);
   const tokens = await exchangeProviderCode(provider, code);

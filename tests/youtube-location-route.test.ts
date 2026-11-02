@@ -19,10 +19,12 @@ const { encryptSecretToBytea } = await import("../src/lib/server/crypto");
 const route = await import("../src/routes/api.youtube.location");
 
 const USER = "bbbbbbbb-0000-4000-8000-000000000002";
+const WORKSPACE = "22222222-2222-4222-8222-222222222222";
 const CHANNEL_ROW = "aaaaaaaa-0000-4000-8000-000000000001";
 
 interface Scenario {
   signedIn?: boolean;
+  paid?: boolean;
   /** The caller's own connected channel, or none. */
   ownChannel?: boolean;
   /** What YouTube reports as the channel's country (undefined: none set). */
@@ -35,6 +37,7 @@ interface Scenario {
 async function call(scenario: Scenario = {}) {
   const {
     signedIn = true,
+    paid = true,
     ownChannel = true,
     country,
     youtubeFails = false,
@@ -70,6 +73,25 @@ async function call(scenario: Scenario = {}) {
       return signedIn
         ? json({ id: USER, aud: "authenticated", role: "authenticated", email: "t@test" })
         : json({ message: "invalid JWT" }, 401);
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/workspace_members")
+      return json({ workspace_id: WORKSPACE, role: "owner" });
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/workspaces")
+      return json({
+        owner_id: USER,
+        created_at: "2026-10-01T00:00:00Z",
+        channel_limit_override: null,
+      });
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/subscriptions")
+      return json(
+        paid
+          ? {
+              plan_id: "pro",
+              status: "active",
+              current_period_end: "2027-01-01T00:00:00Z",
+            }
+          : null,
+      );
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/profiles") return json(null);
     if (url.origin === SUPABASE && url.pathname === "/rest/v1/youtube_channels") {
       channelQueries.push(url);
       const row = ownChannel ? channelRow : null;
@@ -165,6 +187,14 @@ test("signed out: refused, and nothing is read from YouTube", async () => {
   });
   assert.equal(status, 401);
   assert.equal(body.data, undefined);
+  assert.equal(youtubeCalls, 0);
+  assert.equal(channelQueries.length, 0);
+});
+
+test("an unpaid workspace is refused before channel data or YouTube is read", async () => {
+  const { status, body, youtubeCalls, channelQueries } = await call({ paid: false, country: "GH" });
+  assert.equal(status, 402);
+  assert.equal(body.error, "SUBSCRIPTION_REQUIRED");
   assert.equal(youtubeCalls, 0);
   assert.equal(channelQueries.length, 0);
 });

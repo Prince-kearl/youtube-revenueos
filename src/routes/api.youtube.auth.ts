@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { canManageWorkspaceMembers, getWorkspaceMembership } from "@/lib/server/workspace";
+import { canManageWorkspaceMembers, getWorkspaceContext } from "@/lib/server/workspace";
 import {
   assertYoutubeOAuthConfigured,
   buildGoogleAuthorizationUrl,
@@ -18,14 +18,14 @@ function redirectNoWorkspace() {
 export const Route = createFileRoute("/api/youtube/auth")({
   server: {
     handlers: {
-      // Entry point for the "Connect YouTube Channel" button — requires an existing Supabase
-      // session (cookie) and redirects the browser straight to Google's consent screen.
+      // Entry point for the "Connect YouTube Channel" button — requires an entitled workspace
+      // session and redirects the browser straight to Google's consent screen.
       GET: async ({ request }) => {
         const requestUrl = new URL(request.url);
         const safeReturnTo = safeAppPath(requestUrl.searchParams.get("returnTo"), "/settings");
         try {
           const { client, workspaceId, workspaceRole, setCookieHeaders } =
-            await getWorkspaceMembership(request);
+            await getWorkspaceContext(request);
           const back = (path: string) => {
             const response = new Response(null, { status: 302, headers: { Location: path } });
             for (const cookie of setCookieHeaders) response.headers.append("Set-Cookie", cookie);
@@ -79,6 +79,8 @@ export const Route = createFileRoute("/api/youtube/auth")({
           if (error instanceof Response) {
             // No session, or it expired: sign in, then come back here to try again.
             if (error.status === 401) return signInRedirect(safeReturnTo);
+            if (error.status === 402)
+              return new Response(null, { status: 302, headers: { Location: "/billing" } });
             // Signed in but no workspace yet: Settings explains.
             if (error.status === 403) return redirectNoWorkspace();
           }

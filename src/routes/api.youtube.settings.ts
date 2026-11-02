@@ -50,9 +50,7 @@ export const Route = createFileRoute("/api/youtube/settings")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
@@ -76,9 +74,7 @@ export const Route = createFileRoute("/api/youtube/settings")({
       },
       PATCH: async ({ request }) => {
         try {
-          const { client, workspaceId } = await getWorkspaceContext(request, {
-            requirePlan: false,
-          });
+          const { client, workspaceId } = await getWorkspaceContext(request);
           const requestedChannelId = new URL(request.url).searchParams.get("channelId");
           if (requestedChannelId && !isUuid(requestedChannelId))
             return json({ error: "VALIDATION_ERROR" }, { status: 422 });
