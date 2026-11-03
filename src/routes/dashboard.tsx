@@ -190,7 +190,8 @@ function signed(value: number, formatter: (n: number) => string): string {
 }
 
 // Mobile carousel: exactly 1 KPI card visible per "page". sm+ resets back to a normal grid item.
-const kpiCardClassName = "w-full shrink-0 snap-start sm:w-auto sm:shrink sm:snap-align-none";
+const kpiCardClassName =
+  "w-full shrink-0 snap-start sm:w-full sm:shrink sm:snap-align-none";
 // Clone of the first real card, appended after the last one so autoplay can scroll straight past
 // the end into a visually-identical duplicate, then jump back to the real first card the instant
 // that scroll finishes — the loop reads as continuous forward motion, never a snap-back. sm+ hides
@@ -541,7 +542,7 @@ function Dashboard() {
 
       <div
         ref={kpiScrollRef}
-        className="flex shrink-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:pb-0 sm:pt-0 xl:grid-cols-3 [&::-webkit-scrollbar]:hidden"
+        className="dashboard-kpi-grid flex shrink-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] sm:snap-none sm:overflow-visible sm:pb-0 sm:pt-0 [&::-webkit-scrollbar]:hidden"
         aria-busy={youtubeStatus === "loading"}
         aria-label={youtubeStatus === "loading" ? "Loading key metrics" : undefined}
       >

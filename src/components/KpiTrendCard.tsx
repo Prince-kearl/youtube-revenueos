@@ -21,12 +21,12 @@ function smoothSeries(values: number[], window = 3): number[] {
 // full control over that point's pixel position, which the floating box below is placed against.
 function MiniAreaTrend({
   data,
-  positive,
+  accent,
   markerTitle,
   markerSubtitle,
 }: {
   data: number[];
-  positive: boolean;
+  accent: string;
   markerTitle: string;
   markerSubtitle: string;
 }) {
@@ -75,10 +75,10 @@ function MiniAreaTrend({
   // near-final value, not literally the last pixel of the curve).
   const markerIndex = Math.max(0, points.length - 2);
   const marker = points[markerIndex];
-  const color = positive ? "var(--success)" : "var(--destructive)";
+  const color = accent;
 
   return (
-    <div className="relative h-32 w-full sm:h-[84px]">
+    <div className="relative h-[76px] w-full sm:h-[72px]">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
@@ -119,7 +119,7 @@ function MiniAreaTrend({
         />
       </svg>
       <div
-        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+6px)] whitespace-nowrap rounded-lg border border-border bg-card px-1.5 py-0.5 text-[9px] shadow-md sm:-translate-y-[calc(100%+10px)] sm:px-2.5 sm:py-1 sm:text-xs"
+        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-none border border-[#e5e7eb] bg-white px-1.5 py-0.5 text-[8px] leading-tight shadow-none sm:-translate-y-[calc(100%+5px)] sm:px-2 sm:py-1 sm:text-[9px]"
         style={{ left: `${(marker.x / width) * 100}%`, top: `${(marker.y / height) * 100}%` }}
       >
         <p className="font-semibold text-foreground">{markerTitle}</p>
@@ -197,22 +197,23 @@ export function KpiTrendCard({
   return (
     <div
       className={cn(
-        "kpi-trend-card relative flex flex-row items-stretch gap-3 rounded-xl border-[3px] border-white bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-lg dark:border-white/15 dark:shadow-none sm:gap-3 sm:rounded-2xl sm:p-4",
+        "kpi-trend-card relative flex flex-row items-stretch gap-2 rounded-none border bg-white px-3 py-2.5 shadow-none sm:gap-3 sm:px-3.5 sm:py-2.5",
         className,
       )}
       style={{
-        backgroundImage: `radial-gradient(140% 140% at 0% 0%, color-mix(in srgb, ${accent} 16%, transparent) 0%, transparent 60%)`,
+        backgroundImage: `radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, ${accent} 13%, white) 0%, rgba(255,255,255,0.82) 66%, rgba(255,255,255,0.98) 100%)`,
+        borderColor: `color-mix(in srgb, ${accent} 32%, #d9dee5)`,
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">
         <div className="flex flex-wrap items-center justify-between gap-1 sm:gap-2">
-          <p className="text-xs font-medium text-foreground/80">{title}</p>
+          <p className="text-[10px] font-normal leading-none text-muted-foreground">{title}</p>
           {changePercent !== null && (
             <div className="hidden items-center gap-1.5 text-xs sm:flex">
               <span
                 className={cn(
-                  "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-semibold",
-                  positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
+                  "flex items-center gap-0.5 font-medium",
+                  positive ? "text-success" : "text-destructive",
                 )}
               >
                 {positive ? (
@@ -222,15 +223,15 @@ export function KpiTrendCard({
                 )}
                 {Math.abs(changePercent).toFixed(1)}%
               </span>
-              <span className="hidden text-muted-foreground md:inline">{periodLabel}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="hidden text-[10px] font-normal text-muted-foreground md:inline">{periodLabel}</span>
+              <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
           )}
           {changePercent !== null && (
             <span
               className={cn(
-                "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold sm:hidden",
-                positive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
+                "flex items-center gap-0.5 text-[10px] font-medium sm:hidden",
+                positive ? "text-success" : "text-destructive",
               )}
             >
               {positive ? (
@@ -244,8 +245,8 @@ export function KpiTrendCard({
         </div>
 
         <div className="mt-2">
-          <p className="text-3xl font-bold leading-tight tracking-tight text-foreground">{value}</p>
-          <p className="mt-1.5 text-sm leading-tight sm:text-xs">
+          <p className="text-[21px] font-bold leading-none tracking-tight text-foreground">{value}</p>
+          <p className="mt-1.5 text-[10px] leading-tight sm:text-[10px]">
             <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>
               {deltaLabel}
             </span>{" "}
@@ -255,11 +256,11 @@ export function KpiTrendCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        <MiniAreaTrend
-          data={series}
-          positive={positive}
-          markerTitle={markerTitle}
-          markerSubtitle={markerSubtitle}
+          <MiniAreaTrend
+            data={series}
+            accent={accent}
+            markerTitle={markerTitle}
+            markerSubtitle={markerSubtitle}
         />
       </div>
     </div>

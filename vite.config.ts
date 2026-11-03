@@ -33,6 +33,11 @@ const nitro = {
 };
 
 export default defineConfig({
+  vite: {
+    server: {
+      allowedHosts: ["8080-ixnifl0o5gxxfrysubgwk-903faa19.us5.manus.computer"],
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

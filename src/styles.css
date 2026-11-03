@@ -2,6 +2,22 @@
 @source "../src";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "MTN Brighter Sans";
+  src: url("/fonts/MTNBrighterSans-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MTN Brighter Sans";
+  src: url("/fonts/MTNBrighterSans-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -17,7 +33,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --font-sans: "Roboto", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "MTN Brighter Sans", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -203,7 +219,27 @@
 .dashboard-main > * {
   margin-top: 0;
 }
-
+/* Keep dashboard KPI cards consistent across screen sizes. Fixed responsive column counts prevent
+   auto-fit from switching to four columns on ultra-wide screens, which makes the six cards split
+   unevenly and compresses their text/chart proportions. Below the sm breakpoint the route's
+   horizontal carousel rules remain in control. */
+.dashboard-kpi-grid {
+  width: 100%;
+  max-width: 1200px;
+}
+@media (min-width: 640px) {
+  .dashboard-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: start;
+    align-items: stretch;
+  }
+}
+@media (min-width: 1024px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 /* iOS Safari auto-zooms the page on focus for any field under 16px — most inputs in this app
    use text-sm (14px). Kept unlayered (outside @layer) so it beats Tailwind's utility classes,
    which otherwise win over anything inside @layer base regardless of source order. Scoped to
@@ -574,7 +610,7 @@
    (this project's Tailwind v4 utilities sit in @layer utilities, which loses to unlayered custom
    CSS regardless of source order), so no JSX change is needed for the admin control to take effect. */
 .kpi-trend-card {
-  border-radius: var(--kpi-card-radius);
+  border-radius: 0;
 }
 .ios26 .kpi-trend-card {
   border-color: color-mix(in srgb, white 40%, transparent);
