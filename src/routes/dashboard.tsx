@@ -150,6 +150,10 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
+function formatKpiCurrency(text: string): string {
+  return text.replace(/\$/g, "USD ");
+}
+
 function formatHours(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
     value / 60,
@@ -419,7 +423,7 @@ function Dashboard() {
           : revenue.state === "empty"
             ? "Your revenue history is still being imported. Check back shortly."
             : "No estimated revenue was reported for this period.";
-  const revenueValue = (text: string) => (revenueLoading ? "…" : text);
+  const revenueValue = (text: string) => (revenueLoading ? "…" : formatKpiCurrency(text));
   const totalWatchTime =
     dashboardData?.watchTimeStatus === "available"
       ? dashboardData.analytics.reduce((sum, row) => sum + Number(row.watchTimeMinutes ?? 0), 0)
@@ -557,7 +561,7 @@ function Dashboard() {
               title="Estimated Revenue"
               accent="var(--brand-green)"
               value={revenueValue(revenue.total.text)}
-              deltaLabel={revenue.changeText}
+              deltaLabel={formatKpiCurrency(revenue.changeText)}
               deltaSuffix={
                 revenue.total.partial
                   ? `${revenue.comparisonLabel} · partly reported`
@@ -566,7 +570,7 @@ function Dashboard() {
               changePercent={revenue.changePercent}
               periodLabel={revenue.periodLabel}
               series={revenue.series}
-              markerTitle={revenue.latest?.text ?? "—"}
+              markerTitle={formatKpiCurrency(revenue.latest?.text ?? "—")}
               markerSubtitle={revenue.latest?.label ?? ""}
               positive={revenue.positive}
             />
@@ -586,7 +590,7 @@ function Dashboard() {
               changePercent={null}
               periodLabel={revenue.periodLabel}
               series={revenue.series}
-              markerTitle={revenue.latest?.text ?? "—"}
+              markerTitle={formatKpiCurrency(revenue.latest?.text ?? "—")}
               markerSubtitle={revenue.latest?.label ?? ""}
               positive
             />
@@ -663,7 +667,7 @@ function Dashboard() {
                 title="Estimated Revenue"
                 accent="var(--brand-green)"
                 value={revenueValue(revenue.total.text)}
-                deltaLabel={revenue.changeText}
+                deltaLabel={formatKpiCurrency(revenue.changeText)}
                 deltaSuffix={
                   revenue.total.partial
                     ? `${revenue.comparisonLabel} · partly reported`
@@ -672,7 +676,7 @@ function Dashboard() {
                 changePercent={revenue.changePercent}
                 periodLabel={revenue.periodLabel}
                 series={revenue.series}
-                markerTitle={revenue.latest?.text ?? "—"}
+                markerTitle={formatKpiCurrency(revenue.latest?.text ?? "—")}
                 markerSubtitle={revenue.latest?.label ?? ""}
                 positive={revenue.positive}
               />

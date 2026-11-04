@@ -327,21 +327,23 @@
     color-mix(in srgb, var(--card) 58%, transparent);
 }
 
-/* App cards (every signed-in page's main area): no outline. The same plain fill and one soft
-   shadow on every card, so pages read as one uniform surface; cards inside a card are a flat
-   tint instead; the mouse-follow glow outline is off. `:root` keeps these above the .ios26 /
-   .ios26.dark variants of the shared card styles. */
+/* App cards (every signed-in page's main area): use one quiet neutral outline and a restrained
+   surface treatment, so cards remain distinct without competing with their content. `:root` keeps
+   these above the .ios26 / .ios26.dark variants of the shared card styles. */
 :root .dashboard-main .card-gradient-outline {
-  border-color: transparent;
+  border-color: #d9dee5;
   background: var(--card);
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 12px 32px -20px rgba(15, 23, 42, 0.22);
 }
 :root .dashboard-main .card-frost {
-  border-color: transparent;
+  border-color: #d9dee5;
   background: color-mix(in srgb, var(--accent) 55%, var(--card));
   box-shadow: none;
+}
+:root .dashboard-main .dashboard-card {
+  border: 1px solid #d9dee5;
 }
 
 .dashboard-main .glowing-effect {
@@ -611,17 +613,19 @@
    CSS regardless of source order), so no JSX change is needed for the admin control to take effect. */
 .kpi-trend-card {
   border-radius: 0;
+  border-color: #d9dee5;
+  background-color: #ffffff;
+  box-shadow: none;
 }
 .ios26 .kpi-trend-card {
-  border-color: color-mix(in srgb, white 40%, transparent);
-  background-color: color-mix(in srgb, var(--card) 55%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 30%, transparent),
-    0 14px 30px -20px rgba(0, 0, 0, 0.35);
+  border-color: #d9dee5;
+  background-color: #ffffff;
+  box-shadow: none;
 }
 .ios26.dark .kpi-trend-card {
-  border-color: color-mix(in srgb, white 12%, transparent);
-  background-color: color-mix(in srgb, var(--card) 62%, transparent);
+  border-color: #d9dee5;
+  background-color: #ffffff;
+  box-shadow: none;
 }
 
 /* Gradient variant of .card-frost — same translucent base + backdrop-blur-lg pairing, but the
@@ -746,6 +750,17 @@ html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
     );
 }
 
+/* Keep the dashboard canvas neutral behind KPI cards and content. KPI accents remain on their
+   borders, charts, and trend indicators rather than tinting the page background. */
+html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
+  background-color: #ffffff;
+  background-image: none;
+}
+html:not(.dark) .dashboard-shell::before,
+html:not(.dark) .dashboard-shell::after {
+  display: none;
+}
+
 /* With the wallpaper on, the shell's own opaque fill would otherwise sit on top of and completely
    hide the .ios26_light/.ios26_dark image set on <body> — go transparent here so it shows through
    the gaps around cards/nav instead, the way the rest of this system's glass surfaces already
@@ -753,6 +768,16 @@ html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
    image means nothing to reveal, so the shell stays opaque when just .ios26 is on. */
 .ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
   background-color: transparent;
+  background-image: none;
+}
+
+/* KPI-focused dashboard surfaces stay white even when the iOS 26 wallpaper is enabled. */
+html:not(.dark) .ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
+  background-color: #ffffff;
+  background-image: none;
+}
+html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
+  background-color: #ffffff;
   background-image: none;
 }
 

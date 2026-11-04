@@ -78,7 +78,7 @@ function MiniAreaTrend({
   const color = accent;
 
   return (
-    <div className="relative h-[92px] w-full sm:h-[92px]">
+    <div className="relative h-[112px] w-full sm:h-[112px]">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
@@ -197,12 +197,14 @@ export function KpiTrendCard({
   return (
     <div
       className={cn(
-        "kpi-trend-card relative flex min-h-[108px] flex-row items-stretch gap-2 rounded-none border bg-white px-3 py-3 shadow-none sm:gap-3 sm:px-3.5 sm:py-3",
+        "kpi-trend-card relative flex min-h-[132px] flex-row items-stretch gap-2 rounded-none border bg-white px-3 py-3.5 shadow-none sm:gap-3 sm:px-3.5 sm:py-3.5",
         className,
       )}
       style={{
-        backgroundImage: `radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, ${accent} 13%, white) 0%, rgba(255,255,255,0.82) 66%, rgba(255,255,255,0.98) 100%)`,
-        borderColor: `color-mix(in srgb, ${accent} 32%, #d9dee5)`,
+        backgroundColor: "#ffffff",
+        backgroundImage:
+          "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--primary) 12%, white) 0%, rgba(255,255,255,0.88) 66%, #ffffff 100%)",
+        borderColor: "#d9dee5",
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">
@@ -258,7 +260,7 @@ export function KpiTrendCard({
       <div className="min-w-0 flex-1">
           <MiniAreaTrend
             data={series}
-            accent={accent}
+            accent={positive ? "var(--success)" : "var(--destructive)"}
             markerTitle={markerTitle}
             markerSubtitle={markerSubtitle}
         />
