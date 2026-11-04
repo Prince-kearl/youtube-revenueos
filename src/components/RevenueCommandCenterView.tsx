@@ -189,7 +189,7 @@ function InsightCard({
   const label = insightLabel(insight.type);
   return (
     <li
-      className="card-frost dashboard-card relative flex flex-col p-4 backdrop-blur-lg"
+      className="card-frost dashboard-card relative flex min-w-0 flex-col p-4 backdrop-blur-lg"
       data-testid="command-center-opportunity"
       data-priority={insight.priority}
     >

@@ -35,7 +35,7 @@ const nitro = {
 export default defineConfig({
   vite: {
     server: {
-      allowedHosts: ["8080-ixnifl0o5gxxfrysubgwk-903faa19.us5.manus.computer"],
+      allowedHosts: ["8080-imdg9bw8ft6xs2m6gceq2-e43affcf.us5.manus.computer"],
     },
   },
   tanstackStart: {

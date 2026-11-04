@@ -204,7 +204,7 @@ export function KpiTrendCard({
         backgroundColor: "#ffffff",
         backgroundImage:
           "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--primary) 12%, white) 0%, rgba(255,255,255,0.88) 66%, #ffffff 100%)",
-        borderColor: "#d9dee5",
+        borderColor: "color-mix(in srgb, var(--primary) 30%, white)",
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">
@@ -225,7 +225,9 @@ export function KpiTrendCard({
                 )}
                 {Math.abs(changePercent).toFixed(1)}%
               </span>
-              <span className="hidden text-[10px] font-normal text-muted-foreground md:inline">{periodLabel}</span>
+              <span className="hidden text-[10px] font-normal text-muted-foreground md:inline">
+                {periodLabel}
+              </span>
               <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
           )}
@@ -247,7 +249,9 @@ export function KpiTrendCard({
         </div>
 
         <div className="mt-2">
-          <p className="text-[21px] font-bold leading-none tracking-tight text-foreground">{value}</p>
+          <p className="text-[21px] font-bold leading-none tracking-tight text-foreground">
+            {value}
+          </p>
           <p className="mt-1.5 text-[10px] leading-tight sm:text-[10px]">
             <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>
               {deltaLabel}
@@ -258,11 +262,11 @@ export function KpiTrendCard({
       </div>
 
       <div className="min-w-0 flex-1">
-          <MiniAreaTrend
-            data={series}
-            accent={positive ? "var(--success)" : "var(--destructive)"}
-            markerTitle={markerTitle}
-            markerSubtitle={markerSubtitle}
+        <MiniAreaTrend
+          data={series}
+          accent={positive ? "var(--success)" : "var(--destructive)"}
+          markerTitle={markerTitle}
+          markerSubtitle={markerSubtitle}
         />
       </div>
     </div>
