@@ -58,7 +58,7 @@ export function KpiTrendCardSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "kpi-trend-card flex min-h-[132px] flex-row items-stretch gap-3 rounded-none border border-border bg-card px-3 py-3.5 backdrop-blur-lg sm:gap-3 sm:px-3.5 sm:py-3.5",
+        "kpi-trend-card flex min-h-[132px] flex-row items-stretch gap-3 rounded-[var(--kpi-card-radius)] border border-border bg-card px-4 py-3.5 backdrop-blur-lg sm:gap-3 sm:px-5 sm:py-3.5",
         className,
       )}
       aria-hidden="true"
