@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect } from "react";
-import type { BrandTheme } from "@/lib/brand-theme";
+import { kpiAccentForPrimary, type BrandTheme } from "@/lib/brand-theme";
 import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
 import { useIos26Design, useIos26Wallpaper } from "@/lib/theme";
 
@@ -45,6 +45,7 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
   useLayoutEffect(() => {
     const root = document.documentElement.style;
     root.setProperty("--primary", content.primaryColor);
+    root.setProperty("--kpi-accent", kpiAccentForPrimary(content.primaryColor));
     root.setProperty("--primary-foreground", content.buttonTextColor);
     root.setProperty("--brand-blue", content.accentColor);
     // iOS 26 Design (Settings → Preferences, a personal per-device choice — see useIos26Design)

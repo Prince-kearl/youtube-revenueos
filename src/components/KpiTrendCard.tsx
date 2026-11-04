@@ -203,8 +203,8 @@ export function KpiTrendCard({
       style={{
         backgroundColor: "#ffffff",
         backgroundImage:
-          "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--primary) 12%, white) 0%, rgba(255,255,255,0.88) 66%, #ffffff 100%)",
-        borderColor: "color-mix(in srgb, var(--primary) 30%, white)",
+          "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--kpi-accent) 12%, white) 0%, rgba(255,255,255,0.88) 66%, #ffffff 100%)",
+        borderColor: "color-mix(in srgb, var(--kpi-accent) 30%, white)",
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">

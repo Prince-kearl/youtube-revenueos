@@ -78,6 +78,7 @@
   --popover: #ffffff;
   --popover-foreground: #18181b;
   --primary: #0284c7;
+  --kpi-accent: #0284c7;
   --primary-foreground: #ffffff;
   --secondary: #f4f4f6;
   --secondary-foreground: #18181b;
@@ -602,9 +603,9 @@
    generated backdrop-blur-* utility applies correctly. */
 
 /* Dashboard KPI cards (KpiTrendCard) keep their own thick-border/accent-tinted design rather than
-   becoming plain .card-frost — the accent radial-gradient wash (per-metric color, applied inline
-   via the `accent` prop) stays untouched since it targets background-image specifically, while
-   these rules only touch border/background-color/shadow, the same split .card-frost relies on.
+   becoming plain .card-frost. Their wash and outline use --kpi-accent, which follows the primary
+   theme except for red hues, where the theme injector selects a safe blue instead. These rules
+   only touch border/background-color/shadow, the same split .card-frost relies on.
    Only background-color (not the `background` shorthand) is set here so the inline gradient is
    never reset. Radius is its own token (--kpi-card-radius, Customization → KPI Card Roundness)
    rather than reusing --card-radius — KpiTrendCard's hardcoded rounded-xl/sm:rounded-2xl Tailwind
