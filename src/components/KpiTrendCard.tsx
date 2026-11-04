@@ -78,7 +78,7 @@ function MiniAreaTrend({
   const color = accent;
 
   return (
-    <div className="relative h-[76px] w-full sm:h-[72px]">
+    <div className="relative h-[92px] w-full sm:h-[92px]">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
@@ -197,7 +197,7 @@ export function KpiTrendCard({
   return (
     <div
       className={cn(
-        "kpi-trend-card relative flex flex-row items-stretch gap-2 rounded-none border bg-white px-3 py-2.5 shadow-none sm:gap-3 sm:px-3.5 sm:py-2.5",
+        "kpi-trend-card relative flex min-h-[108px] flex-row items-stretch gap-2 rounded-none border bg-white px-3 py-3 shadow-none sm:gap-3 sm:px-3.5 sm:py-3",
         className,
       )}
       style={{
