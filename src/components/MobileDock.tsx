@@ -150,7 +150,7 @@ export function MobileDock({
             id={panelId}
             role="dialog"
             aria-label={panelLabel}
-            className="glass-pill min-w-0 max-w-[22rem] flex-1 overflow-y-auto p-2 backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 min-[360px]:p-3"
+            className="glass-pill outline outline-1 outline-border min-w-0 max-w-[22rem] flex-1 overflow-y-auto p-2 backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 min-[360px]:p-3"
             style={{
               borderRadius: 28,
               maxHeight: "calc(100dvh - 7rem)",
@@ -207,7 +207,7 @@ export function MobileDock({
             ))}
           </div>
         ) : (
-          <div className="glass-pill flex h-12 min-w-0 items-center gap-1 p-1 backdrop-blur-2xl min-[360px]:h-14 min-[360px]:p-1.5">
+          <div className="glass-pill outline outline-1 outline-border flex h-12 min-w-0 items-center gap-1 p-1 backdrop-blur-2xl min-[360px]:h-14 min-[360px]:p-1.5">
             {primary.map((item) =>
               destination(
                 item,
@@ -242,7 +242,7 @@ export function MobileDock({
           aria-controls={open ? panelId : undefined}
           title={open ? "Close" : "More"}
           className={cn(
-            "glass-pill flex h-12 w-12 shrink-0 items-center justify-center backdrop-blur-2xl transition-colors min-[360px]:h-14 min-[360px]:w-14",
+            "glass-pill outline outline-1 outline-border flex h-12 w-12 shrink-0 items-center justify-center backdrop-blur-2xl transition-colors min-[360px]:h-14 min-[360px]:w-14",
             !open && currentInPanelOnly
               ? "text-foreground ring-2 ring-foreground/20"
               : "text-foreground/85 hover:text-foreground",

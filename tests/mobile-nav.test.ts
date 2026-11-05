@@ -57,11 +57,11 @@ test("the current page is highlighted like the desktop rail: a red, outlined, pe
 test("the pill and the round button have the same height at every width", () => {
   assert.match(
     dock,
-    /"glass-pill flex h-12 min-w-0 items-center gap-1 p-1 backdrop-blur-2xl min-\[360px\]:h-14 min-\[360px\]:p-1\.5"/,
+    /"glass-pill outline outline-1 outline-border flex h-12 min-w-0 items-center gap-1 p-1 backdrop-blur-2xl min-\[360px\]:h-14 min-\[360px\]:p-1\.5"/,
   );
   assert.match(
     dock,
-    /"glass-pill flex h-12 w-12 shrink-0 items-center justify-center backdrop-blur-2xl transition-colors min-\[360px\]:h-14 min-\[360px\]:w-14"/,
+    /"glass-pill outline outline-1 outline-border flex h-12 w-12 shrink-0 items-center justify-center backdrop-blur-2xl transition-colors min-\[360px\]:h-14 min-\[360px\]:w-14"/,
   );
 });
 
@@ -72,8 +72,15 @@ test("the panel's tiles fit any width: adaptive columns, scaling squares, wrappi
     dock,
     /"line-clamp-2 w-full text-\[11px\] leading-tight \[overflow-wrap:anywhere\]"/,
   );
+  assert.match(
+    dock,
+    /className="glass-pill outline outline-1 outline-border min-w-0 max-w-\[22rem\]/,
+  );
   assert.doesNotMatch(dock, /\btruncate\b/);
-  assert.match(dock, /style=\{\{ borderRadius: 28, maxHeight: "calc\(100dvh - 7rem\)" \}\}/);
+  assert.match(
+    dock,
+    /style=\{\{\s*borderRadius: 28,\s*maxHeight: "calc\(100dvh - 7rem\)",\s*backgroundColor: "var\(--card\)",?\s*\}\}/,
+  );
   assert.match(dock, /style=\{\{ borderRadius: 18 \}\}/);
 });
 
