@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 const STEP_1 = "supabase/migrations/202610110001_workspace_revenue_visibility.sql";
 const STEP_2 = "supabase/migrations/202610110002_revenue_column_privacy.sql";
+const STEP_3 = "supabase/migrations/202611050001_member_revenue_visibility.sql";
 
 /** The SQL with comments removed and whitespace collapsed. */
 const statements = (file: string) =>
@@ -38,6 +39,26 @@ test("step 1 adds the two settings, off by default, and closes direct writes to 
     .replace(/alter table public\.workspaces add column[^;]+;/, "")
     .replace(/revoke insert, update, delete, truncate on table public\.workspaces[^;]+;/, "");
   assert.equal(rest.trim(), "");
+});
+
+test("step 3 migrates existing access to members without granting clients the permission column", () => {
+  const sql = statements(STEP_3);
+  assert.match(
+    sql,
+    /alter table public\.workspace_members add column if not exists revenue_visible boolean not null default false;/,
+  );
+  assert.match(
+    sql,
+    /update public\.workspace_members as member set revenue_visible = case when member\.role = 'editor' then workspace\.editor_revenue_visible when member\.role = 'setter' then workspace\.setter_revenue_visible else false end from public\.workspaces as workspace where member\.workspace_id = workspace\.id and member\.status <> 'removed';/,
+  );
+  assert.doesNotMatch(sql, /grant[^;]*\b(revenue_visible|workspace_members)\b/i);
+  const compensationPrivacy = statements(
+    "supabase/migrations/202610100001_workspace_member_compensation_privacy.sql",
+  );
+  assert.ok(
+    !grantedColumns(compensationPrivacy, "workspace_members").includes("revenue_visible"),
+    "the permission remains unavailable to anon/authenticated direct reads",
+  );
 });
 
 // Step 2 is deliberately applied — and may be committed — after the application code. When it

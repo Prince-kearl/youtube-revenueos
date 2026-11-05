@@ -76,25 +76,19 @@ function workspace(
   const rows = {
     owner: world.workspace_members[0].id as string,
     manager: addMember(world, id, users.manager, "manager", { commission: 37, cost_amount: 4321 }),
-    editor: addMember(world, id, users.editor, "editor", { commission: 12, cost_amount: 100 }),
-    setter: addMember(world, id, users.setter, "setter", { commission: 13, cost_amount: 200 }),
+    editor: addMember(world, id, users.editor, "editor", {
+      commission: 12,
+      cost_amount: 100,
+      revenue_visible: flags.editor ?? false,
+    }),
+    setter: addMember(world, id, users.setter, "setter", {
+      commission: 13,
+      cost_amount: 200,
+      revenue_visible: flags.setter ?? false,
+    }),
     staffEditor: addMember(world, id, users.staffEditor, "editor"),
   };
-  Object.assign(
-    world.workspaces.find((w) => w.id === id)!,
-    {
-      editor_revenue_visible: flags.editor ?? false,
-      setter_revenue_visible: flags.setter ?? false,
-    },
-  );
   const other = addPaidWorkspace(world, users.stranger);
-  Object.assign(
-    world.workspaces.find((w) => w.id === other)!,
-    {
-      editor_revenue_visible: false,
-      setter_revenue_visible: false,
-    },
-  );
 
   const channel = uuid();
   const otherChannel = uuid();
@@ -261,52 +255,53 @@ const CASES: Array<{ who: Who; flags: Flags; sees: boolean; label: string }> = [
 
 // ---------- A. the policy itself ----------
 
-test("policy: the role matrix", () => {
-  const off = { editor: false, setter: false };
-  const on = { editor: true, setter: true };
-  for (const settings of [off, on, null, undefined]) {
-    assert.equal(policy.canViewWorkspaceRevenue({ role: "owner" }, settings), true);
-    assert.equal(policy.canViewWorkspaceRevenue({ role: "manager" }, settings), true);
-    assert.equal(policy.canViewWorkspaceRevenue({ role: null }, settings), false);
-    assert.equal(policy.canViewWorkspaceRevenue({ role: undefined }, settings), false);
+test("policy: owners and managers always see revenue; editors and setters require their own grant", () => {
+  for (const role of ["owner", "manager"] as const) {
+    assert.equal(policy.canViewWorkspaceRevenue({ role }), true);
+    assert.equal(policy.canViewWorkspaceRevenue({ role, revenueVisible: false }), true);
   }
-  assert.equal(policy.canViewWorkspaceRevenue({ role: "editor" }, off), false);
-  assert.equal(policy.canViewWorkspaceRevenue({ role: "setter" }, off), false);
-  assert.equal(policy.canViewWorkspaceRevenue({ role: "editor" }, on), true);
-  assert.equal(policy.canViewWorkspaceRevenue({ role: "setter" }, on), true);
+  for (const role of ["editor", "setter"] as const) {
+    assert.equal(policy.canViewWorkspaceRevenue({ role }), false);
+    assert.equal(policy.canViewWorkspaceRevenue({ role, revenueVisible: false }), false);
+    assert.equal(policy.canViewWorkspaceRevenue({ role, revenueVisible: true }), true);
+  }
+  assert.equal(policy.canViewWorkspaceRevenue({ role: null, isSuperadmin: true }), false);
+  assert.equal(policy.canViewWorkspaceRevenue({ role: "editor", isSuperadmin: true }), true);
+});
+
+test("workspace role flags do not grant revenue when the member has no individual grant", async () => {
+  const f = workspace();
+  Object.assign(
+    f.world.workspaces.find((w) => w.id === f.id)!,
+    {
+      editor_revenue_visible: true,
+      setter_revenue_visible: true,
+    },
+  );
+  const editor = await get(f, "editor", routes.summary, "/api/revenue/summary");
+  const setter = await get(f, "setter", routes.summary, "/api/revenue/summary");
   assert.equal(
-    policy.canViewWorkspaceRevenue({ role: "editor" }, { editor: false, setter: true }),
-    false,
+    (editor.body.data as { visibility: { revenue: string } }).visibility.revenue,
+    "hidden",
   );
   assert.equal(
-    policy.canViewWorkspaceRevenue({ role: "setter" }, { editor: true, setter: false }),
-    false,
+    (setter.body.data as { visibility: { revenue: string } }).visibility.revenue,
+    "hidden",
   );
-  assert.equal(policy.canViewWorkspaceRevenue({ role: "editor", isSuperadmin: true }, off), true);
-  // Staff status without a membership is nothing.
-  assert.equal(policy.canViewWorkspaceRevenue({ role: null, isSuperadmin: true }, on), false);
-  assert.equal(policy.canManageRevenueVisibility({ role: null, isSuperadmin: true }), false);
 });
 
 test("policy: missing, malformed or unknown inputs are all 'no'", () => {
-  for (const settings of [null, undefined, {}, { editor: "true" }, { editor: 1 }, { editor: null }])
-    assert.equal(policy.canViewWorkspaceRevenue({ role: "editor" }, settings as never), false);
+  for (const value of [undefined, false, "true", 1, null])
+    assert.equal(
+      policy.canViewWorkspaceRevenue({ role: "editor", revenueVisible: value as boolean }),
+      false,
+    );
   for (const role of ["admin", "superadmin", "Owner", "viewer", ""])
     assert.equal(
-      policy.canViewWorkspaceRevenue({ role: role as never }, { editor: true, setter: true }),
+      policy.canViewWorkspaceRevenue({ role: role as never, revenueVisible: true }),
       false,
       role,
     );
-  assert.deepEqual(policy.DEFAULT_REVENUE_VISIBILITY, { editor: false, setter: false });
-});
-
-test("policy: only owners, managers and member staff may manage; seeing revenue is not managing it", () => {
-  assert.equal(policy.canManageRevenueVisibility({ role: "owner" }), true);
-  assert.equal(policy.canManageRevenueVisibility({ role: "manager" }), true);
-  assert.equal(policy.canManageRevenueVisibility({ role: "editor" }), false);
-  assert.equal(policy.canManageRevenueVisibility({ role: "setter" }), false);
-  assert.equal(policy.canManageRevenueVisibility({ role: "editor", isSuperadmin: true }), true);
-  assert.deepEqual([...policy.CONFIGURABLE_REVENUE_ROLES], ["editor", "setter"]);
 });
 
 // ---------- B. stored YouTube revenue ----------
@@ -515,10 +510,10 @@ test("revenue endpoints: signed out, removed, and another workspace's channel", 
   assert.equal((await get(invited, "editor", routes.summary, "/api/revenue/summary")).status, 403);
 });
 
-test("an unreadable setting hides revenue from editors and setters, and never from owners or managers", async () => {
+test("an unreadable member permission hides revenue from editors and setters, never owners or managers", async () => {
   const f = workspace({ editor: true, setter: true });
-  // The setting's read fails; the plan check before it (its first read of workspaces) does not.
-  f.world.failReadsAfter = { workspaces: 1 };
+  // The first membership read authenticates the caller; the service-role permission read fails.
+  f.world.failReadsAfter = { workspace_members: 1 };
   for (const who of ["editor", "setter"] as const) {
     const result = await get(f, who, routes.summary, "/api/revenue/summary");
     assert.equal(
@@ -536,18 +531,17 @@ test("an unreadable setting hides revenue from editors and setters, and never fr
   }
 });
 
-test("a workspace row without the setting (before the migration) means off", async () => {
+test("a missing or malformed member permission means off", async () => {
   const f = workspace();
-  const row = f.world.workspaces.find((w) => w.id === f.id)!;
-  delete row.editor_revenue_visible;
-  delete row.setter_revenue_visible;
+  const row = f.world.workspace_members.find((m) => m.id === f.rows.editor)!;
+  delete row.revenue_visible;
   const result = await get(f, "editor", routes.summary, "/api/revenue/summary");
   assert.equal(
     (result.body.data as { visibility: { revenue: string } }).visibility.revenue,
     "hidden",
   );
   for (const junk of ["true", 1, "yes", null]) {
-    row.editor_revenue_visible = junk;
+    row.revenue_visible = junk;
     const again = await get(f, "editor", routes.summary, "/api/revenue/summary");
     assert.equal(
       (again.body.data as { visibility: { revenue: string } }).visibility.revenue,
@@ -580,7 +574,6 @@ test("financial responses are never cacheable", () => {
 
 // ---------- C. brand deals ----------
 
-const PATH = "/api/workspace/revenue-visibility";
 type DealOut = {
   id: string;
   name: string;
@@ -797,11 +790,11 @@ test("writes: every deal write is made by the server, for the caller's own works
   }
 });
 
-test("writes: a role that loses visibility loses the ability to write on its very next request", async () => {
+test("writes: a member whose revenue permission is revoked loses write access immediately", async () => {
   const f = workspace({ editor: true });
   const [openDeal] = f.dealIds;
   assert.equal((await patchDeal(f, "editor", openDeal, { value: 42 })).status, 200);
-  await send(f, "owner", routes.visibility, PATH, "PATCH", { editor: false });
+  f.world.workspace_members.find((member) => member.id === f.rows.editor)!.revenue_visible = false;
   const after = await patchDeal(f, "editor", openDeal, { value: 43 });
   assert.equal(after.status, 403);
   assert.equal(f.world.deals!.find((d) => d.id === openDeal)!.value, 42);
@@ -892,145 +885,24 @@ for (const { who, flags, sees, label } of CASES) {
   });
 }
 
-// ---------- E. the settings API ----------
+// ---------- E. legacy workspace-wide settings ----------
 
-type VisibilityOut = {
-  editor: boolean;
-  setter: boolean;
-  canView: boolean;
-  canManage: boolean;
-  available: boolean;
-};
-const flagsOf = (f: Fixture, workspaceId = f.id) => {
-  const row = f.world.workspaces.find((w) => w.id === workspaceId)!;
-  return { editor: row.editor_revenue_visible, setter: row.setter_revenue_visible };
-};
-
-test("settings: every member can read the setting and what they may do — and no amounts", async () => {
-  const f = workspace({ editor: true });
-  const expected: Record<string, [boolean, boolean]> = {
-    owner: [true, true],
-    manager: [true, true],
-    editor: [true, false],
-    setter: [false, false],
-    staffEditor: [true, true],
-  };
-  for (const [who, [canView, canManage]] of Object.entries(expected)) {
-    const result = await get(f, who as Who, routes.visibility, PATH);
-    assert.equal(result.status, 200, who);
-    assert.deepEqual(
-      result.body.data,
-      { editor: true, setter: false, canView, canManage, available: true },
-      who,
-    );
-    assertNoAmounts(result.text, who);
-  }
-  assert.equal((await get(f, null, routes.visibility, PATH)).status, 401);
-});
-
-test("settings: owners, managers and member staff can change it; the change is per role and per workspace", async () => {
-  for (const who of ["owner", "manager", "staffEditor"] as const) {
-    const f = workspace();
-    const on = await send(f, who, routes.visibility, PATH, "PATCH", { editor: true });
-    assert.equal(on.status, 200, who);
-    assert.deepEqual(flagsOf(f), { editor: true, setter: false }, "only the editor flag moved");
-    assert.deepEqual(
-      flagsOf(f, f.other),
-      { editor: false, setter: false },
-      "the other workspace is untouched",
-    );
-    assert.equal((on.body.data as VisibilityOut).editor, true);
-    assert.equal(on.writes.length, 1);
-    assert.deepEqual(
-      on.writes[0].body,
-      { editor_revenue_visible: true },
-      "nothing else is written",
-    );
-
-    const both = await send(f, who, routes.visibility, PATH, "PATCH", {
-      editor: false,
-      setter: true,
-    });
-    assert.equal(both.status, 200);
-    assert.deepEqual(flagsOf(f), { editor: false, setter: true });
-  }
-});
-
-test("settings: editors and setters cannot change it — even once they are allowed to see revenue", async () => {
-  const f = workspace({ editor: true, setter: true });
-  for (const who of ["editor", "setter"] as const) {
-    for (const body of [{ editor: false }, { setter: true }, { editor: true, setter: true }]) {
-      const result = await send(f, who, routes.visibility, PATH, "PATCH", body);
-      assert.equal(result.status, 403, who);
-      assert.deepEqual(result.body, { error: "CANNOT_MANAGE_REVENUE_VISIBILITY" });
-      assert.deepEqual(result.writes, []);
-    }
-  }
-  assert.deepEqual(flagsOf(f), { editor: true, setter: true });
-  const out = await send(f, null, routes.visibility, PATH, "PATCH", { editor: false });
-  assert.equal(out.status, 401);
-  assert.deepEqual(out.writes, []);
-});
-
-test("settings: unknown fields, other workspaces, other roles and non-booleans are rejected whole", async () => {
+test("the old workspace-wide visibility endpoint is retired", async () => {
   const f = workspace();
-  for (const body of [
-    {},
-    { owner: false },
-    { manager: false },
-    { editor: true, manager: false },
-    { editor: true, workspaceId: f.other },
-    { editor: true, workspace_id: f.other },
-    { editor: true, role: "owner" },
-    { editor: "true" },
-    { editor: 1 },
-    { setter: null },
-    { editor_revenue_visible: true },
-    [true],
-    "editor",
-  ]) {
-    const result = await send(f, "owner", routes.visibility, PATH, "PATCH", body);
-    assert.equal(result.status, 422, JSON.stringify(body));
-    assert.deepEqual(result.writes, [], JSON.stringify(body));
-  }
-  assert.deepEqual(flagsOf(f), { editor: false, setter: false });
-  assert.deepEqual(flagsOf(f, f.other), { editor: false, setter: false });
-});
-
-test("settings: a save that did not happen is never reported as saved", async () => {
-  const f = workspace();
-  f.world.workspaces = f.world.workspaces.filter((w) => w.id !== f.id);
-  const result = await send(f, "owner", routes.visibility, PATH, "PATCH", { editor: true });
-  assert.equal(result.status, 503);
-  assert.deepEqual(result.body, { error: "REVENUE_VISIBILITY_UNAVAILABLE" });
-});
-
-test("settings: removed and outside members are refused before anything else", async () => {
-  const f = workspace();
-  f.world.workspace_members.find((m) => m.id === f.rows.manager)!.status = "removed";
-  const removed = await send(f, "manager", routes.visibility, PATH, "PATCH", { editor: true });
-  assert.equal(removed.status, 403);
-  assert.deepEqual(removed.body, { error: "NO_WORKSPACE" });
-  // The other workspace's owner changes only their own workspace.
-  const stranger = await send(f, "stranger", routes.visibility, PATH, "PATCH", { editor: true });
-  assert.equal(stranger.status, 200);
-  assert.deepEqual(flagsOf(f), { editor: false, setter: false });
-  assert.deepEqual(flagsOf(f, f.other), { editor: true, setter: false });
-});
-
-test("switching a role on takes effect for that role only, and switching it off takes it away again", async () => {
-  const f = workspace();
-  const sees = async (who: Who) =>
-    (
-      (await get(f, who, routes.summary, "/api/revenue/summary")).body.data as {
-        visibility: { revenue: string };
-      }
-    ).visibility.revenue === "visible";
-  assert.deepEqual([await sees("editor"), await sees("setter")], [false, false]);
-  await send(f, "manager", routes.visibility, PATH, "PATCH", { editor: true });
-  assert.deepEqual([await sees("editor"), await sees("setter")], [true, false]);
-  await send(f, "owner", routes.visibility, PATH, "PATCH", { editor: false, setter: true });
-  assert.deepEqual([await sees("editor"), await sees("setter")], [false, true]);
+  const read = await get(f, "owner", routes.visibility, "/api/workspace/revenue-visibility");
+  assert.equal(read.status, 410);
+  assert.deepEqual(read.body, { error: "REVENUE_VISIBILITY_MOVED_TO_INVITES" });
+  const write = await send(
+    f,
+    "owner",
+    routes.visibility,
+    "/api/workspace/revenue-visibility",
+    "PATCH",
+    { editor: true },
+  );
+  assert.equal(write.status, 410);
+  assert.deepEqual(write.body, { error: "REVENUE_VISIBILITY_MOVED_TO_INVITES" });
+  assert.deepEqual(write.writes, []);
 });
 
 // ---------- F. compensation stays private ----------
@@ -1054,6 +926,16 @@ test("allowing a role to see revenue never shows them anyone's compensation", as
     assert.ok(!result.text.includes("4321"), "the manager's cost");
     assertNeverAskedForMoney(result, `${who} roster`);
   }
+});
+
+test("only the workspace owner sees each member's revenue access setting", async () => {
+  const f = workspace({ editor: true });
+  const owner = await get(f, "owner", routes.members, "/api/workspace/members");
+  const editor = await get(f, "editor", routes.members, "/api/workspace/members");
+  const ownerRows = owner.body.data as Array<{ id: string; revenue_visible?: boolean }>;
+  const editorRows = editor.body.data as Array<{ id: string; revenue_visible?: boolean }>;
+  assert.equal(ownerRows.find((row) => row.id === f.rows.editor)?.revenue_visible, true);
+  assert.ok(editorRows.every((row) => row.revenue_visible === false));
 });
 
 test("the two rule sets are separate functions with separate inputs", () => {
@@ -1152,7 +1034,7 @@ test("view models: a hidden response says Hidden — never $0 and never the 'una
   assert.equal(dashboard.total.text, "Hidden");
   assert.equal(dashboard.total.hidden, true);
   assert.equal(dashboard.changeText, "Hidden");
-  assert.equal(dashboard.freshnessNote, "Revenue hidden by workspace settings");
+  assert.equal(dashboard.freshnessNote, "Revenue access isn't enabled for your account");
   assert.deepEqual([dashboard.series, dashboard.split, dashboard.latest], [[], [], null]);
   assert.ok(dashboard.trend.every((point) => point.revenueUsd === null));
 
@@ -1171,7 +1053,7 @@ test("view models: a hidden response says Hidden — never $0 and never the 'una
   assert.notEqual(cell.status, "High Revenue", "no badge that ranks by revenue");
   assert.match(
     views.videos.describeVideosRevenue(page),
-    /^Revenue hidden by workspace settings\. Change compares views/,
+    /^Revenue access isn't enabled for your account\. Change compares views/,
   );
 
   for (const text of [
@@ -1193,7 +1075,7 @@ test("view models: a visible response is unchanged", async () => {
   assert.equal(dashboard.hidden, false);
   assert.equal(dashboard.total.text, "$123");
   assert.equal(dashboard.total.usd, 123.45);
-  assert.notEqual(dashboard.freshnessNote, "Revenue hidden by workspace settings");
+  assert.notEqual(dashboard.freshnessNote, "Revenue access isn't enabled for your account");
   // A response from a deployment that predates the marker is read as visible.
   const { visibility: _omitted, ...legacy } = summary as Record<string, unknown>;
   assert.equal(views.dashboard.mapDashboardRevenue(legacy as never).hidden, false);
@@ -1201,11 +1083,17 @@ test("view models: a visible response is unchanged", async () => {
 
 test("pages: each money-showing screen has an explicit hidden state", () => {
   const expectations: Array<[string, RegExp[]]> = [
-    ["src/routes/dashboard.tsx", [/revenue\.hidden \? "Revenue hidden by workspace settings\."/]],
+    [
+      "src/routes/dashboard.tsx",
+      [/revenue\.hidden \? "Revenue access isn't enabled for your account\."/],
+    ],
     ["src/routes/videos.tsx", [/revenue\?\.revenue\.hidden \? \(/, /> Hidden </]],
     [
       "src/routes/analytics.tsx",
-      [/visibility\?\.revenue === "hidden" \? "Hidden"/, /Revenue hidden by workspace settings\./],
+      [
+        /visibility\?\.revenue === "hidden" \? "Hidden"/,
+        /Revenue access isn't enabled for your account\./,
+      ],
     ],
     [
       "src/routes/videos.$videoId.tsx",
@@ -1250,7 +1138,7 @@ test("pages: each money-showing screen has an explicit hidden state", () => {
       [
         /setDeals\(hidden \? \[\] : body\.data\)/,
         /dealValuesHidden \? "Hidden"/,
-        /<RevenueVisibilitySettings className="mt-6" \/>/,
+        /Allow revenue access/,
       ],
     ],
   ];
@@ -1260,31 +1148,13 @@ test("pages: each money-showing screen has an explicit hidden state", () => {
   }
 });
 
-test("the settings card: approved copy, real controls, and no optimistic success", () => {
-  const card = flat("src/components/RevenueVisibilitySettings.tsx");
-  for (const copy of [
-    "Revenue Visibility",
-    "Choose which team roles can view financial amounts in this workspace.",
-    "Allow editors to view revenue",
-    "Allow setters to view revenue",
-    "It does not give anyone access to private team compensation",
-  ])
-    assert.ok(card.includes(copy), copy);
-  assert.match(card, /if \(state\.status === "ready" && !state\.data\.canManage\) return null;/);
-  assert.match(
-    card,
-    /<Switch id=\{id\} checked=\{state\.data\[role\]\}/,
-    "the switch shows server state",
-  );
-  assert.match(card, /<label htmlFor=\{id\}/, "each switch is labelled");
-  // State changes only from a successful response body; a failure shows an error and nothing else.
-  assert.match(
-    card,
-    /if \(!response\.ok \|\| !body\.data\) throw new Error\(body\.error \?\? "SAVE_FAILED"\); \/\/ Show what the server says is now stored, not what was asked for\. setState\(\{ status: "ready", data: body\.data \}\);/,
-  );
-  assert.match(card, /catch \(error\) \{ toast\.error\(/);
-  assert.match(card, /ListLoadingState label="Loading revenue visibility"/);
-  assert.match(card, /ErrorState/);
+test("Team page offers revenue visibility with each invite and has no standalone settings card", () => {
+  const team = flat("src/routes/team.tsx");
+  assert.doesNotMatch(team, /RevenueVisibilitySettings/);
+  assert.match(team, /revenueVisible,/);
+  assert.match(team, /Allow revenue access/);
+  assert.match(team, /Private team compensation stays hidden/);
+  assert.match(team, /role === "editor" \|\| role === "setter"/);
 });
 
 // ---------- I. the privileged read boundary ----------
@@ -1343,7 +1213,6 @@ test("the service-role key and client cannot reach the browser", () => {
   // Pages and shared modules import the pure rules only; nothing under lib/server.
   for (const file of [
     "src/lib/revenue-visibility.ts",
-    "src/components/RevenueVisibilitySettings.tsx",
     "src/lib/dashboard-revenue.ts",
     "src/lib/analytics-revenue.ts",
     "src/lib/videos-revenue.ts",
@@ -1375,19 +1244,17 @@ test("pages: what is offered matches what the server allows", () => {
 });
 
 test("policy: nobody may write an amount they may not see", () => {
-  const off = { editor: false, setter: false };
-  const on = { editor: true, setter: true };
   for (const role of ["owner", "manager", "editor", "setter", null] as const)
-    for (const settings of [off, on, null])
+    for (const revenueVisible of [false, true])
       for (const isSuperadmin of [false, true]) {
-        const viewer = { role, isSuperadmin };
-        if (policy.canWriteWorkspaceRevenue(viewer, settings))
-          assert.equal(policy.canViewWorkspaceRevenue(viewer, settings), true);
+        const viewer = { role, revenueVisible, isSuperadmin };
+        if (policy.canWriteWorkspaceRevenue(viewer))
+          assert.equal(policy.canViewWorkspaceRevenue(viewer), true);
       }
-  assert.equal(policy.canWriteWorkspaceRevenue({ role: "editor" }, off), false);
-  assert.equal(policy.canWriteWorkspaceRevenue({ role: "setter" }, off), false);
-  assert.equal(policy.canWriteWorkspaceRevenue({ role: "editor" }, on), true);
-  assert.equal(policy.canWriteWorkspaceRevenue({ role: "owner" }, off), true);
+  assert.equal(policy.canWriteWorkspaceRevenue({ role: "editor", revenueVisible: false }), false);
+  assert.equal(policy.canWriteWorkspaceRevenue({ role: "setter", revenueVisible: false }), false);
+  assert.equal(policy.canWriteWorkspaceRevenue({ role: "editor", revenueVisible: true }), true);
+  assert.equal(policy.canWriteWorkspaceRevenue({ role: "owner", revenueVisible: false }), true);
 });
 
 // ---------- J. deal stages that carry financial meaning ----------
@@ -1675,22 +1542,17 @@ test("stages: removed, invited-only, outside and signed-out callers cannot move 
   assert.equal(dealRow(f, theirs).stage, "prospect");
 });
 
-test("stages: an unreadable setting or profile fails closed for editors, setters and staff — never for owners", async () => {
-  for (const failing of ["workspaces", "profiles"]) {
+test("stages: an unreadable member permission or profile fails closed for editors, setters and staff — never for owners", async () => {
+  for (const failing of ["workspace_members", "profiles"]) {
     const f = workspace({ editor: true, setter: true });
     const id = addDeal(f, "prospect", "5000");
-    // (For workspaces: the plan check's read succeeds, the setting's read after it fails.)
-    if (failing === "workspaces") f.world.failReadsAfter = { workspaces: 1 };
+    // The active-membership lookup succeeds; the service-role grant lookup then fails.
+    if (failing === "workspace_members") f.world.failReadsAfter = { workspace_members: 1 };
     else f.world.failingReads = [failing];
     const refused =
-      failing === "workspaces" ? (["editor", "setter"] as const) : (["staffEditor"] as const);
-    // (With an unreadable profile, staffEditor is an ordinary editor; the flags are ON in this
-    // fixture, so make them OFF for that case to isolate the staff exception.)
-    if (failing === "profiles")
-      Object.assign(
-        f.world.workspaces.find((w) => w.id === f.id)!,
-        { editor_revenue_visible: false },
-      );
+      failing === "workspace_members"
+        ? (["editor", "setter"] as const)
+        : (["staffEditor"] as const);
     for (const who of refused) {
       const moved = await patchDeal(f, who, id, { stage: "completed" });
       assert.equal(moved.status, 403, `${failing} ${who}`);

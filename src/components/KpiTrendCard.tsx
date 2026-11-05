@@ -119,7 +119,7 @@ function MiniAreaTrend({
         />
       </svg>
       <div
-        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-none border border-[#e5e7eb] bg-white px-1.5 py-0.5 text-[8px] leading-tight shadow-none sm:-translate-y-[calc(100%+5px)] sm:px-2 sm:py-1 sm:text-[9px]"
+        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-none border border-border bg-card px-1.5 py-0.5 text-[8px] leading-tight shadow-none sm:-translate-y-[calc(100%+5px)] sm:px-2 sm:py-1 sm:text-[9px]"
         style={{ left: `${(marker.x / width) * 100}%`, top: `${(marker.y / height) * 100}%` }}
       >
         <p className="font-semibold text-foreground">{markerTitle}</p>
@@ -197,14 +197,14 @@ export function KpiTrendCard({
   return (
     <div
       className={cn(
-        "kpi-trend-card relative flex min-h-[132px] flex-row items-stretch gap-2 rounded-[var(--kpi-card-radius)] border bg-white px-4 py-3.5 shadow-none sm:gap-3 sm:px-5 sm:py-3.5",
+        "kpi-trend-card relative flex min-h-[132px] flex-row items-stretch gap-2 rounded-[var(--kpi-card-radius)] border px-4 py-3.5 shadow-none sm:gap-3 sm:px-5 sm:py-3.5",
         className,
       )}
       style={{
-        backgroundColor: "#ffffff",
+        backgroundColor: "var(--card)",
         backgroundImage:
-          "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--kpi-accent) 12%, white) 0%, rgba(255,255,255,0.88) 66%, #ffffff 100%)",
-        borderColor: "color-mix(in srgb, var(--kpi-accent) 30%, white)",
+          "radial-gradient(115% 170% at 0% 0%, color-mix(in srgb, var(--kpi-accent) 12%, var(--card)) 0%, color-mix(in srgb, var(--card) 88%, transparent) 66%, var(--card) 100%)",
+        borderColor: "color-mix(in srgb, var(--kpi-accent) 30%, var(--card))",
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center sm:justify-between">

@@ -677,7 +677,10 @@ function VideoRow({
         {pending ? (
           <span className="text-muted-foreground">…</span>
         ) : revenue?.revenue.hidden ? (
-          <span className="text-muted-foreground" title="Revenue hidden by workspace settings">
+          <span
+            className="text-muted-foreground"
+            title="Revenue access isn't enabled for your account"
+          >
             Hidden
           </span>
         ) : !revenue?.revenue.available ? (

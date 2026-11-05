@@ -5,10 +5,10 @@
 // Premium split, RPM and CPM, revenue totals and trends, and brand-deal values.
 //
 //   owner, manager      always
-//   editor, setter      only when the workspace has switched it on for that role (default: off)
+//   editor, setter      only when the owner allowed revenue access for that member (default: off)
 //   platform superadmin always, in a workspace they are an active member of
 //
-// It is a setting of the WORKSPACE, per role. There are no per-member overrides.
+// Revenue access is stored on each membership, not on the workspace or role.
 //
 // What this does NOT cover, on purpose: teammates' lead share, commission and cost. Those are
 // compensation, they are stricter, and they keep their own rules (canViewCompensation in
@@ -16,40 +16,22 @@
 
 import type { WorkspaceRole } from "./team-policy";
 
-/** The stored setting: which of the two configurable roles may see revenue. */
-export interface RevenueVisibilitySettings {
-  editor: boolean;
-  setter: boolean;
-}
-
-/** What applies when nothing is stored, or the stored value cannot be read. */
-export const DEFAULT_REVENUE_VISIBILITY: RevenueVisibilitySettings = {
-  editor: false,
-  setter: false,
-};
-
-/** The roles whose visibility a workspace can configure. Owners and managers are not on it. */
-export const CONFIGURABLE_REVENUE_ROLES = ["editor", "setter"] as const;
-export type ConfigurableRevenueRole = (typeof CONFIGURABLE_REVENUE_ROLES)[number];
-
 export interface RevenueViewer {
   /** The caller's role in THIS workspace, from their active membership. */
   role: WorkspaceRole | null | undefined;
+  /** Explicit per-membership permission. Ignored for owners, managers and platform staff. */
+  revenueVisible?: boolean;
   /** Platform staff (profiles.role = "superadmin"), already a member of this workspace. */
   isSuperadmin?: boolean;
 }
 
 /** Whether this member may see revenue amounts in the workspace. Anything unrecognised is no. */
-export function canViewWorkspaceRevenue(
-  viewer: RevenueViewer,
-  settings: RevenueVisibilitySettings | null | undefined,
-): boolean {
+export function canViewWorkspaceRevenue(viewer: RevenueViewer): boolean {
   // Without a role there is no membership, and the staff exception presupposes one.
   if (!viewer.role) return false;
   if (viewer.isSuperadmin === true) return true;
   if (viewer.role === "owner" || viewer.role === "manager") return true;
-  if (viewer.role === "editor") return settings?.editor === true;
-  if (viewer.role === "setter") return settings?.setter === true;
+  if (viewer.role === "editor" || viewer.role === "setter") return viewer.revenueVisible === true;
   return false;
 }
 
@@ -62,11 +44,8 @@ export function canViewWorkspaceRevenue(
  * to see amounts is necessary for writing them, and whatever else a route requires (its feature
  * gate, its own role rules) still applies on top.
  */
-export function canWriteWorkspaceRevenue(
-  viewer: RevenueViewer,
-  settings: RevenueVisibilitySettings | null | undefined,
-): boolean {
-  return canViewWorkspaceRevenue(viewer, settings);
+export function canWriteWorkspaceRevenue(viewer: RevenueViewer): boolean {
+  return canViewWorkspaceRevenue(viewer);
 }
 
 // ---------- deal stages that carry financial meaning ----------
@@ -105,14 +84,6 @@ export function dealStageChangeNeedsRevenueAccess(
   return isFinancialDealStage(next) || isFinancialDealStage(current);
 }
 
-/** Whether this member may change the workspace's revenue visibility. Editors and setters never
- * can — including when they have been allowed to see revenue. */
-export function canManageRevenueVisibility(viewer: RevenueViewer): boolean {
-  if (!viewer.role) return false;
-  if (viewer.isSuperadmin === true) return true;
-  return viewer.role === "owner" || viewer.role === "manager";
-}
-
 // ---------- how a hidden amount is represented ----------
 //
 // Three different things must stay different everywhere:
@@ -131,7 +102,7 @@ export const REVENUE_HIDDEN_ERROR = "REVENUE_HIDDEN";
 export const HIDDEN_AMOUNT_TEXT = "Hidden";
 
 /** The one sentence shown wherever amounts are hidden. */
-export const REVENUE_HIDDEN_MESSAGE = "Revenue hidden by workspace settings";
+export const REVENUE_HIDDEN_MESSAGE = "Revenue access isn't enabled for your account";
 
 /** Carried by every response whose amounts depend on the viewer. */
 export interface RevenueVisibilityMarker {

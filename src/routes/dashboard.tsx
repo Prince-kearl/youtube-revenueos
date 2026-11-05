@@ -194,8 +194,7 @@ function signed(value: number, formatter: (n: number) => string): string {
 }
 
 // Mobile carousel: exactly 1 KPI card visible per "page". sm+ resets back to a normal grid item.
-const kpiCardClassName =
-  "w-full shrink-0 snap-start sm:w-full sm:shrink sm:snap-align-none";
+const kpiCardClassName = "w-full shrink-0 snap-start sm:w-full sm:shrink sm:snap-align-none";
 // Clone of the first real card, appended after the last one so autoplay can scroll straight past
 // the end into a visually-identical duplicate, then jump back to the real first card the instant
 // that scroll finishes — the loop reads as continuous forward motion, never a snap-back. sm+ hides
@@ -407,7 +406,7 @@ function Dashboard() {
     revenueState.status === "error"
       ? "Revenue data couldn't be loaded. Try refreshing."
       : revenue.hidden
-        ? "Revenue hidden by workspace settings."
+        ? "Revenue access isn't enabled for your account."
         : revenue.state === "not_connected"
           ? "Connect YouTube to view top revenue videos."
           : revenue.state === "empty"
@@ -417,7 +416,7 @@ function Dashboard() {
     revenueState.status === "error"
       ? "Revenue data couldn't be loaded. Try refreshing."
       : revenue.hidden
-        ? "Revenue hidden by workspace settings."
+        ? "Revenue access isn't enabled for your account."
         : revenue.state === "not_connected"
           ? "Connect YouTube to view revenue trends."
           : revenue.state === "empty"

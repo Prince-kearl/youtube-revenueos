@@ -392,7 +392,7 @@ test("hidden: the response carries no amount for the video, and the view says Hi
     assert.equal(view.state, "hidden", key);
     assert.equal(view.headline, "Hidden");
     assert.equal(view.hasAmount, false);
-    assert.equal(view.note, "Revenue hidden by workspace settings.");
+    assert.equal(view.note, "Revenue access isn't enabled for your account.");
     assert.deepEqual(
       [view.rpm, view.change, view.sources, view.sourcesNote],
       [null, null, [], null],

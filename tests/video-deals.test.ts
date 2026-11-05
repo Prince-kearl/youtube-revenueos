@@ -53,24 +53,10 @@ function fixture(flags: { editor?: boolean; setter?: boolean } = {}) {
   };
   const ws = addPaidWorkspace(world, users.owner);
   addMember(world, ws, users.manager, "manager");
-  addMember(world, ws, users.editor, "editor");
-  addMember(world, ws, users.setter, "setter");
+  addMember(world, ws, users.editor, "editor", { revenue_visible: flags.editor ?? false });
+  addMember(world, ws, users.setter, "setter", { revenue_visible: flags.setter ?? false });
   addMember(world, ws, users.staffEditor, "editor");
-  Object.assign(
-    world.workspaces.find((w) => w.id === ws)!,
-    {
-      editor_revenue_visible: flags.editor ?? false,
-      setter_revenue_visible: flags.setter ?? false,
-    },
-  );
   const otherWs = addPaidWorkspace(world, users.stranger);
-  Object.assign(
-    world.workspaces.find((w) => w.id === otherWs)!,
-    {
-      editor_revenue_visible: false,
-      setter_revenue_visible: false,
-    },
-  );
 
   const channel = { a: uuid(), b: uuid(), other: uuid() };
   world.youtube_channels = [

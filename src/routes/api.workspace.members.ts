@@ -42,6 +42,7 @@ const INVITE_CANDIDATE_LIMIT = 10;
 const inviteSchema = z.object({
   email: z.string().trim().email().max(320),
   role: workspaceRoleEnum,
+  revenueVisible: z.boolean().default(false),
   leadShare: z.number().int().min(0).max(100).default(0),
   commission: z.number().int().min(0).max(100).default(0),
   jobTitle: z.string().trim().max(80).nullable().optional(),
@@ -88,7 +89,7 @@ async function parseJson(request: Request) {
 }
 
 const memberColumns =
-  "id, workspace_id, user_id, invited_email, role, status, lead_share, commission, job_title, cost_amount, invited_at, joined_at, created_at, updated_at";
+  "id, workspace_id, user_id, invited_email, role, revenue_visible, status, lead_share, commission, job_title, cost_amount, invited_at, joined_at, created_at, updated_at";
 
 async function countActiveOwners(
   service: ReturnType<typeof createServiceSupabaseClient>,
@@ -252,6 +253,10 @@ export const Route = createFileRoute("/api/workspace/members")({
                   user_id: existingProfile.id,
                   invited_email: input.email,
                   role: input.role,
+                  revenue_visible:
+                    ctx.workspaceRole === "owner" &&
+                    (input.role === "editor" || input.role === "setter") &&
+                    input.revenueVisible,
                   status: "active",
                   lead_share: input.leadShare,
                   commission: input.commission,
@@ -281,6 +286,10 @@ export const Route = createFileRoute("/api/workspace/members")({
               workspace_id: ctx.workspaceId,
               invited_email: input.email,
               role: input.role,
+              revenue_visible:
+                ctx.workspaceRole === "owner" &&
+                (input.role === "editor" || input.role === "setter") &&
+                input.revenueVisible,
               status: "invited",
               lead_share: input.leadShare,
               commission: input.commission,

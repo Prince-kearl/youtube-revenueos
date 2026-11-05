@@ -52,6 +52,13 @@ test("KPI cards avoid red and bright warning hues but follow calmer theme colors
     assert.equal(kpiAccentForPrimary(color), color, color);
 });
 
+test("KPI cards and chart callouts use theme-aware surfaces in dark mode", () => {
+  const component = readFileSync("src/components/KpiTrendCard.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(component, /backgroundColor: "var\(--card\)"/);
+  assert.match(component, /border border-border bg-card/);
+  assert.doesNotMatch(component, /backgroundColor: "#ffffff"|\bbg-white\b/);
+});
+
 test("nothing saved means nothing is emitted, and the defaults stand", () => {
   for (const input of [null, undefined, {}, { siteName: "x" }, "x", 4, []])
     assert.equal(brandThemeCss(input as never), "");

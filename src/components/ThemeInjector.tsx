@@ -85,10 +85,10 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
     document.documentElement.classList.toggle("ios26", ios26Design);
   }, [ios26Design]);
 
-  // Separate sub-toggle for just the photo backdrop (see .ios26-wallpaper in styles.css) — lets
-  // someone keep the glass surfaces without the wallpaper image. Only takes effect combined with
-  // .ios26 above (the CSS selector requires both), so this class alone does nothing if iOS 26
-  // Design itself is off.
+  // Separate sub-toggle for the light-mode photo backdrop (see .ios26-wallpaper in styles.css) —
+  // lets someone keep the glass surfaces without the wallpaper image. Dark mode stays plain. Only
+  // takes effect combined with .ios26 above (the CSS selector requires both), so this class alone
+  // does nothing if iOS 26 Design itself is off.
   useEffect(() => {
     document.documentElement.classList.toggle("ios26-wallpaper", ios26Wallpaper);
   }, [ios26Wallpaper]);

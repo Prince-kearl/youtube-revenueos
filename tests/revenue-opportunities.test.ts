@@ -446,19 +446,8 @@ function world(flags: { editor?: boolean } = {}) {
     stranger: addUser(w, "stranger@x.test"),
   };
   const ws = addPaidWorkspace(w, users.owner);
-  addMember(w, ws, users.editor, "editor");
-  Object.assign(
-    w.workspaces.find((x) => x.id === ws)!,
-    {
-      editor_revenue_visible: flags.editor ?? false,
-      setter_revenue_visible: false,
-    },
-  );
+  addMember(w, ws, users.editor, "editor", { revenue_visible: flags.editor ?? false });
   const other = addPaidWorkspace(w, users.stranger);
-  Object.assign(
-    w.workspaces.find((x) => x.id === other)!,
-    { editor_revenue_visible: false, setter_revenue_visible: false },
-  );
   const channel = uuid();
   const otherChannel = uuid();
   w.youtube_channels = [

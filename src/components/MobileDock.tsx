@@ -151,7 +151,11 @@ export function MobileDock({
             role="dialog"
             aria-label={panelLabel}
             className="glass-pill min-w-0 max-w-[22rem] flex-1 overflow-y-auto p-2 backdrop-blur-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 min-[360px]:p-3"
-            style={{ borderRadius: 28, maxHeight: "calc(100dvh - 7rem)" }}
+            style={{
+              borderRadius: 28,
+              maxHeight: "calc(100dvh - 7rem)",
+              backgroundColor: "var(--card)",
+            }}
           >
             {visibleSections.map((section, index) => (
               <div
