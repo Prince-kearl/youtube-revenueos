@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Video,
@@ -75,6 +76,7 @@ import { openOnboardingGuide } from "@/lib/onboarding";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { BrandedLoader } from "@/components/skeletons";
 import { signOutSupabase } from "@/lib/supabase/auth";
+import { clearSessionQueryData } from "@/lib/query-client";
 import {
   YoutubeChannelSwitcher,
   YoutubeConnectionOutcome,
@@ -238,6 +240,7 @@ export function DashboardLayout({
   hideAppNav?: boolean;
 }) {
   const { user, loading: authLoading } = useAuthSession();
+  const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const [siteContent] = useSiteContent();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -706,18 +709,23 @@ export function DashboardLayout({
   };
   const signOut = async () => {
     await signOutSupabase();
+    clearSessionQueryData(queryClient, null);
     clearAllStores();
     clearChannelSettings();
     navigate({ to: "/" });
   };
 
   useEffect(() => {
-    if (!user) return;
-    if (previousUserId.current && previousUserId.current !== user.id) {
-      clearAllStores();
-      clearChannelSettings();
+    const currentUserId = user?.id ?? null;
+    if (previousUserId.current !== currentUserId) {
+      if (previousUserId.current !== null) {
+        clearSessionQueryData(queryClient, currentUserId);
+        clearAllStores();
+        clearChannelSettings();
+      }
+      previousUserId.current = currentUserId;
     }
-    previousUserId.current = user.id;
+    if (!user) return;
     setProfile((current) => ({
       ...current,
       name:
@@ -728,7 +736,7 @@ export function DashboardLayout({
       email: user.email ?? current.email,
       avatar: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? current.avatar,
     }));
-  }, [user]);
+  }, [user, queryClient]);
 
   // Server/API routes independently verify the session too (see requireSessionUser) — this only
   // keeps signed-out visitors from seeing protected page content client-side.

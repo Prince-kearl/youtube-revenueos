@@ -553,16 +553,18 @@ test("demo mode answers both canonical revenue requests itself", () => {
   assert.match(demo, /granularity: "month"/);
 });
 
-// ---------- 16. the Dashboard from Step 4A is unchanged ----------
+// ---------- 16. the Dashboard uses canonical revenue queries ----------
 
-test("the Dashboard's requests and mapping are unchanged", async () => {
+test("the Dashboard query functions retain canonical requests and mapping", async () => {
   assert.deepEqual(dashboardRevenueUrls(A1), {
     summary: `/api/revenue/summary?days=365&granularity=month&channelId=${A1}`,
     videos: `/api/revenue/videos?days=365&limit=5&sort=revenue&direction=desc&channelId=${A1}`,
   });
   const dashboard = readFileSync("src/routes/dashboard.tsx", "utf8");
-  assert.match(dashboard, /new URLSearchParams\(\{ revenue: "0" \}\)/);
-  assert.match(dashboard, /dashboardRevenueUrls\(activeChannelId\)/);
+  const dashboardQueries = readFileSync("src/lib/queries/dashboard.ts", "utf8");
+  assert.match(dashboard, /fetchDashboardRevenue\(activeChannelId, signal\)/);
+  assert.match(dashboardQueries, /new URLSearchParams\(\{ revenue: "0" \}\)/);
+  assert.match(dashboardQueries, /dashboardRevenueUrls\(channelId\)/);
   const { summary } = await summaryFor(seed(), A1);
   assert.equal(mapDashboardRevenue(summary).total.text, "$1,460");
 });

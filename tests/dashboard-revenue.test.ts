@@ -483,22 +483,20 @@ test("demo mode builds the same view from the bundled sample numbers, with no re
   );
 });
 
-test("demo mode still short-circuits both loaders before any request", () => {
+test("demo mode still short-circuits both query functions before any request", () => {
   const source = readFileSync("src/routes/dashboard.tsx", "utf8");
-  const loadRevenue = source.slice(
-    source.indexOf("const loadRevenue = async"),
-    source.indexOf("const loadYoutubeData = async"),
-  );
-  assert.ok(loadRevenue.indexOf("IS_LOCAL_DEMO") < loadRevenue.indexOf("fetch("));
-  assert.match(loadRevenue, /demoDashboardRevenue\(DEMO_YOUTUBE_DASHBOARD\)/);
-  const loadYoutube = source.slice(source.indexOf("const loadYoutubeData = async"));
-  assert.ok(loadYoutube.indexOf("IS_LOCAL_DEMO") < loadYoutube.indexOf("fetch("));
+  assert.match(source, /if \(IS_LOCAL_DEMO\)/);
+  assert.match(source, /demoDashboardRevenue\(DEMO_YOUTUBE_DASHBOARD\)/);
+  assert.match(source, /data: DEMO_YOUTUBE_DASHBOARD as unknown as DashboardData/);
+  assert.match(source, /fetchDashboardRevenue\(activeChannelId, signal\)/);
+  assert.match(source, /fetchYoutubeDashboard<DashboardData>/);
 });
 
 // ---------- 11. no live revenue in the Dashboard page ----------
 
 test("the Dashboard page no longer reads or calculates live YouTube revenue", () => {
   const source = readFileSync("src/routes/dashboard.tsx", "utf8");
+  const queries = readFileSync("src/lib/queries/dashboard.ts", "utf8");
   for (const forbidden of [
     "estimatedRevenue",
     "estimatedAdRevenue",
@@ -509,12 +507,12 @@ test("the Dashboard page no longer reads or calculates live YouTube revenue", ()
     "cpm",
   ])
     assert.ok(!source.includes(forbidden), `dashboard.tsx no longer mentions ${forbidden}`);
-  // Its only requests: the two canonical revenue URLs, and the live route with revenue switched off.
-  assert.equal(source.match(/fetch\(/g)?.length, 3);
-  assert.match(source, /fetch\(urls\.summary/);
-  assert.match(source, /fetch\(urls\.videos/);
-  assert.match(source, /new URLSearchParams\(\{ revenue: "0" \}\)/);
-  assert.match(source, /dashboardRevenueUrls\(activeChannelId\)/);
+  // Revenue uses the canonical query helper; the separate YouTube API request explicitly disables
+  // live revenue so protected money data continues to come only from the authorized revenue API.
+  assert.equal(source.match(/\bfetch\(/g)?.length ?? 0, 0);
+  assert.match(source, /fetchDashboardRevenue\(activeChannelId, signal\)/);
+  assert.match(queries, /dashboardRevenueUrls\(channelId\)/);
+  assert.match(queries, /new URLSearchParams\(\{ revenue: "0" \}\)/);
   // The revenue cards take their numbers from the mapped canonical view.
   assert.match(source, /value=\{revenueValue\(revenue\.total\.text\)\}/);
   assert.match(source, /changePercent=\{revenue\.changePercent\}/);

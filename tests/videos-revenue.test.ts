@@ -505,7 +505,7 @@ test("the Dashboard's and Analytics page's requests are unchanged", () => {
     `/api/revenue/summary?days=365&granularity=month&channelId=${A1}`,
   );
   assert.match(
-    readFileSync("src/routes/dashboard.tsx", "utf8"),
+    readFileSync("src/lib/queries/dashboard.ts", "utf8"),
     /new URLSearchParams\(\{ revenue: "0" \}\)/,
   );
   assert.match(

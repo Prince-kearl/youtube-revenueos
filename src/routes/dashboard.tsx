@@ -23,6 +23,7 @@ import {
   MessageCircle,
   ChevronDown,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
@@ -34,19 +35,17 @@ import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
 import {
   EMPTY_DASHBOARD_REVENUE,
   demoDashboardRevenue,
-  dashboardRevenueUrls,
   emptyRevenueTrend,
   formatUsdCompact,
-  mapDashboardRevenue,
-  mapTopRevenueVideos,
   trendForRange,
   type DashboardRevenueRange,
   type DashboardRevenueView,
   type DashboardTopVideo,
 } from "@/lib/dashboard-revenue";
-import type { RevenueSummaryResponse } from "@/lib/server/revenue-summary";
-import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
 import { useLocalStore } from "@/lib/local-store";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchDashboardRevenue, fetchYoutubeDashboard } from "@/lib/queries/dashboard";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { RevenueCommandCenter } from "@/components/RevenueCommandCenter";
 import { videoInsightsNotice } from "@/lib/video-insights-view";
@@ -121,11 +120,6 @@ type DashboardData = {
   engagementHeatmapStatus: AnalyticsAvailability;
   fetchedAt: string;
 };
-
-type DashboardResponse =
-  | { status: "not_connected"; data: null }
-  | { status: "connected"; data: DashboardData }
-  | { error: string };
 
 // Revenue on this page comes from the canonical revenue API (stored data), mapped by
 // @/lib/dashboard-revenue. Everything else still comes from /api/youtube/dashboard, which is
@@ -208,119 +202,52 @@ const KPI_TONES = ["green", "blue", "purple", "pink", "yellow", "red"] as const;
 function Dashboard() {
   const { settings } = useChannelSettings();
   const [profile] = useProfile();
+  const { user, loading: authLoading } = useAuthSession();
   const [range, setRange] = useState<DashboardRevenueRange>("12M");
-  const [revenueState, setRevenueState] = useState<RevenueState>({
-    status: "loading",
-    view: EMPTY_DASHBOARD_REVENUE,
-    topVideos: [],
-  });
-  const revenueRequestRef = useRef(0);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [youtubeStatus, setYoutubeStatus] = useState<
-    "loading" | "connected" | "not_connected" | "error" | "reauth"
-  >("loading");
-  const [youtubeRefreshing, setYoutubeRefreshing] = useState(false);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
-  const youtubeAbortRef = useRef<AbortController | null>(null);
-  const youtubeRequestRef = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const forceYoutubeRefreshRef = useRef(false);
   const kpiScrollRef = useRef<HTMLDivElement | null>(null);
-  // Independent of the YouTube request below: a revenue failure leaves the other cards intact,
-  // and a YouTube failure does not blank out stored revenue.
-  const loadRevenue = async () => {
-    const requestId = ++revenueRequestRef.current;
-    if (IS_LOCAL_DEMO) {
-      const demo = demoDashboardRevenue(DEMO_YOUTUBE_DASHBOARD);
-      setRevenueState({ status: "ready", view: demo.revenue, topVideos: demo.topVideos });
-      return;
-    }
-    const urls = dashboardRevenueUrls(activeChannelId);
-    try {
-      const [summaryResponse, videosResponse] = await Promise.all([
-        fetch(urls.summary, { cache: "no-store" }),
-        fetch(urls.videos, { cache: "no-store" }).catch(() => null),
-      ]);
-      const summaryBody = (await summaryResponse.json()) as { data?: RevenueSummaryResponse };
-      if (requestId !== revenueRequestRef.current) return;
-      if (!summaryResponse.ok || !summaryBody.data) throw new Error("REVENUE_UNAVAILABLE");
-      // The video list is optional: without it the totals still stand.
-      const videosBody = videosResponse?.ok
-        ? ((await videosResponse.json().catch(() => null)) as {
-            data?: RevenueVideosResponse;
-          } | null)
-        : null;
-      if (requestId !== revenueRequestRef.current) return;
-      setRevenueState({
-        status: "ready",
-        view: mapDashboardRevenue(summaryBody.data),
-        topVideos: videosBody?.data ? mapTopRevenueVideos(videosBody.data) : [],
-      });
-    } catch {
-      if (requestId !== revenueRequestRef.current) return;
-      setRevenueState({ status: "error", view: EMPTY_DASHBOARD_REVENUE, topVideos: [] });
-    }
-  };
-  const loadYoutubeData = async (
-    forceRefresh = false,
-  ): Promise<"connected" | "not_connected" | "reauth" | "error" | null> => {
-    const requestId = ++youtubeRequestRef.current;
-    youtubeAbortRef.current?.abort();
-    const controller = new AbortController();
-    youtubeAbortRef.current = controller;
-    setYoutubeRefreshing(true);
-    if (IS_LOCAL_DEMO) {
-      setDashboardData(DEMO_YOUTUBE_DASHBOARD as unknown as DashboardData);
-      setYoutubeStatus("connected");
-      setYoutubeRefreshing(false);
-      return "connected";
-    }
-    try {
-      // revenue=0: this page reads revenue from the canonical API, so the live revenue reports
-      // are not requested here at all.
-      const params = new URLSearchParams({ revenue: "0" });
-      if (activeChannelId) params.set("channelId", activeChannelId);
-      if (forceRefresh) params.set("refresh", "1");
-      const query = params.toString();
-      const response = await fetch(`/api/youtube/dashboard${query ? `?${query}` : ""}`, {
-        cache: forceRefresh ? "no-store" : "default",
-        signal: controller.signal,
-      });
-      const body = (await response.json()) as DashboardResponse;
-      if (requestId !== youtubeRequestRef.current) return null;
-      if (response.status === 401 && "error" in body && body.error === "YOUTUBE_REAUTH_REQUIRED") {
-        setDashboardData(null);
-        setYoutubeStatus("reauth");
-        return "reauth";
-      } else if (!response.ok || !("data" in body)) {
-        setDashboardData(null);
-        setYoutubeStatus("error");
-        return "error";
-      } else if (body.status === "not_connected") {
-        setDashboardData(null);
-        setYoutubeStatus("not_connected");
-        return "not_connected";
-      } else {
-        setDashboardData(body.data);
-        setYoutubeStatus("connected");
-        return "connected";
+  const queryUserId = user?.id ?? "anonymous";
+  const queriesEnabled = IS_LOCAL_DEMO || (!authLoading && Boolean(user));
+  const revenueQuery = useQuery({
+    queryKey: queryKeys.dashboard.revenue(queryUserId, activeChannelId),
+    queryFn: ({ signal }) => {
+      if (IS_LOCAL_DEMO) {
+        const demo = demoDashboardRevenue(DEMO_YOUTUBE_DASHBOARD);
+        return Promise.resolve({ view: demo.revenue, topVideos: demo.topVideos });
       }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return null;
-      if (requestId !== youtubeRequestRef.current) return null;
-      setDashboardData(null);
-      setYoutubeStatus("error");
-      return "error";
-    } finally {
-      if (requestId === youtubeRequestRef.current) {
-        setYoutubeRefreshing(false);
-        youtubeAbortRef.current = null;
+      return fetchDashboardRevenue(activeChannelId, signal);
+    },
+    enabled: queriesEnabled,
+  });
+  const youtubeQuery = useQuery({
+    queryKey: queryKeys.dashboard.youtube(queryUserId, activeChannelId),
+    queryFn: ({ signal }) => {
+      if (IS_LOCAL_DEMO) {
+        return Promise.resolve({
+          status: "connected" as const,
+          data: DEMO_YOUTUBE_DASHBOARD as unknown as DashboardData,
+        });
       }
-    }
-  };
-  useEffect(() => {
-    void loadYoutubeData();
-    void loadRevenue();
-    return () => youtubeAbortRef.current?.abort();
-  }, [activeChannelId]);
+      return fetchYoutubeDashboard<DashboardData>(
+        activeChannelId,
+        signal,
+        forceYoutubeRefreshRef.current,
+      );
+    },
+    enabled: queriesEnabled,
+  });
+  const dashboardData = youtubeQuery.data?.status === "connected" ? youtubeQuery.data.data : null;
+  const youtubeStatus =
+    authLoading || (!IS_LOCAL_DEMO && !user)
+      ? "loading"
+      : (youtubeQuery.data?.status ?? (youtubeQuery.isError ? "error" : "loading"));
+  const revenueState: RevenueState = revenueQuery.data
+    ? { status: "ready", ...revenueQuery.data }
+    : revenueQuery.isError
+      ? { status: "error", view: EMPTY_DASHBOARD_REVENUE, topVideos: [] }
+      : { status: "loading", view: EMPTY_DASHBOARD_REVENUE, topVideos: [] };
 
   // Mobile-only KPI carousel autoplay — no-ops on sm+ since the grid layout there never overflows
   // (children.length < 2 there in practice). Stops permanently once the visitor swipes manually,
@@ -384,16 +311,18 @@ function Dashboard() {
   // frame (axes, gridlines) still renders instead of collapsing to a bare text message. The
   // empty-state message overlays on top.
   const trendFallback = useMemo(() => emptyRevenueTrend(range, new Date()), [range]);
-  const [refreshing, setRefreshing] = useState(false);
   const refresh = () => {
     setRefreshing(true);
-    void loadRevenue();
-    void loadYoutubeData(true)
-      .then((status) => {
-        if (status === "connected") toast.success("Dashboard refreshed");
-        else if (status === "error") toast.error("Dashboard refresh failed");
+    forceYoutubeRefreshRef.current = true;
+    void Promise.all([revenueQuery.refetch(), youtubeQuery.refetch()])
+      .then(([, result]) => {
+        if (result.isError) toast.error("Dashboard refresh failed");
+        else if (result.data?.status === "connected") toast.success("Dashboard refreshed");
       })
-      .finally(() => setRefreshing(false));
+      .finally(() => {
+        forceYoutubeRefreshRef.current = false;
+        setRefreshing(false);
+      });
   };
   const videos = dashboardData?.videos ?? [];
   const videoEmptyMessage =
@@ -512,7 +441,7 @@ function Dashboard() {
       {youtubeStatus === "reauth" && (
         <YoutubeReauthNotice
           channelName={dashboardData?.channel.title}
-          onRetry={() => void loadYoutubeData()}
+          onRetry={() => void youtubeQuery.refetch()}
         />
       )}
       {youtubeStatus === "error" && (
@@ -525,7 +454,7 @@ function Dashboard() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => void loadYoutubeData()}
+              onClick={() => void youtubeQuery.refetch()}
               className="rounded-[var(--button-radius)] border border-border px-4 py-2 text-sm font-semibold hover:bg-accent"
             >
               Retry
@@ -1037,7 +966,7 @@ function Dashboard() {
               rows={dashboardData?.engagementHeatmap ?? []}
               status={dashboardData?.engagementHeatmapStatus ?? "unavailable"}
               onRefresh={refresh}
-              refreshing={refreshing || youtubeRefreshing}
+              refreshing={refreshing || youtubeQuery.isFetching}
             />
           )}
         </div>
