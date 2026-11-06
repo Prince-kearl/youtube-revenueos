@@ -577,7 +577,7 @@ function MessageState({
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
   return (
-    <li className="group relative flex items-center gap-3 rounded-xl card-gradient-outline px-4 py-3">
+    <li className="group relative flex h-24 min-h-24 items-center gap-3 overflow-hidden rounded-xl card-gradient-outline px-4 py-3">
       <VideoThumbnail video={video} />
       <div className="min-w-0 flex-1">
         {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
@@ -648,7 +648,7 @@ function VideoRow({
 }) {
   const pending = !revenue && revenueLoading;
   return (
-    <tr className="border-b border-border last:border-0 transition-colors hover:bg-accent/30">
+    <tr className="h-[76px] border-b border-border last:border-0 transition-colors hover:bg-accent/30">
       <td className="px-5 py-3.5">
         {/* The video opens its analytics page in Tubify, which links to YouTube in its header. */}
         <Link

@@ -15,6 +15,10 @@ function smoothSeries(values: number[], window = 3): number[] {
   });
 }
 
+function formatKpiText(text: string): string {
+  return text.replace(/\$/g, "USD ");
+}
+
 // Hand-rolled SVG instead of recharts (used everywhere else in the app) — this card's reference
 // design needs a fixed, always-visible callout anchored to one exact point on the curve, which
 // isn't something recharts' declarative API exposes cleanly. Building the path directly gives
@@ -247,12 +251,14 @@ export function KpiTrendCard({
         </div>
 
         <div className="mt-2">
-          <p className="text-[21px] font-bold leading-none tracking-tight text-foreground">{value}</p>
+          <p className="text-[21px] font-bold leading-none tracking-tight text-foreground">
+            {formatKpiText(value)}
+          </p>
           <p className="mt-1.5 text-[10px] leading-tight sm:text-[10px]">
             <span className={cn("font-semibold", positive ? "text-success" : "text-destructive")}>
-              {deltaLabel}
+              {formatKpiText(deltaLabel)}
             </span>{" "}
-            <span className="text-muted-foreground">{deltaSuffix}</span>
+            <span className="text-muted-foreground">{formatKpiText(deltaSuffix)}</span>
           </p>
         </div>
       </div>
@@ -261,8 +267,8 @@ export function KpiTrendCard({
           <MiniAreaTrend
             data={series}
             accent={positive ? "var(--success)" : "var(--destructive)"}
-            markerTitle={markerTitle}
-            markerSubtitle={markerSubtitle}
+            markerTitle={formatKpiText(markerTitle)}
+            markerSubtitle={formatKpiText(markerSubtitle)}
         />
       </div>
     </div>
