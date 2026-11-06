@@ -36,7 +36,7 @@ test("every section title is the one brand colour", () => {
   const titles = page.match(/<h3 className="text-lg[^"]*"/g) ?? [];
   assert.ok(titles.length >= 5);
   for (const t of titles) assert.match(t, /text-lg font-semibold text-primary"/, t);
-  assert.match(page, /<p className="text-sm font-semibold text-primary">Subscribers<\/p>/);
+  assert.match(page, /<p className="text-sm font-semibold text-primary">Audience<\/p>/);
   assert.match(forYou, /className="flex items-center gap-2 text-lg font-semibold text-primary"/);
   assert.doesNotMatch(page, /text-(green|amber|teal|blue|pink|purple)-600 dark:/);
 });

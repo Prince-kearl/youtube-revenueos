@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Circle,
   X,
-  Sparkles,
   Eye,
   ThumbsUp,
   MessageCircle,
@@ -194,11 +193,6 @@ const kpiCardClassName = "w-full shrink-0 snap-start sm:w-full sm:shrink sm:snap
 // that scroll finishes — the loop reads as continuous forward motion, never a snap-back. sm+ hides
 // it since the grid layout there has no scrolling to loop.
 const kpiCloneClassName = `${kpiCardClassName} sm:hidden`;
-// The colour of each KPI card, in carousel order: on phones the page backdrop takes the colour of
-// the card on screen (styles.css, [data-kpi-tone]).
-// (Each matches its card's accent: brand green, blue, purple, red, amber, primary.)
-const KPI_TONES = ["green", "blue", "purple", "pink", "yellow", "red"] as const;
-
 function Dashboard() {
   const { settings } = useChannelSettings();
   const [profile] = useProfile();
@@ -369,6 +363,7 @@ function Dashboard() {
     [dashboardData],
   );
   const viewsSeries = analyticsRows.map((r) => Number(r.views ?? 0));
+  const totalPeriodViews = viewsSeries.reduce((sum, views) => sum + views, 0);
   const subsSeries = analyticsRows.map((r) => Number(r.subscribersGained ?? 0));
   const watchSeries = analyticsRows.map((r) => Number(r.watchTimeMinutes ?? 0));
   const latestMonthLabel = monthLabel(analyticsRows.at(-1)?.month);
@@ -524,9 +519,11 @@ function Dashboard() {
             />
             <KpiTrendCard
               className={kpiCardClassName}
-              title="Total Views"
+              title="Views (last 12 months)"
               accent="var(--brand-purple)"
-              value={dashboardData ? formatCount(dashboardData.channel.viewCount) : "—"}
+              value={
+                dashboardData?.analyticsStatus === "available" ? formatCount(totalPeriodViews) : "—"
+              }
               deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
               deltaSuffix={latestMonthSuffix}
               changePercent={viewsChangePct}
@@ -614,12 +611,7 @@ function Dashboard() {
       </div>
 
       {youtubeStatus !== "loading" && (
-        <KpiCardDots
-          scrollRef={kpiScrollRef}
-          resetKey={youtubeStatus}
-          count={6}
-          tones={KPI_TONES}
-        />
+        <KpiCardDots scrollRef={kpiScrollRef} resetKey={youtubeStatus} count={6} />
       )}
 
       {(dashboardData?.analyticsStatus === "unavailable" ||
@@ -1227,6 +1219,12 @@ const AUDIENCE_TABS = [
 ] as const;
 type AudienceTab = (typeof AUDIENCE_TABS)[number]["key"];
 
+const AUDIENCE_MEASURE_LABEL: Record<AudienceTab, string> = {
+  location: "Views by location · last 12 months",
+  age: "Viewer age · last 12 months",
+  gender: "Viewer gender · last 12 months",
+};
+
 const AUDIENCE_BAR_COLORS = ["#6366f1", "#38bdf8", "#a855f7", "#f97316", "#22c55e", "#ec4899"];
 
 const countryDisplayNames =
@@ -1314,8 +1312,13 @@ function AudienceBreakdownCard({
     <div className="card-gradient-outline dashboard-card relative flex h-full flex-col p-5 backdrop-blur-xl">
       <div className="flex shrink-0 items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-primary">Subscribers</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight">{formatCount(subscriberCount)}</p>
+          <p className="text-sm font-semibold text-primary">Audience</p>
+          <p className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold tracking-tight">
+              {formatCount(subscriberCount)}
+            </span>
+            <span className="text-xs text-muted-foreground">channel subscribers</span>
+          </p>
         </div>
         <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-accent/40 px-2.5 py-1.5 text-xs font-medium">
           YouTube
@@ -1337,7 +1340,11 @@ function AudienceBreakdownCard({
         ))}
       </div>
 
-      <div className="mt-4 flex-1 space-y-3.5">
+      <p className="mt-3 shrink-0 text-xs font-medium text-muted-foreground">
+        {AUDIENCE_MEASURE_LABEL[tab]}
+      </p>
+
+      <div className="mt-2 flex-1 space-y-3.5">
         {unavailableMessage ? (
           <p className="py-4 text-sm text-muted-foreground">{unavailableMessage}</p>
         ) : rows.length ? (
@@ -1819,36 +1826,18 @@ function EngagementHeatmapSkeleton() {
  * re-rendered the whole page (charts, heatmap, every card) on each step — steady background work
  * on a phone. The clone after the last real card maps back to dot 0, since it stands in for the
  * real first card.
- *
- * It also hands the current card's colour to the page (data-kpi-tone on the app shell) so the
- * backdrop can follow the swipe - a DOM attribute, so Dashboard still does not re-render.
  */
 function KpiCardDots({
   scrollRef,
   resetKey,
   count,
-  tones,
 }: {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   /** Re-attach when the carousel's contents change (they are rendered per connection state). */
   resetKey: string;
   count: number;
-  /** Each card's colour name, in order. */
-  tones: readonly string[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  useEffect(() => {
-    const shell = scrollRef.current?.closest<HTMLElement>(".dashboard-shell");
-    const tone = tones[activeIndex];
-    if (shell && tone) shell.dataset.kpiTone = tone;
-  }, [activeIndex, scrollRef, tones]);
-  // leaving the Dashboard: other pages keep the plain backdrop
-  useEffect(() => {
-    const shell = scrollRef.current?.closest<HTMLElement>(".dashboard-shell");
-    return () => {
-      if (shell) delete shell.dataset.kpiTone;
-    };
-  }, [scrollRef]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

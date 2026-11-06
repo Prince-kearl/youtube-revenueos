@@ -8,9 +8,9 @@ const root = readFileSync("src/routes/__root.tsx", "utf8");
 
 test("iOS 26 Design is on by default, under new keys that reset everyone", () => {
   assert.match(theme, /useLocalStore<boolean>\("yroos\.ios26Design\.v3", true\)/);
-  assert.match(theme, /useLocalStore<boolean>\("yroos\.ios26Wallpaper\.v2", true\)/);
   assert.doesNotMatch(theme, /useLocalStore<boolean>\("yroos\.ios26Design\.v2"/);
-  assert.doesNotMatch(theme, /useLocalStore<boolean>\("yroos\.ios26Wallpaper",/);
+  assert.doesNotMatch(theme, /useIos26Wallpaper|ios26Wallpaper/);
+  assert.doesNotMatch(root, /ios26-wallpaper|ios26Wallpaper/);
 });
 
 // Runs the real first-paint script (from __root.tsx) against a fake browser.
@@ -32,12 +32,12 @@ test("first paint: new visitors and people who had it off get the iOS look, in l
     { "yroos.ios26Design.v2": "false", "yroos.ios26Wallpaper": "false" },
   ]) {
     const c = firstPaint(storage);
-    assert.ok(c.has("ios26") && c.has("ios26-wallpaper"), JSON.stringify(storage));
+    assert.ok(c.has("ios26"), JSON.stringify(storage));
+    assert.ok(!c.has("ios26-wallpaper"), "obsolete wallpaper setting is ignored");
     assert.ok(!c.has("dark"), "light mode");
   }
 });
 
 test("first paint: switching it off after the reset is remembered", () => {
   assert.ok(!firstPaint({ "yroos.ios26Design.v3": "false" }).has("ios26"));
-  assert.ok(!firstPaint({ "yroos.ios26Wallpaper.v2": "false" }).has("ios26-wallpaper"));
 });

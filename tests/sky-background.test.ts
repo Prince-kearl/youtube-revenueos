@@ -10,35 +10,23 @@ function rule(selector: string): string {
   return styles.slice(start, styles.indexOf("\n}\n", start));
 }
 
-test("light mode: the app shell has the light red backdrop", () => {
-  const sky = rule("html:not(.dark) .dashboard-shell.min-h-screen.bg-background");
-  assert.match(sky, /background-color: #fef6f6;/);
-  assert.match(sky, /background-size: auto;/, "not stretched by the base rule's 300% size");
-  assert.match(sky, /radial-gradient\(\s*24% 36% at 100% 0%,\s*rgba\(254, 148, 148, 0\.85\)/);
-  assert.match(
-    sky,
-    /linear-gradient\(\s*180deg,\s*#fec0c0 0px,[\s\S]*#fef4f4 440px,[\s\S]*#fef3f3 1024px/,
-  );
-  // it comes after the base shell rule that clears the motion background, and outranks it
-  assert.ok(
-    styles.indexOf("html:not(.dark) .dashboard-shell.min-h-screen") >
-      styles.indexOf(".dashboard-shell.min-h-screen.bg-background {"),
+test("the app shell uses a solid theme background in light and dark modes", () => {
+  const shell = rule(".dashboard-shell.min-h-screen.bg-background");
+  assert.match(shell, /background-color: var\(--background\);/);
+  assert.match(shell, /background-image: none;/);
+  assert.match(shell, /background-size: auto;/);
+  assert.match(shell, /animation: none;/);
+  assert.doesNotMatch(
+    styles,
+    /\.dashboard-shell(?:\[data-kpi-tone[^\]]*\])?::(?:before|after)/,
+    "KPI carousel does not add a colored wash behind the shell",
   );
 });
 
-test("dark mode stays plain even when the iOS 26 wallpaper preference is enabled", () => {
-  const wallpaper = rule(".ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background");
-  assert.match(wallpaper, /background-color: transparent;/);
-  assert.match(wallpaper, /background-image: none;/);
-  const darkWallpaper = rule(".ios26.ios26-wallpaper.dark body");
-  assert.match(darkWallpaper, /background-color: var\(--background\);/);
-  assert.match(darkWallpaper, /background-image: none;/);
-  assert.match(
-    styles,
-    /html\.dark \.dashboard-main \.card-gradient-outline,\s*html\.dark \.dashboard-main \.card-frost,\s*html\.dark \.dashboard-main \.dashboard-card\s*\{\s*border-color: var\(--border\);/,
-  );
-  // the sky rule is scoped away from dark mode
-  assert.match(styles, /html:not\(\.dark\) \.dashboard-shell\.min-h-screen\.bg-background \{/);
+test("the dashboard no longer enables a wallpaper image", () => {
+  assert.doesNotMatch(styles, /\.ios26\.ios26-wallpaper(?:\.dark)? body\s*\{/);
+  assert.doesNotMatch(styles, /ios26_light\.png|ios26_dark\.png/);
+  assert.doesNotMatch(styles, /ios26-wallpaper/);
 });
 
 test("light mode: no line under the header", () => {

@@ -16,13 +16,6 @@ export const useThemeMode = () => useLocalStore<ThemeMode>("yroos.theme.v2", "li
 // radius CSS vars).
 export const useIos26Design = () => useLocalStore<boolean>("yroos.ios26Design.v3", true);
 
-// Sub-preference of the above — lets someone keep the glass surfaces/rounded corners without the
-// ios26_light/ios26_dark photo backdrop (see the .ios26-wallpaper class in styles.css). Only
-// meaningful while useIos26Design is on; the Settings UI hides/disables it otherwise rather than
-// this hook enforcing that itself. On by default; the ".v2" key (2026-10-30) reset everyone to on
-// along with the design itself.
-export const useIos26Wallpaper = () => useLocalStore<boolean>("yroos.ios26Wallpaper.v2", true);
-
 function prefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }

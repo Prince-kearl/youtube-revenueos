@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from "react";
 import { kpiAccentForPrimary, type BrandTheme } from "@/lib/brand-theme";
 import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
-import { useIos26Design, useIos26Wallpaper } from "@/lib/theme";
+import { useIos26Design } from "@/lib/theme";
 
 // Applies the Superadmin's Visual Style choices (Customization → General) app-wide by
 // overriding the CSS custom properties defined in styles.css, rather than only affecting the
@@ -21,7 +21,6 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [ios26Design] = useIos26Design();
-  const [ios26Wallpaper] = useIos26Wallpaper();
 
   // Pulls the latest Customization settings from the global settings API (a real Supabase table,
   // see src/routes/api.settings.ts) once per app load, so a change a Superadmin made from a
@@ -84,14 +83,6 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
   useEffect(() => {
     document.documentElement.classList.toggle("ios26", ios26Design);
   }, [ios26Design]);
-
-  // Separate sub-toggle for the light-mode photo backdrop (see .ios26-wallpaper in styles.css) —
-  // lets someone keep the glass surfaces without the wallpaper image. Dark mode stays plain. Only
-  // takes effect combined with .ios26 above (the CSS selector requires both), so this class alone
-  // does nothing if iOS 26 Design itself is off.
-  useEffect(() => {
-    document.documentElement.classList.toggle("ios26-wallpaper", ios26Wallpaper);
-  }, [ios26Wallpaper]);
 
   return null;
 }

@@ -98,9 +98,9 @@
   --info: #3b82f6;
   --brand-red: #ff0000;
   --brand-purple: #8b5cf6; /* Cool purple for Brand Deals */
-  --brand-blue: #3b82f6;   /* accent blue for chat/AdSense */
-  --brand-green: #34d399;  /* Teal for Memberships */
-  --brand-amber: #f59e0b;  /* Amber for Affiliates */
+  --brand-blue: #3b82f6; /* accent blue for chat/AdSense */
+  --brand-green: #34d399; /* Teal for Memberships */
+  --brand-amber: #f59e0b; /* Amber for Affiliates */
 }
 
 /* Dark theme — toggled via .dark on <html> (see src/lib/theme.ts + the no-flash script in
@@ -246,7 +246,9 @@
    which otherwise win over anything inside @layer base regardless of source order. Scoped to
    phone-width viewports so tablet/desktop sizing is untouched. */
 @media (max-width: 639px) {
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-size: 16px;
   }
 }
@@ -255,15 +257,24 @@
    w-1/3 of its track, so translateX in units of its OWN width (-100% to 300%) sweeps it fully
    off-screen left to fully off-screen right, covering the whole track. */
 @keyframes route-progress {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 /* Flowing gradient border, e.g. the AI suggestion cards in the Lead Inbox — the wrapper
    needs bg-[length:200%_200%] alongside this so the position shift actually reads as motion. */
 @keyframes gradient-flow {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 .animate-gradient-flow {
   animation: gradient-flow 4s ease infinite;
@@ -286,11 +297,12 @@
   background:
     linear-gradient(var(--card), var(--card)) padding-box,
     linear-gradient(
-      to bottom right,
-      color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
-      var(--border) 50%,
-      color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
-    ) border-box;
+        to bottom right,
+        color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
+        var(--border) 50%,
+        color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
+      )
+      border-box;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.5),
     0 1px 2px rgba(15, 23, 42, 0.04);
@@ -366,134 +378,45 @@ html.dark .dashboard-main .dashboard-card {
   color: var(--primary);
 }
 
-/* Phone KPI carousel: the backdrop takes the colour of the card on screen, in the same gradient
-   style as the backdrop itself (deepest in the top-right corner, a brighter patch left of
-   centre, fading to near-white by ~440px). The Dashboard's dots set data-kpi-tone on the shell.
-   Two fixed layers behind the content hold the card's colour - a light tint shaped like the
-   backdrop's vertical fade (::before) and a deep tint shaped like its corner glow and top patch
-   (::after). Their shapes are masks that never change, so only background-color animates and
-   swipes cross-fade. Light mode, phone widths only - from sm up all the cards are in view. */
-@media (max-width: 639.98px) {
-  html:not(.dark) .dashboard-shell {
-    isolation: isolate;
-  }
-  html:not(.dark) .dashboard-shell::before,
-  html:not(.dark) .dashboard-shell::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-color: transparent;
-    transition: background-color 0.6s ease;
-  }
-  /* the backdrop's vertical fade: full at the top, gone by ~440px */
-  html:not(.dark) .dashboard-shell::before {
-    -webkit-mask-image: linear-gradient(
-      180deg,
-      #000 0px,
-      rgba(0, 0, 0, 0.82) 60px,
-      rgba(0, 0, 0, 0.42) 130px,
-      rgba(0, 0, 0, 0.3) 200px,
-      rgba(0, 0, 0, 0.22) 300px,
-      rgba(0, 0, 0, 0.08) 440px,
-      transparent 860px
-    );
-    mask-image: linear-gradient(
-      180deg,
-      #000 0px,
-      rgba(0, 0, 0, 0.82) 60px,
-      rgba(0, 0, 0, 0.42) 130px,
-      rgba(0, 0, 0, 0.3) 200px,
-      rgba(0, 0, 0, 0.22) 300px,
-      rgba(0, 0, 0, 0.08) 440px,
-      transparent 860px
-    );
-  }
-  /* the backdrop's top-right corner glow and the brighter patch left of centre */
-  html:not(.dark) .dashboard-shell::after {
-    -webkit-mask-image:
-      radial-gradient(
-        24% 36% at 100% 0%,
-        rgba(0, 0, 0, 0.85) 0%,
-        rgba(0, 0, 0, 0.45) 35%,
-        rgba(0, 0, 0, 0.12) 70%,
-        transparent 100%
-      ),
-      radial-gradient(36% 13% at 30% 0%, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.25) 55%, transparent 100%);
-    mask-image:
-      radial-gradient(
-        24% 36% at 100% 0%,
-        rgba(0, 0, 0, 0.85) 0%,
-        rgba(0, 0, 0, 0.45) 35%,
-        rgba(0, 0, 0, 0.12) 70%,
-        transparent 100%
-      ),
-      radial-gradient(36% 13% at 30% 0%, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.25) 55%, transparent 100%);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="green"]::before {
-    background-color: color-mix(in srgb, #8ce589 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="green"]::after {
-    background-color: color-mix(in srgb, #8ce589 85%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="blue"]::before {
-    background-color: color-mix(in srgb, #69b4fe 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="blue"]::after {
-    background-color: color-mix(in srgb, #69b4fe 85%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="purple"]::before {
-    background-color: color-mix(in srgb, #b876fd 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="purple"]::after {
-    background-color: color-mix(in srgb, #b876fd 85%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="pink"]::before {
-    background-color: color-mix(in srgb, #fd8181 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="pink"]::after {
-    background-color: color-mix(in srgb, #fd8181 85%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="yellow"]::before {
-    background-color: color-mix(in srgb, #ffd75e 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="yellow"]::after {
-    background-color: color-mix(in srgb, #ffd75e 85%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="red"]::before {
-    background-color: color-mix(in srgb, #f46968 45%, #fff);
-  }
-  html:not(.dark) .dashboard-shell[data-kpi-tone="red"]::after {
-    background-color: color-mix(in srgb, #f46968 85%, #fff);
-  }
-}
-@media (max-width: 639.98px) and (prefers-reduced-motion: reduce) {
-  html:not(.dark) .dashboard-shell::before,
-  html:not(.dark) .dashboard-shell::after {
-    transition: none;
-  }
-}
-
 /* ============ App motion (Dashboard + every app page) ============
    Transform/opacity only (GPU, no layout work). One-off entrances everywhere; hover effects
    only on devices with a mouse
    (hover: hover, pointer: fine) - never on phones. Everything stops for reduced motion. */
 @keyframes dash-rise {
-  from { opacity: 0; transform: translateY(12px) scale(0.985); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 @keyframes dash-grow-y {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 @keyframes dash-grow-x {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 @keyframes dash-pop {
-  from { opacity: 0; transform: scale(0.6); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* entrances: KPI cards one after another, then the sections below */
@@ -646,7 +569,8 @@ html.dark .dashboard-main .dashboard-card {
     to bottom right,
     color-mix(in srgb, color-mix(in srgb, var(--primary) 30%, var(--card)) 55%, transparent) 0%,
     color-mix(in srgb, var(--card) 55%, transparent) 50%,
-    color-mix(in srgb, color-mix(in srgb, var(--brand-purple) 25%, var(--card)) 55%, transparent) 100%
+    color-mix(in srgb, color-mix(in srgb, var(--brand-purple) 25%, var(--card)) 55%, transparent)
+      100%
   );
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 20%, transparent),
@@ -664,11 +588,21 @@ html.dark .dashboard-main .dashboard-card {
    decelerates to a dead stop and reverses direction every cycle, which reads as a jerky "bounce"
    rather than motion. This drifts continuously in one direction with constant speed and no seam. */
 @keyframes bg-motion {
-  0% { background-position: 0% 30%; }
-  25% { background-position: 70% 0%; }
-  50% { background-position: 100% 70%; }
-  75% { background-position: 30% 100%; }
-  100% { background-position: 0% 30%; }
+  0% {
+    background-position: 0% 30%;
+  }
+  25% {
+    background-position: 70% 0%;
+  }
+  50% {
+    background-position: 100% 70%;
+  }
+  75% {
+    background-position: 30% 100%;
+  }
+  100% {
+    background-position: 0% 30%;
+  }
 }
 .min-h-screen.bg-background {
   background-color: var(--background);
@@ -710,81 +644,14 @@ html.dark .dashboard-main .dashboard-card {
   );
 }
 
-/* Dashboard shell (DashboardLayout's root — every app/workspace page) opts out of the motion
-   background above. Landing and login keep it; the compound selector (three classes, higher
-   specificity than the two rules above) is what makes this an override rather than a conflict. */
+/* Dashboard shell (DashboardLayout's root — every app/workspace page) uses a solid theme
+   background. The higher-specificity selector also prevents the optional app-wide wash from
+   showing through the shell in light or dark mode. */
 .dashboard-shell.min-h-screen.bg-background {
+  background-color: var(--background);
   background-image: none;
-  animation: none;
-}
-
-/* Light mode: the app's backdrop — a light red along the top (deepest in the top-right corner,
-   brightest left of centre), fading to a pale red-white from about 440px down. Same shape and
-   lightness as the sky-blue version it replaced (each blue mapped to the red of equal lightness). The shell fills
-   the viewport and its content scrolls inside it, so the backdrop stays put while pages scroll.
-   Dark mode and the iOS 26 wallpaper (below) are unchanged. */
-html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
-  background-color: #fef6f6;
-  /* the base .min-h-screen.bg-background rule sizes its moving wash at 300%; this one is static */
   background-size: auto;
-  background-position: 0 0;
-  background-image:
-    radial-gradient(
-      24% 36% at 100% 0%,
-      rgba(254, 148, 148, 0.85) 0%,
-      rgba(254, 148, 148, 0.45) 35%,
-      rgba(254, 148, 148, 0.12) 70%,
-      rgba(254, 148, 148, 0) 100%
-    ),
-    radial-gradient(
-      36% 13% at 30% 0%,
-      rgba(254, 157, 157, 0.6) 0%,
-      rgba(254, 157, 157, 0.25) 55%,
-      rgba(254, 157, 157, 0) 100%
-    ),
-    radial-gradient(18% 10% at 0% 0%, rgba(254, 230, 230, 0.45) 0%, rgba(254, 230, 230, 0) 100%),
-    linear-gradient(
-      180deg,
-      #fec0c0 0px,
-      #fdcbcb 60px,
-      #fde3e3 130px,
-      #feebeb 200px,
-      #feeeee 300px,
-      #fef4f4 440px,
-      #fef6f6 860px,
-      #fef3f3 1024px
-    );
-}
-
-/* Keep the dashboard canvas neutral behind KPI cards and content. KPI accents remain on their
-   borders, charts, and trend indicators rather than tinting the page background. */
-html:not(.dark) .dashboard-shell.min-h-screen.bg-background {
-  background-color: #ffffff;
-  background-image: none;
-}
-html:not(.dark) .dashboard-shell::before,
-html:not(.dark) .dashboard-shell::after {
-  display: none;
-}
-
-/* With the wallpaper on, the shell's own opaque fill would otherwise sit on top of and completely
-   hide the .ios26_light/.ios26_dark image set on <body> — go transparent here so it shows through
-   the gaps around cards/nav instead, the way the rest of this system's glass surfaces already
-   assume a real backdrop behind them. Gated the same as the wallpaper itself (see above) — no
-   image means nothing to reveal, so the shell stays opaque when just .ios26 is on. */
-.ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
-  background-color: transparent;
-  background-image: none;
-}
-
-/* KPI-focused dashboard surfaces stay white even when the iOS 26 wallpaper is enabled. */
-html:not(.dark) .ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background {
-  background-color: #ffffff;
-  background-image: none;
-}
-html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
-  background-color: #ffffff;
-  background-image: none;
+  animation: none;
 }
 
 /* Motion glow ring (landing page nav pill) — a light continuously travels around the border via a
@@ -798,8 +665,13 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
    non-spinning (and on some builds entirely invisible) ring in production while dev-mode's
    unminified CSS still worked fine. Plain var() reads don't have that failure mode. */
 @keyframes nav-glow-breathe {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 .nav-glow-motion::before {
   content: "";
@@ -817,7 +689,9 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
     #0a1420 85%,
     transparent 100%
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -828,15 +702,25 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
   inset: -13px;
   z-index: -1;
   border-radius: inherit;
-  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--primary) 62%, transparent) 0%, transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--primary) 62%, transparent) 0%,
+    transparent 70%
+  );
   filter: blur(16px);
   animation: nav-glow-breathe 3s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes typewriter-blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 .typewriter-cursor {
   display: inline-block;
@@ -875,17 +759,44 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
   animation: hero-glow-drift-b 20s ease-in-out infinite;
 }
 @keyframes hero-glow-drift-a {
-  0% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.85; }
-  25% { transform: translate(-50%, -50%) translate(14%, 10%) scale(1.25); opacity: 1; }
-  50% { transform: translate(-50%, -50%) translate(6%, -14%) scale(0.85); opacity: 0.65; }
-  75% { transform: translate(-50%, -50%) translate(-14%, 8%) scale(1.15); opacity: 0.95; }
-  100% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.85; }
+  0% {
+    transform: translate(-50%, -50%) translate(0%, 0%) scale(1);
+    opacity: 0.85;
+  }
+  25% {
+    transform: translate(-50%, -50%) translate(14%, 10%) scale(1.25);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(6%, -14%) scale(0.85);
+    opacity: 0.65;
+  }
+  75% {
+    transform: translate(-50%, -50%) translate(-14%, 8%) scale(1.15);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(0%, 0%) scale(1);
+    opacity: 0.85;
+  }
 }
 @keyframes hero-glow-drift-b {
-  0% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.7; }
-  30% { transform: translate(-50%, -50%) translate(-16%, -10%) scale(1.2); opacity: 0.9; }
-  60% { transform: translate(-50%, -50%) translate(10%, 12%) scale(0.8); opacity: 0.55; }
-  100% { transform: translate(-50%, -50%) translate(0%, 0%) scale(1); opacity: 0.7; }
+  0% {
+    transform: translate(-50%, -50%) translate(0%, 0%) scale(1);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translate(-50%, -50%) translate(-16%, -10%) scale(1.2);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translate(-50%, -50%) translate(10%, 12%) scale(0.8);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(0%, 0%) scale(1);
+    opacity: 0.7;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-glow-aurora,
@@ -927,37 +838,15 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
   --glass-radius-md: 20px;
   --glass-radius-sm: 16px;
   --sidebar-gap: 0px;
-  --sidebar-offset-collapsed: 5rem;      /* w-20, flush against the edge */
-  --sidebar-offset-expanded: 13.125rem;  /* 210px, flush against the edge */
-  --hero-radius: 999px;                  /* standard: full pill, matching the old channel banner */
+  --sidebar-offset-collapsed: 5rem; /* w-20, flush against the edge */
+  --sidebar-offset-expanded: 13.125rem; /* 210px, flush against the edge */
+  --hero-radius: 999px; /* standard: full pill, matching the old channel banner */
 }
 .ios26 {
   --sidebar-gap: 0.75rem;
-  --sidebar-offset-collapsed: 6.75rem;   /* 12px gap + 80px rail + 16px breathing room */
-  --sidebar-offset-expanded: 14.875rem;  /* 12px gap + 210px rail + 16px breathing room */
-  --hero-radius: 28px;                   /* glass: hero-card radius, not a pill */
-}
-
-/* App background — the optional Liquid Glass wallpaper is used behind the translucent surfaces in
-   light mode. Dark mode intentionally stays on the plain --background color for a calmer, clearer
-   canvas. In light mode, a flat --background-tinted scrim (background-image doesn't support opacity
-   directly — this is the standard two-layer stand-in) keeps the photo subtle behind the glass
-   surfaces rather than letting it compete with content;
-   the same solid color-stop trick as the motion background above, just without the gradient.
-   Gated behind .ios26-wallpaper (Settings → Preferences), a separate sub-toggle of .ios26 itself —
-   someone can keep the glass surfaces/rounded corners without the photo backdrop. */
-.ios26.ios26-wallpaper body {
-  background-image: linear-gradient(
-      color-mix(in srgb, var(--background) 78%, transparent),
-      color-mix(in srgb, var(--background) 78%, transparent)
-    ), url("/ios26_light.png");
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}
-.ios26.ios26-wallpaper.dark body {
-  background-color: var(--background);
-  background-image: none;
+  --sidebar-offset-collapsed: 6.75rem; /* 12px gap + 80px rail + 16px breathing room */
+  --sidebar-offset-expanded: 14.875rem; /* 12px gap + 210px rail + 16px breathing room */
+  --hero-radius: 28px; /* glass: hero-card radius, not a pill */
 }
 
 /* Pill/capsule surfaces — search bar, segmented controls, nav rail, bottom tab bar. */
@@ -991,9 +880,9 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
 .ios26.dark .glass-bar {
   border-bottom: 1px solid color-mix(in srgb, white 8%, transparent);
 }
-/* Light mode: the header sits straight on the sky backdrop — no line under it (it read as a stray
-   white stripe) and no backdrop blur (page content scrolls in <main> below the header, never under
-   it, so the blur only washed the sky's top edge out). :root (not html) so this outranks
+/* Light mode: the header sits straight on the solid app background — no line under it (it read as
+   a stray white stripe) and no backdrop blur (page content scrolls in <main> below the header,
+   never under it, so the blur only washed the background's top edge out). :root (not html) so this outranks
    `:root:not(.ios26) .glass-bar` above. */
 :root:not(.dark) .glass-bar {
   border-bottom-color: transparent;
@@ -1063,10 +952,20 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
    of the animated .nav-glow-motion ring (disabled below when .ios26 is active — the glass hero
    card reads as busy with both a moving ring and a gradient wash at once) differ between them. */
 :root:not(.ios26) .hero-banner-bg {
-  background: radial-gradient(circle at 22% 40%, color-mix(in srgb, var(--primary) 45%, #0a1420) 0%, #0a1420 55%, #060b12 100%);
+  background: radial-gradient(
+    circle at 22% 40%,
+    color-mix(in srgb, var(--primary) 45%, #0a1420) 0%,
+    #0a1420 55%,
+    #060b12 100%
+  );
 }
 .ios26 .hero-banner-bg {
-  background: radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--primary) 32%, #0a1420) 0%, #0a1420 55%, #060b12 100%);
+  background: radial-gradient(
+    circle at 20% 30%,
+    color-mix(in srgb, var(--primary) 32%, #0a1420) 0%,
+    #0a1420 55%,
+    #060b12 100%
+  );
 }
 .ios26 .nav-glow-motion::before,
 .ios26 .nav-glow-motion::after {
@@ -1124,11 +1023,12 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
   background:
     linear-gradient(var(--popover), var(--popover)) padding-box,
     linear-gradient(
-      to bottom right,
-      color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
-      var(--border) 50%,
-      color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
-    ) border-box;
+        to bottom right,
+        color-mix(in srgb, var(--primary) 22%, var(--border)) 0%,
+        var(--border) 50%,
+        color-mix(in srgb, var(--brand-purple) 18%, var(--border)) 100%
+      )
+      border-box;
 }
 .ios26 .ios26-glass {
   /* Was a translucent 72% mix, letting the dimmed backdrop overlay show/blur through and read as
@@ -1255,7 +1155,9 @@ html:not(.dark).ios26.ios26-wallpaper body:has(.dashboard-shell) {
   background: var(--paper);
   border-radius: 0.375em;
   box-shadow: 0 0.25em 0.875em rgba(60, 40, 10, 0.12);
-  transition: transform 0.45s var(--ease), bottom 0.45s var(--ease);
+  transition:
+    transform 0.45s var(--ease),
+    bottom 0.45s var(--ease);
   overflow: hidden;
 }
 

@@ -156,6 +156,35 @@ test("the Dashboard words a temporary failure without asking to reconnect", asyn
   assert.match(forbidden.kind === "partial" ? forbidden.message : "", /^Reconnect YouTube/);
 });
 
+test("the audience card distinguishes channel subscribers from each breakdown metric", () => {
+  const source = readFileSync(
+    new URL("../src/routes/dashboard.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\r\n/g, "\n");
+  assert.match(
+    source,
+    /const totalPeriodViews = viewsSeries\.reduce\(\(sum, views\) => sum \+ views, 0\);/,
+  );
+  assert.match(source, /title="Views \(last 12 months\)"/);
+  assert.match(
+    source,
+    /dashboardData\?\.analyticsStatus === "available"\s*\?\s*formatCount\(totalPeriodViews\)\s*:\s*"—"/,
+  );
+  assert.match(source, /<p className="text-sm font-semibold text-primary">Audience<\/p>/);
+  assert.match(source, /channel subscribers/);
+  assert.match(source, /location: "Views by location · last 12 months"/);
+  assert.match(source, /age: "Viewer age · last 12 months"/);
+  assert.match(source, /gender: "Viewer gender · last 12 months"/);
+});
+
+test("the dashboard has no channel report banner above the KPI cards", () => {
+  const source = readFileSync(new URL("../src/routes/dashboard.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(
+    source,
+    /dashboard-report-banner-title|Your channel, in focus|Channel report/,
+  );
+});
+
 test("the optional-section classifier cannot write anything", () => {
   const source = readFileSync(
     new URL("../src/routes/api.youtube.dashboard.ts", import.meta.url),
