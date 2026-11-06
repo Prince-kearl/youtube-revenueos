@@ -8,12 +8,12 @@ const glow = readFileSync("src/components/ui/glowing-effect.tsx", "utf8");
 const block = (start: string) =>
   styles.slice(styles.indexOf(start), styles.indexOf("\n}\n", styles.indexOf(start)));
 
-test("every app page: cards lose their outline and glow, titles take the brand colour", () => {
+test("every app page: cards keep a subtle outline without the old glow, titles take the brand colour", () => {
   assert.match(
     block(":root .dashboard-main .card-gradient-outline {"),
-    /border-color: transparent;/,
+    /border-color: #d9dee5;/,
   );
-  assert.match(block(":root .dashboard-main .card-frost {"), /border-color: transparent;/);
+  assert.match(block(":root .dashboard-main .card-frost {"), /border-color: #d9dee5;/);
   assert.match(block(".dashboard-main .glowing-effect {"), /display: none !important;/);
   assert.equal(
     glow.match(/ glowing-effect",/g)?.length,
