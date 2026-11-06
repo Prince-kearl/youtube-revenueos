@@ -28,6 +28,9 @@ import {
   Inbox,
   LogOut,
   User as UserIcon,
+  Sun,
+  Moon,
+  Monitor,
   Send,
   Shield,
   Pencil,
@@ -66,6 +69,7 @@ import {
 } from "@/lib/stores";
 import { clearAllStores, uid, useLocalStore } from "@/lib/local-store";
 import { clearChannelSettings } from "@/lib/channel-settings";
+import { useThemeMode, type ThemeMode } from "@/lib/theme";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { DealDialog } from "@/components/modals";
 import { NotificationRow, type AppNotification } from "@/components/NotificationRow";
@@ -249,6 +253,7 @@ export function DashboardLayout({
 
   const navigate = useNavigate();
   const [profile, setProfile] = useProfile();
+  const [themeMode, setThemeMode] = useThemeMode();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [deals, setDeals] = useDeals();
   const [viewerRole, setViewerRole] = useViewerRole();
@@ -1016,7 +1021,10 @@ export function DashboardLayout({
             {/* Profile menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full px-1 py-1 hover:bg-accent">
+                <button
+                  aria-label="Open profile menu"
+                  className="flex items-center gap-2 rounded-full px-1 py-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
                   <img
                     referrerPolicy="no-referrer"
                     src={profile.avatar}
@@ -1026,30 +1034,94 @@ export function DashboardLayout({
                   <span className="hidden text-sm font-medium sm:block">{profile.name}</span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-2xl">
-                <DropdownMenuLabel>
-                  <p className="font-semibold">{profile.name}</p>
-                  <p className="text-xs font-normal text-muted-foreground">{profile.email}</p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => navigate({ to: "/settings" })}>
-                  <UserIcon className="mr-2 h-4 w-4" /> Profile & Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <div className="px-2 py-2">
-                  <p className="mb-2 text-xs font-semibold">Active YouTube channel</p>
-                  <YoutubeChannelSwitcher />
+              <DropdownMenuContent
+                align="end"
+                sideOffset={10}
+                className="w-[290px] rounded-[24px] border border-border/80 bg-popover p-2 shadow-2xl"
+              >
+                <div className="rounded-[18px] border border-border bg-background/70 p-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      referrerPolicy="no-referrer"
+                      src={profile.avatar}
+                      alt={profile.name}
+                      className="h-12 w-12 rounded-full border border-border object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold">{profile.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
+                    </div>
+                  </div>
                 </div>
-                <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
-                  <HelpCircle className="mr-2 h-4 w-4" /> Help & Tubi
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={signOut}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" /> Sign out
-                </DropdownMenuItem>
+
+                <div className="mt-2 space-y-1">
+                  <DropdownMenuItem
+                    onSelect={() => navigate({ to: "/settings", search: { tab: "Profile" } })}
+                    className="h-11 rounded-xl px-3 text-[15px]"
+                  >
+                    <UserIcon className="mr-3 h-5 w-5" /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => navigate({ to: "/settings", search: { tab: "Appearance" } })}
+                    className="h-11 rounded-xl px-3 text-[15px]"
+                  >
+                    <Settings className="mr-3 h-5 w-5" /> Settings
+                  </DropdownMenuItem>
+                </div>
+
+                <div className="mt-2 rounded-xl border border-border bg-background/60 px-3 py-2.5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-medium">Theme</span>
+                    <span className="text-xs text-muted-foreground capitalize">{themeMode}</span>
+                  </div>
+                  <div
+                    className="grid grid-cols-3 gap-1 rounded-lg bg-muted/70 p-1"
+                    role="group"
+                    aria-label="Theme mode"
+                  >
+                    {(
+                      [
+                        ["light", "Light", Sun],
+                        ["dark", "Dark", Moon],
+                        ["system", "System", Monitor],
+                      ] as const
+                    ).map(([mode, label, Icon]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-label={`${label} theme`}
+                        aria-pressed={themeMode === mode}
+                        onClick={() => setThemeMode(mode as ThemeMode)}
+                        className={cn(
+                          "flex h-9 items-center justify-center gap-1 rounded-md text-xs transition-colors",
+                          themeMode === mode
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="sr-only sm:not-sr-only">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-2 border-t border-border pt-2">
+                  <div className="px-2 py-2">
+                    <p className="mb-2 text-xs font-semibold">Active YouTube channel</p>
+                    <YoutubeChannelSwitcher />
+                  </div>
+                  <DropdownMenuItem onSelect={() => setHelpOpen(true)} className="h-11 rounded-xl px-3">
+                    <HelpCircle className="mr-3 h-5 w-5" /> Help & Tubi
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuItem
+                    onSelect={signOut}
+                    className="h-11 rounded-xl px-3 text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="mr-3 h-5 w-5" /> Sign out
+                  </DropdownMenuItem>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

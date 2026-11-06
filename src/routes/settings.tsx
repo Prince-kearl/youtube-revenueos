@@ -85,6 +85,7 @@ export const Route = createFileRoute("/settings")({
 
 const menu = [
   { label: "Profile", icon: User },
+  { label: "Appearance", icon: Sun },
   { label: "Dashboard Banner", icon: LayoutDashboard },
   { label: "Connected Accounts", icon: Link2 },
   { label: "YouTube Integration", icon: Youtube },
