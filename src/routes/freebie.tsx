@@ -1039,7 +1039,12 @@ function BrandingTab({
             <div className="mt-1.5 flex items-center gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-accent/20">
                 {logoPreview ? (
-                  <img referrerPolicy="no-referrer" src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
+                  <img
+                    referrerPolicy="no-referrer"
+                    src={logoPreview}
+                    alt="Logo"
+                    className="h-full w-full object-contain"
+                  />
                 ) : (
                   <Gift className="h-5 w-5 text-muted-foreground" />
                 )}
@@ -1140,7 +1145,12 @@ function BrandingTab({
         <div className="mt-4 overflow-hidden rounded-xl border border-border">
           <div className="flex flex-col items-center gap-2 bg-[#f5f5f7] px-6 py-8 text-center">
             {logoPreview && (
-              <img referrerPolicy="no-referrer" src={logoPreview} alt="" className="h-8 max-w-[140px] object-contain" />
+              <img
+                referrerPolicy="no-referrer"
+                src={logoPreview}
+                alt=""
+                className="h-8 max-w-[140px] object-contain"
+              />
             )}
             <span
               className="rounded-full px-2.5 py-1 text-[11px] font-medium"

@@ -23,8 +23,15 @@ export function StatCard({
   frost?: boolean;
 }) {
   return (
-    <div className={cn("relative rounded-xl p-4 backdrop-blur-lg", frost ? "card-frost" : "card-gradient-outline")}>
-      {glow && <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />}
+    <div
+      className={cn(
+        "relative rounded-xl p-4 backdrop-blur-lg",
+        frost ? "card-frost" : "card-gradient-outline",
+      )}
+    >
+      {glow && (
+        <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
+      )}
       <div className="flex items-start justify-between">
         <div className="stat-icon-chip flex h-8 w-8 items-center justify-center text-primary [&_svg]:h-4 [&_svg]:w-4">
           {icon}
@@ -35,7 +42,11 @@ export function StatCard({
               up ? "text-success" : "text-destructive"
             }`}
           >
-            {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+            {up ? (
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowDownRight className="h-3.5 w-3.5" />
+            )}
             {change}
           </span>
         )}
@@ -49,7 +60,9 @@ export function StatCard({
 
 export function ChangeCell({ change, up }: { change: string; up: boolean }) {
   return (
-    <span className={`flex items-center gap-0.5 text-sm font-medium ${up ? "text-success" : "text-destructive"}`}>
+    <span
+      className={`flex items-center gap-0.5 text-sm font-medium ${up ? "text-success" : "text-destructive"}`}
+    >
       {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
       {change}
     </span>
@@ -67,7 +80,9 @@ const tagColors: Record<string, string> = {
 
 export function Tag({ label, color = "neutral" }: { label: string; color?: string }) {
   return (
-    <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${tagColors[color] ?? tagColors.neutral}`}>
+    <span
+      className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${tagColors[color] ?? tagColors.neutral}`}
+    >
       {label}
     </span>
   );
@@ -83,7 +98,9 @@ const statusColors: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors[status] ?? "bg-accent"}`}>
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors[status] ?? "bg-accent"}`}
+    >
       {status}
     </span>
   );

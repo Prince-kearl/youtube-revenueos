@@ -34,7 +34,8 @@ export async function matchesRecoveryCode(code: string, storedHash: string): Pro
   const actual = await sha256(`${salt}:${code.trim().toUpperCase()}`);
   if (actual.length !== expected.length) return false;
   let difference = 0;
-  for (let index = 0; index < actual.length; index++) difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
+  for (let index = 0; index < actual.length; index++)
+    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
   return difference === 0;
 }
 

@@ -65,8 +65,13 @@ function ResetPassword() {
         ) : !sessionLoading && !user ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <h1 className="text-2xl font-bold tracking-tight">Link expired</h1>
-            <p className="text-sm text-muted-foreground">This password reset link is invalid or has expired.</p>
-            <Link to="/forgot-password" className="mt-2 text-sm font-medium text-primary hover:underline">
+            <p className="text-sm text-muted-foreground">
+              This password reset link is invalid or has expired.
+            </p>
+            <Link
+              to="/forgot-password"
+              className="mt-2 text-sm font-medium text-primary hover:underline"
+            >
               Request a new link
             </Link>
           </div>
@@ -77,7 +82,9 @@ function ResetPassword() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               {error && (
-                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
               )}
 
               <div>
@@ -96,7 +103,11 @@ function ResetPassword() {
                     onClick={() => setShow((s) => !s)}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {show ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                    {show ? (
+                      <EyeOff className="h-[18px] w-[18px]" />
+                    ) : (
+                      <Eye className="h-[18px] w-[18px]" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -120,7 +131,13 @@ function ResetPassword() {
                 disabled={submitting}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Update password <ArrowRight className="h-4 w-4" /></>}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Update password <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </form>
           </>

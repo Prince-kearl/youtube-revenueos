@@ -14,15 +14,21 @@ export function CookieConsent() {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(CONSENT_KEY);
-      const record = stored ? JSON.parse(stored) as Partial<ConsentRecord> : null;
-      if (record?.version === CONSENT_VERSION && (record.status === "all" || record.status === "essential")) {
+      const record = stored ? (JSON.parse(stored) as Partial<ConsentRecord>) : null;
+      if (
+        record?.version === CONSENT_VERSION &&
+        (record.status === "all" || record.status === "essential")
+      ) {
         setVisible(false);
       } else {
         // Preserve decisions made by the previous implementation without keeping its key as the source of truth.
         const legacy = window.localStorage.getItem(LEGACY_CONSENT_KEY);
         if (legacy === '"all"' || legacy === '"essential"') {
           const status = JSON.parse(legacy) as ConsentRecord["status"];
-          window.localStorage.setItem(CONSENT_KEY, JSON.stringify({ status, version: CONSENT_VERSION }));
+          window.localStorage.setItem(
+            CONSENT_KEY,
+            JSON.stringify({ status, version: CONSENT_VERSION }),
+          );
           setVisible(false);
         } else {
           setVisible(true);
@@ -37,7 +43,10 @@ export function CookieConsent() {
 
   const saveConsent = (status: ConsentRecord["status"]) => {
     try {
-      window.localStorage.setItem(CONSENT_KEY, JSON.stringify({ status, version: CONSENT_VERSION }));
+      window.localStorage.setItem(
+        CONSENT_KEY,
+        JSON.stringify({ status, version: CONSENT_VERSION }),
+      );
     } finally {
       setVisible(false);
     }
@@ -49,7 +58,10 @@ export function CookieConsent() {
     <div className="fixed bottom-4 left-4 z-[100] w-[calc(100%-2rem)] max-w-md sm:bottom-6 sm:left-6">
       <div
         className="relative rounded-2xl border border-white/10 p-6 text-white shadow-2xl sm:p-8"
-        style={{ background: "radial-gradient(circle at 22% 20%, color-mix(in srgb, var(--primary) 35%, #0a1420) 0%, #0a1420 45%, #060b12 100%)" }}
+        style={{
+          background:
+            "radial-gradient(circle at 22% 20%, color-mix(in srgb, var(--primary) 35%, #0a1420) 0%, #0a1420 45%, #060b12 100%)",
+        }}
       >
         <button
           onClick={() => saveConsent("essential")}
@@ -65,7 +77,8 @@ export function CookieConsent() {
 
         <h2 className="mt-5 text-2xl font-bold tracking-tight">Cookie Preferences</h2>
         <p className="mt-3 text-sm leading-relaxed text-white/60">
-          We use cookies to improve your experience, understand how Tubify is used, and keep your session signed in. By clicking "Accept All", you agree to our use of cookies.
+          We use cookies to improve your experience, understand how Tubify is used, and keep your
+          session signed in. By clicking "Accept All", you agree to our use of cookies.
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">

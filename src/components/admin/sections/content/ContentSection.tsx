@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Palette, Save, LayoutPanelLeft, Type, Home, HelpCircle, Mail, Share2,
-} from "lucide-react";
+import { Palette, Save, LayoutPanelLeft, Type, Home, HelpCircle, Mail, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuditLogger } from "../../useAuditLogger";
 import { GeneralTab } from "./GeneralTab";
@@ -37,7 +35,9 @@ export function ContentSection() {
 
   const saveChanges = () => {
     log("Updated site content", "Customization", "Design Studio");
-    toast.success("Changes saved", { description: "Your public site reflects these changes immediately." });
+    toast.success("Changes saved", {
+      description: "Your public site reflects these changes immediately.",
+    });
   };
 
   return (
@@ -50,9 +50,14 @@ export function ContentSection() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight">
             Design <span className="text-primary">Studio</span>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Refine your app's visual identity and public site content.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Refine your app's visual identity and public site content.
+          </p>
         </div>
-        <button onClick={saveChanges} className="flex h-10 shrink-0 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+        <button
+          onClick={saveChanges}
+          className="flex h-10 shrink-0 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
           <Save className="h-4 w-4" /> Save Changes
         </button>
       </div>
@@ -64,7 +69,9 @@ export function ContentSection() {
             onClick={() => setTab(t.key)}
             className={cn(
               "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
-              tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+              tab === t.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}

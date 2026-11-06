@@ -54,7 +54,8 @@ const STATUS_STYLES: Record<ProjectStatus, { label: string; badge: string }> = {
 function errorMessage(error: string): string {
   const messages: Record<string, string> = {
     VALIDATION_ERROR: "Add a title and a prompt before generating a project.",
-    AI_PROVIDER_NOT_CONFIGURED: "AI generation isn't configured yet. Add a provider API key in Settings.",
+    AI_PROVIDER_NOT_CONFIGURED:
+      "AI generation isn't configured yet. Add a provider API key in Settings.",
     DATABASE_ERROR: "We couldn't save that. Please try again.",
     RATE_LIMIT_EXCEEDED: "You've reached your AI limit for now. Please try again later.",
     SERVER_MISCONFIGURED: "Something went wrong. Please try again in a moment.",
@@ -75,14 +76,62 @@ function outputFileCount(project: Project): number {
 // Purely decorative variety so a grid of projects isn't a wall of identical gold folders — status
 // is still communicated separately via StatusBadge, so recoloring here can't hide real state.
 const FOLDER_PALETTE = [
-  { "--folder-back-1": "#f7c14b", "--folder-back-2": "#e9a52f", "--folder-front-1": "#ffd970", "--folder-front-2": "#fbc548", "--folder-edge": "#d68f23" }, // gold
-  { "--folder-back-1": "#7fb0f5", "--folder-back-2": "#4f86d9", "--folder-front-1": "#a9cdfc", "--folder-front-2": "#7fb0f5", "--folder-edge": "#4f86d9" }, // blue
-  { "--folder-back-1": "#8fd699", "--folder-back-2": "#5cb86b", "--folder-front-1": "#b6ecc0", "--folder-front-2": "#8fd699", "--folder-edge": "#5cb86b" }, // green
-  { "--folder-back-1": "#c9a6f0", "--folder-back-2": "#a370df", "--folder-front-1": "#ddc2fa", "--folder-front-2": "#c9a6f0", "--folder-edge": "#a370df" }, // purple
-  { "--folder-back-1": "#f6a8c9", "--folder-back-2": "#e97ba9", "--folder-front-1": "#fccfe1", "--folder-front-2": "#f6a8c9", "--folder-edge": "#e97ba9" }, // pink
-  { "--folder-back-1": "#7ed7d1", "--folder-back-2": "#45b6ae", "--folder-front-1": "#aeeae6", "--folder-front-2": "#7ed7d1", "--folder-edge": "#45b6ae" }, // teal
-  { "--folder-back-1": "#f5a35f", "--folder-back-2": "#e8823a", "--folder-front-1": "#fbc998", "--folder-front-2": "#f5a35f", "--folder-edge": "#e8823a" }, // orange
-  { "--folder-back-1": "#f0959a", "--folder-back-2": "#dd6870", "--folder-front-1": "#f8bfc2", "--folder-front-2": "#f0959a", "--folder-edge": "#dd6870" }, // rose
+  {
+    "--folder-back-1": "#f7c14b",
+    "--folder-back-2": "#e9a52f",
+    "--folder-front-1": "#ffd970",
+    "--folder-front-2": "#fbc548",
+    "--folder-edge": "#d68f23",
+  }, // gold
+  {
+    "--folder-back-1": "#7fb0f5",
+    "--folder-back-2": "#4f86d9",
+    "--folder-front-1": "#a9cdfc",
+    "--folder-front-2": "#7fb0f5",
+    "--folder-edge": "#4f86d9",
+  }, // blue
+  {
+    "--folder-back-1": "#8fd699",
+    "--folder-back-2": "#5cb86b",
+    "--folder-front-1": "#b6ecc0",
+    "--folder-front-2": "#8fd699",
+    "--folder-edge": "#5cb86b",
+  }, // green
+  {
+    "--folder-back-1": "#c9a6f0",
+    "--folder-back-2": "#a370df",
+    "--folder-front-1": "#ddc2fa",
+    "--folder-front-2": "#c9a6f0",
+    "--folder-edge": "#a370df",
+  }, // purple
+  {
+    "--folder-back-1": "#f6a8c9",
+    "--folder-back-2": "#e97ba9",
+    "--folder-front-1": "#fccfe1",
+    "--folder-front-2": "#f6a8c9",
+    "--folder-edge": "#e97ba9",
+  }, // pink
+  {
+    "--folder-back-1": "#7ed7d1",
+    "--folder-back-2": "#45b6ae",
+    "--folder-front-1": "#aeeae6",
+    "--folder-front-2": "#7ed7d1",
+    "--folder-edge": "#45b6ae",
+  }, // teal
+  {
+    "--folder-back-1": "#f5a35f",
+    "--folder-back-2": "#e8823a",
+    "--folder-front-1": "#fbc998",
+    "--folder-front-2": "#f5a35f",
+    "--folder-edge": "#e8823a",
+  }, // orange
+  {
+    "--folder-back-1": "#f0959a",
+    "--folder-back-2": "#dd6870",
+    "--folder-front-1": "#f8bfc2",
+    "--folder-front-2": "#f0959a",
+    "--folder-edge": "#dd6870",
+  }, // rose
 ] satisfies Record<string, string>[];
 
 function folderColorVars(projectId: string): CSSProperties {
@@ -220,7 +269,10 @@ function ProjectsPage() {
   const [deleting, setDeleting] = useState<Project | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => title.trim().length > 0 && prompt.trim().length > 0, [title, prompt]);
+  const canSubmit = useMemo(
+    () => title.trim().length > 0 && prompt.trim().length > 0,
+    [title, prompt],
+  );
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
   useEffect(() => {
@@ -286,7 +338,9 @@ function ProjectsPage() {
     <DashboardLayout title="Projects">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Describe a product idea and let AI draft a starter concept.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Describe a product idea and let AI draft a starter concept.
+        </p>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -315,7 +369,11 @@ function ProjectsPage() {
             disabled={!canSubmit || isSubmitting}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
             {isSubmitting ? "Generating..." : "Generate project"}
           </button>
         </form>
@@ -401,10 +459,26 @@ function ProjectsPage() {
               </div>
               {selectedProject.output ? (
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <DetailGroup icon={FileText} label="Summary" items={[selectedProject.output.summary]} />
-                  <DetailGroup icon={Workflow} label="Wireframes" items={selectedProject.output.wireframes} />
-                  <DetailGroup icon={GitBranch} label="Flowchart" items={selectedProject.output.flowchart} />
-                  <DetailGroup icon={Code2} label="Developer handoff" items={selectedProject.output.developerHandoff} />
+                  <DetailGroup
+                    icon={FileText}
+                    label="Summary"
+                    items={[selectedProject.output.summary]}
+                  />
+                  <DetailGroup
+                    icon={Workflow}
+                    label="Wireframes"
+                    items={selectedProject.output.wireframes}
+                  />
+                  <DetailGroup
+                    icon={GitBranch}
+                    label="Flowchart"
+                    items={selectedProject.output.flowchart}
+                  />
+                  <DetailGroup
+                    icon={Code2}
+                    label="Developer handoff"
+                    items={selectedProject.output.developerHandoff}
+                  />
                 </div>
               ) : selectedProject.status === "failed" ? (
                 <p className="mt-4 text-sm text-destructive">

@@ -31,7 +31,7 @@ test("logos saved in Customization earlier are not used anywhere", () => {
   assert.doesNotMatch(general, /type="file"|readAsDataURL/);
   assert.match(general, /<BrandPreview \/>/);
   for (const key of ["wordmark", "appIcon", "mascot"])
-    assert.match(general, new RegExp(`src: BRAND\.${key}`));
+    assert.match(general, new RegExp(`src: BRAND\\.${key}`));
 });
 
 test("each situation uses its image", () => {

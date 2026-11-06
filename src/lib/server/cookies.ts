@@ -21,14 +21,27 @@ export function parseCookies(request: Request): { name: string; value: string }[
       const separatorIndex = part.indexOf("=");
       return separatorIndex === -1
         ? { name: part, value: "" }
-        : { name: part.slice(0, separatorIndex), value: decodeURIComponent(part.slice(separatorIndex + 1)) };
+        : {
+            name: part.slice(0, separatorIndex),
+            value: decodeURIComponent(part.slice(separatorIndex + 1)),
+          };
     });
 }
 
-export function buildSetCookie(name: string, value: string, options: { maxAge?: number; path?: string } = {}): string {
-  const segments = [`${name}=${encodeURIComponent(value)}`, `Path=${options.path ?? "/"}`, "HttpOnly", "SameSite=Lax"];
+export function buildSetCookie(
+  name: string,
+  value: string,
+  options: { maxAge?: number; path?: string } = {},
+): string {
+  const segments = [
+    `${name}=${encodeURIComponent(value)}`,
+    `Path=${options.path ?? "/"}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
   if (options.maxAge !== undefined) segments.push(`Max-Age=${options.maxAge}`);
-  if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") segments.push("Secure");
+  if (typeof process !== "undefined" && process.env?.NODE_ENV === "production")
+    segments.push("Secure");
   return segments.join("; ");
 }
 

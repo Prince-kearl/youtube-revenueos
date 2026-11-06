@@ -47,7 +47,8 @@ function ForgotPassword() {
             <CheckCircle2 className="h-10 w-10 text-success" />
             <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
             <p className="text-sm text-muted-foreground">
-              If an account exists for <span className="font-medium text-foreground">{email}</span>, we sent a link to reset your password.
+              If an account exists for <span className="font-medium text-foreground">{email}</span>,
+              we sent a link to reset your password.
             </p>
             <Link to="/" className="mt-2 text-sm font-medium text-primary hover:underline">
               Back to sign in
@@ -60,7 +61,9 @@ function ForgotPassword() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               {error && (
-                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
               )}
               <div>
                 <label className="mb-2 block text-sm font-medium">Email</label>
@@ -82,7 +85,13 @@ function ForgotPassword() {
                 disabled={submitting}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send reset link <ArrowRight className="h-4 w-4" /></>}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Send reset link <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </form>
 

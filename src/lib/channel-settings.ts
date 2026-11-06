@@ -55,7 +55,9 @@ export function useChannelSettings() {
     setSettings(read());
     fetch("/api/profile")
       .then(async (response) => {
-        const body = (await response.json()) as { data?: { banner_settings?: Partial<ChannelSettings> | null } };
+        const body = (await response.json()) as {
+          data?: { banner_settings?: Partial<ChannelSettings> | null };
+        };
         if (!response.ok || !body.data?.banner_settings) return;
         const next = { ...read(), ...body.data.banner_settings };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
