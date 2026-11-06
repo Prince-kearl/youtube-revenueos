@@ -19,6 +19,11 @@ test("dashboard cards have no outline: no hover glow, and the shared card styles
   );
   const inner = styles.slice(styles.indexOf(":root .dashboard-main .card-frost {"));
   assert.match(inner, /^:root \.dashboard-main \.card-frost \{\n {2}border-color: transparent;/);
+  const custom = styles.slice(styles.indexOf(":root .dashboard-main .dashboard-card {"));
+  assert.match(
+    custom,
+    /^:root \.dashboard-main \.dashboard-card \{\n {2}border: 1px solid transparent;/,
+  );
   // after the iOS 26 variants of the shared styles, so it wins over them
   assert.ok(
     styles.indexOf(":root .dashboard-main .card-gradient-outline") >

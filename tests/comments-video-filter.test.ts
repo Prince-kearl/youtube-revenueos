@@ -138,7 +138,7 @@ test("Videos (phones): a card per video, stats as icons beside the date", () => 
   // Each video is its own card.
   assert.match(
     videos,
-    /<li className="group relative flex items-center gap-3 rounded-xl card-gradient-outline px-4 py-3">/,
+    /<li className="group relative flex h-24 min-h-24 items-center gap-3 overflow-hidden rounded-xl card-gradient-outline px-4 py-3">/,
   );
   assert.match(videos, /<CardStat icon=\{Eye\} value=\{video\.views\} noun="views" \/>/);
   assert.match(videos, /<CardStat icon=\{ThumbsUp\} value=\{video\.likes\} noun="likes" \/>/);

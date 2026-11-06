@@ -564,7 +564,9 @@ const compactUsd = new Intl.NumberFormat("en-US", {
 
 /** Axis and tooltip amounts: "$0", "$12.4", "$1.2K". */
 export function formatUsdCompact(usd: number): string {
-  return Number.isFinite(usd) ? compactUsd.format(usd) : UNAVAILABLE;
+  if (!Number.isFinite(usd)) return UNAVAILABLE;
+  if (usd === 0) return "$0";
+  return compactUsd.format(usd);
 }
 
 /** The chart frame for a period with nothing to draw: the last 3, 6 or 12 month labels ending
