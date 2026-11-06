@@ -200,22 +200,24 @@ function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
 }
 
+const PROFILE_STORE_DEFAULT = {
+  name: "",
+  email: "",
+  avatar: "",
+  role: "Owner",
+  timezone: "",
+  bio: "",
+  location: "",
+  website: "",
+  cover_url: "",
+};
+
 function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuthSession();
   const [ios26Design, setIos26Design] = useIos26Design();
   const [ios26Wallpaper, setIos26Wallpaper] = useIos26Wallpaper();
-  const [profile, setProfile] = useLocalStore("yroos.profile", {
-    name: "",
-    email: "",
-    avatar: "",
-    role: "Owner",
-    timezone: "",
-    bio: "",
-    location: "",
-    website: "",
-    cover_url: "",
-  });
+  const [profile, setProfile] = useLocalStore("yroos.profile", PROFILE_STORE_DEFAULT);
   const [channel, setChannel] = useState<ConnectedYoutubeChannel | null>(null);
   const [channelLoading, setChannelLoading] = useState(true);
   // Only gates the fields /api/profile actually supplies (location/website below) — name/email
@@ -290,7 +292,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
       })
       .catch(() => setChannel(null))
       .finally(() => setChannelLoading(false));
-  }, []);
+  }, [setProfile]);
 
   const channelUrl = channel
     ? channel.channel_handle
@@ -1485,18 +1487,6 @@ function YouTubeIntegrationPanel() {
     }
   };
 
-  const loadIntegrationSettings = async () => {
-    setSettingsLoading(true);
-    try {
-      const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
-      const response = await fetch(`/api/youtube/settings${query}`);
-      const body = (await response.json()) as { data?: typeof integrationSettings };
-      if (response.ok && body.data) setIntegrationSettings(body.data);
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
-
   useEffect(() => {
     const currentUrl = new URL(window.location.href);
     const status = currentUrl.searchParams.get("youtube");
@@ -1531,7 +1521,24 @@ function YouTubeIntegrationPanel() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadIntegrationSettings = async () => {
+      setSettingsLoading(true);
+      try {
+        const query = activeChannelId ? `?channelId=${encodeURIComponent(activeChannelId)}` : "";
+        const response = await fetch(`/api/youtube/settings${query}`);
+        const body = (await response.json()) as { data?: typeof integrationSettings };
+        if (!cancelled && response.ok && body.data) setIntegrationSettings(body.data);
+      } finally {
+        if (!cancelled) setSettingsLoading(false);
+      }
+    };
+
     void loadIntegrationSettings();
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannelId]);
 
   const updateIntegrationSetting = async (
