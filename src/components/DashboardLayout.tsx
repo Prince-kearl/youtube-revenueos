@@ -1160,7 +1160,7 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                 sideOffset={10}
                 className="w-[290px] overflow-hidden rounded-[24px] border border-border/80 bg-popover p-2 shadow-2xl"
               >
-                <div className="rounded-[18px] border border-border bg-background/70 p-3">
+                <div className="px-3 py-2">
                   <div className="flex items-center gap-3">
                     <img
                       referrerPolicy="no-referrer"
@@ -1190,16 +1190,9 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                   </DropdownMenuItem>
                 </div>
 
-                <div className="mt-2 rounded-xl border border-border bg-background/60 px-3 py-2.5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium">Theme</span>
-                    <span className="text-xs text-muted-foreground capitalize">{themeMode}</span>
-                  </div>
-                  <div
-                    className="grid grid-cols-3 gap-1 rounded-lg bg-muted/70 p-1"
-                    role="group"
-                    aria-label="Theme mode"
-                  >
+                <div className="mt-1 flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="text-[15px]">Theme</span>
+                  <div className="flex items-center gap-0.5" role="group" aria-label="Theme mode">
                     {(
                       [
                         ["light", "Light", Sun],
@@ -1213,24 +1206,24 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                         aria-label={`${label} theme`}
                         aria-pressed={themeMode === mode}
                         onClick={() => setThemeMode(mode as ThemeMode)}
+                        title={label}
                         className={cn(
-                          "flex h-9 items-center justify-center gap-1 rounded-md text-xs transition-colors",
+                          "grid h-8 w-8 place-items-center rounded-full transition-colors",
                           themeMode === mode
-                            ? "bg-background text-foreground shadow-sm"
+                            ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:text-foreground",
                         )}
                       >
                         <Icon className="h-4 w-4" />
-                        <span className="sr-only sm:not-sr-only">{label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-2 rounded-xl border border-border bg-background/60 p-1">
+                <div className="mt-1">
                   <DropdownMenuItem
                     onSelect={() => navigate({ to: "/billing" })}
-                    className="h-11 rounded-lg px-3 text-[15px]"
+                    className="h-11 rounded-xl px-3 text-[15px]"
                   >
                     <CreditCard className="mr-3 h-5 w-5" />
                     <span className="flex-1">Subscription</span>
@@ -1240,21 +1233,17 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                         : "No plan"}
                     </span>
                   </DropdownMenuItem>
-                  <p className="px-3 pb-1 text-[11px] text-muted-foreground">
-                    {subscription.status === "trialing"
-                      ? "Trial active"
-                      : subscription.status === "active"
-                        ? "Active subscription"
-                        : "Subscription status unavailable"}
-                  </p>
                 </div>
 
                 <div className="mt-2 border-t border-border pt-2">
-                  <div className="rounded-xl border border-border bg-background/60 p-2">
+                  <div className="px-3 py-2">
                     <p className="mb-2 text-xs font-semibold">Active YouTube channel</p>
                     <YoutubeChannelSwitcher />
                   </div>
-                  <DropdownMenuItem onSelect={() => setHelpOpen(true)} className="h-11 rounded-xl px-3">
+                  <DropdownMenuItem
+                    onSelect={() => setHelpOpen(true)}
+                    className="h-11 rounded-xl px-3"
+                  >
                     <HelpCircle className="mr-3 h-5 w-5" /> Help & Tubi
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="my-2" />
