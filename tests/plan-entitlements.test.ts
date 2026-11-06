@@ -201,7 +201,6 @@ test("without an entitlement, app APIs refuse before reading or writing workspac
     [routes.members, "/api/workspace/members"],
     [routes.onboarding, "/api/onboarding/status"],
     [routes.branding, "/api/workspace/branding"],
-    [routes.revenueVisibility, "/api/workspace/revenue-visibility"],
     [routes.youtubeChannels, "/api/youtube/channels"],
     [routes.connections, "/api/youtube/connections"],
     [routes.youtubeSettings, "/api/youtube/settings"],
@@ -215,6 +214,16 @@ test("without an entitlement, app APIs refuse before reading or writing workspac
     assert.ok(onlyPlanReads(r), `${path}: only entitlement data is read`);
     assert.equal(r.writes.length, 0, `${path}: no writes on refusal`);
   }
+  // The retired workspace-wide visibility endpoint holds no data: it answers 410 to everyone,
+  // paid or not, and touches nothing.
+  const retired = await get(
+    f,
+    f.owner,
+    routes.revenueVisibility,
+    "/api/workspace/revenue-visibility",
+  );
+  assert.equal(retired.status, 410);
+  assert.equal(retired.writes.length, 0);
   const deniedWrite = await callTeamApi(routes.notifications, f.w, {
     as: f.owner,
     method: "POST",
@@ -857,7 +866,6 @@ test("billing, account recovery and public pages stay open; app routes require a
     "api.notifications.ts",
     "api.workspace.members.ts",
     "api.workspace.branding.ts",
-    "api.workspace.revenue-visibility.ts",
     "api.youtube.callback.ts",
     "api.youtube.connections.ts",
     "api.youtube.auth.ts",
@@ -871,6 +879,12 @@ test("billing, account recovery and public pages stay open; app routes require a
     assert.match(source, gated, `${file}: must check workspace entitlement`);
     assert.doesNotMatch(source, /requirePlan: false/, `${file} stays paid`);
   }
+  // The retired visibility endpoint needs no plan check because it reads no workspace at all.
+  assert.doesNotMatch(
+    read("api.workspace.revenue-visibility.ts"),
+    /getWorkspaceContext|createServiceSupabaseClient|\.from\(/,
+    "the retired endpoint reads no workspace data",
+  );
   // The paid routes — analytics, revenue, opportunities, links, deals, AI — never opt out.
   for (const file of [
     "api.revenue.command-center.ts",
