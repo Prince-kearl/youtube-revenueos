@@ -37,6 +37,7 @@ import {
   Lock,
   ShieldAlert,
   Loader2,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -267,6 +268,10 @@ export function DashboardLayout({
   // Drives the connection dot on the sidebar's YouTube badge — null while still checking, so the
   // dot doesn't flash "disconnected" before the real answer arrives.
   const [youtubeConnected, setYoutubeConnected] = useState<boolean | null>(null);
+  const [subscription, setSubscription] = useState<{
+    plan: string | null;
+    status: string | null;
+  }>({ plan: null, status: null });
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/youtube/channels", { signal: controller.signal, cache: "no-store" })
@@ -276,6 +281,28 @@ export function DashboardLayout({
         setYoutubeConnected(Boolean(body.data?.length));
       })
       .catch(() => setYoutubeConnected(false));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/billing/subscription", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as {
+          data?: {
+            access?: { plan?: string | null; status?: string | null } | null;
+            subscription?: { plan_id?: string | null; status?: string | null } | null;
+          };
+        };
+        const access = body.data?.access;
+        const ownSubscription = body.data?.subscription;
+        setSubscription({
+          plan: access?.plan ?? ownSubscription?.plan_id ?? null,
+          status: access?.status ?? ownSubscription?.status ?? null,
+        });
+      })
+      .catch(() => {});
     return () => controller.abort();
   }, []);
 
@@ -1037,7 +1064,7 @@ export function DashboardLayout({
               <DropdownMenuContent
                 align="end"
                 sideOffset={10}
-                className="w-[290px] rounded-[24px] border border-border/80 bg-popover p-2 shadow-2xl"
+                className="w-[290px] overflow-hidden rounded-[24px] border border-border/80 bg-popover p-2 shadow-2xl"
               >
                 <div className="rounded-[18px] border border-border bg-background/70 p-3">
                   <div className="flex items-center gap-3">
@@ -1106,8 +1133,30 @@ export function DashboardLayout({
                   </div>
                 </div>
 
+                <div className="mt-2 rounded-xl border border-border bg-background/60 p-1">
+                  <DropdownMenuItem
+                    onSelect={() => navigate({ to: "/billing" })}
+                    className="h-11 rounded-lg px-3 text-[15px]"
+                  >
+                    <CreditCard className="mr-3 h-5 w-5" />
+                    <span className="flex-1">Subscription</span>
+                    <span className="rounded-full bg-success/15 px-2 py-1 text-[11px] font-semibold text-success">
+                      {subscription.plan
+                        ? subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)
+                        : "No plan"}
+                    </span>
+                  </DropdownMenuItem>
+                  <p className="px-3 pb-1 text-[11px] text-muted-foreground">
+                    {subscription.status === "trialing"
+                      ? "Trial active"
+                      : subscription.status === "active"
+                        ? "Active subscription"
+                        : "Subscription status unavailable"}
+                  </p>
+                </div>
+
                 <div className="mt-2 border-t border-border pt-2">
-                  <div className="px-2 py-2">
+                  <div className="rounded-xl border border-border bg-background/60 p-2">
                     <p className="mb-2 text-xs font-semibold">Active YouTube channel</p>
                     <YoutubeChannelSwitcher />
                   </div>
