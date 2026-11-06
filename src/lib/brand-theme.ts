@@ -24,6 +24,41 @@ const RADIUS_KEYS = ["cardRadius", "buttonRadius", "inputRadius", "kpiCardRadius
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const MAX_RADIUS = 999;
+const SAFE_KPI_ACCENT = "#0284c7";
+
+/** KPI surfaces follow the primary theme except for attention colors that can imply status. */
+export function kpiAccentForPrimary(primaryColor: string | undefined): string {
+  const color = primaryColor?.trim();
+  if (!color || !HEX_COLOR.test(color)) return SAFE_KPI_ACCENT;
+
+  let digits = color.slice(1);
+  if (digits.length === 3 || digits.length === 4)
+    digits = digits
+      .slice(0, 3)
+      .split("")
+      .map((digit) => digit + digit)
+      .join("");
+  else digits = digits.slice(0, 6);
+
+  const [red, green, blue] = [0, 2, 4].map(
+    (offset) => Number.parseInt(digits.slice(offset, offset + 2), 16) / 255,
+  );
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  const delta = maximum - minimum;
+  if (delta === 0 || maximum === 0) return color;
+
+  let hue: number;
+  if (maximum === red) hue = 60 * (((green - blue) / delta) % 6);
+  else if (maximum === green) hue = 60 * ((blue - red) / delta + 2);
+  else hue = 60 * ((red - green) / delta + 4);
+  if (hue < 0) hue += 360;
+
+  const saturation = delta / maximum;
+  const isRedHue = saturation >= 0.15 && (hue < 20 || hue >= 340);
+  const brightOrangeOrYellow = saturation >= 0.45 && maximum >= 0.8 && hue >= 20 && hue <= 70;
+  return isRedHue || brightOrangeOrYellow ? SAFE_KPI_ACCENT : color;
+}
 
 /** Picks the brand tokens out of a saved settings object, dropping anything that is not a plain
  * hex colour or a sane radius. Whatever is dropped simply keeps its built-in default. */
@@ -54,7 +89,10 @@ export function sanitizeBrandTheme(content: unknown): Partial<BrandTheme> {
 export function brandThemeCss(input: Partial<BrandTheme> | null | undefined): string {
   const theme = sanitizeBrandTheme(input);
   const colors: string[] = [];
-  if (theme.primaryColor) colors.push(`--primary:${theme.primaryColor}`);
+  if (theme.primaryColor) {
+    colors.push(`--primary:${theme.primaryColor}`);
+    colors.push(`--kpi-accent:${kpiAccentForPrimary(theme.primaryColor)}`);
+  }
   if (theme.buttonTextColor) colors.push(`--primary-foreground:${theme.buttonTextColor}`);
   if (theme.accentColor) colors.push(`--brand-blue:${theme.accentColor}`);
   const radii: string[] = [];

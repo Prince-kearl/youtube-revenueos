@@ -94,8 +94,66 @@ test("an owner on Scale can invite: a pending member is created and the invite i
   assert.deepEqual(result.invitesSent, ["new@x.test"]);
   const created = world.workspace_members.find((m) => m.invited_email === "new@x.test")!;
   assert.equal(created.status, "invited");
+  assert.equal(created.revenue_visible, false, "revenue access defaults to off");
   assert.equal(created.workspace_id, workspace);
   assert.equal(created.invited_by, users.owner);
+});
+
+test("only the workspace owner may grant revenue visibility to an editor or setter invite", async () => {
+  const { world, users } = team("scale");
+  const ownerInvite = await invite(world, users.owner, {
+    email: "revenue-editor@x.test",
+    role: "editor",
+    revenueVisible: true,
+  });
+  assert.equal(ownerInvite.status, 201);
+  assert.equal(
+    world.workspace_members.find((m) => m.invited_email === "revenue-editor@x.test")!
+      .revenue_visible,
+    true,
+  );
+
+  const managerInvite = await invite(world, users.manager, {
+    email: "manager-invited-setter@x.test",
+    role: "setter",
+    revenueVisible: true,
+  });
+  assert.equal(managerInvite.status, 201);
+  assert.equal(
+    world.workspace_members.find((m) => m.invited_email === "manager-invited-setter@x.test")!
+      .revenue_visible,
+    false,
+    "a manager cannot grant the owner-only permission by forging the request",
+  );
+
+  const ownerManagerInvite = await invite(world, users.owner, {
+    email: "manager@new-team.test",
+    role: "manager",
+    revenueVisible: true,
+  });
+  assert.equal(ownerManagerInvite.status, 201);
+  assert.equal(
+    world.workspace_members.find((m) => m.invited_email === "manager@new-team.test")!
+      .revenue_visible,
+    false,
+    "owners and managers already have revenue access by role",
+  );
+});
+
+test("an owner may select revenue access when adding an existing account", async () => {
+  const { world, users, workspace } = team("scale");
+  const existingUser = addUser(world, "existing-editor@x.test");
+  const result = await invite(world, users.owner, {
+    email: "existing-editor@x.test",
+    role: "editor",
+    revenueVisible: true,
+  });
+  assert.equal(result.status, 201);
+  assert.deepEqual(result.invitesSent, []);
+  const created = world.workspace_members.find((m) => m.user_id === existingUser)!;
+  assert.equal(created.workspace_id, workspace);
+  assert.equal(created.status, "active");
+  assert.equal(created.revenue_visible, true);
 });
 
 test("a Scale trial grants team management", async () => {

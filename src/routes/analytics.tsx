@@ -881,7 +881,7 @@ function Analytics() {
                     </div>
                     {result.data?.visibility?.revenue === "hidden" ? (
                       <p className="mt-4 text-xs text-muted-foreground">
-                        Revenue hidden by workspace settings.
+                        Revenue access isn't enabled for your account.
                       </p>
                     ) : (
                       !result.data?.trafficSources.revenueAvailable && (

@@ -730,7 +730,7 @@ function LeadInbox() {
       )}
 
       {leadsStatus !== "error" && (
-        <div className="relative mt-4 grid grid-cols-1 overflow-hidden rounded-xl card-gradient-outline h-[calc(100dvh_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
+        <div className="relative mt-4 grid grid-cols-1 overflow-hidden rounded-xl bg-card h-[calc(100dvh_-_212px)] lg:h-[calc(100dvh_-_210px)] lg:min-h-[560px] lg:grid-cols-[300px_1fr_320px]">
           {/* Thread list */}
           <div
             className={cn(

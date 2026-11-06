@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { brandThemeCss, sanitizeBrandTheme } from "../src/lib/brand-theme";
+import { brandThemeCss, kpiAccentForPrimary, sanitizeBrandTheme } from "../src/lib/brand-theme";
 
 const SAVED = {
   siteName: "Tubify",
@@ -33,13 +33,30 @@ test("the saved brand colour is applied in both colour schemes, ahead of the bui
   const css = brandThemeCss(SAVED);
   assert.equal(
     css,
-    "html:root{--primary:#dc2626;--primary-foreground:#FFFFFF;--brand-blue:#3b82f6}" +
+    "html:root{--primary:#dc2626;--kpi-accent:#0284c7;--primary-foreground:#FFFFFF;--brand-blue:#3b82f6}" +
       "html:root:not(.ios26){--card-radius:12px;--button-radius:24px;--input-radius:24px;--kpi-card-radius:19px}",
   );
   // styles.css sets --primary under `:root` and `.dark`; `html:root` must outrank both.
   const styles = readFileSync("src/styles.css", "utf8");
   assert.match(styles, /^:root \{/m);
   assert.match(styles, /^\.dark \{/m);
+  assert.match(styles, /--kpi-accent: #0284c7;/);
+});
+
+test("KPI cards avoid red and bright warning hues but follow calmer theme colors", () => {
+  for (const red of ["#dc2626", "#f00", "#ff0000aa", "#fecaca"])
+    assert.equal(kpiAccentForPrimary(red), "#0284c7", red);
+  for (const warning of ["#f59e0b", "#ff8c00", "#ffeb3b", "#ffff00"])
+    assert.equal(kpiAccentForPrimary(warning), "#0284c7", warning);
+  for (const color of ["#8b5cf6", "#3b82f6", "#22c55e", "#fef9c3", "#a16207"])
+    assert.equal(kpiAccentForPrimary(color), color, color);
+});
+
+test("KPI cards and chart callouts use theme-aware surfaces in dark mode", () => {
+  const component = readFileSync("src/components/KpiTrendCard.tsx", "utf8").replace(/\s+/g, " ");
+  assert.match(component, /backgroundColor: "var\(--card\)"/);
+  assert.match(component, /border border-border bg-card/);
+  assert.doesNotMatch(component, /backgroundColor: "#ffffff"|\bbg-white\b/);
 });
 
 test("nothing saved means nothing is emitted, and the defaults stand", () => {
@@ -105,6 +122,10 @@ test("the running app adopts the server theme before it paints its own copy", ()
   assert.match(
     injector,
     /useLayoutEffect\(\(\) => \{ const root = document\.documentElement\.style; root\.setProperty\("--primary"/,
+  );
+  assert.match(
+    injector,
+    /root\.setProperty\("--kpi-accent", kpiAccentForPrimary\(content\.primaryColor\)\)/,
   );
 });
 

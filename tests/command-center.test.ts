@@ -258,16 +258,8 @@ function world(flags: { editor?: boolean } = {}) {
     stranger: addUser(w, "stranger@x.test"),
   };
   const ws = addPaidWorkspace(w, users.owner);
-  addMember(w, ws, users.editor, "editor");
+  addMember(w, ws, users.editor, "editor", { revenue_visible: flags.editor ?? false });
   const other = addPaidWorkspace(w, users.stranger);
-  Object.assign(
-    w.workspaces.find((x) => x.id === ws)!,
-    { editor_revenue_visible: flags.editor ?? false, setter_revenue_visible: false },
-  );
-  Object.assign(
-    w.workspaces.find((x) => x.id === other)!,
-    { editor_revenue_visible: false, setter_revenue_visible: false },
-  );
   const chA = uuid(),
     chB = uuid(),
     chX = uuid();

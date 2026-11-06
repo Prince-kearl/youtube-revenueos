@@ -1113,10 +1113,6 @@ test("transition: the activation boundary — created one millisecond before the
 
 test("transition: revenue visibility and workspace isolation are unchanged", async () => {
   const f = transitionWorld(3);
-  Object.assign(
-    f.w.workspaces.find((w) => w.id === f.ws)!,
-    { editor_revenue_visible: false },
-  );
   await withTransition(f.start, async () => {
     const editor = await cc(f, f.editor);
     assert.equal(editor.status, 200);

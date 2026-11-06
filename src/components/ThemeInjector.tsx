@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect } from "react";
-import type { BrandTheme } from "@/lib/brand-theme";
+import { kpiAccentForPrimary, type BrandTheme } from "@/lib/brand-theme";
 import { useSiteContent, useSiteContentLocal } from "@/lib/stores";
 import { useIos26Design, useIos26Wallpaper } from "@/lib/theme";
 
@@ -45,6 +45,7 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
   useLayoutEffect(() => {
     const root = document.documentElement.style;
     root.setProperty("--primary", content.primaryColor);
+    root.setProperty("--kpi-accent", kpiAccentForPrimary(content.primaryColor));
     root.setProperty("--primary-foreground", content.buttonTextColor);
     root.setProperty("--brand-blue", content.accentColor);
     // iOS 26 Design (Settings → Preferences, a personal per-device choice — see useIos26Design)
@@ -84,10 +85,10 @@ export function ThemeInjector({ serverTheme }: { serverTheme?: Partial<BrandThem
     document.documentElement.classList.toggle("ios26", ios26Design);
   }, [ios26Design]);
 
-  // Separate sub-toggle for just the photo backdrop (see .ios26-wallpaper in styles.css) — lets
-  // someone keep the glass surfaces without the wallpaper image. Only takes effect combined with
-  // .ios26 above (the CSS selector requires both), so this class alone does nothing if iOS 26
-  // Design itself is off.
+  // Separate sub-toggle for the light-mode photo backdrop (see .ios26-wallpaper in styles.css) —
+  // lets someone keep the glass surfaces without the wallpaper image. Dark mode stays plain. Only
+  // takes effect combined with .ios26 above (the CSS selector requires both), so this class alone
+  // does nothing if iOS 26 Design itself is off.
   useEffect(() => {
     document.documentElement.classList.toggle("ios26-wallpaper", ios26Wallpaper);
   }, [ios26Wallpaper]);

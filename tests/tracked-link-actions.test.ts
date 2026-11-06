@@ -198,11 +198,6 @@ function world() {
   const other = addPaidWorkspace(w, users.stranger);
   addMember(w, ws, users.both, "manager");
   addMember(w, other, users.both, "manager");
-  for (const id of [ws, other])
-    Object.assign(
-      w.workspaces.find((x) => x.id === id)!,
-      { editor_revenue_visible: false, setter_revenue_visible: false },
-    );
   const channel = uuid();
   const otherChannel = uuid();
   w.youtube_channels = [

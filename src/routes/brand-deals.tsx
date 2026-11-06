@@ -425,8 +425,8 @@ function BrandDeals() {
           role="status"
           className="mt-6 rounded-xl border border-border bg-accent/30 px-4 py-3 text-sm text-muted-foreground"
         >
-          Revenue hidden by workspace settings. You can still work with deals; their values are not
-          shown.
+          Revenue access isn't enabled for your account. You can still work with deals; their values
+          are not shown.
         </p>
       )}
 
@@ -845,7 +845,7 @@ function DealFormDialog({
               <div className="space-y-1.5">
                 <span className="text-sm font-medium">Value (USD)</span>
                 <p className="rounded-md border border-border bg-accent/30 px-3 py-2 text-sm text-muted-foreground">
-                  Hidden by workspace settings
+                  Revenue access isn't enabled for your account
                 </p>
               </div>
             ) : (

@@ -107,7 +107,7 @@ function Reports() {
               }
               caption={
                 summary.visibility?.revenue === "hidden"
-                  ? "Revenue hidden by workspace settings"
+                  ? "Revenue access isn't enabled for your account"
                   : summary.revenueChangePct !== null
                     ? `${summary.revenueChangePct >= 0 ? "+" : ""}${summary.revenueChangePct.toFixed(1)}% vs prior 30 days`
                     : "From closed brand deals"
@@ -118,7 +118,7 @@ function Reports() {
               value={summary.activePipeline === null ? "Hidden" : fmtMoney(summary.activePipeline)}
               caption={
                 summary.visibility?.revenue === "hidden"
-                  ? "Revenue hidden by workspace settings"
+                  ? "Revenue access isn't enabled for your account"
                   : "Deals not yet closed"
               }
             />

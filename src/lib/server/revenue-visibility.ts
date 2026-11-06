@@ -1,12 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  DEFAULT_REVENUE_VISIBILITY,
   REVENUE_HIDDEN_ERROR,
   REVENUE_HIDDEN_MESSAGE,
-  canManageRevenueVisibility,
   canViewWorkspaceRevenue,
   canWriteWorkspaceRevenue,
-  type RevenueVisibilitySettings,
 } from "@/lib/revenue-visibility";
 import { isPlatformSuperadmin } from "./platform-staff";
 import type {
@@ -38,7 +35,8 @@ import { getWorkspaceContext, type WorkspaceContext } from "./workspace";
 //     read by accident, and cannot be read across workspaces even by a route that passes it the
 //     wrong ids.
 //
-// Everything fails closed: an unreadable setting is "off", an unreadable profile is "not staff".
+// Everything fails closed: an unreadable member permission is "off", an unreadable profile is
+// "not staff".
 
 export interface RevenueAccess {
   /** May this caller see revenue amounts in their workspace? */
@@ -46,12 +44,6 @@ export interface RevenueAccess {
   /** May this caller create, change or remove amounts (deal values)? Never true without
    * `canView`; the route's own feature gate still applies on top. */
   canWrite: boolean;
-  /** May this caller change the workspace's revenue visibility? */
-  canManage: boolean;
-  /** The workspace's stored setting (defaults when missing or unreadable). */
-  settings: RevenueVisibilitySettings;
-  /** False when the setting could not be read (e.g. the columns do not exist yet). */
-  settingsAvailable: boolean;
   /** Reads amounts for the caller's own workspace. Present ONLY when `canView` is true. */
   money: MoneyReader | null;
 }
@@ -59,39 +51,8 @@ export interface RevenueAccess {
 const NO_ACCESS: RevenueAccess = {
   canView: false,
   canWrite: false,
-  canManage: false,
-  settings: DEFAULT_REVENUE_VISIBILITY,
-  settingsAvailable: false,
   money: null,
 };
-
-const SETTINGS_COLUMNS = "editor_revenue_visible, setter_revenue_visible";
-
-/** The workspace's stored revenue visibility. Never throws; anything unexpected is the default
- * (both off) with `available: false`. */
-export async function readRevenueVisibility(
-  service: SupabaseClient,
-  workspaceId: string,
-): Promise<{ settings: RevenueVisibilitySettings; available: boolean }> {
-  try {
-    const { data, error } = await service
-      .from("workspaces")
-      .select(SETTINGS_COLUMNS)
-      .eq("id", workspaceId)
-      .maybeSingle();
-    if (error || !data) return { settings: DEFAULT_REVENUE_VISIBILITY, available: false };
-    return {
-      settings: {
-        // Strictly `true`: a null, a string or anything else is "off".
-        editor: data.editor_revenue_visible === true,
-        setter: data.setter_revenue_visible === true,
-      },
-      available: true,
-    };
-  } catch {
-    return { settings: DEFAULT_REVENUE_VISIBILITY, available: false };
-  }
-}
 
 // ---------- the only code that reads amounts with the service role ----------
 
@@ -208,23 +169,41 @@ export async function resolveRevenueAccess(
   service: SupabaseClient = createServiceSupabaseClient(),
 ): Promise<RevenueAccess> {
   const role = ctx.workspaceRole;
-  // Owners and managers do not depend on the setting or on staff status, so neither lookup can
-  // lock them out; the lookups run only for the roles they can actually affect.
+  // Owners and managers are always allowed. Other members need their own explicit membership
+  // flag; workspace/role settings never grant access to the whole role.
   const alwaysAllowed = role === "owner" || role === "manager";
-  const [{ settings, available }, isSuperadmin] = await Promise.all([
-    readRevenueVisibility(service, ctx.workspaceId),
+  const [revenueVisible, isSuperadmin] = await Promise.all([
+    alwaysAllowed
+      ? Promise.resolve(false)
+      : readMemberRevenueVisibility(service, ctx.workspaceId, ctx.user.id),
     alwaysAllowed ? Promise.resolve(false) : isPlatformSuperadmin(service, ctx.user.id),
   ]);
-  const viewer = { role, isSuperadmin };
-  const canView = canViewWorkspaceRevenue(viewer, settings);
+  const viewer = { role, revenueVisible, isSuperadmin };
+  const canView = canViewWorkspaceRevenue(viewer);
   return {
     canView,
-    canWrite: canWriteWorkspaceRevenue(viewer, settings),
-    canManage: canManageRevenueVisibility(viewer),
-    settings,
-    settingsAvailable: available,
+    canWrite: canWriteWorkspaceRevenue(viewer),
     money: canView ? createMoneyReader(service, ctx.workspaceId) : null,
   };
+}
+
+async function readMemberRevenueVisibility(
+  service: SupabaseClient,
+  workspaceId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from("workspace_members")
+      .select("revenue_visible")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    return !error && data?.revenue_visible === true;
+  } catch {
+    return false;
+  }
 }
 
 /** How the stored-revenue readers (revenue-store) may read for this caller. */

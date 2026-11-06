@@ -26,10 +26,17 @@ test("light mode: the app shell has the light red backdrop", () => {
   );
 });
 
-test("dark mode and the iOS 26 wallpaper keep their own backgrounds", () => {
+test("dark mode stays plain even when the iOS 26 wallpaper preference is enabled", () => {
   const wallpaper = rule(".ios26.ios26-wallpaper .dashboard-shell.min-h-screen.bg-background");
   assert.match(wallpaper, /background-color: transparent;/);
   assert.match(wallpaper, /background-image: none;/);
+  const darkWallpaper = rule(".ios26.ios26-wallpaper.dark body");
+  assert.match(darkWallpaper, /background-color: var\(--background\);/);
+  assert.match(darkWallpaper, /background-image: none;/);
+  assert.match(
+    styles,
+    /html\.dark \.dashboard-main \.card-gradient-outline,\s*html\.dark \.dashboard-main \.card-frost,\s*html\.dark \.dashboard-main \.dashboard-card\s*\{\s*border-color: var\(--border\);/,
+  );
   // the sky rule is scoped away from dark mode
   assert.match(styles, /html:not\(\.dark\) \.dashboard-shell\.min-h-screen\.bg-background \{/);
 });

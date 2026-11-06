@@ -42,7 +42,6 @@ import {
 import { toast } from "sonner";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { ErrorState, ListLoadingState } from "@/components/ui-bits";
-import { RevenueVisibilitySettings } from "@/components/RevenueVisibilitySettings";
 import {
   canManageMembers,
   canManageRole,
@@ -96,6 +95,7 @@ type WorkspaceMember = {
   user_id: string | null;
   invited_email: string;
   role: WorkspaceRole;
+  revenue_visible: boolean;
   status: MemberStatus;
   // Null when the server withheld them from this viewer (compensation_visible is then false).
   lead_share: number | null;
@@ -489,11 +489,6 @@ function Team() {
         </p>
       )}
 
-      {/* Owners and managers only; the card hides itself for everyone else. */}
-      {status === "ready" && canManageMembers(myRole) && (
-        <RevenueVisibilitySettings className="mt-6" />
-      )}
-
       {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
       <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FlatKpiCard title="Total Members" value={String(members.length)} />
@@ -731,6 +726,13 @@ function Team() {
                       >
                         {roleLabel[m.role]} access
                       </span>
+                      {myRole === "owner" && (m.role === "editor" || m.role === "setter") && (
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] font-medium ${m.revenue_visible ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}
+                        >
+                          {m.revenue_visible ? "Revenue access" : "Revenue hidden"}
+                        </span>
+                      )}
                       <span
                         className={`rounded-full px-2 py-1 text-[11px] font-medium ${m.status === "active" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}
                       >
@@ -825,6 +827,7 @@ function InviteDialog({
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("editor");
+  const [revenueVisible, setRevenueVisible] = useState(false);
   const [jobTitle, setJobTitle] = useState("");
   const [leadShare, setLeadShare] = useState("0");
   const [commission, setCommission] = useState("0");
@@ -835,6 +838,7 @@ function InviteDialog({
     if (!open) return;
     setEmail("");
     setRole("editor");
+    setRevenueVisible(false);
     setJobTitle("");
     setLeadShare("0");
     setCommission("0");
@@ -854,6 +858,7 @@ function InviteDialog({
         body: JSON.stringify({
           email: email.trim(),
           role,
+          revenueVisible,
           jobTitle: jobTitle.trim() || null,
           leadShare: Number(leadShare) || 0,
           commission: Number(commission) || 0,
@@ -895,7 +900,7 @@ function InviteDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Access level</label>
             <p className="text-[11px] text-muted-foreground">
-              Controls which pages and data they can see — separate from their job title below.
+              Controls page access. Revenue access is selected separately for editors and setters.
             </p>
             <div className="flex flex-wrap gap-2">
               {assignableRoles.map((r) => (
@@ -914,6 +919,23 @@ function InviteDialog({
               ))}
             </div>
           </div>
+          {myRole === "owner" && (role === "editor" || role === "setter") && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+              <input
+                type="checkbox"
+                checked={revenueVisible}
+                onChange={(event) => setRevenueVisible(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="space-y-0.5">
+                <span className="block text-sm font-medium">Allow revenue access</span>
+                <span className="block text-xs leading-snug text-muted-foreground">
+                  Lets this teammate see revenue and deal amounts. Private team compensation stays
+                  hidden.
+                </span>
+              </span>
+            </label>
+          )}
           <JobTitleField key={String(open)} value={jobTitle} onChange={setJobTitle} />
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
@@ -1051,7 +1073,8 @@ function EditMemberDialog({
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Access level</label>
               <p className="text-[11px] text-muted-foreground">
-                Controls which pages and data they can see — separate from their job title below.
+                Controls page access. Revenue access is selected separately when inviting a
+                teammate.
               </p>
               <div className="flex flex-wrap gap-2">
                 {assignableRoles.map((r) => (

@@ -224,6 +224,7 @@ export function addMember(
     user_id: userId,
     invited_email: profile?.email ?? `pending-${id}@x.test`,
     role,
+    revenue_visible: false,
     status: userId ? "active" : "invited",
     lead_share: 0,
     commission: 0,
@@ -297,7 +298,7 @@ export const MONEY_COLUMNS: Record<string, string[]> = {
   channel_daily_stats: ["estimated_revenue_usd", "ad_revenue_usd", "premium_revenue_usd"],
   video_daily_stats: ["estimated_revenue_usd", "ad_revenue_usd", "premium_revenue_usd"],
   deals: ["value"],
-  workspace_members: ["lead_share", "commission", "cost_amount"],
+  workspace_members: ["lead_share", "commission", "cost_amount", "revenue_visible"],
 };
 
 const RESERVED_PARAMS = ["select", "order", "limit", "offset", "on_conflict", "columns"];

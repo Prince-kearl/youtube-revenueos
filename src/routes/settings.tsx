@@ -591,7 +591,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                   <div className="min-w-0">
                     <h5 className="text-[11px] font-semibold">Background image</h5>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
-                      Show the Liquid Glass wallpaper behind cards and navigation.
+                      Show the Liquid Glass wallpaper in light mode; dark mode stays plain.
                     </p>
                   </div>
                   <Switch

@@ -198,19 +198,22 @@ export function canViewCompensation(input: {
 
 export const COMPENSATION_COLUMNS = ["lead_share", "commission", "cost_amount"] as const;
 
-/** A member row as it may be shown to one viewer: compensation is blanked (null) unless that
- * viewer may see it, and `compensation_visible` says which it was. */
+/** A member row as it may be shown to one viewer: compensation is blanked unless permitted, and
+ * individual revenue access is disclosed only to the workspace owner. */
 export function redactMember<
   T extends { user_id: string | null; role: string } & Partial<
     Record<(typeof COMPENSATION_COLUMNS)[number], number | null>
   >,
->(row: T, viewer: { userId: string; role: WorkspaceRole }): T & { compensation_visible: boolean } {
+>(
+  row: T,
+  viewer: { userId: string; role: WorkspaceRole },
+): T & { compensation_visible: boolean; revenue_visible?: boolean } {
   const visible = canViewCompensation({
     viewerRole: viewer.role,
     isSelf: row.user_id !== null && row.user_id === viewer.userId,
     memberRole: row.role as WorkspaceRole,
   });
-  return visible
+  const redacted = visible
     ? { ...row, compensation_visible: true }
     : {
         ...row,
@@ -219,6 +222,12 @@ export function redactMember<
         cost_amount: null,
         compensation_visible: false,
       };
+  if ("revenue_visible" in row)
+    return {
+      ...redacted,
+      revenue_visible: viewer.role === "owner" && row.revenue_visible === true,
+    };
+  return redacted;
 }
 
 // ---------- what the Team page shows where "Invite Member" goes ----------

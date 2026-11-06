@@ -751,7 +751,7 @@ export function DashboardLayout({
     <div className="dashboard-shell h-dvh min-h-screen overflow-hidden bg-background text-foreground">
       {!hideAppNav && (
         <aside
-          className={`card-gradient-outline fixed top-[var(--sidebar-gap)] bottom-[var(--sidebar-gap)] left-[var(--sidebar-gap)] z-30 hidden flex-col overflow-hidden backdrop-blur-2xl transition-all duration-200 md:flex ${
+          className={`card-gradient-outline outline outline-1 outline-border fixed top-[var(--sidebar-gap)] bottom-[var(--sidebar-gap)] left-[var(--sidebar-gap)] z-30 hidden flex-col overflow-hidden backdrop-blur-2xl transition-all duration-200 md:flex ${
             collapsed ? "w-20" : "w-[210px]"
           }`}
         >
