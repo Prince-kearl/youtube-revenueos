@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 // Tiny reactive localStorage-backed store. Cross-component sync via subscribe().
 type Listener = () => void;
@@ -34,7 +34,10 @@ function write<T>(key: string, value: T) {
   listeners[key]?.forEach((l) => l());
 }
 
-export function useLocalStore<T>(key: string, initial: T): [T, (updater: T | ((prev: T) => T)) => void] {
+export function useLocalStore<T>(
+  key: string,
+  initial: T,
+): [T, (updater: T | ((prev: T) => T)) => void] {
   const subscribe = (cb: Listener) => {
     listeners[key] ??= new Set();
     listeners[key].add(cb);
@@ -42,13 +45,16 @@ export function useLocalStore<T>(key: string, initial: T): [T, (updater: T | ((p
   };
   const getSnapshot = () => read<T>(key, initial);
   const value = useSyncExternalStore(subscribe, getSnapshot, () => initial);
-  const setValue = (updater: T | ((prev: T) => T)) => {
-    const next =
-      typeof updater === "function"
-        ? (updater as (prev: T) => T)(read<T>(key, initial))
-        : updater;
-    write(key, next);
-  };
+  const setValue = useCallback(
+    (updater: T | ((prev: T) => T)) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (prev: T) => T)(read<T>(key, initial))
+          : updater;
+      write(key, next);
+    },
+    [key, initial],
+  );
   return [value, setValue];
 }
 

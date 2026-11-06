@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -436,7 +436,7 @@ export function DashboardLayout({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
-  const loadSearchVideos = () => {
+  const loadSearchVideos = useCallback(() => {
     if (searchVideosLoadedRef.current) return;
     searchVideosLoadedRef.current = true;
     if (IS_LOCAL_DEMO) {
@@ -464,9 +464,9 @@ export function DashboardLayout({
         }
       })
       .catch(() => {});
-  };
+  }, [activeChannelId]);
 
-  const loadSearchLeads = () => {
+  const loadSearchLeads = useCallback(() => {
     if (searchLeadsLoadedRef.current) return;
     searchLeadsLoadedRef.current = true;
     fetch("/api/leads", { cache: "default" })
@@ -479,16 +479,19 @@ export function DashboardLayout({
         }
       })
       .catch(() => {});
-  };
+  }, []);
 
-  const openSearch = (input: "desktop" | "mobile") => {
-    setSearchOpen(true);
-    loadSearchVideos();
-    loadSearchLeads();
-    requestAnimationFrame(() =>
-      (input === "desktop" ? searchInputRef : mobileSearchInputRef).current?.focus(),
-    );
-  };
+  const openSearch = useCallback(
+    (input: "desktop" | "mobile") => {
+      setSearchOpen(true);
+      loadSearchVideos();
+      loadSearchLeads();
+      requestAnimationFrame(() =>
+        (input === "desktop" ? searchInputRef : mobileSearchInputRef).current?.focus(),
+      );
+    },
+    [loadSearchVideos, loadSearchLeads],
+  );
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim();
@@ -675,7 +678,7 @@ export function DashboardLayout({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [openSearch]);
 
   const markAllRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -736,7 +739,7 @@ export function DashboardLayout({
       email: user.email ?? current.email,
       avatar: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? current.avatar,
     }));
-  }, [user, queryClient]);
+  }, [user, queryClient, setProfile]);
 
   // Server/API routes independently verify the session too (see requireSessionUser) — this only
   // keeps signed-out visitors from seeing protected page content client-side.

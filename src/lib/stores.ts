@@ -115,7 +115,8 @@ const seedProfile = (): Profile => ({
   timezone: "Europe/Berlin",
   bio: "",
 });
-export const useProfile = () => useLocalStore<Profile>("yroos.profile", seedProfile());
+const DEFAULT_PROFILE = seedProfile();
+export const useProfile = () => useLocalStore<Profile>("yroos.profile", DEFAULT_PROFILE);
 
 // ============ ONBOARDING ============
 // Step completion itself is derived from real account state (see /api/onboarding/status and
