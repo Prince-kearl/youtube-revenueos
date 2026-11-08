@@ -582,3 +582,57 @@ test("the Users page actions menu offers the grant, through the same dialog and 
   // the dialog posts to the admin API, where every rule is enforced
   assert.match(panel, /fetch\("\/api\/admin\/subscription-grants", \{\s+method: "POST"/);
 });
+
+// ---------- when something fails ----------
+
+test("every error the grants API can return has wording; anything else shows its code", async () => {
+  const { grantErrorMessage } = await import("../src/lib/subscription-grant-errors");
+  const source = readFileSync("src/routes/api.admin.subscription-grants.ts", "utf8");
+  const codes = new Set(
+    [...source.matchAll(/error: "([A-Z_]+)"/g), ...source.matchAll(/^\s+([A-Z_]+): \d{3},$/gm)].map(
+      (m) => m[1],
+    ),
+  );
+  for (const code of [...codes, "AUTH_REQUIRED", "ADMIN_REQUIRED", "PERMISSION_REQUIRED"])
+    assert.doesNotMatch(grantErrorMessage(code, 500), /Something went wrong/, code);
+  assert.equal(
+    grantErrorMessage("SOMETHING_NEW", 502),
+    "Something went wrong (SOMETHING_NEW). Please try again.",
+  );
+  assert.equal(
+    grantErrorMessage(undefined, 504),
+    "Something went wrong (HTTP 504). Please try again.",
+  );
+  const panel = readFileSync("src/components/admin/SubscriptionGrantPanel.tsx", "utf8");
+  assert.match(panel, /Couldn't reach the server/);
+  assert.doesNotMatch(panel, /"Something went wrong\. Please try again\."/);
+});
+
+test("a database failure is answered with its code and logged without secrets", async () => {
+  const f = world();
+  f.w.failingReads = ["profiles"];
+  const r = await post(f, f.admin, grantBody(f));
+  // the admin's own role read also fails here: either way nothing is granted
+  assert.ok(r.status >= 400, r.text);
+  assert.equal(grants(f).length, 0);
+  const g = world();
+  addSubscription(g.w, g.creator, "starter", "canceled");
+  g.w.failingReads = ["subscriptions"];
+  const held = await post(g, g.admin, grantBody(g));
+  assert.equal(held.status, 500, held.text);
+  assert.equal(held.body.error, "DATABASE_ERROR");
+  const logged = JSON.stringify(held.logs);
+  assert.match(logged, /\[subscription-grants\] subscription read/);
+  assert.doesNotMatch(logged, /service-role|eyJ|Bearer|apikey/i, "no keys or tokens in the log");
+  assert.equal(grants(g).length, 0);
+});
+
+test("a user deleted in the meantime is reported as not found", async () => {
+  const { grantActionError } = await import("../src/lib/server/subscription-grants");
+  assert.equal(
+    grantActionError({ code: "23503", message: "violates foreign key" }),
+    "USER_NOT_FOUND",
+  );
+  assert.equal(grantActionError({ code: "23505", message: "duplicate" }), "ACTIVE_GRANT_EXISTS");
+  assert.equal(grantActionError({ code: "XX000", message: "boom" }), "DATABASE_ERROR");
+});

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { cn } from "@/lib/utils";
+import { grantErrorMessage } from "@/lib/subscription-grant-errors";
 
 // A complimentary plan for one account, in the admin user detail sheet: grant one (a plan for a
 // number of days or with no end), extend it, or revoke it — each with a reason. The server
@@ -58,22 +59,6 @@ const EVENT_LABEL: Record<HistoryItem["event"], string> = {
   extended: "Extended",
   revoked: "Revoked",
   expired: "Expired",
-};
-
-const ERRORS: Record<string, string> = {
-  ACTIVE_GRANT_EXISTS: "This user already has a complimentary plan. Extend or revoke it instead.",
-  PAID_SUBSCRIPTION_EXISTS:
-    "This user already pays for a subscription, so a complimentary plan can't be added.",
-  SELF_GRANT_NOT_ALLOWED: "You can't grant a plan to your own account.",
-  GRANT_NOT_FOUND: "That plan is no longer active. Refresh to see its current state.",
-  GRANT_ALREADY_LIFETIME: "This plan already has no end.",
-  GRANT_NOT_LATER: "The new end must be later than the current one.",
-  GRANT_END_IN_PAST: "The end date must be in the future.",
-  GRANTS_NOT_AVAILABLE: "Complimentary plans aren't set up on this server yet.",
-  USER_NOT_FOUND: "This user no longer exists.",
-  VALIDATION_ERROR: "Check the details and try again.",
-  ADMIN_REQUIRED: "You don't have permission to do this.",
-  PERMISSION_REQUIRED: "You don't have permission to manage billing.",
 };
 
 const dateText = (iso: string) =>
@@ -282,7 +267,7 @@ export function SubscriptionGrantDialog({
       });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        setError(ERRORS[result.error ?? ""] ?? "Something went wrong. Please try again.");
+        setError(grantErrorMessage(result.error, response.status));
         return;
       }
       toast.success(
@@ -290,7 +275,7 @@ export function SubscriptionGrantDialog({
       );
       onDone();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setSaving(false);
     }

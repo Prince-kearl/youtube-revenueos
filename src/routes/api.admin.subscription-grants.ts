@@ -70,6 +70,19 @@ const bodySchema = z.discriminatedUnion("action", [
   }),
 ]);
 
+// Unexpected failures are logged (to the deployment's function logs) with the database error's
+// code and message only — never a key, token or request body — so a failed grant can be traced.
+function logFailure(where: string, cause: unknown) {
+  const detail =
+    cause && typeof cause === "object"
+      ? {
+          code: (cause as { code?: unknown }).code ?? null,
+          message: String((cause as { message?: unknown }).message ?? "").slice(0, 300),
+        }
+      : { message: String(cause).slice(0, 300) };
+  console.error(`[subscription-grants] ${where}`, detail);
+}
+
 const STATUS: Record<GrantActionError, number> = {
   ACTIVE_GRANT_EXISTS: 409,
   GRANT_NOT_FOUND: 404,
@@ -77,6 +90,7 @@ const STATUS: Record<GrantActionError, number> = {
   GRANT_NOT_LATER: 422,
   GRANT_END_IN_PAST: 422,
   GRANTS_NOT_AVAILABLE: 503,
+  USER_NOT_FOUND: 404,
   DATABASE_ERROR: 500,
 };
 
@@ -114,11 +128,17 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
             .select("id")
             .eq("id", userId)
             .maybeSingle();
-          if (profileError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (profileError) {
+            logFailure("profile read", profileError);
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           if (!profile) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
           const active = await readActiveGrant(service, userId);
-          if (!active.ok) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (!active.ok) {
+            logFailure("active grant read", "unreadable");
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           let current = null;
           if (active.grant) {
             const { data, error } = await service
@@ -127,7 +147,10 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
               .eq("id", active.grant.id)
               .eq("user_id", userId)
               .maybeSingle();
-            if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            if (error) {
+              logFailure("grant read", error);
+              return json({ error: "DATABASE_ERROR" }, { status: 500 });
+            }
             if (data) current = { ...summary(data as GrantRow), reason: data.reason as string };
           }
           const { data: events, error: eventsError } = await service
@@ -162,6 +185,7 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
           });
         } catch (error) {
           if (error instanceof Response) return error;
+          logFailure("unexpected error", error);
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
@@ -189,7 +213,10 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
             .select("id")
             .eq("id", body.userId)
             .maybeSingle();
-          if (profileError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (profileError) {
+            logFailure("profile read", profileError);
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           if (!profile) return json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
           if (body.action === "grant") {
@@ -207,7 +234,10 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
                 .eq("livemode", livemode)
                 .in("status", [...STRIPE_HELD_STATUSES])
                 .limit(1);
-              if (heldError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+              if (heldError) {
+                logFailure("subscription read", heldError);
+                return json({ error: "DATABASE_ERROR" }, { status: 500 });
+              }
               if (held && held.length)
                 return json({ error: "PAID_SUBSCRIPTION_EXISTS" }, { status: 409 });
             }
@@ -220,6 +250,7 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
             });
             if (error) {
               const code = grantActionError(error);
+              if (STATUS[code] >= 500) logFailure(`${body.action} function`, error);
               return json({ error: code }, { status: STATUS[code] });
             }
             return json({ data: summary(data as GrantRow) }, { status: 201 });
@@ -227,7 +258,10 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
 
           // Extend and revoke act on the user's current grant, by its id.
           const active = await readActiveGrant(service, body.userId);
-          if (!active.ok) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (!active.ok) {
+            logFailure("active grant read", "unreadable");
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          }
           if (!active.grant || active.grant.id !== body.grantId)
             return json({ error: "GRANT_NOT_FOUND" }, { status: 404 });
 
@@ -243,6 +277,7 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
             });
             if (error) {
               const code = grantActionError(error);
+              if (STATUS[code] >= 500) logFailure(`${body.action} function`, error);
               return json({ error: code }, { status: STATUS[code] });
             }
             return json({ data: summary(data as GrantRow) });
@@ -256,11 +291,13 @@ export const Route = createFileRoute("/api/admin/subscription-grants")({
           });
           if (error) {
             const code = grantActionError(error);
+            if (STATUS[code] >= 500) logFailure(`${body.action} function`, error);
             return json({ error: code }, { status: STATUS[code] });
           }
           return json({ data: summary(data as GrantRow) });
         } catch (error) {
           if (error instanceof Response) return error;
+          logFailure("unexpected error", error);
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },

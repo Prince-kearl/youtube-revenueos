@@ -92,6 +92,7 @@ export type GrantActionError =
   | "GRANT_NOT_LATER"
   | "GRANT_END_IN_PAST"
   | "GRANTS_NOT_AVAILABLE"
+  | "USER_NOT_FOUND"
   | "DATABASE_ERROR";
 
 /** Maps a database error from the grant functions to the API's error code. */
@@ -106,6 +107,8 @@ export function grantActionError(error: { code?: string; message?: string }): Gr
   ] as const)
     if (message.includes(code)) return code;
   if (error.code === "P0002") return "GRANT_NOT_FOUND";
+  // The account was deleted between the check and the grant (its profile is gone).
+  if (error.code === "23503") return "USER_NOT_FOUND";
   // The functions are not there: the migration has not been applied.
   if (error.code === "42883" || error.code === "PGRST202" || missingTable(error))
     return "GRANTS_NOT_AVAILABLE";
