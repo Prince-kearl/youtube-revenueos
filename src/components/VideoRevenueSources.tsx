@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useId, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Link2, MousePointerClick, Plus } from "lucide-react";
@@ -173,10 +175,7 @@ function LinkActivity({ view }: { view: VideoRevenueSourcesView }) {
     return (
       <div className="mt-1" data-testid="sources-empty">
         <p className="text-sm text-muted-foreground">{SOURCES_EMPTY_NOTE}</p>
-        <Link
-          to="/link-tracking"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-        >
+        <Link to="/link-tracking" className={cn(buttonSecondary, "mt-3")}>
           <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add a tracked link
         </Link>
       </div>

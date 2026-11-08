@@ -1,3 +1,5 @@
+import { buttonPrimary } from "@/lib/button-styles";
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -6,7 +8,6 @@ import {
   FileText,
   Gift,
   Trash2,
-  RefreshCw,
   Loader2,
   BookOpen,
   Palette,
@@ -550,7 +551,7 @@ function Freebie() {
                 <button
                   onClick={() => void handleGenerate()}
                   disabled={isGenerating || !product.trim() || !audience.trim()}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={cn(buttonPrimary, "w-full disabled:cursor-not-allowed")}
                 >
                   {isGenerating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -604,21 +605,20 @@ function Freebie() {
             )}
 
             {status === "error" && (
-              <div className="flex flex-col items-center gap-2 p-8 text-center">
-                <p className="text-sm text-muted-foreground">Couldn't load your freebies.</p>
-                <button
-                  onClick={() => setRetryNonce((n) => n + 1)}
-                  className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Try again
-                </button>
-              </div>
+              <ErrorState
+                size="sm"
+                title="We couldn't load your freebies"
+                description="They're safe; try again in a moment."
+                onRetry={() => setRetryNonce((n) => n + 1)}
+              />
             )}
 
             {status === "ready" && magnets.length === 0 && (
-              <p className="p-8 text-center text-sm text-muted-foreground">
-                No freebies yet. Generate your first one above.
-              </p>
+              <EmptyState
+                size="sm"
+                title="No freebies yet"
+                description="Generate your first one above."
+              />
             )}
 
             {status === "ready" && magnets.length > 0 && (
@@ -859,7 +859,7 @@ function KnowledgeTab({
             <button
               type="submit"
               disabled={savingNote || !noteTitle.trim() || !noteContent.trim()}
-              className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className={buttonPrimary}
             >
               {savingNote ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -893,11 +893,7 @@ function KnowledgeTab({
               Text (.txt, .md, .csv) and PDF get their text extracted automatically. Other file
               types are stored but can't be used in generation yet.
             </p>
-            <button
-              type="submit"
-              disabled={uploading || !uploadFile}
-              className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={uploading || !uploadFile} className={buttonPrimary}>
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -916,20 +912,20 @@ function KnowledgeTab({
         </div>
         {status === "loading" && <p className="p-5 text-sm text-muted-foreground">Loading…</p>}
         {status === "error" && (
-          <div className="flex flex-col items-center gap-2 p-8 text-center">
-            <p className="text-sm text-muted-foreground">Couldn't load your Knowledge Base.</p>
-            <button
-              onClick={onRetry}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Try again
-            </button>
-          </div>
+          <ErrorState
+            size="sm"
+            title="We couldn't load your Knowledge Base"
+            description="Nothing was changed. Try again in a moment."
+            onRetry={onRetry}
+          />
         )}
         {status === "ready" && items.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            Nothing here yet. Add a note or upload a file above.
-          </p>
+          <EmptyState
+            size="sm"
+            illustration="folder"
+            title="Nothing here yet"
+            description="Add a note or upload a file above."
+          />
         )}
         {status === "ready" && items.length > 0 && (
           <div className="divide-y divide-border">
@@ -1124,11 +1120,7 @@ function BrandingTab({
             </div>
           </div>
 
-          <button
-            onClick={() => void save(false)}
-            disabled={saving}
-            className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
+          <button onClick={() => void save(false)} disabled={saving} className={buttonPrimary}>
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

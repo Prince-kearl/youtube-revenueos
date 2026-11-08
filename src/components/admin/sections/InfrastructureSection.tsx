@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { CheckCircle2, HardDrive, Play } from "lucide-react";
 import { toast } from "sonner";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -71,10 +72,7 @@ export function InfrastructureSection() {
         <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
         <div className="flex items-center justify-between p-5 pb-0">
           <h3 className="text-sm font-semibold">Backups</h3>
-          <button
-            onClick={runBackup}
-            className="flex items-center gap-1.5 rounded-[var(--button-radius)] bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={runBackup} className={buttonPrimary}>
             <Play className="h-3.5 w-3.5" /> Run backup now
           </button>
         </div>

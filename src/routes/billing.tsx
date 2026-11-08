@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
+import { ErrorState } from "@/components/ui-bits";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -7,7 +10,6 @@ import {
   ExternalLink,
   Loader2,
   Mail,
-  RefreshCw,
   Rocket,
   Sparkle,
   Star,
@@ -153,14 +155,12 @@ function BillingCheckout() {
 
   if (status === "error" || !data) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">We couldn't load billing information.</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </button>
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <ErrorState
+          title="We couldn't load billing information"
+          description="Your subscription hasn't changed. Try again in a moment."
+          onRetry={() => window.location.reload()}
+        />
       </div>
     );
   }
@@ -209,7 +209,7 @@ function BillingCheckout() {
             <button
               onClick={() => void openPortal()}
               disabled={openingPortal}
-              className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              className={cn(buttonPrimary, "mt-5")}
             >
               {openingPortal ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

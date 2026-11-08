@@ -29,6 +29,6 @@ test("the 401 check comes before the body is read or any state is set", () => {
 
 test("other failures still show the error screen with Try again", () => {
   assert.match(load, /if \(!response\.ok \|\| !body\.data\) throw new Error\(\);/);
-  assert.match(page, /We couldn't load billing information\./);
+  assert.match(page, /We couldn't load billing information/);
   assert.match(page, /Try again/);
 });

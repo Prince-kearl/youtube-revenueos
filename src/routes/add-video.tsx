@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -671,10 +672,7 @@ function AddVideo() {
             AI analysis, description optimization, and destination links for one video.
           </p>
         </div>
-        <Link
-          to="/support"
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
+        <Link to="/support" className={cn(buttonSecondary, "shrink-0")}>
           <HelpCircle className="h-4 w-4" /> Learn how it works
         </Link>
       </div>
@@ -1018,7 +1016,7 @@ function AddVideo() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={cn(buttonPrimary, "disabled:cursor-not-allowed")}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1056,7 +1054,7 @@ function AddVideo() {
                 <button
                   type="button"
                   onClick={changeVideo}
-                  className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+                  className={cn(buttonSecondary, "shrink-0")}
                 >
                   Change video
                 </button>
@@ -1073,7 +1071,7 @@ function AddVideo() {
                 type="button"
                 onClick={() => void analyzeContent()}
                 disabled={!loaded || analyzing}
-                className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(buttonPrimary, "shrink-0 disabled:cursor-not-allowed")}
               >
                 {analyzing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1601,7 +1599,7 @@ function AddVideo() {
                 type="button"
                 onClick={injectDestinations}
                 disabled={!loaded || !selectedDestinations.length}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className={cn(buttonSecondary, "disabled:cursor-not-allowed")}
               >
                 Insert selected URLs
               </button>
@@ -1636,7 +1634,7 @@ function AddVideo() {
               type="button"
               onClick={() => void (savedVideoId ? updateVideo() : saveVideo())}
               disabled={!loaded || saving}
-              className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(buttonPrimary, "disabled:cursor-not-allowed")}
             >
               <Save className="h-4 w-4" />{" "}
               {saving ? "Saving…" : savedVideoId ? "Update" : "Save to Tubify"}
@@ -1711,11 +1709,7 @@ function MessageState({
         <h2 className="font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-      <Link
-        to="/settings"
-        search={{ tab: "YouTube Integration" }}
-        className="rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-      >
+      <Link to="/settings" search={{ tab: "YouTube Integration" }} className={buttonPrimary}>
         {action}
       </Link>
     </div>

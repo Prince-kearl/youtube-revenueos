@@ -1,3 +1,5 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -262,10 +264,7 @@ function LinkTracking() {
               "Custom Domain"
             )}
           </button>
-          <button
-            onClick={() => setCreating(true)}
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => setCreating(true)} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Create Link
           </button>
         </div>
@@ -319,26 +318,38 @@ function LinkTracking() {
       )}
 
       {pageStatus === "error" && (
-        <div className="mt-5 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-sm text-muted-foreground">We couldn’t load your tracking links.</p>
-          <button
-            type="button"
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-5"
+          title="We couldn’t load your tracking links"
+          description="Your links still work; this page just couldn’t reach the server. Try again in a moment."
+          onRetry={() => setRetryNonce((n) => n + 1)}
+        />
       )}
 
-      {pageStatus === "ready" && filtered.length === 0 && (
-        <div className="relative mt-5 rounded-xl card-gradient-outline">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <p className="p-10 text-center text-sm text-muted-foreground">
-            {query ? "No links match your search." : "No links yet — click Create Link to add one."}
-          </p>
-        </div>
-      )}
+      {pageStatus === "ready" &&
+        filtered.length === 0 &&
+        (query ? (
+          <EmptyState
+            className="mt-5"
+            illustration="search"
+            title="No matching links"
+            description={`Nothing matches “${query}”. Check the spelling or try another word.`}
+          >
+            <button type="button" onClick={() => setQuery("")} className={buttonSecondary}>
+              Clear search
+            </button>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            className="mt-5"
+            title="No links yet"
+            description="Create a tracking link to see who clicks it, from which video, and what they do next."
+          >
+            <button type="button" onClick={() => setCreating(true)} className={buttonPrimary}>
+              <Plus className="h-4 w-4" /> Create Link
+            </button>
+          </EmptyState>
+        ))}
 
       {pageStatus === "ready" && filtered.length > 0 && (
         <>

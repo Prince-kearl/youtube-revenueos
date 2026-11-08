@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useRef, useState } from "react";
 import {
   Search,
@@ -392,16 +393,10 @@ export function UsersSection() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDirectoryOpen(true)}
-            className="flex h-9 items-center rounded-[var(--button-radius)] border border-border px-3.5 text-sm font-medium hover:bg-accent"
-          >
+          <button onClick={() => setDirectoryOpen(true)} className={buttonSecondary}>
             Directory health
           </button>
-          <button
-            onClick={() => setCreating(true)}
-            className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => setCreating(true)} className={buttonPrimary}>
             <UserPlus className="h-4 w-4" /> Invite User
           </button>
         </div>
@@ -480,10 +475,7 @@ export function UsersSection() {
           <p className="text-sm text-muted-foreground">
             {LOAD_ERROR_MESSAGE[loadError ?? ""] ?? "Couldn't load users."}
           </p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
+          <button onClick={() => setRetryNonce((n) => n + 1)} className={buttonSecondary}>
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </div>
@@ -774,7 +766,7 @@ export function UsersSection() {
               type="button"
               onClick={goPrevious}
               disabled={currentPage === 0 || status === "loading"}
-              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+              className={buttonSecondary}
             >
               <ChevronLeft className="h-3.5 w-3.5" /> Previous
             </button>
@@ -782,7 +774,7 @@ export function UsersSection() {
               type="button"
               onClick={goNext}
               disabled={!nextCursor || status === "loading"}
-              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+              className={buttonSecondary}
             >
               Next <ChevronRight className="h-3.5 w-3.5" />
             </button>

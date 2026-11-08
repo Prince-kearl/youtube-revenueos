@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Palette, Save, LayoutPanelLeft, Type, Home, HelpCircle, Mail, Share2 } from "lucide-react";
@@ -54,10 +55,7 @@ export function ContentSection() {
             Refine your app's visual identity and public site content.
           </p>
         </div>
-        <button
-          onClick={saveChanges}
-          className="flex h-10 shrink-0 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={saveChanges} className={cn(buttonPrimary, "shrink-0")}>
           <Save className="h-4 w-4" /> Save Changes
         </button>
       </div>

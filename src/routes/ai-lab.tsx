@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -884,7 +885,7 @@ function AILab() {
               type="button"
               onClick={() => void handleGenerate()}
               disabled={!loaded || isGenerating}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(buttonPrimary, "mt-4 w-full disabled:cursor-not-allowed")}
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

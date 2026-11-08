@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { Plus, Send, Mail, Bell, Smartphone } from "lucide-react";
 import { toast } from "sonner";
@@ -66,10 +67,7 @@ export function CommunicationsSection() {
             Announcements, email campaigns, and in-app broadcasts.
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={() => setCreating(true)} className={buttonPrimary}>
           <Plus className="h-4 w-4" /> New Announcement
         </button>
       </div>
@@ -115,10 +113,7 @@ export function CommunicationsSection() {
                   {a.status}
                 </span>
                 {a.status !== "Sent" && (
-                  <button
-                    onClick={() => send(a)}
-                    className="flex items-center gap-1 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
-                  >
+                  <button onClick={() => send(a)} className={buttonSecondary}>
                     <Send className="h-3.5 w-3.5" /> Send now
                   </button>
                 )}

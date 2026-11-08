@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
 import { useState } from "react";
 import { ShieldAlert, Plus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -214,10 +216,7 @@ function IpListCard({
           placeholder="e.g. 203.0.113.10"
           className="h-8 text-xs"
         />
-        <button
-          onClick={onAdd}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-[var(--button-radius)] bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={onAdd} className={cn(buttonPrimary, "shrink-0")}>
           <Plus className="h-3.5 w-3.5" /> Add
         </button>
       </div>

@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonSecondary } from "@/lib/button-styles";
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Mail } from "lucide-react";
@@ -141,10 +143,7 @@ export function LegalDocument({
           <Link to="/" aria-label="Tubify home" className="shrink-0">
             <Logo />
           </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary print:hidden"
-          >
+          <Link to="/" className={cn(buttonSecondary, "print:hidden")}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to Tubify
           </Link>
         </div>

@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   MousePointer2,
   Link2,
   ExternalLink,
-  RefreshCw,
   Instagram,
   Music2,
   X as XIcon,
@@ -21,7 +21,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Tag } from "@/components/ui-bits";
+import { Tag, EmptyState, ErrorState } from "@/components/ui-bits";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DestinationDialog,
@@ -155,10 +155,7 @@ function Destinations() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => openCreate("conversion")}
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => openCreate("conversion")} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Add Destination
           </button>
         </div>
@@ -197,35 +194,40 @@ function Destinations() {
       )}
 
       {pageStatus === "error" && (
-        <div className="mt-5 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-sm text-muted-foreground">We couldn’t load your destinations.</p>
-          <button
-            type="button"
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-5"
+          title="We couldn’t load your destinations"
+          description="Nothing was changed. Try again in a moment."
+          onRetry={() => setRetryNonce((n) => n + 1)}
+        />
       )}
 
       {pageStatus === "ready" && destinations.length === 0 && (
-        <div className="mt-5 rounded-xl border border-dashed border-border bg-card p-10 text-center">
-          <p className="text-sm text-muted-foreground">No destinations yet.</p>
-          <button
-            onClick={() => openCreate("conversion")}
-            className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground"
-          >
+        <EmptyState
+          className="mt-5"
+          title="No destinations yet"
+          description="Destinations are the pages your links send people to, like a product, a sign-up or a booking page."
+        >
+          <button type="button" onClick={() => openCreate("conversion")} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Add your first destination
           </button>
-        </div>
+        </EmptyState>
       )}
 
       {pageStatus === "ready" && destinations.length > 0 && view === "Cards" && (
         <>
-          <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Conversion Destinations
-          </h2>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Conversion Destinations
+            </h2>
+            <button
+              type="button"
+              onClick={() => openCreate("conversion")}
+              className={buttonPrimary}
+            >
+              <Plus className="h-4 w-4" /> Add new destination
+            </button>
+          </div>
           <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {conversionDestinations.map((d) => (
               <DestinationCard
@@ -235,22 +237,18 @@ function Destinations() {
                 onDelete={() => setDeleting(d)}
               />
             ))}
-            <button
-              onClick={() => openCreate("conversion")}
-              className="flex min-h-[140px] flex-col items-center justify-center gap-3 rounded-[var(--button-radius)] border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-                <Plus className="h-5 w-5" />
-              </div>
-              Add new destination
-            </button>
           </div>
 
           <div className="my-8 border-t border-border" />
 
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Social Destinations
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Social Destinations
+            </h2>
+            <button type="button" onClick={() => openCreate("social")} className={buttonPrimary}>
+              <Plus className="h-4 w-4" /> Add social destination
+            </button>
+          </div>
           <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {socialDestinations.map((d) => (
               <DestinationCard
@@ -260,15 +258,6 @@ function Destinations() {
                 onDelete={() => setDeleting(d)}
               />
             ))}
-            <button
-              onClick={() => openCreate("social")}
-              className="flex min-h-[140px] flex-col items-center justify-center gap-3 rounded-[var(--button-radius)] border border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-                <Plus className="h-5 w-5" />
-              </div>
-              Add social destination
-            </button>
           </div>
         </>
       )}

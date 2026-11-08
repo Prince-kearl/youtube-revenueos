@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -136,11 +137,7 @@ function MessageState({
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
       {action && (
-        <Link
-          to="/settings"
-          search={{ tab: "YouTube Integration" }}
-          className="rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
+        <Link to="/settings" search={{ tab: "YouTube Integration" }} className={buttonPrimary}>
           {action}
         </Link>
       )}
@@ -258,7 +255,7 @@ function Audience() {
             <button
               type="button"
               onClick={() => setRetryNonce((n) => n + 1)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+              className={buttonSecondary}
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </button>
@@ -300,7 +297,7 @@ function Audience() {
           <button
             type="button"
             onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+            className={buttonSecondary}
           >
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>

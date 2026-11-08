@@ -1,6 +1,8 @@
+import { buttonPrimary } from "@/lib/button-styles";
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCarousel } from "@/components/KpiCarousel";
@@ -211,10 +213,7 @@ function EmailSender() {
             as drafts.
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={() => setCreating(true)} className={buttonPrimary}>
           <Plus className="h-4 w-4" /> New Campaign
         </button>
       </div>
@@ -304,7 +303,12 @@ function EmailSender() {
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
           <h3 className="text-lg font-semibold">Recent Recipients</h3>
           {audienceStatus === "ready" && audienceStats.recent.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">No recipients yet.</p>
+            <EmptyState
+              size="sm"
+              illustration="inbox"
+              title="No recipients yet"
+              description="People who sign up through your freebies appear here."
+            />
           )}
           <div className="mt-4 space-y-2.5">
             {audienceStats.recent.map((a) => (
@@ -338,21 +342,21 @@ function EmailSender() {
         )}
 
         {campaignsStatus === "error" && (
-          <div className="flex flex-col items-center gap-2 p-8 text-center">
-            <p className="text-sm text-muted-foreground">Couldn't load your campaigns.</p>
-            <button
-              onClick={() => setRetryNonce((n) => n + 1)}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Try again
-            </button>
-          </div>
+          <ErrorState
+            size="sm"
+            title="We couldn't load your campaigns"
+            description="Nothing was sent or changed. Try again in a moment."
+            onRetry={() => setRetryNonce((n) => n + 1)}
+          />
         )}
 
         {campaignsStatus === "ready" && campaigns.length === 0 && (
-          <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-            No campaigns yet. Create your first one above.
-          </p>
+          <EmptyState
+            size="sm"
+            illustration="inbox"
+            title="No campaigns yet"
+            description="Create your first one above."
+          />
         )}
 
         {campaignsStatus === "ready" && campaigns.length > 0 && (

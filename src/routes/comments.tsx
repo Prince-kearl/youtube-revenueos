@@ -1,3 +1,5 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
+import { EmptyState } from "@/components/ui-bits";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -685,7 +687,10 @@ function Comments() {
           <Link
             to="/leads"
             aria-label="Lead Inbox"
-            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-2.5 text-xs font-medium hover:bg-accent sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
+            className={cn(
+              buttonSecondary,
+              "min-w-0 flex-1 gap-1.5 px-2.5 text-xs sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm",
+            )}
           >
             <Inbox className="h-4 w-4 shrink-0" />
             <span className="sm:hidden">Inbox</span>
@@ -694,7 +699,10 @@ function Comments() {
           <button
             onClick={() => setViewingComments(true)}
             aria-label="View All Comments"
-            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-2.5 text-xs font-medium hover:bg-accent sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
+            className={cn(
+              buttonSecondary,
+              "min-w-0 flex-1 gap-1.5 px-2.5 text-xs sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm",
+            )}
           >
             <Eye className="h-4 w-4 shrink-0" />
             <span className="sm:hidden">Comments</span>
@@ -703,7 +711,10 @@ function Comments() {
           <button
             onClick={() => setCreating(true)}
             data-onboarding-step="comments"
-            className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm"
+            className={cn(
+              buttonPrimary,
+              "min-w-0 flex-1 gap-1.5 px-2.5 text-xs sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm",
+            )}
           >
             <Plus className="h-4 w-4 shrink-0" /> New Rule
           </button>
@@ -841,7 +852,7 @@ function Comments() {
               <button
                 type="button"
                 onClick={() => setRulesRetryToken((n) => n + 1)}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                className={buttonSecondary}
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Try again
               </button>
@@ -849,15 +860,15 @@ function Comments() {
           )}
 
           {rulesStatus === "ready" && rules.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center">
-              <p className="text-sm text-muted-foreground">No rules yet.</p>
-              <button
-                onClick={() => setCreating(true)}
-                className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground"
-              >
+            <EmptyState
+              size="sm"
+              title="No rules yet"
+              description="A rule replies to comments that match the words you choose."
+            >
+              <button type="button" onClick={() => setCreating(true)} className={buttonPrimary}>
                 <Plus className="h-4 w-4" /> Create your first rule
               </button>
-            </div>
+            </EmptyState>
           )}
 
           {rulesStatus === "ready" &&
@@ -933,7 +944,7 @@ function Comments() {
           <h3 className="font-semibold">Recent Triggers</h3>
           <div className="mt-4 space-y-3">
             {recentReplies.length === 0 && (
-              <p className="text-sm text-muted-foreground">No auto-replies sent yet.</p>
+              <EmptyState size="sm" illustration="inbox" title="No auto-replies sent yet" />
             )}
             {recentReplies.slice(0, 6).map((c) => (
               <div key={c.id} className="rounded-xl border border-border bg-background p-3">
@@ -1330,10 +1341,7 @@ function AllCommentsDialog({
           {status === "error" && (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <p className="text-sm text-muted-foreground">We couldn’t load your comments.</p>
-              <button
-                onClick={onRetry}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-              >
+              <button onClick={onRetry} className={buttonSecondary}>
                 <RefreshCw className="h-3.5 w-3.5" /> Try again
               </button>
             </div>
@@ -1342,34 +1350,51 @@ function AllCommentsDialog({
           {status === "ready" && (
             <div className="space-y-2">
               {/* Empty: say what was looked at, so "nothing here" never reads as "not loaded". */}
-              {visible.length === 0 && (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  {comments.length === 0 ? (
-                    <>
-                      <p className="font-medium text-foreground">
-                        {videoFilter?.preview?.commentsDisabled
-                          ? "Comments are turned off for this video"
-                          : videoFilter
-                            ? "This video has no comments yet"
-                            : "No comments yet"}
-                      </p>
-                      <p className="mt-1 text-xs">
-                        {videoFilter?.preview?.commentsDisabled
-                          ? "YouTube doesn’t allow comments on it — for example, a video made for kids. You can change this in YouTube Studio."
-                          : `${videoFilter ? "YouTube returned no comments for it." : "YouTube returned no comments on any of your videos."} New comments appear here when you open this again.`}
-                      </p>
-                    </>
-                  ) : q ? (
-                    <p>No comments match &quot;{query.trim()}&quot;.</p>
-                  ) : filter === "replied" ? (
-                    <p>You haven&apos;t replied to any of these comments yet.</p>
-                  ) : filter === "unreplied" ? (
-                    <p>Every comment here has a reply.</p>
-                  ) : (
-                    <p>No comments.</p>
-                  )}
-                </div>
-              )}
+              {visible.length === 0 &&
+                (comments.length === 0 ? (
+                  <EmptyState
+                    size="sm"
+                    illustration="inbox"
+                    title={
+                      videoFilter?.preview?.commentsDisabled
+                        ? "Comments are turned off for this video"
+                        : videoFilter
+                          ? "This video has no comments yet"
+                          : "No comments yet"
+                    }
+                    description={
+                      videoFilter?.preview?.commentsDisabled
+                        ? "YouTube doesn’t allow comments on it — for example, a video made for kids. You can change this in YouTube Studio."
+                        : `${videoFilter ? "YouTube returned no comments for it." : "YouTube returned no comments on any of your videos."} New comments appear here when you open this again.`
+                    }
+                  />
+                ) : q ? (
+                  <EmptyState
+                    size="sm"
+                    illustration="search"
+                    title="No matching comments"
+                    description={<>No comments match &quot;{query.trim()}&quot;.</>}
+                  />
+                ) : (
+                  <EmptyState
+                    size="sm"
+                    illustration="inbox"
+                    title={
+                      filter === "replied"
+                        ? "No replies yet"
+                        : filter === "unreplied"
+                          ? "All caught up"
+                          : "No comments"
+                    }
+                    description={
+                      filter === "replied" ? (
+                        <>You haven&apos;t replied to any of these comments yet.</>
+                      ) : filter === "unreplied" ? (
+                        "Every comment here has a reply."
+                      ) : undefined
+                    }
+                  />
+                ))}
               {rendered.map((c) => (
                 <CommentRow
                   key={c.id}
@@ -1465,7 +1490,7 @@ function AllCommentsDialog({
                   <button
                     type="button"
                     onClick={() => setConfirming(null)}
-                    className="h-9 rounded-full border border-border px-3.5 text-xs font-medium hover:bg-accent"
+                    className={buttonSecondary}
                   >
                     Back
                   </button>
@@ -1473,7 +1498,7 @@ function AllCommentsDialog({
                     type="button"
                     onClick={() => void confirmQueue()}
                     disabled={bulkSending}
-                    className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                    className={buttonPrimary}
                   >
                     {bulkSending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Queue
@@ -1497,7 +1522,7 @@ function AllCommentsDialog({
                     <button
                       type="button"
                       onClick={() => setConfirming("all")}
-                      className="h-9 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                      className={buttonSecondary}
                       title="Queue replies to every unreplied comment on your channel"
                     >
                       All on YouTube
@@ -1506,7 +1531,7 @@ function AllCommentsDialog({
                   <button
                     onClick={() => setConfirming("selected")}
                     disabled={selected.size === 0 || bulkSending}
-                    className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                    className={buttonPrimary}
                   >
                     <Zap className="h-3.5 w-3.5" />
                     Auto-reply{selected.size ? ` to ${selected.size}` : ""}
@@ -1821,7 +1846,7 @@ function CommentThread({
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="h-8 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                      className={buttonSecondary}
                     >
                       Cancel
                     </button>
@@ -1829,7 +1854,7 @@ function CommentThread({
                       type="button"
                       onClick={() => void save(reply)}
                       disabled={saving || !editText.trim() || editText.trim() === reply.text}
-                      className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                      className={buttonPrimary}
                     >
                       {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       Save

@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -362,7 +364,7 @@ function VideoDetail() {
             type="button"
             onClick={() => setRetryNonce((value) => value + 1)}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(buttonSecondary, "disabled:cursor-not-allowed")}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing" : "Refresh"}

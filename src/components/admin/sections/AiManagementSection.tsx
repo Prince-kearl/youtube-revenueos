@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { Star, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -143,10 +145,7 @@ export function AiManagementSection() {
                 {p.module} · updated {p.updated}
               </p>
             </div>
-            <button
-              onClick={() => setEditingPrompt(p)}
-              className="flex shrink-0 items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
-            >
+            <button onClick={() => setEditingPrompt(p)} className={cn(buttonSecondary, "shrink-0")}>
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
           </div>

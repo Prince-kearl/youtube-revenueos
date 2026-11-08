@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Youtube } from "lucide-react";
@@ -139,7 +141,7 @@ export function YoutubeChannelPicker({
               <button
                 onClick={() => addChannel(connectionId, channel.channelId)}
                 disabled={addingChannelId === channel.channelId}
-                className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                className={cn(buttonPrimary, "shrink-0")}
               >
                 {addingChannelId === channel.channelId ? "Connecting…" : "Connect this channel"}
               </button>

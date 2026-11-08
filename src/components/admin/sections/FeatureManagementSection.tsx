@@ -1,3 +1,4 @@
+import { buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useMemo, useState } from "react";
 import {
   Search,
@@ -236,10 +237,7 @@ export function FeatureManagementSection() {
       {status === "error" && (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">Couldn't load features.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
+          <button onClick={() => setRetryNonce((n) => n + 1)} className={buttonSecondary}>
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </div>
@@ -323,19 +321,19 @@ export function FeatureManagementSection() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setBulkConfirm({ role: roleView, action: "enable_all" })}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                className={buttonSecondary}
               >
                 <ToggleRight className="h-3.5 w-3.5" /> Enable all
               </button>
               <button
                 onClick={() => setBulkConfirm({ role: roleView, action: "disable_all" })}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                className={buttonSecondary}
               >
                 <ToggleLeft className="h-3.5 w-3.5" /> Disable all
               </button>
               <button
                 onClick={() => setBulkConfirm({ role: roleView, action: "reset_defaults" })}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                className={buttonSecondary}
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Reset to defaults
               </button>

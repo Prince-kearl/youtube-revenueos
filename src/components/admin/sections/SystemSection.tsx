@@ -1,3 +1,4 @@
+import { buttonSecondary } from "@/lib/button-styles";
 import { toast } from "sonner";
 import { Plug, RefreshCw, Mail, Settings as SettingsIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -119,10 +120,7 @@ export function SystemSection() {
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={() => rotateKey(i.name)}
-                className="rounded-[var(--button-radius)] border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent"
-              >
+              <button onClick={() => rotateKey(i.name)} className={buttonSecondary}>
                 Rotate key
               </button>
             </div>
@@ -149,7 +147,7 @@ export function SystemSection() {
             </div>
             <button
               onClick={() => toast("Template editor isn't wired up in this preview")}
-              className="rounded-[var(--button-radius)] border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
+              className={buttonSecondary}
             >
               Edit
             </button>

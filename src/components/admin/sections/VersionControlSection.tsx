@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus, RefreshCw, CheckCircle2, Undo2, Ban, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -148,10 +149,7 @@ export function VersionControlSection() {
       {status === "error" && (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">Couldn't load releases.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
+          <button onClick={() => setRetryNonce((n) => n + 1)} className={buttonSecondary}>
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </div>
@@ -205,10 +203,7 @@ export function VersionControlSection() {
 
           <div className="mt-5 flex items-center justify-between">
             <h3 className="text-sm font-semibold">All Releases</h3>
-            <button
-              onClick={() => setCreating(true)}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            >
+            <button onClick={() => setCreating(true)} className={buttonPrimary}>
               <Plus className="h-3.5 w-3.5" /> Create Release
             </button>
           </div>
@@ -254,19 +249,13 @@ export function VersionControlSection() {
                     <td className="px-3 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {!r.is_current && (
-                          <button
-                            onClick={() => setPublishTarget(r)}
-                            className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium hover:bg-accent"
-                          >
+                          <button onClick={() => setPublishTarget(r)} className={buttonSecondary}>
                             <Undo2 className="h-3 w-3" />{" "}
                             {isRollbackTarget(r) ? "Rollback" : "Publish"}
                           </button>
                         )}
                         {!r.is_current && r.status !== "deprecated" && (
-                          <button
-                            onClick={() => setDeprecateTarget(r)}
-                            className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
-                          >
+                          <button onClick={() => setDeprecateTarget(r)} className={buttonSecondary}>
                             <Ban className="h-3 w-3" /> Deprecate
                           </button>
                         )}

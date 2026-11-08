@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { CreditCard, Sparkles } from "lucide-react";
@@ -54,10 +56,7 @@ export function SubscriptionNotice() {
         </p>
       </div>
       {notice.action && (
-        <Link
-          to={notice.action.to}
-          className="inline-flex shrink-0 items-center rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-        >
+        <Link to={notice.action.to} className={cn(buttonPrimary, "shrink-0")}>
           {notice.action.label}
         </Link>
       )}

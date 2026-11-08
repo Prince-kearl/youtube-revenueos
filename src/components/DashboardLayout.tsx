@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1330,7 +1331,7 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
               )}
               <button
                 onClick={() => navigate({ to: "/dashboard" })}
-                className="mt-5 rounded-[var(--button-radius)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                className={cn(buttonPrimary, "mt-5")}
               >
                 Back to Dashboard
               </button>

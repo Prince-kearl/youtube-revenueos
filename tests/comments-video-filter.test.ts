@@ -238,7 +238,9 @@ test("phones: the page's three actions share one row with short labels", () => {
   assert.match(commentsPage, /<span className="sm:hidden">Comments<\/span>/);
   assert.match(commentsPage, /<span className="hidden sm:inline">View All Comments<\/span>/);
   assert.equal(
-    commentsPage.match(/flex h-9 min-w-0 flex-1 items-center justify-center/g)?.length,
+    commentsPage.match(
+      /"min-w-0 flex-1 gap-1\.5 px-2\.5 text-xs sm:flex-none sm:gap-2 sm:px-3\.5 sm:text-sm"/g,
+    )?.length,
     3,
   );
 });

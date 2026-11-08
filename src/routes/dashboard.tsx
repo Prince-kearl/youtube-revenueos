@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -424,11 +427,7 @@ function Dashboard() {
           <div>
             <h3 className="font-semibold">Connect your YouTube channel</h3>
           </div>
-          <Link
-            to="/settings"
-            search={{ tab: "YouTube Integration" }}
-            className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
+          <Link to="/settings" search={{ tab: "YouTube Integration" }} className={buttonPrimary}>
             Open Settings
           </Link>
         </div>
@@ -440,29 +439,17 @@ function Dashboard() {
         />
       )}
       {youtubeStatus === "error" && (
-        <div className="card-gradient-outline dashboard-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-semibold">We couldn't load your YouTube data</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The YouTube API is temporarily unavailable.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => void youtubeQuery.refetch()}
-              className="rounded-[var(--button-radius)] border border-border px-4 py-2 text-sm font-semibold hover:bg-accent"
-            >
-              Retry
-            </button>
-            <Link
-              to="/settings"
-              search={{ tab: "YouTube Integration" }}
-              className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Open Settings
-            </Link>
-          </div>
-        </div>
+        <ErrorState
+          className="card-gradient-outline dashboard-card"
+          title="We couldn't load your YouTube data"
+          description="The YouTube API is temporarily unavailable."
+          onRetry={() => void youtubeQuery.refetch()}
+          retryLabel="Retry"
+        >
+          <Link to="/settings" search={{ tab: "YouTube Integration" }} className={buttonSecondary}>
+            Open Settings
+          </Link>
+        </ErrorState>
       )}
 
       {/* Stat cards */}
@@ -1373,7 +1360,7 @@ function AudienceBreakdownCard({
             )}
           </>
         ) : (
-          <p className="py-4 text-sm text-muted-foreground">No data for this period yet.</p>
+          <EmptyState size="sm" illustration="chart" title="No data for this period yet" />
         )}
       </div>
     </div>
@@ -1507,11 +1494,7 @@ function VideoInsightsCard({
         >
           <p className="text-sm text-muted-foreground">{notice.message}</p>
           {notice.action === "retry" && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-3 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-            >
+            <button type="button" onClick={onRetry} className={cn(buttonSecondary, "mt-3")}>
               Try again
             </button>
           )}
@@ -1784,9 +1767,7 @@ function EngagementHeatmap({
             ))}
           </div>
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No data for this period yet.
-          </p>
+          <EmptyState size="sm" illustration="chart" title="No data for this period yet" />
         )}
       </div>
     </div>

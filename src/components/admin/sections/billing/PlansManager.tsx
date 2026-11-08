@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Plus,
@@ -315,7 +316,7 @@ export function PlansManager() {
             <button
               onClick={() => void importLegacy()}
               disabled={importing}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+              className={buttonSecondary}
             >
               {importing ? (
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -325,10 +326,7 @@ export function PlansManager() {
               Import existing plans
             </button>
           )}
-          <button
-            onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => setCreating(true)} className={buttonPrimary}>
             <Plus className="h-3.5 w-3.5" /> Create Plan
           </button>
         </div>
@@ -339,10 +337,7 @@ export function PlansManager() {
       {status === "error" && (
         <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">Couldn't load plans.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
+          <button onClick={() => setRetryNonce((n) => n + 1)} className={buttonSecondary}>
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </div>

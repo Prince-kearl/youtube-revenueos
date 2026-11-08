@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -452,10 +454,7 @@ function Team() {
           </p>
         </div>
         {inviteState === "invite" && (
-          <button
-            onClick={() => setInviting(true)}
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => setInviting(true)} className={buttonPrimary}>
             <UserPlus className="h-4 w-4" /> Invite Member
           </button>
         )}
@@ -475,10 +474,7 @@ function Team() {
               </p>
             </div>
           </div>
-          <Link
-            to="/billing"
-            className="flex h-9 shrink-0 items-center rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <Link to="/billing" className={cn(buttonPrimary, "shrink-0")}>
             Upgrade to Scale
           </Link>
         </div>

@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Film, Loader2, Upload, X } from "lucide-react";
@@ -390,7 +391,7 @@ export function PrePublishUploadDialog({
               type="button"
               onClick={() => void startAnalysis()}
               disabled={!file}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(buttonPrimary, "w-full disabled:cursor-not-allowed")}
             >
               Analyze video
             </button>

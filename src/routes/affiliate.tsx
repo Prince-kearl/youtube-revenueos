@@ -1,3 +1,5 @@
+import { buttonPrimary } from "@/lib/button-styles";
+import { ErrorState } from "@/components/ui-bits";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -9,7 +11,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { Copy, Check, RefreshCw } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiCarousel } from "@/components/KpiCarousel";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
@@ -128,15 +130,12 @@ function Affiliate() {
       </div>
 
       {status === "error" ? (
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">We couldn't load your affiliate data.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Try again
-          </button>
-        </div>
+        <ErrorState
+          className="mt-6"
+          title="We couldn't load your affiliate data"
+          description="Your referrals and commission are unaffected. Try again in a moment."
+          onRetry={() => setRetryNonce((n) => n + 1)}
+        />
       ) : (
         <>
           <KpiCarousel
@@ -234,10 +233,7 @@ function Affiliate() {
                   <div className="flex h-14 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-full border border-border bg-background px-4 font-mono text-sm text-muted-foreground">
                     {data!.referralLink}
                   </div>
-                  <button
-                    onClick={() => void copy()}
-                    className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                  >
+                  <button onClick={() => void copy()} className={buttonPrimary}>
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     {copied ? "Copied" : "Copy Link"}
                   </button>

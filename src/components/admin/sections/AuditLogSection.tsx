@@ -1,3 +1,4 @@
+import { buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -107,10 +108,7 @@ export function AuditLogSection() {
       {status === "error" && (
         <div className="mt-5 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">Couldn't load the audit log.</p>
-          <button
-            onClick={() => setRetryNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-          >
+          <button onClick={() => setRetryNonce((n) => n + 1)} className={buttonSecondary}>
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </div>

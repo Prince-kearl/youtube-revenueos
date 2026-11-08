@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { LifeBuoy, Send } from "lucide-react";
@@ -157,11 +159,7 @@ function Support() {
                 </SelectContent>
               </Select>
             </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-            >
+            <button type="submit" disabled={submitting} className={cn(buttonPrimary, "w-full")}>
               <Send className="h-4 w-4" /> {submitting ? "Sending…" : "Send Report"}
             </button>
           </form>

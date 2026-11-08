@@ -143,6 +143,27 @@
   color-scheme: dark;
 }
 
+/* Empty / no-results / error state illustrations (src/components/state-illustrations.tsx):
+   soft grey objects with a gentle gradient and a thin outline. */
+:root {
+  --illus-hi: #ffffff;
+  --illus-lo: #e7eaef;
+  --illus-back: #dfe3e9;
+  --illus-line: #c9ced6;
+  --illus-mark: #a7adb8;
+  --illus-ground: #e8ecf1;
+  --illus-dot: #e2e6ec;
+}
+.dark {
+  --illus-hi: #36383d;
+  --illus-lo: #27292d;
+  --illus-back: #1d1e21;
+  --illus-line: #4c4f56;
+  --illus-mark: #70747d;
+  --illus-ground: #1b1c1f;
+  --illus-dot: #2d2f33;
+}
+
 /* Fixed light palette for a subtree, whatever the visitor's colour scheme — used by the public
    landing page (src/routes/landing.tsx).
 

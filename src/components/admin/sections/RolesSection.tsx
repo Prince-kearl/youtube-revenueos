@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { useEffect, useState } from "react";
 import { ShieldCheck, Plus, Copy, Pencil, Trash2, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -69,10 +70,7 @@ export function RolesSection() {
           </p>
         </div>
         {tab === "custom-roles" && (
-          <button
-            onClick={() => setEditing("new")}
-            className="flex h-9 items-center gap-2 rounded-[var(--button-radius)] bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={() => setEditing("new")} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Create Role
           </button>
         )}

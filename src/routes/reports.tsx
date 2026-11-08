@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { DollarSign, Users, Video, FileText, Download } from "lucide-react";
@@ -165,10 +167,7 @@ function Reports() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => downloadReport(r.type, "", "")}
-                  className="flex h-9 items-center gap-2 rounded-full border border-border bg-accent/30 px-3.5 text-sm hover:bg-accent"
-                >
+                <button onClick={() => downloadReport(r.type, "", "")} className={buttonSecondary}>
                   <Download className="h-4 w-4" /> Export CSV
                 </button>
               </div>
@@ -211,7 +210,7 @@ function Reports() {
             </div>
             <button
               onClick={() => downloadReport(customType, startDate, endDate)}
-              className="mt-5 flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className={cn(buttonPrimary, "mt-5")}
             >
               <Download className="h-4 w-4" /> Generate &amp; Export
             </button>

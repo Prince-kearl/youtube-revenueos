@@ -1,3 +1,4 @@
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -488,17 +489,32 @@ function Analytics() {
                 Loading revenue…
               </p>
             ) : revenue.status === "error" ? (
-              <p className="mt-4 py-6 text-center text-sm text-muted-foreground">
-                Revenue data couldn&apos;t be loaded. Try refreshing.
-              </p>
+              <ErrorState
+                size="sm"
+                className="mt-4"
+                title="Revenue data couldn't be loaded"
+                description="Try refreshing the page."
+              />
             ) : !revenueSources?.hasData ? (
-              <p className="mt-4 py-6 text-center text-sm text-muted-foreground">
-                {revenueKpi.state === "not_connected"
-                  ? "Connect YouTube to view revenue by source."
-                  : revenueKpi.state === "empty"
-                    ? "Your revenue history is still being imported. Check back shortly."
-                    : "No monthly revenue data available yet."}
-              </p>
+              <EmptyState
+                size="sm"
+                className="mt-4"
+                illustration="chart"
+                title={
+                  revenueKpi.state === "not_connected"
+                    ? "Connect YouTube to see revenue"
+                    : revenueKpi.state === "empty"
+                      ? "Importing your revenue history"
+                      : "No revenue data yet"
+                }
+                description={
+                  revenueKpi.state === "not_connected"
+                    ? "Connect YouTube to view revenue by source."
+                    : revenueKpi.state === "empty"
+                      ? "Your revenue history is still being imported. Check back shortly."
+                      : "No monthly revenue data available yet."
+                }
+              />
             ) : (
               <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <div className="h-[280px] lg:col-span-2">

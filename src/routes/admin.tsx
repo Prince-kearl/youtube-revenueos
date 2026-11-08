@@ -1,3 +1,4 @@
+import { buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { adminSectionFrom } from "@/lib/admin-nav";
@@ -97,10 +98,7 @@ function AdminConsole() {
             </p>
           </div>
         </div>
-        <Link
-          to="/dashboard"
-          className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
+        <Link to="/dashboard" className={buttonSecondary}>
           <ArrowLeft className="h-3.5 w-3.5" /> Exit to Workspace
         </Link>
       </div>

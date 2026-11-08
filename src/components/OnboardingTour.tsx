@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
@@ -236,16 +237,10 @@ export function OnboardingTour({
         <h3 className="mt-0.5 pr-6 text-sm font-bold">{step.label}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{step.desc}</p>
         <div className="mt-3 flex items-center gap-2">
-          <button
-            onClick={follow}
-            className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
+          <button onClick={follow} className={buttonPrimary}>
             Show me
           </button>
-          <button
-            onClick={skip}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
+          <button onClick={skip} className={buttonSecondary}>
             Skip this step
           </button>
         </div>
@@ -342,18 +337,12 @@ function TourFooter({
           </button>
         )}
         {canGoBack && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-          >
+          <button onClick={onBack} className={buttonSecondary}>
             <ChevronLeft className="h-3.5 w-3.5" /> Back
           </button>
         )}
         {canGoNext && (
-          <button
-            onClick={onNext}
-            className="flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-          >
+          <button onClick={onNext} className={buttonPrimary}>
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
         )}

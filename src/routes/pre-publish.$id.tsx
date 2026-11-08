@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -292,7 +294,7 @@ function PrePublishDetail() {
             type="button"
             onClick={() => void reanalyze()}
             disabled={reanalyzing || row.status === "analyzing"}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            className={buttonSecondary}
           >
             {reanalyzing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -345,7 +347,7 @@ function PrePublishDetail() {
                 <button
                   type="button"
                   onClick={() => void copyText(analysis.recommendedTitle, "Title")}
-                  className="flex h-8 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-medium hover:bg-accent"
+                  className={buttonSecondary}
                 >
                   <Copy className="h-3 w-3" /> Copy
                 </button>
@@ -396,7 +398,7 @@ function PrePublishDetail() {
                 <button
                   type="button"
                   onClick={() => void copyText(analysis.description, "Description")}
-                  className="flex h-8 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-medium hover:bg-accent"
+                  className={buttonSecondary}
                 >
                   <Copy className="h-3 w-3" /> Copy
                 </button>
@@ -421,7 +423,7 @@ function PrePublishDetail() {
                   <button
                     type="button"
                     onClick={() => void copyText(chaptersText, "Chapters")}
-                    className="flex h-8 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-medium hover:bg-accent"
+                    className={buttonSecondary}
                   >
                     <Copy className="h-3 w-3" /> Copy
                   </button>
@@ -476,7 +478,7 @@ function PrePublishDetail() {
                   <button
                     type="button"
                     onClick={() => void copyText(allTagsText, "Tags")}
-                    className="flex h-8 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-medium hover:bg-accent"
+                    className={buttonSecondary}
                   >
                     <Copy className="h-3 w-3" /> Copy all
                   </button>
@@ -570,7 +572,7 @@ function PrePublishDetail() {
               type="button"
               onClick={() => void saveAnalysis()}
               disabled={saving}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              className={cn(buttonPrimary, "w-full")}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {saving ? "Saving…" : "Save analysis"}

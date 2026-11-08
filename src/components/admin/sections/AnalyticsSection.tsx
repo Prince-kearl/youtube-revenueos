@@ -1,3 +1,4 @@
+import { buttonSecondary } from "@/lib/button-styles";
 import { toast } from "sonner";
 import { FileDown } from "lucide-react";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -43,11 +44,7 @@ export function AnalyticsSection() {
         </div>
         <div className="flex gap-1.5">
           {["CSV", "Excel", "PDF"].map((f) => (
-            <button
-              key={f}
-              onClick={() => exportAs(f)}
-              className="flex items-center gap-1.5 rounded-[var(--button-radius)] border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-            >
+            <button key={f} onClick={() => exportAs(f)} className={buttonSecondary}>
               <FileDown className="h-3.5 w-3.5" /> {f}
             </button>
           ))}

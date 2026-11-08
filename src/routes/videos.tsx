@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,7 +13,6 @@ import {
   Search,
   Sparkles,
   ThumbsUp,
-  Video as VideoIcon,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { YoutubeReauthNotice } from "@/components/YoutubeReauthNotice";
@@ -379,10 +380,7 @@ function Videos() {
               <option value="title">Title</option>
             </select>
           </label>
-          <Link
-            to="/add-video"
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <Link to="/add-video" className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Analyze Video
           </Link>
           {PRE_PUBLISH_ENABLED && (
@@ -451,7 +449,7 @@ function Videos() {
           {!filteredVideos.length && emptyState && (
             <EmptyState
               className="mt-6"
-              icon={<VideoIcon className="h-5 w-5" />}
+              illustration={emptyState.kind === "no_match" ? "search" : "box"}
               title={emptyState.title}
               description={emptyState.description}
             >
@@ -462,7 +460,7 @@ function Videos() {
                     ? setSearch("")
                     : setRetryNonce((value) => value + 1)
                 }
-                className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={buttonSecondary}
               >
                 {emptyState.actionLabel}
               </button>
@@ -484,7 +482,7 @@ function Videos() {
                 type="button"
                 onClick={loadMore}
                 disabled={isLoadingMore}
-                className="rounded-[var(--button-radius)] border border-border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                className={cn(buttonSecondary, "disabled:cursor-wait")}
               >
                 {isLoadingMore ? "Loading more videos…" : "Load more videos"}
               </button>
@@ -564,11 +562,7 @@ function MessageState({
         <h2 className="font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-      <Link
-        to="/settings"
-        search={{ tab: "YouTube Integration" }}
-        className="rounded-[var(--button-radius)] bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-      >
+      <Link to="/settings" search={{ tab: "YouTube Integration" }} className={buttonPrimary}>
         {action}
       </Link>
     </div>

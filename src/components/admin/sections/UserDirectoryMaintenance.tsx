@@ -1,3 +1,4 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -205,7 +206,7 @@ export function UserDirectoryMaintenance({ onComplete }: { onComplete?: () => vo
               type="button"
               disabled={!!running}
               onClick={() => void runBackfill()}
-              className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+              className={buttonPrimary}
             >
               {state.status === "pending" ? "Build directory" : "Resume building"}
             </button>
@@ -216,7 +217,7 @@ export function UserDirectoryMaintenance({ onComplete }: { onComplete?: () => vo
                 type="button"
                 disabled={!!running}
                 onClick={() => void runPass("check")}
-                className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60"
+                className={buttonSecondary}
               >
                 Check for drift
               </button>
@@ -224,7 +225,7 @@ export function UserDirectoryMaintenance({ onComplete }: { onComplete?: () => vo
                 type="button"
                 disabled={!!running}
                 onClick={() => void runPass("repair")}
-                className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60"
+                className={buttonSecondary}
               >
                 Repair
               </button>
@@ -234,7 +235,7 @@ export function UserDirectoryMaintenance({ onComplete }: { onComplete?: () => vo
             <button
               type="button"
               onClick={() => (stopRef.current = true)}
-              className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium hover:bg-accent"
+              className={buttonSecondary}
             >
               Stop
             </button>
@@ -243,7 +244,7 @@ export function UserDirectoryMaintenance({ onComplete }: { onComplete?: () => vo
             type="button"
             disabled={!!running}
             onClick={() => void loadStatus()}
-            className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60"
+            className={buttonSecondary}
           >
             <RefreshCw className="h-3 w-3" /> Refresh
           </button>

@@ -1,3 +1,5 @@
+import { buttonPrimary } from "@/lib/button-styles";
+import { EmptyState, ErrorState } from "@/components/ui-bits";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
@@ -10,7 +12,6 @@ import {
   Trash2,
   Clock,
   AlertTriangle,
-  RefreshCw,
   X,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -367,7 +368,7 @@ function ProjectsPage() {
           <button
             type="submit"
             disabled={!canSubmit || isSubmitting}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(buttonPrimary, "mt-5 w-full disabled:cursor-not-allowed")}
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -397,22 +398,21 @@ function ProjectsPage() {
           )}
 
           {pageStatus === "error" && (
-            <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              <p>We couldn't load your projects.</p>
-              <button
-                type="button"
-                onClick={() => setRetryNonce((n) => n + 1)}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Try again
-              </button>
-            </div>
+            <ErrorState
+              className="mt-4"
+              title="We couldn't load your projects"
+              description="Nothing was changed. Try again in a moment."
+              onRetry={() => setRetryNonce((n) => n + 1)}
+            />
           )}
 
           {pageStatus === "ready" && projects.length === 0 && (
-            <div className="mt-4 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              No projects yet. Create one and it’ll show up here as a folder you can open.
-            </div>
+            <EmptyState
+              className="mt-4"
+              illustration="folder"
+              title="No projects yet"
+              description="Create one and it’ll show up here as a folder you can open."
+            />
           )}
 
           {pageStatus === "ready" && projects.length > 0 && (

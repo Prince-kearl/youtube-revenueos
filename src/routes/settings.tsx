@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -615,7 +617,7 @@ function ProfilePanel({ onOpenSecurity }: { onOpenSecurity: () => void }) {
                     toast.error("Could not save profile preferences");
                   }
                 }}
-                className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+                className={cn(buttonPrimary, "mt-4")}
               >
                 {saved ? "Saved" : "Save changes"}
               </button>
@@ -769,11 +771,7 @@ function ProfileEditor({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          >
+          <button type="submit" disabled={saving} className={buttonPrimary}>
             {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
@@ -1352,11 +1350,7 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
           aria-label="Client name (optional)"
           className="h-10 w-full min-w-0 shrink-0 rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary sm:w-auto sm:flex-1"
         />
-        <button
-          type="submit"
-          disabled={creating}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-        >
+        <button type="submit" disabled={creating} className={buttonPrimary}>
           {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
           Create connect link
         </button>
@@ -1375,7 +1369,7 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
                   .then(() => toast.success("Link copied"))
                   .catch(() => toast.error("Couldn’t copy — select the link and copy it"))
               }
-              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+              className={cn(buttonSecondary, "shrink-0 self-start")}
             >
               <Copy className="h-3.5 w-3.5" /> Copy link
             </button>
@@ -1635,13 +1629,13 @@ function YouTubeIntegrationPanel() {
                   ),
                 ])
               }
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+              className={buttonSecondary}
             >
               Find more channels
             </button>
             <a
               href={`/api/youtube/auth?returnTo=${encodeURIComponent("/settings")}`}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+              className={buttonSecondary}
             >
               <Plus className="h-3.5 w-3.5" /> Connect another channel
             </a>
@@ -1700,11 +1694,7 @@ function YouTubeIntegrationPanel() {
               </div>
             </div>
             {canManage ? (
-              <a
-                href="/api/youtube/auth"
-                data-onboarding-step="channel"
-                className="whitespace-nowrap rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-              >
+              <a href="/api/youtube/auth" data-onboarding-step="channel" className={buttonPrimary}>
                 Connect YouTube Channel
               </a>
             ) : (
@@ -1869,7 +1859,7 @@ function YouTubeIntegrationPanel() {
         <button
           onClick={() => void syncNow()}
           disabled={syncing || loading || savingSetting !== null}
-          className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className={cn(buttonSecondary, "disabled:cursor-not-allowed")}
         >
           <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Syncing…" : "Sync now"}
@@ -2095,10 +2085,7 @@ function BillingPanel() {
             Manage your plan and payment method in the billing workspace.
           </p>
         </div>
-        <Link
-          to="/billing"
-          className="mt-4 inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:mt-0"
-        >
+        <Link to="/billing" className={cn(buttonPrimary, "mt-4 sm:mt-0")}>
           {activePlan ? "Manage billing" : "Choose a plan"}
         </Link>
       </div>
@@ -2317,7 +2304,7 @@ function SecurityPanel() {
           <button
             onClick={() => void handlePasswordUpdate()}
             disabled={updating || !newPassword || newPassword !== confirmPassword}
-            className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className={cn(buttonPrimary, "mt-4")}
           >
             {updating ? "Updating…" : "Update password"}
           </button>
@@ -2349,7 +2336,7 @@ function SecurityPanel() {
               <button
                 onClick={() => void beginMfaEnrollment()}
                 disabled={mfaSubmitting}
-                className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                className={cn(buttonPrimary, "shrink-0")}
               >
                 {mfaSubmitting ? "Starting…" : "Enable 2FA"}
               </button>
@@ -2446,7 +2433,7 @@ function SecurityPanel() {
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}
-                  className="rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                  className={buttonPrimary}
                 >
                   Copy codes
                 </button>
@@ -2656,7 +2643,7 @@ function SecurityPanel() {
                 </code>
                 <button
                   onClick={() => void navigator.clipboard.writeText(pendingEnrollment.secret)}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm hover:bg-accent"
+                  className={cn(buttonSecondary, "mt-3")}
                 >
                   <Copy className="h-4 w-4" /> Copy code
                 </button>
@@ -2701,14 +2688,14 @@ function SecurityPanel() {
                   setPendingEnrollment(null);
                   setVerificationCode("");
                 }}
-                className="rounded-lg border border-border px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-accent"
+                className={buttonSecondary}
               >
                 Cancel
               </button>
               <button
                 onClick={() => void verifyMfaEnrollment()}
                 disabled={mfaSubmitting}
-                className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                className={buttonPrimary}
               >
                 {mfaSubmitting ? "Verifying…" : "Verify"}
               </button>
@@ -2815,7 +2802,7 @@ function DashboardBannerPanel() {
             });
           }
         }}
-        className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        className={buttonPrimary}
       >
         {saved ? (
           <>

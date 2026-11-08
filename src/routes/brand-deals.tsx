@@ -1,3 +1,4 @@
+import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Calendar,
   Pencil,
   Trash2,
-  RefreshCw,
   TrendingUp,
 } from "lucide-react";
 import {
@@ -412,10 +412,7 @@ function BrandDeals() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Brand Deal Board</h1>
         </div>
-        <button
-          onClick={() => setCreating({ open: true })}
-          className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={() => setCreating({ open: true })} className={buttonPrimary}>
           <Plus className="h-4 w-4" /> New Deal
         </button>
       </div>
@@ -574,13 +571,13 @@ function BrandDeals() {
       {status === "ready" && deals.length === 0 && (
         <EmptyState
           className="mt-6"
-          icon={<Plus className="h-5 w-5" />}
           title="No brand deals tracked yet"
           description="Add a sponsorship or partnership to follow it from first contact to payment. Deals you add here also appear in Reports and on the Dashboard."
         >
           <button
+            type="button"
             onClick={() => setCreating({ open: true })}
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className={buttonPrimary}
           >
             <Plus className="h-4 w-4" /> Add your first deal
           </button>

@@ -1,7 +1,9 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
+import { EmptyState } from "@/components/ui-bits";
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Clock, FileVideo, Loader2, Plus, Sparkles } from "lucide-react";
+import { AlertTriangle, Clock, FileVideo, Loader2, Plus } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,17 +84,10 @@ export function PrePublishList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to="/videos"
-            className="flex h-9 items-center gap-2 rounded-full border border-border px-3.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
+          <Link to="/videos" className={buttonSecondary}>
             Back to Videos
           </Link>
-          <button
-            type="button"
-            onClick={() => setDialogOpen(true)}
-            className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <button type="button" onClick={() => setDialogOpen(true)} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Analyze Before Publishing
           </button>
         </div>
@@ -120,22 +115,15 @@ export function PrePublishList() {
       )}
 
       {status === "loaded" && rows.length === 0 && (
-        <div className="relative mt-6 flex flex-col items-center gap-3 rounded-xl card-gradient-outline p-10 text-center">
-          <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <Sparkles className="h-8 w-8 text-muted-foreground" />
-          <p className="font-semibold">No pre-publish analyses yet</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Upload a finished video to get AI-generated titles, description, tags, chapters, and CTA
-            ideas before it goes live.
-          </p>
-          <button
-            type="button"
-            onClick={() => setDialogOpen(true)}
-            className="mt-2 flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+        <EmptyState
+          className="mt-6"
+          title="No pre-publish analyses yet"
+          description="Upload a finished video to get AI-generated titles, description, tags, chapters, and CTA ideas before it goes live."
+        >
+          <button type="button" onClick={() => setDialogOpen(true)} className={buttonPrimary}>
             <Plus className="h-4 w-4" /> Analyze Before Publishing
           </button>
-        </div>
+        </EmptyState>
       )}
 
       {status === "loaded" && rows.length > 0 && (

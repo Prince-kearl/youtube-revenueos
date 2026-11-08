@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { cn } from "@/lib/utils";
+import { buttonPrimary } from "@/lib/button-styles";
+import { StateIllustration, type StateIllustrationName } from "@/components/state-illustrations";
 
 export function StatCard({
   icon,
@@ -110,46 +112,102 @@ export function StatusBadge({ status }: { status: string }) {
 // One look for "nothing here yet", "couldn't load" and "loading" across the app, so each page
 // only has to say what is missing, why, and what to do next.
 
-/** Nothing to show. Say what is missing and why in `description`; put the next step in `children`. */
-export function EmptyState({
-  icon,
+type StateSize = "md" | "sm";
+
+/** The shared layout: a soft illustration, a short title, one muted line, then the next step. */
+function StateLayout({
+  illustration,
   title,
   description,
   children,
+  size,
   className,
+  role,
 }: {
-  icon?: ReactNode;
+  illustration: StateIllustrationName;
   title: string;
   description?: ReactNode;
-  /** Actions: buttons or links. */
   children?: ReactNode;
+  size: StateSize;
   className?: string;
+  role?: "alert";
 }) {
+  const small = size === "sm";
   return (
     <div
+      role={role}
+      data-page-state={illustration}
       className={cn(
-        "flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center",
+        "flex flex-col items-center text-center",
+        small ? "px-4 py-6" : "px-6 py-12",
         className,
       )}
     >
-      {icon && (
-        <span
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-muted-foreground"
-          aria-hidden="true"
-        >
-          {icon}
-        </span>
-      )}
-      <div>
-        <h2 className="text-base font-semibold">{title}</h2>
-        {description && (
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
+      <StateIllustration name={illustration} className={small ? "h-20" : "h-[120px]"} />
+      <h2
+        className={cn(
+          "font-semibold tracking-tight text-foreground/80",
+          small ? "mt-2 text-[15px]" : "mt-4 text-xl",
         )}
-      </div>
+      >
+        {title}
+      </h2>
+      {description && (
+        <div
+          className={cn(
+            "mx-auto max-w-sm text-muted-foreground",
+            small ? "mt-1 text-xs leading-relaxed" : "mt-1.5 text-sm leading-relaxed",
+          )}
+        >
+          {description}
+        </div>
+      )}
       {children && (
-        <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-2",
+            small ? "mt-3" : "mt-5",
+          )}
+        >
+          {children}
+        </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Nothing to show. Say what is missing and why in `description`; put the next step in `children`.
+ * `illustration`: "box" (nothing yet), "search" (a search or filter matched nothing), "inbox"
+ * (messages, comments, leads), "chart" (no data for a period), "folder" (projects, files).
+ * `size="sm"` fits inside a card or a side panel.
+ */
+export function EmptyState({
+  illustration = "box",
+  title,
+  description,
+  children,
+  size = "md",
+  className,
+}: {
+  illustration?: StateIllustrationName;
+  title: string;
+  description?: ReactNode;
+  /** Actions: buttons or links (buttonPrimary / buttonSecondary from @/lib/button-styles). */
+  children?: ReactNode;
+  size?: StateSize;
+  className?: string;
+}) {
+  return (
+    <StateLayout
+      illustration={illustration}
+      title={title}
+      description={description}
+      size={size}
+      className={className}
+    >
+      {children}
+    </StateLayout>
   );
 }
 
@@ -159,38 +217,40 @@ export function ErrorState({
   description,
   onRetry,
   retryLabel = "Try again",
+  children,
+  size = "md",
   className,
 }: {
   title: string;
   description?: ReactNode;
   onRetry?: () => void;
   retryLabel?: string;
+  /** Further actions after the retry button, e.g. a link to settings. */
+  children?: ReactNode;
+  size?: StateSize;
   className?: string;
 }) {
   return (
-    <div
+    <StateLayout
       role="alert"
-      className={cn(
-        "flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center",
-        className,
-      )}
+      illustration="error"
+      title={title}
+      description={description}
+      size={size}
+      className={className}
     >
-      <div>
-        <h2 className="text-base font-semibold text-destructive">{title}</h2>
-        {description && (
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-full border border-border bg-background px-4 py-1.5 text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          {retryLabel}
-        </button>
+      {(onRetry || children) && (
+        <>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className={buttonPrimary}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              {retryLabel}
+            </button>
+          )}
+          {children}
+        </>
       )}
-    </div>
+    </StateLayout>
   );
 }
 

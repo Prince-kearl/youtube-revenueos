@@ -1,3 +1,5 @@
+import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
+import { EmptyState } from "@/components/ui-bits";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { leadSourceLinks } from "@/lib/lead-sources";
 import { useEffect, useMemo, useState } from "react";
@@ -708,10 +710,7 @@ function LeadInbox() {
             Comments, DMs, and emails — in one inbox.
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <button onClick={() => setCreating(true)} className={buttonPrimary}>
           <Plus className="h-4 w-4" /> New Lead
         </button>
       </div>
@@ -722,7 +721,7 @@ function LeadInbox() {
           <button
             type="button"
             onClick={() => setRetryToken((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+            className={buttonSecondary}
           >
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
@@ -898,39 +897,42 @@ function LeadInbox() {
                     </div>
                   );
                 })}
-              {leadsStatus === "ready" && filtered.length === 0 && (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  {showArchived ? (
-                    "No archived chats."
-                  ) : leads.length === 0 ? (
-                    // Nothing captured at all is a different situation from a filter hiding
-                    // everything: say where leads come from and how to start getting them.
-                    <>
-                      <p className="font-semibold text-foreground">No leads captured yet</p>
-                      <p className="mt-1">
-                        Leads arrive from comment automation replies and freebie opt-in pages, or
-                        you can add one by hand with New Lead.
-                      </p>
-                      {/* Only destinations this user is allowed to open are linked. */}
-                      {sourceLinks.length > 0 && (
-                        <p className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1">
-                          {sourceLinks.map((source) => (
-                            <Link
-                              key={source.to}
-                              to={source.to}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {source.label}
-                            </Link>
-                          ))}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    "No leads match this filter."
-                  )}
-                </div>
-              )}
+              {leadsStatus === "ready" &&
+                filtered.length === 0 &&
+                (showArchived ? (
+                  <EmptyState size="sm" illustration="inbox" title="No archived chats" />
+                ) : leads.length === 0 ? (
+                  // Nothing captured at all is a different situation from a filter hiding
+                  // everything: say where leads come from and how to start getting them.
+                  <EmptyState
+                    size="sm"
+                    illustration="inbox"
+                    title="No leads captured yet"
+                    description="Leads arrive from comment automation replies and freebie opt-in pages, or you can add one by hand with New Lead."
+                  >
+                    {/* Only destinations this user is allowed to open are linked. */}
+                    {sourceLinks.length > 0 && (
+                      <>
+                        {sourceLinks.map((source) => (
+                          <Link
+                            key={source.to}
+                            to={source.to}
+                            className="text-sm font-medium text-primary hover:underline"
+                          >
+                            {source.label}
+                          </Link>
+                        ))}
+                      </>
+                    )}
+                  </EmptyState>
+                ) : (
+                  <EmptyState
+                    size="sm"
+                    illustration="search"
+                    title="No matching leads"
+                    description="No leads match this filter."
+                  />
+                ))}
               {leadsStatus === "ready" && !showArchived && archivedCount > 0 && (
                 <button
                   onClick={() => setShowArchived(true)}
@@ -985,7 +987,7 @@ function LeadInbox() {
                   </div>
                   <button
                     onClick={() => setMobileView("profile")}
-                    className="rounded-full border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent lg:hidden"
+                    className={cn(buttonSecondary, "lg:hidden")}
                   >
                     Details
                   </button>
@@ -1660,11 +1662,7 @@ function NewLeadDialog({
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={saving} className={buttonPrimary}>
               {saving ? "Adding…" : "Add lead"}
             </button>
           </DialogFooter>
