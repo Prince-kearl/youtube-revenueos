@@ -1,19 +1,6 @@
 import { useId } from "react";
-import { ArrowUpRight, ArrowDownRight, ChevronDown } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Centered moving average — softens genuinely noisy/alternating series (e.g. a monthly metric
-// that's 0 or 1 every single month) into the gentle single-direction curves the reference design
-// uses throughout, without discarding the real endpoints (the marker still reads the raw last
-// value, not the smoothed one — see markerTitle callers).
-function smoothSeries(values: number[], window = 3): number[] {
-  if (values.length <= 2) return values;
-  const half = Math.floor(window / 2);
-  return values.map((_, i) => {
-    const slice = values.slice(Math.max(0, i - half), Math.min(values.length, i + half + 1));
-    return slice.reduce((sum, v) => sum + v, 0) / slice.length;
-  });
-}
 
 function formatKpiText(text: string): string {
   return text.replace(/\$/g, "USD ");
@@ -42,20 +29,15 @@ function MiniAreaTrend({
 
   // A single real point still needs two to draw a line — repeat it flat rather than collapsing
   // to [0,0], which would pin an otherwise-real value to an empty baseline.
-  const raw = data.length >= 2 ? data : data.length === 1 ? [data[0], data[0]] : [0, 0];
-  // Two passes (a wider effective kernel than either alone) — a single window-3 pass halves the
-  // amplitude of a strictly alternating series but doesn't touch its frequency, so it still reads
-  // as a zigzag just a smaller one; a second pass is what actually collapses that oscillation.
-  const safeData = smoothSeries(smoothSeries(raw, 5), 3);
+  const safeData = data.length >= 2 ? data : data.length === 1 ? [data[0], data[0]] : [0, 0];
+  // The real values, not a smoothed version (smoothing moved peaks and drew the latest month at a
+  // different height from the figure in the callout). The scale starts at zero (or at the lowest
+  // value when it is negative) so heights compare honestly, with a little headroom on top.
   const dataMin = Math.min(...safeData);
   const dataMax = Math.max(...safeData);
-  // Padding the domain rather than fitting it exactly is what keeps low-amplitude/near-binary
-  // series (e.g. a metric that's 0 or 1 every month) from being stretched to fill the full card
-  // height and reading as a jagged zigzag — the reference's curves are all gentle, so real swings
-  // get ~40% of the height instead of 100%, and flat/near-flat data doesn't look like noise.
-  const span = dataMax - dataMin || Math.max(Math.abs(dataMax), 1);
-  const min = dataMin - span * 0.35;
-  const max = dataMax + span * 0.35;
+  const min = Math.min(0, dataMin);
+  const top = dataMax > min ? dataMax : min + 1;
+  const max = top + (top - min) * 0.15;
   const range = max - min || 1;
 
   const points = safeData.map((v, i) => ({
@@ -75,10 +57,8 @@ function MiniAreaTrend({
   const first = points[0];
   const areaPath = `${linePath} L${last.x},${height} L${first.x},${height} Z`;
 
-  // Marker sits one point before the end, matching the reference (the callout points at a
-  // near-final value, not literally the last pixel of the curve).
-  const markerIndex = Math.max(0, points.length - 2);
-  const marker = points[markerIndex];
+  // The marker sits on the latest point: the month the callout names and whose value it shows.
+  const marker = points[points.length - 1];
   const color = accent;
 
   return (
@@ -123,7 +103,7 @@ function MiniAreaTrend({
         />
       </svg>
       <div
-        className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-none border border-border bg-card px-1.5 py-0.5 text-[8px] leading-tight shadow-none sm:-translate-y-[calc(100%+5px)] sm:px-2 sm:py-1 sm:text-[9px]"
+        className="pointer-events-none absolute z-10 -translate-x-full -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-none border border-border bg-card px-1.5 py-0.5 text-[8px] leading-tight shadow-none sm:-translate-y-[calc(100%+5px)] sm:px-2 sm:py-1 sm:text-[9px]"
         style={{ left: `${(marker.x / width) * 100}%`, top: `${(marker.y / height) * 100}%` }}
       >
         <p className="font-semibold text-foreground">{markerTitle}</p>
@@ -232,7 +212,6 @@ export function KpiTrendCard({
               <span className="hidden text-[10px] font-normal text-muted-foreground md:inline">
                 {periodLabel}
               </span>
-              <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
           )}
           {changePercent !== null && (

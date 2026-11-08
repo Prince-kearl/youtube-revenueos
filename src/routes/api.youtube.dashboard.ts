@@ -255,6 +255,11 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
           const startDate = new Date();
           startDate.setUTCMonth(startDate.getUTCMonth() - 12);
           const endDate = new Date();
+          // The monthly trend starts on the 1st of that month, so its oldest month is complete (the
+          // dashboard shows the last 12 complete months; the current one is still being reported).
+          const trendStart = new Date(
+            Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1),
+          );
           let analytics: AnalyticsPayload | null = null;
           let analyticsRequestSucceeded = false;
           let analyticsStatus: AnalyticsAvailability = "available";
@@ -269,7 +274,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             try {
               coreAnalytics = (await queryYoutubeAnalytics(accessToken, {
                 channelId: channel.channelId,
-                startDate: isoDate(startDate),
+                startDate: isoDate(trendStart),
                 endDate: isoDate(endDate),
                 metrics: ["views", "subscribersGained"],
                 dimensions: ["day"],
@@ -283,7 +288,7 @@ export const Route = createFileRoute("/api/youtube/dashboard")({
             try {
               watchTime = (await queryYoutubeAnalytics(accessToken, {
                 channelId: channel.channelId,
-                startDate: isoDate(startDate),
+                startDate: isoDate(trendStart),
                 endDate: isoDate(endDate),
                 metrics: ["estimatedMinutesWatched"],
                 dimensions: ["day"],

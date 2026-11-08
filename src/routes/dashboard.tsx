@@ -31,6 +31,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { KpiTrendCard } from "@/components/KpiTrendCard";
 import { KpiTrendCardSkeleton, SkeletonCircle } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { monthlyTrendRows, uploadsByMonth } from "@/lib/dashboard-trends";
 import { useChannelSettings } from "@/lib/channel-settings";
 import { useProfile } from "@/lib/stores";
 import { DEMO_YOUTUBE_DASHBOARD, IS_LOCAL_DEMO } from "@/lib/demo-youtube";
@@ -349,42 +350,36 @@ function Dashboard() {
             ? "Your revenue history is still being imported. Check back shortly."
             : "No estimated revenue was reported for this period.";
   const revenueValue = (text: string) => (revenueLoading ? "…" : formatKpiCurrency(text));
-  const totalWatchTime =
-    dashboardData?.watchTimeStatus === "available"
-      ? dashboardData.analytics.reduce((sum, row) => sum + Number(row.watchTimeMinutes ?? 0), 0)
-      : 0;
 
   // Per-metric monthly series (raw, not cumulative — shows real month-to-month shape rather than
   // a curve that only ever trends up) backing the KPI trend cards below. Video counts aren't in
   // the analytics rows, so that one is bucketed directly from each video's publish date instead.
-  const analyticsRows = useMemo(
-    () =>
-      (dashboardData?.analytics ?? [])
-        .filter((r) => r.month)
-        .slice()
-        .sort((a, b) => (a.month! > b.month! ? 1 : -1)),
-    [dashboardData],
-  );
+  // The last 12 complete calendar months, every one of them (see monthlyTrendRows).
+  const analyticsRows = useMemo(() => monthlyTrendRows(dashboardData?.analytics), [dashboardData]);
   const viewsSeries = analyticsRows.map((r) => Number(r.views ?? 0));
   const totalPeriodViews = viewsSeries.reduce((sum, views) => sum + views, 0);
   const subsSeries = analyticsRows.map((r) => Number(r.subscribersGained ?? 0));
   const watchSeries = analyticsRows.map((r) => Number(r.watchTimeMinutes ?? 0));
+  // The same 12 months as the chart and the "Views (last 12 months)" card.
+  const totalWatchTime =
+    dashboardData?.watchTimeStatus === "available"
+      ? watchSeries.reduce((sum, minutes) => sum + minutes, 0)
+      : 0;
   const latestMonthLabel = monthLabel(analyticsRows.at(-1)?.month);
-  const trendPeriodLabel = analyticsRows.length ? `Past ${analyticsRows.length} months` : "";
+  // The change badges compare the latest complete month with the one before; say which.
+  const monthOverMonthLabel =
+    analyticsRows.length >= 2 ? `vs ${monthLabel(analyticsRows.at(-2)?.month)}` : "";
 
-  const videosByMonth = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const v of dashboardData?.videos ?? []) {
-      if (!v.publishedAt) continue;
-      const key = v.publishedAt.slice(0, 7);
-      map.set(key, (map.get(key) ?? 0) + 1);
-    }
-    return Array.from(map.keys())
-      .sort()
-      .map((month) => ({ month, count: map.get(month)! }));
-  }, [dashboardData]);
+  // Uploads per month over the same months (see uploadsByMonth).
+  const videosByMonth = useMemo(
+    () =>
+      dashboardData?.videosStatus === "available" ? uploadsByMonth(dashboardData.videos ?? []) : [],
+    [dashboardData],
+  );
   const videosSeries = videosByMonth.map((m) => m.count);
   const latestVideoMonthLabel = monthLabel(videosByMonth.at(-1)?.month);
+  const videosMonthOverMonthLabel =
+    videosByMonth.length >= 2 ? `vs ${monthLabel(videosByMonth.at(-2)?.month)}` : "";
   // The delta on each card is the LATEST MONTH THAT HAS DATA, which is usually not the current
   // calendar month (YouTube analytics lag, and a channel may not have published for months) —
   // name that month instead of claiming "this month".
@@ -514,7 +509,7 @@ function Dashboard() {
               deltaLabel={viewsSeries.length ? signed(viewsSeries.at(-1) ?? 0, formatCount) : "—"}
               deltaSuffix={latestMonthSuffix}
               changePercent={viewsChangePct}
-              periodLabel={trendPeriodLabel}
+              periodLabel={monthOverMonthLabel}
               series={viewsSeries}
               markerTitle={`${formatCount(viewsSeries.at(-1) ?? 0)} views`}
               markerSubtitle={latestMonthLabel}
@@ -530,7 +525,7 @@ function Dashboard() {
               }
               deltaSuffix={latestVideoMonthSuffix}
               changePercent={videosChangePct}
-              periodLabel={trendPeriodLabel}
+              periodLabel={videosMonthOverMonthLabel}
               series={videosSeries}
               markerTitle={`${videosSeries.at(-1) ?? 0} published`}
               markerSubtitle={latestVideoMonthLabel}
@@ -546,9 +541,9 @@ function Dashboard() {
               }
               deltaSuffix={`gained ${latestMonthSuffix}`}
               changePercent={subsChangePct}
-              periodLabel={trendPeriodLabel}
+              periodLabel={monthOverMonthLabel}
               series={subsSeries}
-              markerTitle={`+${subsSeries.at(-1) ?? 0} subs`}
+              markerTitle={`${signed(subsSeries.at(-1) ?? 0, (n) => String(n))} subs`}
               markerSubtitle={latestMonthLabel}
               positive={(subsChangePct ?? 0) >= 0}
             />
@@ -568,7 +563,7 @@ function Dashboard() {
               }
               deltaSuffix={latestMonthSuffix}
               changePercent={watchChangePct}
-              periodLabel={trendPeriodLabel}
+              periodLabel={monthOverMonthLabel}
               series={watchSeries}
               markerTitle={`${formatHours(watchSeries.at(-1) ?? 0)} hrs`}
               markerSubtitle={latestMonthLabel}
