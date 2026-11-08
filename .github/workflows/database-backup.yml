@@ -1,0 +1,49 @@
+# Nightly encrypted backup of the production database, with a restore test on every run.
+# How it works and how to restore: docs/DATABASE_BACKUPS.md.
+#
+# This repository is public: its workflow logs and artifacts can be seen by any signed-in GitHub
+# user. So the backup is encrypted with a public key before it is uploaded (only the owner's
+# offline private key can read it), and the script prints no data, not even row counts.
+name: Database backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # every day at 02:30 UTC
+  workflow_dispatch: # "Run workflow" in the Actions tab, for a backup on demand
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    # Never on forks: they have no secret, and no business backing up this database.
+    if: github.repository == 'Prince-kearl/youtube-revenueos'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Back up, prove it restores, encrypt
+        id: backup
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: bash scripts/db-backup/backup.sh "$RUNNER_TEMP/backup-out"
+
+      - name: Keep the encrypted backup for 90 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.backup.outputs.backup_name }}
+          path: |
+            ${{ runner.temp }}/backup-out/*.tar.gz.gpg
+            ${{ runner.temp }}/backup-out/*.tar.gz.gpg.sha256
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error

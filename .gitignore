@@ -40,3 +40,9 @@ __MACOSX/
 *.njsproj
 *.sln
 *.sw?
+
+# Database backups: never commit a downloaded or decrypted backup (docs/DATABASE_BACKUPS.md).
+tubify-db-*
+*.tar.gz.gpg
+backup-out/
+*-PRIVATE-KEY.asc
