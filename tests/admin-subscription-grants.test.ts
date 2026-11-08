@@ -570,3 +570,15 @@ async function inWorld<T>(
   await callTeamApi(route, f.w, { as: null, method: "GET", path: "/in-world" });
   return result as T;
 }
+
+test("the Users page actions menu offers the grant, through the same dialog and API", () => {
+  const page = readFileSync("src/components/admin/sections/UsersSection.tsx", "utf8");
+  // both the desktop table's menu and the phone card's menu
+  assert.equal(page.match(/onSelect=\{\(\) => setGrantingUser\(u\)\}/g)?.length, 2);
+  assert.match(page, /Grant complimentary plan/);
+  assert.match(page, /<SubscriptionGrantDialog\s+mode=\{grantingUser \? "grant" : null\}/);
+  const panel = readFileSync("src/components/admin/SubscriptionGrantPanel.tsx", "utf8");
+  assert.match(panel, /export function SubscriptionGrantDialog\(/);
+  // the dialog posts to the admin API, where every rule is enforced
+  assert.match(panel, /fetch\("\/api\/admin\/subscription-grants", \{\s+method: "POST"/);
+});

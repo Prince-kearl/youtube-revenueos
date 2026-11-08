@@ -15,6 +15,7 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FlatKpiCard } from "@/components/KpiTrendCard";
@@ -48,7 +49,10 @@ import {
 import { ConfirmDialog } from "@/components/modals";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserDirectoryMaintenance } from "./UserDirectoryMaintenance";
-import { SubscriptionGrantPanel } from "@/components/admin/SubscriptionGrantPanel";
+import {
+  SubscriptionGrantDialog,
+  SubscriptionGrantPanel,
+} from "@/components/admin/SubscriptionGrantPanel";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 type AppRole = "user" | "editor" | "setter" | "manager" | "owner" | "superadmin";
@@ -138,6 +142,8 @@ export function UsersSection() {
   const [total, setTotal] = useState<number | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [detailUser, setDetailUser] = useState<UserRow | null>(null);
+  // The account a complimentary plan is being granted to from the actions menu.
+  const [grantingUser, setGrantingUser] = useState<UserRow | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -629,6 +635,9 @@ export function UsersSection() {
                         <BadgeCheck className="mr-2 h-4 w-4" />
                         {u.creatorVerified ? "Remove creator badge" : "Verify creator"}
                       </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setGrantingUser(u)}>
+                        <Gift className="mr-2 h-4 w-4" /> Grant complimentary plan
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>Access</DropdownMenuLabel>
                       {u.status === "Banned" ? (
@@ -715,6 +724,9 @@ export function UsersSection() {
                   <DropdownMenuItem onSelect={() => void resetPassword(u)}>
                     <KeyRound className="mr-2 h-4 w-4" /> Reset password
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setGrantingUser(u)}>
+                    <Gift className="mr-2 h-4 w-4" /> Grant plan
+                  </DropdownMenuItem>
                   {u.status === "Banned" ? (
                     <DropdownMenuItem onSelect={() => void setBan(u, "none", "was unbanned")}>
                       <PlayCircle className="mr-2 h-4 w-4" /> Unban
@@ -784,6 +796,15 @@ export function UsersSection() {
       )}
 
       <UserDetailSheet user={detailUser} onOpenChange={(open) => !open && setDetailUser(null)} />
+      {/* Grant from the actions menu: the same dialog and server rules as the detail sheet. */}
+      <SubscriptionGrantDialog
+        mode={grantingUser ? "grant" : null}
+        userId={grantingUser?.id ?? ""}
+        userLabel={grantingUser ? (grantingUser.name ?? grantingUser.email) : null}
+        current={null}
+        onClose={() => setGrantingUser(null)}
+        onDone={() => setGrantingUser(null)}
+      />
       <Sheet open={directoryOpen} onOpenChange={setDirectoryOpen}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>

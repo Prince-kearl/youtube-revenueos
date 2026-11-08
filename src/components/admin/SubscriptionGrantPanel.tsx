@@ -201,7 +201,7 @@ export function SubscriptionGrantPanel({ userId }: { userId: string }) {
           )}
         </>
       )}
-      <GrantDialog
+      <SubscriptionGrantDialog
         mode={mode}
         userId={userId}
         current={current}
@@ -215,15 +215,21 @@ export function SubscriptionGrantPanel({ userId }: { userId: string }) {
   );
 }
 
-function GrantDialog({
+/**
+ * The grant / extend / revoke form. Used by the panel above and, for "grant", by the actions menu
+ * on the Users page. `userLabel` names the account in the description (e.g. its name or email).
+ */
+export function SubscriptionGrantDialog({
   mode,
   userId,
+  userLabel,
   current,
   onClose,
   onDone,
 }: {
   mode: Mode | null;
   userId: string;
+  userLabel?: string | null;
   current: Current | null;
   onClose: () => void;
   onDone: () => void;
@@ -298,7 +304,7 @@ function GrantDialog({
         : "Revoke the complimentary plan";
   const description =
     mode === "grant"
-      ? "The user's own workspaces get this plan without payment, from now until the end you choose."
+      ? `${userLabel ? `${userLabel}'s` : "The user's"} own workspaces get this plan without payment, from now until the end you choose.`
       : mode === "extend"
         ? `Adds time to the current end${current?.expiresAt ? ` (${dateText(current.expiresAt)})` : ""}, or removes the end.`
         : "The plan ends now. The user keeps all their data and can subscribe in Billing.";
