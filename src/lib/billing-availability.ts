@@ -13,6 +13,8 @@ export function billingErrorMessage(error: string): string {
     STRIPE_NOT_CONFIGURED: SUBSCRIPTIONS_UNAVAILABLE_MESSAGE,
     STRIPE_PRICE_NOT_CONFIGURED: "This plan isn't available for checkout yet. Try another plan.",
     STRIPE_CHECKOUT_FAILED: "We couldn't start checkout. Please try again.",
+    GRANT_ACTIVE:
+      "You already have a complimentary plan from Tubify. You can subscribe once it ends.",
     SUBSCRIPTION_EXISTS:
       "You already have a subscription. Use Manage billing to change or renew it.",
     SUBSCRIPTION_PENDING:

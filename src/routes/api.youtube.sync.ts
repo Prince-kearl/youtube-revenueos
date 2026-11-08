@@ -3,6 +3,7 @@ import { requirePaidSession } from "@/lib/server/workspace";
 
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { purgeExpiredRateLimitBuckets } from "@/lib/server/rate-limit";
+import { expireSubscriptionGrants } from "@/lib/server/subscription-grants";
 import { processAllQueues } from "@/lib/server/comment-reply-queue";
 import { getServerEnv } from "@/lib/server/env";
 import {
@@ -315,6 +316,9 @@ export const Route = createFileRoute("/api/youtube/sync")({
         // Best effort — it never throws, gives up after a few seconds and does nothing when the
         // limiter is off — so it cannot hold up or fail the sync below.
         await purgeExpiredRateLimitBuckets(service);
+        // Records admin-granted plans whose end has passed as expired (their access already ended
+        // at that moment: it is checked on every request). Best effort; it never throws.
+        const expiredGrants = await expireSubscriptionGrants(service);
         const { data: channels } = await service
           .from("youtube_channels")
           .select(
@@ -343,7 +347,7 @@ export const Route = createFileRoute("/api/youtube/sync")({
         } catch {
           commentReplies = null;
         }
-        return json({ results, revenueData, commentReplies });
+        return json({ results, revenueData, commentReplies, expiredGrants });
       },
     },
   },

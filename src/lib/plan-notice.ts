@@ -4,7 +4,8 @@
 export interface WorkspaceAccess {
   plan: "starter" | "pro" | "scale" | null;
   status: "active" | "trialing" | null;
-  source: "subscription" | "staff_exception" | "transition" | "none" | "unavailable";
+  /** grant: a plan given by Tubify staff without payment, until periodEnd (null = no end). */
+  source: "subscription" | "grant" | "staff_exception" | "transition" | "none" | "unavailable";
   /** The end of the current period (the trial's end while trialing; the transition's end during
    * the existing-customer transition), when known. */
   periodEnd: string | null;
@@ -19,6 +20,12 @@ export function hasWorkspaceAppAccess(
   if (!access) return false;
   if (access.source === "subscription")
     return access.plan !== null && (access.status === "active" || access.status === "trialing");
+  if (access.source === "grant") {
+    if (access.plan === null || access.status !== "active") return false;
+    if (access.periodEnd === null) return true;
+    const end = Date.parse(access.periodEnd);
+    return Number.isFinite(end) && end > now.getTime();
+  }
   if (access.source === "staff_exception")
     return access.plan === "scale" && access.status === "active";
   if (access.source === "transition") {
@@ -37,6 +44,9 @@ export interface PlanNotice {
 }
 
 const PLAN_NAMES = { starter: "Starter", pro: "Pro", scale: "Scale" } as const;
+
+/** A granted plan's end is announced this many days ahead. */
+export const GRANT_NOTICE_DAYS = 7;
 
 /** "Nov 3, 2026, 15:00 UTC" — the exact end, in UTC, the same for every reader. */
 export function transitionEndText(iso: string): string {
@@ -113,6 +123,34 @@ export function planNotice(
           body: "Ask the workspace owner to renew it in Billing. Your data is kept.",
           action: null,
         };
+  // A granted plan with a week or less left: say when it ends (no notice before then, or for one
+  // with no end).
+  if (access.source === "grant" && access.periodEnd) {
+    const end = new Date(access.periodEnd);
+    const days = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86_400_000));
+    if (days > GRANT_NOTICE_DAYS) return null;
+    const date = end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    return access.isOwner
+      ? {
+          tone: "info",
+          title: `Your complimentary ${PLAN_NAMES[access.plan]} plan ends ${date}`,
+          body: checkoutAvailable
+            ? "Choose a plan before then to keep using paid features. Your data is kept either way."
+            : "After that date a subscription is required. Your data is kept either way.",
+          action: checkoutAvailable ? { label: "View plans", to: "/billing" } : null,
+        }
+      : {
+          tone: "info",
+          title: `This workspace's complimentary ${PLAN_NAMES[access.plan]} plan ends ${date}`,
+          body: "After that the workspace owner will need to choose a plan in Billing. Your data is kept.",
+          action: null,
+        };
+  }
   if (access.status === "trialing" && access.periodEnd) {
     const end = new Date(access.periodEnd);
     const days = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86_400_000));

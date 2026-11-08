@@ -4,6 +4,8 @@ import { isStripeBillingAvailable } from "@/lib/server/stripe";
 import { trustedLivemode } from "@/lib/server/stripe-mode";
 import { activePriceFor, listPlans } from "@/lib/server/billing-plans";
 import { getWorkspaceContext } from "@/lib/server/workspace";
+import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { readActiveGrant } from "@/lib/server/subscription-grants";
 import type { WorkspaceAccess } from "@/lib/plan-notice";
 
 function json(body: unknown, init?: ResponseInit) {
@@ -39,6 +41,15 @@ export const Route = createFileRoute("/api/billing/subscription")({
                   .order("created_at", { ascending: false })
                   .limit(1)
                   .maybeSingle();
+
+          // The caller's OWN grant from platform staff, if any: its plan and end only (the
+          // reason and the granting admin are internal). Read with the service role — the grants
+          // table has no policies — and only ever for the session's own user id.
+          const granted = await readActiveGrant(createServiceSupabaseClient(), user.id);
+          const grant =
+            granted.ok && granted.grant
+              ? { plan_id: granted.grant.plan, expires_at: granted.grant.expiresAt }
+              : null;
 
           // Public, unauthenticated-safe listing (RLS on plans/plan_prices allows anyone to read —
           // pricing isn't sensitive) filtered here to what's actually purchasable right now.
@@ -80,6 +91,7 @@ export const Route = createFileRoute("/api/billing/subscription")({
             data: {
               stripeConfigured: isStripeBillingAvailable(),
               subscription: subscription ?? null,
+              grant,
               plans,
               access,
             },

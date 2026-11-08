@@ -46,6 +46,8 @@ type Subscription = {
 type SubscriptionData = {
   stripeConfigured: boolean;
   subscription: Subscription | null;
+  /** A plan granted by Tubify staff without payment (null = none); expires_at null = no end. */
+  grant?: { plan_id: PlanId; expires_at: string | null } | null;
   plans: Plan[];
 };
 type SubscriptionResponse = { data?: SubscriptionData; error?: string };
@@ -112,6 +114,9 @@ function BillingCheckout() {
     (data.subscription.status === "active" || data.subscription.status === "trialing")
       ? data.subscription
       : null;
+  // A complimentary plan from Tubify staff, when there is no paid subscription: nothing to buy
+  // or manage until it ends (checkout is refused on the server meanwhile).
+  const grant = !activeSubscription ? (data?.grant ?? null) : null;
 
   const startCheckout = async (plan: Plan) => {
     setCheckingOutId(plan.id);
@@ -167,7 +172,7 @@ function BillingCheckout() {
 
   return (
     <div className="min-h-screen bg-background p-6 sm:p-10">
-      <div className={`mx-auto ${activeSubscription ? "max-w-2xl" : "max-w-6xl"}`}>
+      <div className={`mx-auto ${activeSubscription || grant ? "max-w-2xl" : "max-w-6xl"}`}>
         <button
           onClick={() => navigate({ to: "/settings" })}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -183,7 +188,19 @@ function BillingCheckout() {
           <CheckoutUnavailableNotice contactEmail={content.contactEmail} />
         )}
 
-        {activeSubscription ? (
+        {grant ? (
+          <div className="mt-8 rounded-xl card-gradient-outline p-6" data-testid="billing-grant">
+            <p className="text-sm text-muted-foreground">You have complimentary access to</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight">
+              {plans.find((p) => p.id === grant.plan_id)?.name ?? grant.plan_id}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {grant.expires_at
+                ? `Free until ${new Date(grant.expires_at).toLocaleDateString()}. After that, choose a plan here to keep using paid features — your data is kept either way.`
+                : "Free, with no end date. Nothing to pay."}
+            </p>
+          </div>
+        ) : activeSubscription ? (
           <div className="mt-8 rounded-xl card-gradient-outline p-6">
             <p className="text-sm text-muted-foreground">You're subscribed to</p>
             <p className="mt-1 text-2xl font-bold tracking-tight">

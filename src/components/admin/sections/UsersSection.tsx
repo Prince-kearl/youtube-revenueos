@@ -48,6 +48,7 @@ import {
 import { ConfirmDialog } from "@/components/modals";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserDirectoryMaintenance } from "./UserDirectoryMaintenance";
+import { SubscriptionGrantPanel } from "@/components/admin/SubscriptionGrantPanel";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 type AppRole = "user" | "editor" | "setter" | "manager" | "owner" | "superadmin";
@@ -987,7 +988,8 @@ type UserDetail = {
 const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : "—");
 
 // One account in detail: identity and status, workspaces, plan, channels and the latest admin
-// actions on it. Read-only — the actions stay in the row menu.
+// actions on it. Read-only — the actions stay in the row menu — except the complimentary plan,
+// which is granted, extended and revoked here (SubscriptionGrantPanel).
 function UserDetailSheet({
   user,
   onOpenChange,
@@ -1077,6 +1079,8 @@ function UserDetailSheet({
                 <p className="mt-2 text-muted-foreground">No subscription.</p>
               )}
             </section>
+
+            <SubscriptionGrantPanel userId={detail.identity.id} />
 
             <section>
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

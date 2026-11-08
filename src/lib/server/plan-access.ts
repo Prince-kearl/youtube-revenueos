@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlatformSuperadmin } from "./platform-staff";
 import { getServerEnv } from "./env";
 import { trustedLivemode } from "./stripe-mode";
+import { readActiveGrant } from "./subscription-grants";
 
 // What a WORKSPACE's subscription gives it — the one place plan access is decided (Phase 4B-2).
 //
@@ -117,10 +118,12 @@ export type WorkspacePlan =
   | {
       plan: PaidPlan;
       limits: PlanLimits;
-      /** subscription: the owner's own; staff_exception: see below. */
-      source: "subscription" | "staff_exception";
+      /** subscription: the owner's own; grant: given by platform staff without payment
+       * (subscription-grants.ts); staff_exception: see below. */
+      source: "subscription" | "grant" | "staff_exception";
       status: "active" | "trialing";
-      /** The end of the current period — the trial's end while trialing — when known. */
+      /** The end of the current period — the trial's end while trialing, a grant's end —
+       * when known; null for a grant with no end. */
       periodEnd: string | null;
     }
   | { plan: null; limits: null; source: "none" | "unavailable"; status: null; periodEnd: null };
@@ -207,8 +210,9 @@ export function isPaidPlan(value: unknown): value is PaidPlan {
  * membership), never from the request. `service` is the service-role client: a member cannot read
  * the owner's subscription through row-level security, and must not be able to.
  *
- * With no subscription, platform staff get the staff exception (STAFF_PLAN_EXCEPTION_ENABLED),
- * and a workspace that existed before the paywall gets the transition while it lasts.
+ * With no subscription, an active grant to the owner gives its plan (subscription-grants.ts);
+ * then platform staff get the staff exception (STAFF_PLAN_EXCEPTION_ENABLED), and a workspace
+ * that existed before the paywall gets the transition while it lasts.
  */
 export async function resolveWorkspacePlan(
   service: SupabaseClient,
@@ -249,6 +253,22 @@ export async function resolveWorkspacePlan(
         source: "subscription",
         status: subscription.status as "active" | "trialing",
         periodEnd: (subscription.current_period_end as string | null) ?? null,
+      };
+    // A plan given by platform staff without payment, while it lasts (its end is checked here,
+    // at read time). A paid subscription above always takes precedence.
+    const granted = await readActiveGrant(
+      service,
+      workspace.owner_id as string,
+      options.now ?? new Date(),
+    );
+    if (!granted.ok) return UNAVAILABLE;
+    if (granted.grant)
+      return {
+        plan: granted.grant.plan,
+        limits: withChannelOverride(PLAN_LIMITS[granted.grant.plan], override),
+        source: "grant",
+        status: "active",
+        periodEnd: granted.grant.expiresAt,
       };
     if (staffException && (await isPlatformSuperadmin(service, input.userId)))
       return {

@@ -95,7 +95,15 @@ type F = ReturnType<typeof world>;
 
 const get = (f: F, who: string, route: { Route: unknown }, path: string, query = "") =>
   callTeamApi(route, f.w, { as: who, method: "GET", path, query });
-const PLAN_TABLES = new Set(["workspace_members", "workspaces", "subscriptions", "profiles"]);
+// The entitlement reads: membership, the workspace, its owner's subscription and any plan granted
+// by platform staff (subscription_grants), and the staff check.
+const PLAN_TABLES = new Set([
+  "workspace_members",
+  "workspaces",
+  "subscriptions",
+  "subscription_grants",
+  "profiles",
+]);
 const onlyPlanReads = (r: CallResult) =>
   r.reads.every((read) => PLAN_TABLES.has(String(read.table)));
 

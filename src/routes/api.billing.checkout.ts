@@ -9,6 +9,8 @@ import {
 import { activePriceFor, getPlanBySlug } from "@/lib/server/billing-plans";
 import { TRIAL_DAYS } from "@/lib/server/plan-access";
 import { billingLivemode, customerIdColumn } from "@/lib/server/stripe-mode";
+import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { readActiveGrant } from "@/lib/server/subscription-grants";
 
 // One subscription per customer. A new Checkout session always creates a NEW subscription, so a
 // customer who already has one would be billed twice. Checkout is therefore refused (409, with
@@ -157,6 +159,19 @@ export const Route = createFileRoute("/api/billing/checkout")({
               .filter((status) => RECORDED_BLOCKING_STATUSES.includes(status)),
           );
           if (local) return local;
+          // One subscription per user: not while a plan granted by platform staff is active
+          // (subscription-grants.ts). Unreadable: refused, as for any billing state.
+          const granted = await readActiveGrant(createServiceSupabaseClient(), user.id);
+          if (!granted.ok) return BILLING_STATE_UNAVAILABLE();
+          if (granted.grant)
+            return json(
+              {
+                error: "GRANT_ACTIVE",
+                message:
+                  "You already have a complimentary plan from Tubify. You can subscribe once it ends.",
+              },
+              { status: 409 },
+            );
           let held: Array<{ status: string }> = [];
           if (customerId) {
             try {

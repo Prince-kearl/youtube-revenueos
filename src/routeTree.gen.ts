@@ -70,6 +70,7 @@ import { Route as ApiAdminDashboardRouteImport } from './routes/api.admin.dashbo
 import { Route as ApiAdminFeaturesRouteImport } from './routes/api.admin.features'
 import { Route as ApiAdminPlansRouteImport } from './routes/api.admin.plans'
 import { Route as ApiAdminReleasesRouteImport } from './routes/api.admin.releases'
+import { Route as ApiAdminSubscriptionGrantsRouteImport } from './routes/api.admin.subscription-grants'
 import { Route as ApiAdminUsersRouteImport } from './routes/api.admin.users'
 import { Route as ApiAdminWhoamiRouteImport } from './routes/api.admin.whoami'
 import { Route as ApiAdminWorkspacesRouteImport } from './routes/api.admin.workspaces'
@@ -455,6 +456,12 @@ const ApiAdminReleasesRoute = ApiAdminReleasesRouteImport.update({
   path: '/api/admin/releases',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminSubscriptionGrantsRoute =
+  ApiAdminSubscriptionGrantsRouteImport.update({
+    id: '/api/admin/subscription-grants',
+    path: '/api/admin/subscription-grants',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
   id: '/api/admin/users',
   path: '/api/admin/users',
@@ -924,6 +931,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
+  '/api/admin/subscription-grants': typeof ApiAdminSubscriptionGrantsRoute
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
@@ -1066,6 +1074,7 @@ export interface FileRoutesByTo {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
+  '/api/admin/subscription-grants': typeof ApiAdminSubscriptionGrantsRoute
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
@@ -1209,6 +1218,7 @@ export interface FileRoutesById {
   '/api/admin/features': typeof ApiAdminFeaturesRouteWithChildren
   '/api/admin/plans': typeof ApiAdminPlansRouteWithChildren
   '/api/admin/releases': typeof ApiAdminReleasesRouteWithChildren
+  '/api/admin/subscription-grants': typeof ApiAdminSubscriptionGrantsRoute
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
@@ -1353,6 +1363,7 @@ export interface FileRouteTypes {
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
+    | '/api/admin/subscription-grants'
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
@@ -1495,6 +1506,7 @@ export interface FileRouteTypes {
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
+    | '/api/admin/subscription-grants'
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
@@ -1637,6 +1649,7 @@ export interface FileRouteTypes {
     | '/api/admin/features'
     | '/api/admin/plans'
     | '/api/admin/releases'
+    | '/api/admin/subscription-grants'
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
@@ -1778,6 +1791,7 @@ export interface RootRouteChildren {
   ApiAdminFeaturesRoute: typeof ApiAdminFeaturesRouteWithChildren
   ApiAdminPlansRoute: typeof ApiAdminPlansRouteWithChildren
   ApiAdminReleasesRoute: typeof ApiAdminReleasesRouteWithChildren
+  ApiAdminSubscriptionGrantsRoute: typeof ApiAdminSubscriptionGrantsRoute
   ApiAdminUsersRoute: typeof ApiAdminUsersRouteWithChildren
   ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
   ApiAdminWorkspacesRoute: typeof ApiAdminWorkspacesRoute
@@ -2251,6 +2265,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/releases'
       fullPath: '/api/admin/releases'
       preLoaderRoute: typeof ApiAdminReleasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/subscription-grants': {
+      id: '/api/admin/subscription-grants'
+      path: '/api/admin/subscription-grants'
+      fullPath: '/api/admin/subscription-grants'
+      preLoaderRoute: typeof ApiAdminSubscriptionGrantsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/users': {
@@ -3097,6 +3118,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminFeaturesRoute: ApiAdminFeaturesRouteWithChildren,
   ApiAdminPlansRoute: ApiAdminPlansRouteWithChildren,
   ApiAdminReleasesRoute: ApiAdminReleasesRouteWithChildren,
+  ApiAdminSubscriptionGrantsRoute: ApiAdminSubscriptionGrantsRoute,
   ApiAdminUsersRoute: ApiAdminUsersRouteWithChildren,
   ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
   ApiAdminWorkspacesRoute: ApiAdminWorkspacesRoute,

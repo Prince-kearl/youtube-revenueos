@@ -55,6 +55,9 @@ export interface World {
   comment_automation_replies?: Row[];
   comment_reply_jobs?: Row[];
   youtube_quota_events?: Row[];
+  // Admin-granted subscriptions (none unless a test adds one).
+  subscription_grants?: Row[];
+  subscription_grant_events?: Row[];
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
    * fail the test with "unexpected request". */
   external?: (
@@ -209,6 +212,30 @@ export function addPaidWorkspace(world: World, ownerId: string): string {
   return id;
 }
 
+/** A plan granted by platform staff (no payment); `expiresAt` null = no end. */
+export function addGrant(
+  world: World,
+  userId: string,
+  plan: "starter" | "pro" | "scale",
+  expiresAt: string | null,
+  status = "active",
+): string {
+  const id = uuid();
+  (world.subscription_grants ??= []).push({
+    id,
+    user_id: userId,
+    plan_id: plan,
+    status,
+    starts_at: "2026-01-01T00:00:00Z",
+    expires_at: expiresAt,
+    reason: "test grant",
+    granted_by: null,
+    revoked_at: status === "revoked" ? "2026-01-02T00:00:00Z" : null,
+    created_at: "2026-01-01T00:00:00Z",
+  });
+  return id;
+}
+
 export function addMember(
   world: World,
   workspaceId: string,
@@ -261,6 +288,8 @@ export const member = (world: World, id: string): Row =>
 // ---------- a small PostgREST ----------
 
 const OPTIONAL_TABLES = [
+  "subscription_grants",
+  "subscription_grant_events",
   "deals",
   "leads",
   "videos",
@@ -592,6 +621,151 @@ export async function callTeamApi(
         const link = (world.tracking_links ?? []).find((l) => l.id === args.p_link_id);
         if (link) link.clicks = Number(link.clicks ?? 0) + 1;
         return json(null, 204);
+      }
+      // Admin-granted subscriptions (202611080001_subscription_grants.sql), as the SQL does them:
+      // one active grant per user, and every change writes its history and audit rows with it.
+      if (
+        name === "admin_grant_subscription" ||
+        name === "admin_extend_subscription_grant" ||
+        name === "admin_revoke_subscription_grant" ||
+        name === "expire_subscription_grants"
+      ) {
+        const grants = (world.subscription_grants ??= []);
+        const events = (world.subscription_grant_events ??= []);
+        const audit = (world.admin_audit_log ??= []);
+        const nowIso = new Date(now).toISOString();
+        const fail = (message: string, code = "P0001") => json({ code, message }, 400);
+        const live = (g: Row) =>
+          g.status === "active" &&
+          (g.expires_at === null || Date.parse(String(g.expires_at)) > now);
+        const expire = (g: Row) => {
+          g.status = "expired";
+          events.push({
+            id: uuid(),
+            grant_id: g.id,
+            user_id: g.user_id,
+            event: "expired",
+            actor_id: null,
+            reason: null,
+            new_value: { status: "expired", expires_at: g.expires_at },
+            created_at: nowIso,
+          });
+        };
+        if (name === "expire_subscription_grants") {
+          const due = grants.filter(
+            (g) => g.status === "active" && g.expires_at !== null && !live(g),
+          );
+          due.forEach(expire);
+          return json(due.length);
+        }
+        if (name === "admin_grant_subscription") {
+          if (args.p_expires_at !== null && Date.parse(String(args.p_expires_at)) <= now)
+            return fail("GRANT_END_IN_PAST", "22023");
+          grants
+            .filter((g) => g.user_id === args.p_user_id && g.status === "active" && !live(g))
+            .forEach(expire);
+          if (grants.some((g) => g.user_id === args.p_user_id && g.status === "active"))
+            return json(
+              { code: "23505", message: "duplicate key value violates unique constraint" },
+              409,
+            );
+          const grant: Row = {
+            id: uuid(),
+            user_id: args.p_user_id,
+            plan_id: args.p_plan_id,
+            status: "active",
+            starts_at: nowIso,
+            expires_at: args.p_expires_at ?? null,
+            reason: String(args.p_reason).trim(),
+            granted_by: args.p_admin_id,
+            revoked_at: null,
+            revoked_by: null,
+            revoke_reason: null,
+            created_at: nowIso,
+          };
+          grants.push(grant);
+          events.push({
+            id: uuid(),
+            grant_id: grant.id,
+            user_id: grant.user_id,
+            event: "granted",
+            actor_id: args.p_admin_id,
+            reason: grant.reason,
+            new_value: { plan: grant.plan_id, expires_at: grant.expires_at },
+            created_at: nowIso,
+          });
+          audit.push({
+            id: uuid(),
+            admin_user_id: args.p_admin_id,
+            action: "subscription_grant_created",
+            target: String(args.p_user_id),
+            new_value: {
+              grant_id: grant.id,
+              plan: grant.plan_id,
+              expires_at: grant.expires_at,
+              reason: grant.reason,
+            },
+            created_at: nowIso,
+          });
+          return json(grant);
+        }
+        const grant = grants.find(
+          (g) => g.id === args.p_grant_id && g.user_id === args.p_user_id && live(g),
+        );
+        if (!grant) return fail("GRANT_NOT_FOUND", "P0002");
+        if (name === "admin_extend_subscription_grant") {
+          if (grant.expires_at === null) return fail("GRANT_ALREADY_LIFETIME", "22023");
+          if (
+            args.p_expires_at !== null &&
+            Date.parse(String(args.p_expires_at)) <= Date.parse(String(grant.expires_at))
+          )
+            return fail("GRANT_NOT_LATER", "22023");
+          const old = grant.expires_at;
+          grant.expires_at = args.p_expires_at ?? null;
+          events.push({
+            id: uuid(),
+            grant_id: grant.id,
+            user_id: grant.user_id,
+            event: "extended",
+            actor_id: args.p_admin_id,
+            reason: String(args.p_reason).trim(),
+            new_value: { expires_at: grant.expires_at },
+            created_at: nowIso,
+          });
+          audit.push({
+            id: uuid(),
+            admin_user_id: args.p_admin_id,
+            action: "subscription_grant_extended",
+            target: String(args.p_user_id),
+            old_value: { grant_id: grant.id, expires_at: old },
+            new_value: { grant_id: grant.id, expires_at: grant.expires_at },
+            created_at: nowIso,
+          });
+          return json(grant);
+        }
+        grant.status = "revoked";
+        grant.revoked_at = nowIso;
+        grant.revoked_by = args.p_admin_id;
+        grant.revoke_reason = String(args.p_reason).trim();
+        events.push({
+          id: uuid(),
+          grant_id: grant.id,
+          user_id: grant.user_id,
+          event: "revoked",
+          actor_id: args.p_admin_id,
+          reason: grant.revoke_reason,
+          new_value: { status: "revoked" },
+          created_at: nowIso,
+        });
+        audit.push({
+          id: uuid(),
+          admin_user_id: args.p_admin_id,
+          action: "subscription_grant_revoked",
+          target: String(args.p_user_id),
+          new_value: { grant_id: grant.id, status: "revoked" },
+          created_at: nowIso,
+        });
+        return json(grant);
       }
       if (name === "increment_lead_magnet_views") {
         const magnet = (world.lead_magnets ?? []).find((m) => m.id === args.p_lead_magnet_id);

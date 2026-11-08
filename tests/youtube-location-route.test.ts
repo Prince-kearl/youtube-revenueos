@@ -81,6 +81,9 @@ async function call(scenario: Scenario = {}) {
         created_at: "2026-10-01T00:00:00Z",
         channel_limit_override: null,
       });
+    // No plan granted by platform staff (lib/server/subscription-grants.ts).
+    if (url.origin === SUPABASE && url.pathname === "/rest/v1/subscription_grants")
+      return json(null);
     if (url.origin === SUPABASE && url.pathname === "/rest/v1/subscriptions")
       return json(
         paid
