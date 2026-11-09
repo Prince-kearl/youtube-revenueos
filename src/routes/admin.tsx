@@ -21,6 +21,7 @@ import { SecuritySection } from "@/components/admin/sections/SecuritySection";
 import { AuditLogSection } from "@/components/admin/sections/AuditLogSection";
 import { SupportSection } from "@/components/admin/sections/SupportSection";
 import { InfrastructureSection } from "@/components/admin/sections/InfrastructureSection";
+import { YoutubeQuotaSection } from "@/components/admin/sections/YoutubeQuotaSection";
 import { RoadmapSection } from "@/components/admin/sections/RoadmapSection";
 import { ChangelogSection } from "@/components/admin/sections/ChangelogSection";
 
@@ -51,6 +52,7 @@ const SECTIONS: Record<AdminSection, React.ComponentType> = {
   audit: AuditLogSection,
   support: SupportSection,
   infrastructure: InfrastructureSection,
+  quota: YoutubeQuotaSection,
   roadmap: RoadmapSection,
   changelog: ChangelogSection,
 };

@@ -1,3 +1,5 @@
+import type { GoogleRevokeOutcome } from "./google-revoke";
+
 // Disconnecting YouTube removes ACCESS, not HISTORY.
 //
 // A channel is "connected" when its youtube_channels row points at a youtube_connections row
@@ -27,6 +29,10 @@ export interface DisconnectStore {
   countOtherChannelsUsingConnection(connectionId: string, exceptChannelId: string): Promise<number>;
   /** Delete the connection row and the encrypted tokens it holds. */
   deleteConnection(connectionId: string): Promise<void>;
+  /** Ask Google to end the grant behind the connection (google-revoke.ts). Called only when the
+   * credentials are about to be deleted, before they are; best effort — its outcome never stops
+   * the deletion. Optional so callers without Google access (tests) can leave it out. */
+  revokeAtGoogle?(connectionId: string): Promise<GoogleRevokeOutcome>;
 }
 
 export interface DisconnectResult {
@@ -36,6 +42,9 @@ export interface DisconnectResult {
    * another channel still depends on the same connection (e.g. a second channel under one Brand
    * Account grant), in which case they must stay until that channel is disconnected too. */
   credentialsRemoved: boolean;
+  /** What happened at Google when the credentials were removed ("not_attempted" when they were
+   * kept, or no revoker was given). */
+  googleAccess: GoogleRevokeOutcome | "not_attempted";
 }
 
 export async function softDisconnectChannel(
@@ -43,8 +52,14 @@ export async function softDisconnectChannel(
   channelId: string,
 ): Promise<DisconnectResult> {
   const channel = await store.getChannel(channelId);
-  if (!channel) return { status: "not_found", credentialsRemoved: false };
-  if (!channel.connectionId) return { status: "already_disconnected", credentialsRemoved: false };
+  if (!channel)
+    return { status: "not_found", credentialsRemoved: false, googleAccess: "not_attempted" };
+  if (!channel.connectionId)
+    return {
+      status: "already_disconnected",
+      credentialsRemoved: false,
+      googleAccess: "not_attempted",
+    };
 
   // A connection can back several channels. Its credentials are deleted only when this was the
   // last channel using them — never while a sibling still syncs through them. Counted BEFORE
@@ -52,7 +67,19 @@ export async function softDisconnectChannel(
   const others = await store.countOtherChannelsUsingConnection(channel.connectionId, channel.id);
 
   await store.detachChannel(channel.id);
-  if (others > 0) return { status: "disconnected", credentialsRemoved: false };
+  if (others > 0)
+    return { status: "disconnected", credentialsRemoved: false, googleAccess: "not_attempted" };
+
+  // End the grant at Google while the token can still be read — then delete it whatever Google
+  // said: removing the stored credentials never waits on Google.
+  let googleAccess: GoogleRevokeOutcome | "not_attempted" = "not_attempted";
+  if (store.revokeAtGoogle) {
+    try {
+      googleAccess = await store.revokeAtGoogle(channel.connectionId);
+    } catch {
+      googleAccess = "failed";
+    }
+  }
 
   try {
     await store.deleteConnection(channel.connectionId);
@@ -63,7 +90,7 @@ export async function softDisconnectChannel(
     await store.attachChannel(channel.id, channel.connectionId).catch(() => {});
     throw error;
   }
-  return { status: "disconnected", credentialsRemoved: true };
+  return { status: "disconnected", credentialsRemoved: true, googleAccess };
 }
 
 export interface ExistingChannelRow {

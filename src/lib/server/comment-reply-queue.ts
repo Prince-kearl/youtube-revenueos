@@ -18,6 +18,7 @@ import {
   type CommentReplyInput,
 } from "./ai-generation";
 import { recordAiUsage } from "./ai-usage";
+import { YOUTUBE_DAILY_QUOTA_UNITS as PROJECT_DAILY_QUOTA, quotaDayStart } from "./youtube-quota";
 import { loadVideoReplyContext, type VideoReplyContext } from "./comment-reply-context";
 
 // The Comment Automation reply queue (table comment_reply_jobs).
@@ -39,7 +40,7 @@ import { loadVideoReplyContext, type VideoReplyContext } from "./comment-reply-c
 // is given: callers authorize first (requireWorkspaceFeature, the channel lookup through the
 // caller's own RLS-scoped client).
 
-export const YOUTUBE_DAILY_QUOTA_UNITS = 10_000;
+export const YOUTUBE_DAILY_QUOTA_UNITS = PROJECT_DAILY_QUOTA;
 /** comments.insert costs 50 units. */
 export const REPLY_QUOTA_UNITS = 50;
 /** Units of the app-wide daily quota that replies never use (syncs, page loads). */
@@ -129,15 +130,18 @@ export async function replyAllowance(
     if (leadError) throw new ReplyQueueError("DATABASE_ERROR");
     sentToday = (count ?? 0) + (leadReplies ?? 0);
   }
-  // Every unit any Tubify user spent today: the quota is the app's, not the workspace's.
+  // Every unit any Tubify user spent today: the quota is the app's, not the workspace's. Measured
+  // requests only (source 'api', youtube-quota.ts), failed ones included — Google charges them
+  // too — counted from the start of Google's quota day (midnight Pacific time).
   let used = 0;
   try {
+    const quotaDay = quotaDayStart(now).toISOString();
     const events = await readAllRows<{ quota_units: number }>((from, to) =>
       service
         .from("youtube_quota_events")
         .select("id, quota_units")
-        .eq("succeeded", true)
-        .gte("created_at", day)
+        .eq("source", "api")
+        .gte("created_at", quotaDay)
         .order("id")
         .range(from, to),
     );

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canManageWorkspaceMembers, getWorkspaceContext } from "@/lib/server/workspace";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { softDisconnectChannel } from "@/lib/server/youtube-disconnect";
+import { revokeGoogleGrant } from "@/lib/server/google-revoke";
 
 const idSchema = z.string().uuid();
 
@@ -148,6 +149,10 @@ export const Route = createFileRoute("/api/youtube/channels")({
                 if (error) fail("count", error);
                 return count ?? 0;
               },
+              // Ends the grant at Google too, unless another connection uses the same Google
+              // account (google-revoke.ts). Never blocks deleting the stored credentials.
+              revokeAtGoogle: (connectionId) =>
+                revokeGoogleGrant(client, { connectionId, workspaceId }),
               async deleteConnection(connectionId) {
                 // Ask for the deleted row back: a delete that matches nothing is not an error in
                 // PostgREST, and the credentials must never be reported removed when they weren't.
@@ -167,7 +172,16 @@ export const Route = createFileRoute("/api/youtube/channels")({
 
           if (result.status === "not_found")
             return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
-          return json({ success: true, status: result.status });
+          // Logged without any id or token: an outcome other than revoked/already_invalid/skipped
+          // means the creator may still see Tubify listed in their Google account.
+          if (result.credentialsRemoved)
+            console.info("YouTube disconnect: Google access", { outcome: result.googleAccess });
+          return json({
+            success: true,
+            status: result.status,
+            credentialsRemoved: result.credentialsRemoved,
+            googleAccess: result.googleAccess,
+          });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)

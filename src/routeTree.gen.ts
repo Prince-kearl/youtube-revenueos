@@ -74,6 +74,7 @@ import { Route as ApiAdminSubscriptionGrantsRouteImport } from './routes/api.adm
 import { Route as ApiAdminUsersRouteImport } from './routes/api.admin.users'
 import { Route as ApiAdminWhoamiRouteImport } from './routes/api.admin.whoami'
 import { Route as ApiAdminWorkspacesRouteImport } from './routes/api.admin.workspaces'
+import { Route as ApiAdminYoutubeQuotaRouteImport } from './routes/api.admin.youtube-quota'
 import { Route as ApiAffiliateSummaryRouteImport } from './routes/api.affiliate.summary'
 import { Route as ApiAiAnalyzeVideoRouteImport } from './routes/api.ai.analyze-video'
 import { Route as ApiAssistantChatRouteImport } from './routes/api.assistant.chat'
@@ -475,6 +476,11 @@ const ApiAdminWhoamiRoute = ApiAdminWhoamiRouteImport.update({
 const ApiAdminWorkspacesRoute = ApiAdminWorkspacesRouteImport.update({
   id: '/api/admin/workspaces',
   path: '/api/admin/workspaces',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminYoutubeQuotaRoute = ApiAdminYoutubeQuotaRouteImport.update({
+  id: '/api/admin/youtube-quota',
+  path: '/api/admin/youtube-quota',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAffiliateSummaryRoute = ApiAffiliateSummaryRouteImport.update({
@@ -935,6 +941,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
+  '/api/admin/youtube-quota': typeof ApiAdminYoutubeQuotaRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
@@ -1078,6 +1085,7 @@ export interface FileRoutesByTo {
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
+  '/api/admin/youtube-quota': typeof ApiAdminYoutubeQuotaRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
@@ -1222,6 +1230,7 @@ export interface FileRoutesById {
   '/api/admin/users': typeof ApiAdminUsersRouteWithChildren
   '/api/admin/whoami': typeof ApiAdminWhoamiRoute
   '/api/admin/workspaces': typeof ApiAdminWorkspacesRoute
+  '/api/admin/youtube-quota': typeof ApiAdminYoutubeQuotaRoute
   '/api/affiliate/summary': typeof ApiAffiliateSummaryRoute
   '/api/ai/analyze-video': typeof ApiAiAnalyzeVideoRoute
   '/api/assistant/chat': typeof ApiAssistantChatRoute
@@ -1367,6 +1376,7 @@ export interface FileRouteTypes {
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
+    | '/api/admin/youtube-quota'
     | '/api/affiliate/summary'
     | '/api/ai/analyze-video'
     | '/api/assistant/chat'
@@ -1510,6 +1520,7 @@ export interface FileRouteTypes {
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
+    | '/api/admin/youtube-quota'
     | '/api/affiliate/summary'
     | '/api/ai/analyze-video'
     | '/api/assistant/chat'
@@ -1653,6 +1664,7 @@ export interface FileRouteTypes {
     | '/api/admin/users'
     | '/api/admin/whoami'
     | '/api/admin/workspaces'
+    | '/api/admin/youtube-quota'
     | '/api/affiliate/summary'
     | '/api/ai/analyze-video'
     | '/api/assistant/chat'
@@ -1795,6 +1807,7 @@ export interface RootRouteChildren {
   ApiAdminUsersRoute: typeof ApiAdminUsersRouteWithChildren
   ApiAdminWhoamiRoute: typeof ApiAdminWhoamiRoute
   ApiAdminWorkspacesRoute: typeof ApiAdminWorkspacesRoute
+  ApiAdminYoutubeQuotaRoute: typeof ApiAdminYoutubeQuotaRoute
   ApiAffiliateSummaryRoute: typeof ApiAffiliateSummaryRoute
   ApiAiAnalyzeVideoRoute: typeof ApiAiAnalyzeVideoRoute
   ApiAssistantChatRoute: typeof ApiAssistantChatRoute
@@ -2293,6 +2306,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/workspaces'
       fullPath: '/api/admin/workspaces'
       preLoaderRoute: typeof ApiAdminWorkspacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/youtube-quota': {
+      id: '/api/admin/youtube-quota'
+      path: '/api/admin/youtube-quota'
+      fullPath: '/api/admin/youtube-quota'
+      preLoaderRoute: typeof ApiAdminYoutubeQuotaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/affiliate/summary': {
@@ -3122,6 +3142,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminUsersRoute: ApiAdminUsersRouteWithChildren,
   ApiAdminWhoamiRoute: ApiAdminWhoamiRoute,
   ApiAdminWorkspacesRoute: ApiAdminWorkspacesRoute,
+  ApiAdminYoutubeQuotaRoute: ApiAdminYoutubeQuotaRoute,
   ApiAffiliateSummaryRoute: ApiAffiliateSummaryRoute,
   ApiAiAnalyzeVideoRoute: ApiAiAnalyzeVideoRoute,
   ApiAssistantChatRoute: ApiAssistantChatRoute,

@@ -94,7 +94,11 @@ test("disconnect keeps the channel row and all of its history", async () => {
 
   const result = await softDisconnectChannel(model, KEARL.id);
 
-  assert.deepEqual(result, { status: "disconnected", credentialsRemoved: true });
+  assert.deepEqual(result, {
+    status: "disconnected",
+    credentialsRemoved: true,
+    googleAccess: "not_attempted",
+  });
   assert.deepEqual(
     model.historyFor(KEARL.id),
     before,
@@ -125,12 +129,20 @@ test("credentials shared with another channel stay until that channel is disconn
   model.seed({ id: "channel-brand", youtubeChannelId: "UC-brand", connectionId: "conn-1" });
 
   const first = await softDisconnectChannel(model, KEARL.id);
-  assert.deepEqual(first, { status: "disconnected", credentialsRemoved: false });
+  assert.deepEqual(first, {
+    status: "disconnected",
+    credentialsRemoved: false,
+    googleAccess: "not_attempted",
+  });
   assert.equal(model.connections.has("conn-1"), true, "the sibling still syncs through them");
   assert.equal(model.channels.get("channel-brand")!.connectionId, "conn-1", "sibling untouched");
 
   const second = await softDisconnectChannel(model, "channel-brand");
-  assert.deepEqual(second, { status: "disconnected", credentialsRemoved: true });
+  assert.deepEqual(second, {
+    status: "disconnected",
+    credentialsRemoved: true,
+    googleAccess: "not_attempted",
+  });
   assert.equal(model.connections.size, 0);
 });
 
@@ -142,7 +154,11 @@ test("disconnecting twice is a harmless no-op", async () => {
 
   const again = await softDisconnectChannel(model, KEARL.id);
 
-  assert.deepEqual(again, { status: "already_disconnected", credentialsRemoved: false });
+  assert.deepEqual(again, {
+    status: "already_disconnected",
+    credentialsRemoved: false,
+    googleAccess: "not_attempted",
+  });
   assert.deepEqual(model.calls, [], "nothing was written");
   assert.equal(model.historyFor(KEARL.id).videoStats, 1);
 });
@@ -151,7 +167,11 @@ test("a channel the caller cannot see is reported as not found and nothing is to
   const model = new Model();
   model.seed({ ...KEARL });
   const result = await softDisconnectChannel(model, "someone-elses-channel");
-  assert.deepEqual(result, { status: "not_found", credentialsRemoved: false });
+  assert.deepEqual(result, {
+    status: "not_found",
+    credentialsRemoved: false,
+    googleAccess: "not_attempted",
+  });
   assert.equal(model.channels.get(KEARL.id)!.connectionId, "conn-1");
   assert.equal(model.connections.size, 1);
 });
@@ -181,7 +201,11 @@ test("if the credentials cannot be deleted the channel is not left looking disco
 
   model.failOn = null;
   const retry = await softDisconnectChannel(model, KEARL.id);
-  assert.deepEqual(retry, { status: "disconnected", credentialsRemoved: true });
+  assert.deepEqual(retry, {
+    status: "disconnected",
+    credentialsRemoved: true,
+    googleAccess: "not_attempted",
+  });
   assert.equal(model.connections.size, 0);
 });
 

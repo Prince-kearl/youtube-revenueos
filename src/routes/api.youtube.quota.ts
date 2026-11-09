@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireWorkspaceFeature } from "@/lib/server/workspace";
+import { YOUTUBE_DAILY_QUOTA_UNITS, quotaDayStart } from "@/lib/server/youtube-quota";
 
-// 10,000 units/day is Google's default YouTube Data API v3 quota per project — not a number this
-// app can query per-user, so it's a documented constant rather than a fabricated one.
-const YOUTUBE_DAILY_QUOTA_UNITS = 10_000;
+// The channel's measured YouTube Data API usage today (youtube-quota.ts): every request made for
+// it since midnight Pacific time, when Google resets the quota. 10,000 units/day is Google's
+// default quota for the app's project, shared by every channel.
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -37,14 +38,12 @@ export const Route = createFileRoute("/api/youtube/quota")({
           if (channelError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           if (!channel) return json({ data: { used: 0, max: YOUTUBE_DAILY_QUOTA_UNITS } });
 
-          const startOfDayUtc = new Date();
-          startOfDayUtc.setUTCHours(0, 0, 0, 0);
           const { data, error } = await client
             .from("youtube_quota_events")
             .select("quota_units")
             .eq("channel_id", channel.id)
-            .eq("succeeded", true)
-            .gte("created_at", startOfDayUtc.toISOString());
+            .eq("source", "api")
+            .gte("created_at", quotaDayStart().toISOString());
           if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
           const used = (data ?? []).reduce((sum, row) => sum + (row.quota_units as number), 0);
           return json({ data: { used, max: YOUTUBE_DAILY_QUOTA_UNITS } });

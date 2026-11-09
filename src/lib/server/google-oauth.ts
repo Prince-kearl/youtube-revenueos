@@ -1,5 +1,10 @@
 import { getServerEnv, requireServerEnv } from "./env";
-import { latestYoutubeAccessToken, youtubeAccessTokenForRetry } from "./youtube-token-registry";
+import {
+  latestYoutubeAccessToken,
+  youtubeAccessTokenForRetry,
+  youtubeConnectionForToken,
+} from "./youtube-token-registry";
+import { noteYoutubeRequest } from "./youtube-quota";
 
 // Do NOT request the youtubepartner scope (out of MVP scope) — read-only access is sufficient
 // for channel metadata, analytics, and revenue reporting. youtube.force-ssl IS requested despite
@@ -281,8 +286,17 @@ async function youtubeFetch(
   input: string | URL,
   init: RequestInit = {},
 ): Promise<Response> {
-  const send = (token: string) =>
-    fetch(input, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  // Every request sent is reported for quota accounting (youtube-quota.ts) — the retry below too:
+  // Google charges each request, whatever it answers. Reporting never fails the request.
+  const connectionId = youtubeConnectionForToken(accessToken);
+  const send = async (token: string) => {
+    const response = await fetch(input, {
+      ...init,
+      headers: { ...init.headers, Authorization: `Bearer ${token}` },
+    });
+    await noteYoutubeRequest(init.method ?? "GET", input, response.status, connectionId);
+    return response;
+  };
   const response = await send(latestYoutubeAccessToken(accessToken));
   if (response.status !== 401) return response;
 

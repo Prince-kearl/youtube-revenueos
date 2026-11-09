@@ -823,7 +823,7 @@ function Comments() {
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Each auto-reply costs 50 units — max ~200/day. Resets at midnight UTC.
+            Each auto-reply costs 50 units — max ~200/day. Resets at midnight Pacific time.
           </p>
         </div>
       )}

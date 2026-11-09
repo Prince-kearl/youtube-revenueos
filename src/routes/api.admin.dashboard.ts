@@ -6,7 +6,7 @@ import { trustedLivemode } from "@/lib/server/stripe-mode";
 
 // Same documented constant as api.youtube.quota.ts — Google's default YouTube Data API v3 quota
 // per project, not something queryable per-request.
-const YOUTUBE_DAILY_QUOTA_UNITS = 10_000;
+import { YOUTUBE_DAILY_QUOTA_UNITS, quotaDayKey, quotaDayStart } from "@/lib/server/youtube-quota";
 const MONTHS_BACK = 6;
 const DAYS_BACK = 14;
 
@@ -100,9 +100,13 @@ export const Route = createFileRoute("/api/admin/dashboard")({
             service.from("plan_prices").select("stripe_price_id, amount_cents"),
             service
               .from("youtube_quota_events")
+              // Measured requests (youtube-quota.ts), on Google's quota days (Pacific time).
               .select("quota_units, created_at")
-              .eq("succeeded", true)
-              .gte("created_at", startOfDaysAgo(DAYS_BACK - 1).toISOString()),
+              .eq("source", "api")
+              .gte(
+                "created_at",
+                quotaDayStart(new Date(Date.now() - (DAYS_BACK - 1) * 86_400_000)).toISOString(),
+              ),
             service
               .from("support_tickets")
               .select("id", { count: "exact", head: true })
@@ -147,14 +151,15 @@ export const Route = createFileRoute("/api/admin/dashboard")({
               pct: profiles.length ? Math.round((count / profiles.length) * 100) : 0,
             }));
 
+          const unitsByQuotaDay = new Map<string, number>();
+          for (const e of quotaEvents) {
+            const key = quotaDayKey(new Date(e.created_at as string));
+            unitsByQuotaDay.set(key, (unitsByQuotaDay.get(key) ?? 0) + (e.quota_units as number));
+          }
           const quotaByDay: { day: string; units: number }[] = [];
           for (let i = DAYS_BACK - 1; i >= 0; i--) {
-            const start = startOfDaysAgo(i);
-            const end = startOfDaysAgo(i - 1);
-            const units = quotaEvents
-              .filter((e) => new Date(e.created_at) >= start && new Date(e.created_at) < end)
-              .reduce((sum, e) => sum + (e.quota_units as number), 0);
-            quotaByDay.push({ day: dayKey(start), units });
+            const key = quotaDayKey(new Date(Date.now() - i * 86_400_000));
+            quotaByDay.push({ day: key, units: unitsByQuotaDay.get(key) ?? 0 });
           }
           const quotaToday = quotaByDay[quotaByDay.length - 1]?.units ?? 0;
 

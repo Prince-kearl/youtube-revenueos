@@ -2,6 +2,11 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { installYoutubeQuotaRecorder } from "./lib/server/youtube-quota-recorder";
+
+// Every YouTube Data API request is counted towards the app's daily quota from the first request
+// on (lib/server/youtube-quota.ts).
+installYoutubeQuotaRecorder();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

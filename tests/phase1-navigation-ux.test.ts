@@ -286,7 +286,7 @@ test("admin navigation: the groups and their sections (sample-data sections hidd
       ["Security & Audit", ["Audit Logs"]],
       ["Brand & Communications", ["Customization"]],
       ["Releases & Roadmap", ["Release Registry", "Roadmap", "Changelog"]],
-      ["System & Support", ["Support"]],
+      ["System & Support", ["YouTube API quota", "Support"]],
     ],
   );
 });
@@ -322,6 +322,7 @@ test("admin navigation: every section keeps its screen; the sample-data ones are
     "audit",
     "support",
     "infrastructure",
+    "quota",
   ];
   assert.deepEqual([...HIDDEN_ADMIN_SECTIONS].sort(), [...HIDDEN].sort());
   assert.deepEqual([...ADMIN_SECTIONS].sort(), all.filter((key) => !HIDDEN.includes(key)).sort());

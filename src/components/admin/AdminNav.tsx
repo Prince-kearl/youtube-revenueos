@@ -17,6 +17,7 @@ import {
   GitBranch,
   Rocket,
   History,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
@@ -43,6 +44,7 @@ const SECTION_ICONS: Record<AdminSection, typeof LayoutDashboard> = {
   changelog: History,
   system: Settings,
   infrastructure: Server,
+  quota: Gauge,
   support: LifeBuoy,
 };
 

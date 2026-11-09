@@ -427,6 +427,7 @@ test("an edit is refused before YouTube for a foreign channel, a refused caller,
     id: uuid(),
     quota_units: 8_000,
     succeeded: true,
+    source: "api",
     created_at: new Date().toISOString(),
   });
   const limited = await editReply(f, f.owner, ok);

@@ -25,7 +25,8 @@ export type AdminSection =
   | "features"
   | "releases"
   | "roadmap"
-  | "changelog";
+  | "changelog"
+  | "quota";
 
 export interface AdminNavGroup {
   label: string;
@@ -83,6 +84,7 @@ const ALL_ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     label: "System & Support",
     items: [
+      { key: "quota", label: "YouTube API quota" },
       { key: "system", label: "System" },
       { key: "infrastructure", label: "Infrastructure" },
       { key: "support", label: "Support" },

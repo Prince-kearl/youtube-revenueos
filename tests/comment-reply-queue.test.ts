@@ -24,6 +24,10 @@ const queueRoute = await import("../src/routes/api.comment-replies");
 const processRoute = await import("../src/routes/api.comment-replies.process");
 const replyRoute = await import("../src/routes/api.comment-rules.replies");
 const { personalizeReply, matchRule } = await import("../src/lib/comment-rule-match");
+// As in production (src/server.ts): every YouTube Data API request is recorded with its measured
+// cost (source 'api'), which is what the app-wide quota reserve counts.
+const { installYoutubeQuotaRecorder } = await import("../src/lib/server/youtube-quota-recorder");
+installYoutubeQuotaRecorder();
 
 type Thread = { id: string; videoId: string; channel: string; author: string; text: string };
 type Row = Record<string, unknown>;
@@ -331,10 +335,15 @@ test("processing sends a small batch to the right comments with the channel's ow
     (f.world.comment_automation_replies as Row[]).filter((r2) => r2.status === "sent").length,
     4,
   );
-  assert.equal(
-    (f.world.youtube_quota_events as Row[]).filter((e) => e.operation === "comments.insert").length,
-    4,
+  const inserts = (f.world.youtube_quota_events as Row[]).filter(
+    (e) => e.operation === "comments.insert",
   );
+  // One business event per reply (counted by the daily cap) and one measured request each
+  // (50 units, counted by the app-wide quota).
+  assert.equal(inserts.filter((e) => e.source !== "api").length, 4);
+  const measured = inserts.filter((e) => e.source === "api");
+  assert.equal(measured.length, 4);
+  assert.ok(measured.every((e) => e.quota_units === 50 && e.succeeded === true));
 });
 
 test("the per-workspace daily cap: the rest stays queued for tomorrow", async () => {
@@ -371,6 +380,7 @@ test("the app-wide quota reserve: replies stop before syncs would run out", asyn
     operation: "channels.list",
     quota_units: 7_900,
     succeeded: true,
+    source: "api",
     created_at: new Date().toISOString(),
   });
   const r = await process(f, f.owner);

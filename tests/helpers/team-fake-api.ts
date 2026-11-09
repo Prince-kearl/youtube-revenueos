@@ -58,6 +58,8 @@ export interface World {
   // Admin-granted subscriptions (none unless a test adds one).
   subscription_grants?: Row[];
   subscription_grant_events?: Row[];
+  /** youtube_quota_usage is missing (the migration is not applied). */
+  quotaUsageMissing?: boolean;
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
    * fail the test with "unexpected request". */
   external?: (
@@ -408,6 +410,13 @@ function matches(row: Row, params: URLSearchParams): boolean {
         .split(",")
         .map((v) => v.replace(/^"|"$/g, ""));
       if (actual === null || !options.includes(actual)) return false;
+    } else if (operator === "not" && operand.startsWith("in.")) {
+      const options = operand
+        .slice(3)
+        .replace(/^\(|\)$/g, "")
+        .split(",")
+        .map((v) => v.replace(/^"|"$/g, ""));
+      if (actual !== null && options.includes(actual)) return false;
     } else {
       throw new Error(`team-fake-api: unsupported filter ${column}=${expression}`);
     }
@@ -621,6 +630,39 @@ export async function callTeamApi(
         const link = (world.tracking_links ?? []).find((l) => l.id === args.p_link_id);
         if (link) link.clicks = Number(link.clicks ?? 0) + 1;
         return json(null, 204);
+      }
+      // Measured YouTube quota usage (202611090001_youtube_quota_accounting.sql), grouped as the
+      // SQL groups it: per Pacific day, operation and the workspace of the request's channel.
+      if (name === "youtube_quota_usage") {
+        if (world.quotaUsageMissing)
+          return json({ code: "PGRST202", message: "function not found" }, 404);
+        const from = Date.parse(String(args.p_from));
+        const to = Date.parse(String(args.p_to));
+        const day = (iso: string) =>
+          new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(
+            new Date(iso),
+          );
+        const groups = new Map<string, Row>();
+        for (const e of world.youtube_quota_events ?? []) {
+          const at = Date.parse(String(e.created_at));
+          if (e.source !== "api" || at < from || at >= to) continue;
+          const channel = (world.youtube_channels ?? []).find((c) => c.id === e.channel_id);
+          const ws = (channel?.workspace_id as string | undefined) ?? null;
+          const key = `${day(String(e.created_at))}|${e.operation}|${ws}`;
+          const g = groups.get(key) ?? {
+            day: day(String(e.created_at)),
+            operation: e.operation,
+            workspace_id: ws,
+            units: 0,
+            calls: 0,
+            failed: 0,
+          };
+          g.units = Number(g.units) + Number(e.quota_units);
+          g.calls = Number(g.calls) + 1;
+          g.failed = Number(g.failed) + (e.succeeded === false ? 1 : 0);
+          groups.set(key, g);
+        }
+        return json([...groups.values()]);
       }
       // Admin-granted subscriptions (202611080001_subscription_grants.sql), as the SQL does them:
       // one active grant per user, and every change writes its history and audit rows with it.

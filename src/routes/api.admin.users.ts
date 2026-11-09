@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission, canActOnUser, canManageRole, toAppRole } from "@/lib/server/roles";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { logAdminAudit } from "@/lib/server/admin-audit";
+import { revokeGoogleGrantsOfUser } from "@/lib/server/google-revoke";
 import {
   AdminUsersQueryError,
   adminCountUsersArgs,
@@ -337,6 +338,11 @@ export const Route = createFileRoute("/api/admin/users")({
             }
           }
 
+          // The deletion removes the account's YouTube connections (they cascade): end Tubify's
+          // access at Google for them first, while their tokens can still be read
+          // (google-revoke.ts). Best effort — it never stops the deletion.
+          const googleAccess = await revokeGoogleGrantsOfUser(service, targetId);
+
           const { error } = await service.auth.admin.deleteUser(targetId);
           if (error)
             return json({ error: "DELETE_FAILED", message: error.message }, { status: 502 });
@@ -345,6 +351,7 @@ export const Route = createFileRoute("/api/admin/users")({
             adminUserId: user.id,
             action: "user_deleted",
             target: target.id,
+            newValue: googleAccess.length ? { google_access: googleAccess } : undefined,
           });
           return json({ data: { id: targetId } });
         } catch (error) {

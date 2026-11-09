@@ -113,6 +113,12 @@ export async function youtubeAccessTokenForRetry(
   return state.inFlight;
 }
 
+/** The connection a token was handed out for, or null when it was never registered (used to
+ * credit each YouTube request's quota cost to a channel — see youtube-quota.ts). */
+export function youtubeConnectionForToken(token: string): string | null {
+  return tokens.get(token)?.connectionId ?? null;
+}
+
 /** Test helper: forget everything. */
 export function resetYoutubeTokenRegistry(): void {
   tokens.clear();
