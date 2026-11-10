@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
+import { analysisBasis } from "@/lib/youtube-description";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
 import { fetchPublicYoutubeVideoById, queryYoutubeAnalytics } from "@/lib/server/google-oauth";
 import {
@@ -240,6 +241,14 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
               )
             : EMPTY_PERFORMANCE;
 
+          // What this analysis judges, stamped on the answer (see analysisBasis).
+          const basis = analysisBasis({
+            title: video.title,
+            description,
+            tags: video.tags ?? [],
+            privacyStatus: video.privacyStatus,
+          });
+
           const aiInput: AnalyzeVideoInput = {
             video: {
               videoId: input.videoId,
@@ -316,7 +325,7 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
               task: TASK,
               cacheHit: true,
             });
-            return json({ data: cached, cached: true });
+            return json({ data: { ...cached, basis }, cached: true });
           }
 
           // 9. One analysis from the workspace's monthly allowance (refused when used up), then
@@ -345,7 +354,7 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
           await setCachedAiResult(service, cacheKey, TASK, analysis);
 
           // 13. Structured JSON to the client.
-          return json({ data: analysis, cached: false });
+          return json({ data: { ...analysis, basis }, cached: false });
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)

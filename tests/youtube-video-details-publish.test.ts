@@ -784,3 +784,50 @@ test("chapters are only suggested from a transcript that carries its own timesta
   assert.equal(transcriptHasTimestamps("0:00 hi\n0:42 so\n[01:30] then\nmore"), true);
   assert.equal(transcriptHasTimestamps("At 3:00 we start\nnothing else"), false);
 });
+
+// ---------- is the analysis on screen still about the video on YouTube? ----------
+
+test("an analysis's basis changes with the title, description, tags or visibility — nothing else", () => {
+  const base = { title: "S06 — DNA", description: "Body", tags: ["dna"], privacyStatus: "private" };
+  const b = lib.analysisBasis(base);
+  assert.match(b, /^v1:[0-9a-f]{8}$/);
+  assert.equal(
+    lib.analysisBasis({ ...base, title: " S06 — DNA ", description: "Body\r\n" }),
+    b,
+    "surrounding whitespace and line endings do not count",
+  );
+  for (const changed of [
+    { title: "S06 — DNA barcodes" },
+    { description: "Body, edited" },
+    { description: "" },
+    { tags: ["dna", "biology"] },
+    { privacyStatus: "public" },
+  ])
+    assert.notEqual(lib.analysisBasis({ ...base, ...changed }), b, JSON.stringify(changed));
+  assert.equal(
+    lib.analysisBasis({ ...base, description: null }),
+    lib.analysisBasis({ ...base, description: "" }),
+  );
+});
+
+test("the basis is kept when an analysis is saved, and an old analysis without one still loads", async () => {
+  const { AnalyzeVideoResultSchema } = await import("../src/lib/server/ai-generation");
+  const analysis = {
+    summary: "s",
+    overallScore: 5,
+    scores: { hook: 5, title: 5, seo: 5, content: 5, engagement: 5 },
+    strengths: [],
+    weaknesses: [],
+    titleSuggestions: [],
+    descriptionSuggestion: "",
+    keywordSuggestions: [],
+    recommendations: [],
+    contentIdeas: [],
+  };
+  assert.equal(
+    AnalyzeVideoResultSchema.parse({ ...analysis, basis: "v1:0badc0de" }).basis,
+    "v1:0badc0de",
+  );
+  assert.equal(AnalyzeVideoResultSchema.parse(analysis).basis, undefined);
+  assert.throws(() => AnalyzeVideoResultSchema.parse({ ...analysis, basis: "x".repeat(65) }));
+});

@@ -657,6 +657,9 @@ export const AnalyzeVideoResultSchema = z.object({
   keywordSuggestions: z.array(z.string()),
   recommendations: z.array(z.string()),
   contentIdeas: z.array(z.string()),
+  /** analysisBasis() of the details this analysis judged — added by the server, never by the
+   * model (it is not in ANALYZE_VIDEO_JSON_SCHEMA). Missing on analyses saved before it existed. */
+  basis: z.string().max(64).optional(),
 });
 export type AnalyzeVideoResult = z.infer<typeof AnalyzeVideoResultSchema>;
 

@@ -37,6 +37,7 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
 import {
+  analysisBasis,
   chaptersBlock,
   cleanTags,
   descriptionProblem,
@@ -99,6 +100,8 @@ type YoutubeVideo = {
 // intelligence report from POST /api/ai/analyze-video (OpenRouter), kept in sync manually since
 // that module is server-only and can't be imported into this client route.
 type ContentAnalysis = {
+  /** analysisBasis() of what was analyzed; missing on analyses saved before it existed. */
+  basis?: string;
   summary: string;
   overallScore: number;
   scores: {
@@ -287,8 +290,6 @@ function AddVideo() {
   const [optimizeTab, setOptimizeTab] = useState<OptimizeTab>("description");
   const [analysis, setAnalysis] = useState<ContentAnalysis | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
-  // Set when something was published to YouTube after the analysis on screen was made.
-  const [analysisOutdated, setAnalysisOutdated] = useState(false);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [destinationsError, setDestinationsError] = useState<string | null>(null);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
@@ -327,7 +328,6 @@ function AddVideo() {
     setOptimizeTab("description");
     setAnalysis(null);
     setAnalysisExpanded(false);
-    setAnalysisOutdated(false);
     setStatus("idle");
     setError(null);
   };
@@ -507,7 +507,9 @@ function AddVideo() {
         body: JSON.stringify({
           videoId: video.id,
           channelId: selectedChannelId ?? undefined,
-          description: description || null,
+          // The analysis judges the video as it is on YouTube (the server reads its title,
+          // description, tags and visibility), never an unpublished draft from the editor, so
+          // it can be compared with YouTube afterwards (analysisBasis).
           transcript: transcript || null,
         }),
       });
@@ -516,7 +518,6 @@ function AddVideo() {
         throw new Error(body.error ?? "AI_PROVIDER_FAILED");
       }
       setAnalysis(body.data);
-      setAnalysisOutdated(false);
       toast.success("Content analyzed");
     } catch (reason: unknown) {
       setError(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
@@ -738,8 +739,27 @@ function AddVideo() {
       setTagsDraft(now.tags);
       setChaptersText(existingChapters(now.description));
     },
-    onChanged: () => setAnalysisOutdated(true),
   });
+  // What is on YouTube now: after a publish, what the publisher knows; otherwise what was loaded.
+  const onYoutube = publisher.current ?? youtubeDetails;
+  // The analysis on screen no longer describes the video as it is on YouTube (its title,
+  // description, tags or visibility changed since), or it predates the stamp that would tell.
+  const analysisOutdated = Boolean(
+    analysis &&
+    onYoutube &&
+    video &&
+    analysis.basis !==
+      analysisBasis({
+        title: onYoutube.title,
+        description: onYoutube.description,
+        tags: onYoutube.tags,
+        privacyStatus: video.privacyStatus,
+      }),
+  );
+  // Whether the description editor holds exactly what YouTube has.
+  const draftOnYoutube =
+    onYoutube !== null &&
+    description.replace(/\r\n?/g, "\n").trim() === onYoutube.description.trim();
   const durationSeconds = video?.durationSeconds ?? null;
   const parsedChapters = parseChapters(chaptersText, durationSeconds);
   const cleanedTags = cleanTags(tagsDraft);
@@ -1181,9 +1201,9 @@ function AddVideo() {
             <div className="mt-4 flex flex-col gap-2 rounded-lg border border-border bg-accent/10 p-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                We’ll use this video’s details and transcript (if you’ve added one) to generate
-                insights. Analyzing never changes anything on YouTube — only a publish you confirm
-                does.
+                We’ll analyze the video as it is on YouTube now (title, description, tags and
+                visibility), plus its transcript if you’ve added one. Analyzing never changes
+                anything on YouTube — only a publish you confirm does.
               </p>
               <button
                 type="button"
@@ -1244,7 +1264,9 @@ function AddVideo() {
               >
                 <span className="flex items-start gap-1.5 text-warning">
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  This analysis is from before your latest changes on YouTube.
+                  {analysis?.basis
+                    ? "This analysis doesn't match the video on YouTube anymore: its title, description, tags or visibility have changed since."
+                    : "This analysis may be out of date: it was made before Tubify could tell what it was based on."}
                 </span>
                 <button
                   type="button"
@@ -1438,6 +1460,18 @@ function AddVideo() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-medium text-muted-foreground">
                     AI-generated description (editable)
+                    {loaded && onYoutube && isConnectedChannelVideo && (
+                      <span
+                        className={cn(
+                          "ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          draftOnYoutube
+                            ? "bg-success/15 text-success"
+                            : "bg-warning/15 text-warning",
+                        )}
+                      >
+                        {draftOnYoutube ? "Matches YouTube" : "Not on YouTube yet"}
+                      </span>
+                    )}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <button

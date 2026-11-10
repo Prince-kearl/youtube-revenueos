@@ -253,3 +253,31 @@ export const VISIBILITY_LABEL: Record<VideoVisibility, string> = {
 export function hasNoDescription(video: { description?: string | null }): boolean {
   return !video.description?.trim();
 }
+
+// ---- what a content analysis judged ----
+
+/**
+ * A fingerprint of the video details a content analysis was made from: title, description, tags
+ * and visibility. Stored with the analysis, so a page can tell whether the analysis still
+ * describes the video as it is on YouTube. Not a security measure (FNV-1a, 32-bit) — just a
+ * cheap, stable comparison that works the same in the browser and on the server.
+ */
+export function analysisBasis(details: {
+  title: string;
+  description: string | null;
+  tags?: string[] | null;
+  privacyStatus?: string | null;
+}): string {
+  const text = JSON.stringify([
+    details.title.trim(),
+    (details.description ?? "").replace(/\r\n?/g, "\n").trim(),
+    details.tags ?? [],
+    details.privacyStatus ?? "",
+  ]);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `v1:${hash.toString(16).padStart(8, "0")}`;
+}
