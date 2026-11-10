@@ -15,6 +15,7 @@ import {
   Loader2,
   Lock,
   Play,
+  RefreshCw,
   Save,
   Search,
   Sparkles,
@@ -286,6 +287,8 @@ function AddVideo() {
   const [optimizeTab, setOptimizeTab] = useState<OptimizeTab>("description");
   const [analysis, setAnalysis] = useState<ContentAnalysis | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
+  // Set when something was published to YouTube after the analysis on screen was made.
+  const [analysisOutdated, setAnalysisOutdated] = useState(false);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [destinationsError, setDestinationsError] = useState<string | null>(null);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
@@ -324,6 +327,7 @@ function AddVideo() {
     setOptimizeTab("description");
     setAnalysis(null);
     setAnalysisExpanded(false);
+    setAnalysisOutdated(false);
     setStatus("idle");
     setError(null);
   };
@@ -512,6 +516,7 @@ function AddVideo() {
         throw new Error(body.error ?? "AI_PROVIDER_FAILED");
       }
       setAnalysis(body.data);
+      setAnalysisOutdated(false);
       toast.success("Content analyzed");
     } catch (reason: unknown) {
       setError(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
@@ -733,6 +738,7 @@ function AddVideo() {
       setTagsDraft(now.tags);
       setChaptersText(existingChapters(now.description));
     },
+    onChanged: () => setAnalysisOutdated(true),
   });
   const durationSeconds = video?.durationSeconds ?? null;
   const parsedChapters = parseChapters(chaptersText, durationSeconds);
@@ -1231,9 +1237,38 @@ function AddVideo() {
                 </div>
               </div>
             )}
+            {analysis && analysisOutdated && (
+              <div
+                role="status"
+                className="mt-3 flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="flex items-start gap-1.5 text-warning">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  This analysis is from before your latest changes on YouTube.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void analyzeContent()}
+                  disabled={analyzing}
+                  className={cn(buttonSecondary, "h-8 shrink-0")}
+                >
+                  {analyzing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  {analyzing ? "Analyzing…" : "Re-analyze"}
+                </button>
+              </div>
+            )}
             {analysis && (
               <>
-                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                <div
+                  className={cn(
+                    "mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6",
+                    (analysisOutdated || analyzing) && "opacity-60",
+                  )}
+                >
                   <ScoreChip label="Overall" value={analysis.overallScore} highlight />
                   <ScoreChip label="Hook" value={analysis.scores.hook} />
                   <ScoreChip label="Title" value={analysis.scores.title} />

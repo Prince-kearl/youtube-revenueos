@@ -248,6 +248,9 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
               publishedAt: video.publishedAt,
               durationSeconds: video.durationSeconds,
               channelName: channel.channel_name,
+              privacyStatus: video.privacyStatus,
+              publishAt: video.publishAt,
+              tags: video.tags ?? [],
             },
             transcript,
             performance: {
@@ -297,6 +300,9 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             description,
             video.title,
             JSON.stringify(aiInput.performance),
+            // A video that went public, or whose tags changed, is analyzed afresh.
+            `${video.privacyStatus ?? ""}|${video.publishAt ?? ""}`,
+            (video.tags ?? []).join(","),
           ]);
           const cached = await getCachedAiResult<AnalyzeVideoResult>(service, cacheKey);
           if (cached) {

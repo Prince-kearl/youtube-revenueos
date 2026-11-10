@@ -606,7 +606,7 @@ export async function generateFreebieContent(input: FreebieInput): Promise<strin
 // shape, so the prompt was rewritten shorter, and explicit FACTS/INFERENCES/RECOMMENDATIONS
 // framing was added. Also moved off openrouter/free (unreliable for this workload in real
 // testing — see the model-selection note on generateVideoAnalysis) onto a specific capable model.
-export const ANALYZE_VIDEO_PROMPT_VERSION = "v2";
+export const ANALYZE_VIDEO_PROMPT_VERSION = "v3";
 
 export type AnalyzeVideoInput = {
   video: {
@@ -616,6 +616,11 @@ export type AnalyzeVideoInput = {
     publishedAt: string | null;
     durationSeconds: number | null;
     channelName: string | null;
+    /** YouTube's privacy status ("public", "unlisted", "private"); null when not known. */
+    privacyStatus?: string | null;
+    /** When a private video is scheduled to go public. */
+    publishAt?: string | null;
+    tags?: string[];
   };
   // null = legitimately unavailable (no caption track, or none pasted by the user) — never an
   // empty string standing in for "none", so the prompt below can tell the model the difference.
@@ -725,6 +730,15 @@ function truncatedTranscript(raw: string | null): string | null {
   return `${trimmed.slice(0, TRANSCRIPT_CHAR_LIMIT)}\n\n[TRANSCRIPT TRUNCATED — ${trimmed.length - TRANSCRIPT_CHAR_LIMIT} more characters were cut off. Base your analysis only on the portion shown, and note in the summary that this reflects only part of the video.]`;
 }
 
+function visibilityFact(privacyStatus?: string | null, publishAt?: string | null): string {
+  if (privacyStatus === "public") return "Public";
+  if (privacyStatus === "private" && publishAt)
+    return `Scheduled — private until it goes public at ${publishAt}`;
+  if (privacyStatus === "private") return "Private — not published yet";
+  if (privacyStatus === "unlisted") return "Unlisted — only people with the link can see it";
+  return "Not available";
+}
+
 // Exported for tests to verify unavailable metrics render as "Not available" text rather than
 // silently becoming 0/blank — not called directly by any other module.
 export function analyzeVideoPromptFor(input: AnalyzeVideoInput): { system: string; user: string } {
@@ -742,6 +756,8 @@ export function analyzeVideoPromptFor(input: AnalyzeVideoInput): { system: strin
     "- FACTS: video metadata and performance metrics, sourced directly from YouTube. Never contradict, recompute, or round these. A metric marked 'Not available' does not exist for this video — never treat it as zero, and never invent a value for it (this applies especially to revenue, views, watch time, retention, and subscriber count).",
     "- CONTENT: the title, description, and transcript (if supplied) — the only source for judging what the video is actually about and how it's made.",
     "- Your job: produce INFERENCES (scores, strengths, weaknesses — your honest read of the FACTS and CONTENT) and RECOMMENDATIONS (titleSuggestions, descriptionSuggestion, keywordSuggestions, recommendations, contentIdeas — your suggestions for what to do next). Write INFERENCES as observations about what exists; write RECOMMENDATIONS as suggestions, not claims about what already exists.",
+    "",
+    "If Visibility is anything other than Public, the video has no audience yet: never treat its zero or missing views, likes, comments, watch time or subscribers as a weakness or a sign of low engagement. Score Engagement on how well the content is set up to engage (hook, call to action, questions to viewers), and say in the summary that the video isn't published yet.",
     "",
     "Rules: base every statement on the supplied FACTS/CONTENT only, never generic advice that could apply to any video. If no transcript was supplied, say so in the summary and keep content-quality judgments limited to the title and description. Scores are 0-10, decimals allowed. Return only the structured response — no extra commentary.",
   ].join("\n");
@@ -762,12 +778,16 @@ export function analyzeVideoPromptFor(input: AnalyzeVideoInput): { system: strin
     `Video ID: ${input.video.videoId}`,
     `Title: ${input.video.title}`,
     `Channel: ${input.video.channelName ?? "Not available"}`,
+    `Visibility: ${visibilityFact(input.video.privacyStatus, input.video.publishAt)}`,
     `Published: ${input.video.publishedAt ?? "Not available"}`,
     `Duration (seconds): ${numOrUnavailable(input.video.durationSeconds)}`,
     performanceLines,
     "",
     `CONTENT — description:`,
     description ?? "Not available",
+    "",
+    `CONTENT — tags:`,
+    input.video.tags?.length ? input.video.tags.join(", ") : "None",
     "",
     `CONTENT — transcript:`,
     transcript ??

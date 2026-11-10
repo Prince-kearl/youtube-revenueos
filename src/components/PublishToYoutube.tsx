@@ -57,6 +57,7 @@ export function useYoutubePublisher({
   video,
   initial,
   onRestored,
+  onChanged,
 }: {
   channelId: string | null;
   video: PublishVideo | null;
@@ -64,6 +65,8 @@ export function useYoutubePublisher({
   initial: YoutubeDetails | null;
   /** After an undo: what is back on YouTube, for the page's editors. */
   onRestored?: (current: YoutubeDetails) => void;
+  /** After any publish or undo that changed YouTube. */
+  onChanged?: () => void;
 }) {
   const key = channelId && video && initial ? `${channelId}:${video.id}` : null;
   const [current, setCurrent] = useState<YoutubeDetails | null>(initial);
@@ -78,6 +81,8 @@ export function useYoutubePublisher({
   const shownKey = useRef<string | null>(key);
   const restored = useRef(onRestored);
   restored.current = onRestored;
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
 
   // A new video (or channel) starts over.
   useEffect(() => {
@@ -144,6 +149,7 @@ export function useYoutubePublisher({
           setUndoAvailable(body.data.undoAvailable);
           setPending(null);
         }
+        if (onScreen() && body.data.status !== "unchanged") changed.current?.();
         if (action === "undo") {
           if (onScreen()) restored.current?.(now);
           toast.success("The previous version is back on YouTube.");

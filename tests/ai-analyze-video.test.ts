@@ -655,3 +655,30 @@ test("model reliability: the real configured model handles the actual Analyze Vi
   assert.ok(outcome!.result.recommendations.length > 0, "expected at least one recommendation");
   assert.ok(latencyMs < 30_000, `latency ${latencyMs}ms exceeded the 30s provider timeout budget`);
 });
+
+test("an unpublished video is analyzed as one: its status is a fact, and missing views are not a weakness", () => {
+  const privateVideo = {
+    ...sampleInput,
+    video: { ...sampleInput.video, privacyStatus: "private", publishAt: null, tags: [] },
+  };
+  const { user, system } = analyzeVideoPromptFor(privateVideo);
+  assert.match(user, /Visibility: Private — not published yet/);
+  assert.match(system, /never treat its zero or missing views/);
+  assert.match(user, /CONTENT — tags:\nNone/);
+
+  const scheduled = analyzeVideoPromptFor({
+    ...sampleInput,
+    video: { ...sampleInput.video, privacyStatus: "private", publishAt: "2026-12-01T10:00:00Z" },
+  });
+  assert.match(
+    scheduled.user,
+    /Visibility: Scheduled — private until it goes public at 2026-12-01T10:00:00Z/,
+  );
+
+  const live = analyzeVideoPromptFor({
+    ...sampleInput,
+    video: { ...sampleInput.video, privacyStatus: "public", tags: ["dna", "biology"] },
+  });
+  assert.match(live.user, /Visibility: Public/);
+  assert.match(live.user, /CONTENT — tags:\ndna, biology/);
+});
