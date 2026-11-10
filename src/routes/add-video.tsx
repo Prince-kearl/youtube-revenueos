@@ -290,6 +290,9 @@ function AddVideo() {
   const [destinationsError, setDestinationsError] = useState<string | null>(null);
   const [selectedDestinationIds, setSelectedDestinationIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  // The video being loaded, so its row in the picker can show a spinner and the page can show a
+  // placeholder card until it arrives.
+  const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -427,6 +430,7 @@ function AddVideo() {
       return;
     }
     setLoading(true);
+    setLoadingVideoId(youtubeVideoId);
     setError(null);
     setErrorAction("load");
     try {
@@ -483,6 +487,7 @@ function AddVideo() {
       setStatus(code === "YOUTUBE_REAUTH_REQUIRED" ? "reauth" : "error");
     } finally {
       setLoading(false);
+      setLoadingVideoId(null);
     }
   };
 
@@ -1044,7 +1049,7 @@ function AddVideo() {
                           disabled={loading}
                           className={cn(
                             "flex w-full items-center gap-3 rounded-lg border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                            video?.id === item.id
+                            video?.id === item.id || loadingVideoId === item.id
                               ? "border-primary bg-primary/10"
                               : "border-border bg-background hover:border-primary/40",
                           )}
@@ -1072,7 +1077,7 @@ function AddVideo() {
                               views
                             </span>
                           </span>
-                          {loading && video?.id === item.id && (
+                          {loading && loadingVideoId === item.id && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                           )}
                         </button>
@@ -1109,6 +1114,29 @@ function AddVideo() {
                   {loading ? "Loading…" : "Load video"}
                 </button>
               </form>
+            )}
+
+            {loading && !video && (
+              <div
+                className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-accent/20 p-3 sm:flex-row sm:items-center"
+                role="status"
+                aria-busy="true"
+              >
+                <Skeleton className="h-[72px] w-32 shrink-0 rounded-md" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    Loading the video from YouTube…
+                  </p>
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+                <div className="grid grid-cols-3 gap-2 sm:w-56">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <Skeleton key={index} className="h-11 w-full rounded-md" />
+                  ))}
+                </div>
+              </div>
             )}
 
             {video && (
@@ -1148,7 +1176,8 @@ function AddVideo() {
               <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 We’ll use this video’s details and transcript (if you’ve added one) to generate
-                insights. Tubify never publishes changes back to YouTube.
+                insights. Analyzing never changes anything on YouTube — only a publish you confirm
+                does.
               </p>
               <button
                 type="button"
@@ -1180,9 +1209,11 @@ function AddVideo() {
             </div>
             {!analysis && !analyzing && (
               <p className="mt-3 text-sm text-muted-foreground">
-                {loaded
-                  ? 'Click "Analyze video" above to see it.'
-                  : "Select a video above to analyze its content."}
+                {loading
+                  ? "Loading the video…"
+                  : loaded
+                    ? 'Click "Analyze video" above to see it.'
+                    : "Select a video above to analyze its content."}
               </p>
             )}
             {analyzing && !analysis && (
