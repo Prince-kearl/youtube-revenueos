@@ -34,7 +34,14 @@ import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher"
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
 import { VideoStatusBadges } from "@/components/VideoStatusBadges";
-import { DescriptionProblemNote, PublishToYoutube } from "@/components/PublishToYoutube";
+import {
+  DescriptionProblemNote,
+  PublishButton,
+  UndoPublishButton,
+  useYoutubePublisher,
+  type YoutubeDetails,
+} from "@/components/PublishToYoutube";
+import { descriptionProblem } from "@/lib/youtube-description";
 
 export const Route = createFileRoute("/ai-lab")({
   component: AILab,
@@ -56,6 +63,7 @@ type YoutubeVideo = {
   channelId: string | null;
   title: string;
   description: string | null;
+  tags?: string[];
   thumbnail: string | null;
   publishedAt: string | null;
   duration: string | null;
@@ -186,10 +194,9 @@ function AILab() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Publishing to YouTube (api.youtube.video-description.ts). `youtubeDescription` is what YouTube
-  // held when the video was loaded (or last published): the server refuses to overwrite anything
-  // else, so an edit made in YouTube Studio meanwhile is never lost.
-  const [youtubeDescription, setYoutubeDescription] = useState<string | null>(null);
+  // Publishing to YouTube (components/PublishToYoutube.tsx): what YouTube held when the video was
+  // loaded. The server refuses to overwrite anything else, so a Studio edit is never lost.
+  const [youtubeDetails, setYoutubeDetails] = useState<YoutubeDetails | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -293,7 +300,7 @@ function AILab() {
     setTranscript("");
     setDescription("");
     setDescriptionTouched(false);
-    setYoutubeDescription(null);
+    setYoutubeDetails(null);
     try {
       const params = new URLSearchParams({ videoId: youtubeVideoId });
       if (activeChannelId) params.set("channelId", activeChannelId);
@@ -311,7 +318,11 @@ function AILab() {
         body.data.savedVideo?.description ?? body.data.video.description ?? "";
       setDescription(startingDescription);
       setDescriptionTouched(Boolean(body.data.savedVideo?.description));
-      setYoutubeDescription(body.data.video.description ?? "");
+      setYoutubeDetails({
+        title: body.data.video.title,
+        description: body.data.video.description ?? "",
+        tags: body.data.video.tags ?? [],
+      });
       setVideoLoadStatus("loaded");
     } catch (reason: unknown) {
       const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
@@ -492,6 +503,12 @@ function AILab() {
   );
 
   const loaded = videoLoadStatus === "loaded" && Boolean(video);
+  const publisher = useYoutubePublisher({
+    channelId: selectedChannelId,
+    video: loaded ? video : null,
+    initial: loaded ? youtubeDetails : null,
+    onRestored: (now) => setDescription(now.description),
+  });
   const triggerVideo = video && video.id === selectedVideoId ? video : selectedVideoSummary;
 
   return (
@@ -941,16 +958,13 @@ function AILab() {
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copied" : "Copy"}
               </button>
-              {loaded && video && selectedChannelId && youtubeDescription !== null && (
-                <PublishToYoutube
-                  key={video.id}
-                  channelId={selectedChannelId}
-                  video={video}
-                  youtubeDescription={youtubeDescription}
-                  description={description}
-                  onRestored={setDescription}
-                />
-              )}
+              <UndoPublishButton publisher={publisher} />
+              <PublishButton
+                publisher={publisher}
+                changes={{ description }}
+                label="description"
+                problem={descriptionProblem(description)}
+              />
             </div>
           </div>
 
@@ -1022,6 +1036,8 @@ function AILab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {publisher.dialog}
 
       <NewFreebieDialog
         open={newFreebieOpen}

@@ -136,7 +136,7 @@ import { Route as ApiYoutubeSettingsRouteImport } from './routes/api.youtube.set
 import { Route as ApiYoutubeStatsSyncRouteImport } from './routes/api.youtube.stats-sync'
 import { Route as ApiYoutubeSyncRouteImport } from './routes/api.youtube.sync'
 import { Route as ApiYoutubeVideoRouteImport } from './routes/api.youtube.video'
-import { Route as ApiYoutubeVideoDescriptionRouteImport } from './routes/api.youtube.video-description'
+import { Route as ApiYoutubeVideoDetailsRouteImport } from './routes/api.youtube.video-details'
 import { Route as ApiYoutubeVideosRouteImport } from './routes/api.youtube.videos'
 import { Route as ApiAdminFeaturesBulkRouteImport } from './routes/api.admin.features.bulk'
 import { Route as ApiAdminPlansAuditRouteImport } from './routes/api.admin.plans.audit'
@@ -794,12 +794,11 @@ const ApiYoutubeVideoRoute = ApiYoutubeVideoRouteImport.update({
   path: '/api/youtube/video',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYoutubeVideoDescriptionRoute =
-  ApiYoutubeVideoDescriptionRouteImport.update({
-    id: '/api/youtube/video-description',
-    path: '/api/youtube/video-description',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const ApiYoutubeVideoDetailsRoute = ApiYoutubeVideoDetailsRouteImport.update({
+  id: '/api/youtube/video-details',
+  path: '/api/youtube/video-details',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYoutubeVideosRoute = ApiYoutubeVideosRouteImport.update({
   id: '/api/youtube/videos',
   path: '/api/youtube/videos',
@@ -1010,7 +1009,7 @@ export interface FileRoutesByFullPath {
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
-  '/api/youtube/video-description': typeof ApiYoutubeVideoDescriptionRoute
+  '/api/youtube/video-details': typeof ApiYoutubeVideoDetailsRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
@@ -1155,7 +1154,7 @@ export interface FileRoutesByTo {
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
-  '/api/youtube/video-description': typeof ApiYoutubeVideoDescriptionRoute
+  '/api/youtube/video-details': typeof ApiYoutubeVideoDetailsRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
@@ -1301,7 +1300,7 @@ export interface FileRoutesById {
   '/api/youtube/stats-sync': typeof ApiYoutubeStatsSyncRoute
   '/api/youtube/sync': typeof ApiYoutubeSyncRoute
   '/api/youtube/video': typeof ApiYoutubeVideoRoute
-  '/api/youtube/video-description': typeof ApiYoutubeVideoDescriptionRoute
+  '/api/youtube/video-details': typeof ApiYoutubeVideoDetailsRoute
   '/api/youtube/videos': typeof ApiYoutubeVideosRoute
   '/api/admin/features/bulk': typeof ApiAdminFeaturesBulkRoute
   '/api/admin/plans/audit': typeof ApiAdminPlansAuditRoute
@@ -1448,7 +1447,7 @@ export interface FileRouteTypes {
     | '/api/youtube/stats-sync'
     | '/api/youtube/sync'
     | '/api/youtube/video'
-    | '/api/youtube/video-description'
+    | '/api/youtube/video-details'
     | '/api/youtube/videos'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
@@ -1593,7 +1592,7 @@ export interface FileRouteTypes {
     | '/api/youtube/stats-sync'
     | '/api/youtube/sync'
     | '/api/youtube/video'
-    | '/api/youtube/video-description'
+    | '/api/youtube/video-details'
     | '/api/youtube/videos'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
@@ -1738,7 +1737,7 @@ export interface FileRouteTypes {
     | '/api/youtube/stats-sync'
     | '/api/youtube/sync'
     | '/api/youtube/video'
-    | '/api/youtube/video-description'
+    | '/api/youtube/video-details'
     | '/api/youtube/videos'
     | '/api/admin/features/bulk'
     | '/api/admin/plans/audit'
@@ -1860,7 +1859,7 @@ export interface RootRouteChildren {
   ApiYoutubeStatsSyncRoute: typeof ApiYoutubeStatsSyncRoute
   ApiYoutubeSyncRoute: typeof ApiYoutubeSyncRoute
   ApiYoutubeVideoRoute: typeof ApiYoutubeVideoRoute
-  ApiYoutubeVideoDescriptionRoute: typeof ApiYoutubeVideoDescriptionRoute
+  ApiYoutubeVideoDetailsRoute: typeof ApiYoutubeVideoDetailsRoute
   ApiYoutubeVideosRoute: typeof ApiYoutubeVideosRoute
   ApiAdminSupportTicketsRoute: typeof ApiAdminSupportTicketsRoute
 }
@@ -2756,11 +2755,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiYoutubeVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/youtube/video-description': {
-      id: '/api/youtube/video-description'
-      path: '/api/youtube/video-description'
-      fullPath: '/api/youtube/video-description'
-      preLoaderRoute: typeof ApiYoutubeVideoDescriptionRouteImport
+    '/api/youtube/video-details': {
+      id: '/api/youtube/video-details'
+      path: '/api/youtube/video-details'
+      fullPath: '/api/youtube/video-details'
+      preLoaderRoute: typeof ApiYoutubeVideoDetailsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/youtube/videos': {
@@ -3203,7 +3202,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiYoutubeStatsSyncRoute: ApiYoutubeStatsSyncRoute,
   ApiYoutubeSyncRoute: ApiYoutubeSyncRoute,
   ApiYoutubeVideoRoute: ApiYoutubeVideoRoute,
-  ApiYoutubeVideoDescriptionRoute: ApiYoutubeVideoDescriptionRoute,
+  ApiYoutubeVideoDetailsRoute: ApiYoutubeVideoDetailsRoute,
   ApiYoutubeVideosRoute: ApiYoutubeVideosRoute,
   ApiAdminSupportTicketsRoute: ApiAdminSupportTicketsRoute,
 }

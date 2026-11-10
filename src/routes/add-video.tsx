@@ -22,6 +22,7 @@ import {
   Trash2,
   TriangleAlert,
   Upload,
+  X,
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,8 +35,30 @@ import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
-import { VISIBILITY_LABEL, videoVisibility } from "@/lib/youtube-description";
-import { DescriptionProblemNote, PublishToYoutube } from "@/components/PublishToYoutube";
+import {
+  chaptersBlock,
+  cleanTags,
+  descriptionProblem,
+  descriptionWithCallToAction,
+  descriptionWithChapters,
+  parseChapterLine,
+  parseChapters,
+  PUBLISH_PROBLEM_TEXT,
+  tagsLength,
+  tagsProblem,
+  titleProblem,
+  VISIBILITY_LABEL,
+  videoVisibility,
+  YOUTUBE_TAGS_MAX_CHARS,
+  YOUTUBE_TITLE_MAX_CHARS,
+} from "@/lib/youtube-description";
+import {
+  DescriptionProblemNote,
+  PublishButton,
+  UndoPublishButton,
+  useYoutubePublisher,
+  type YoutubeDetails,
+} from "@/components/PublishToYoutube";
 import { VideoStatusBadges } from "@/components/VideoStatusBadges";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
 
@@ -57,6 +80,8 @@ type YoutubeVideo = {
   channelId: string | null;
   title: string;
   description: string | null;
+  tags?: string[];
+  durationSeconds?: number | null;
   thumbnail: string | null;
   publishedAt: string | null;
   duration: string | null;
@@ -242,7 +267,12 @@ function AddVideo() {
   const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
   const [isConnectedChannelVideo, setIsConnectedChannelVideo] = useState(false);
   // What YouTube held when the video was loaded, for Publish to YouTube (PublishToYoutube.tsx).
-  const [youtubeDescription, setYoutubeDescription] = useState<string | null>(null);
+  const [youtubeDetails, setYoutubeDetails] = useState<YoutubeDetails | null>(null);
+  // Editable drafts for publishing the other tabs: the chosen title, the tag list, the chapters.
+  const [titleDraft, setTitleDraft] = useState("");
+  const [tagsDraft, setTagsDraft] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [chaptersText, setChaptersText] = useState("");
   const [transcript, setTranscript] = useState("");
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [description, setDescription] = useState("");
@@ -276,7 +306,11 @@ function AddVideo() {
     setVideo(null);
     setSavedVideoId(null);
     setIsConnectedChannelVideo(false);
-    setYoutubeDescription(null);
+    setYoutubeDetails(null);
+    setTitleDraft("");
+    setTagsDraft([]);
+    setNewTag("");
+    setChaptersText("");
     setTranscript("");
     setTranscriptExpanded(false);
     setDescription("");
@@ -413,7 +447,15 @@ function AddVideo() {
       setVideo(body.data.video);
       setSelectedChannelId(body.data.channel.id);
       setIsConnectedChannelVideo(body.data.ownership === "connected");
-      setYoutubeDescription(body.data.video.description ?? "");
+      const loadedDescription = body.data.video.description ?? "";
+      setYoutubeDetails({
+        title: body.data.video.title,
+        description: loadedDescription,
+        tags: body.data.video.tags ?? [],
+      });
+      setTitleDraft(body.data.video.title);
+      setTagsDraft(body.data.video.tags ?? []);
+      setChaptersText(existingChapters(loadedDescription));
       setSavedVideoId(body.data.savedVideo?.id ?? null);
       setTranscript(body.data.transcript?.transcript ?? "");
       setDescription(body.data.savedVideo?.description ?? body.data.video.description ?? "");
@@ -485,6 +527,7 @@ function AddVideo() {
         body: JSON.stringify({
           channelId: selectedChannelId,
           title: video.title,
+          durationSeconds: video.durationSeconds ?? null,
           currentDescription: description || video.description,
           transcript: transcript || null,
           destinations: selectedDestinations.map((destination) => ({
@@ -494,7 +537,13 @@ function AddVideo() {
         }),
       });
       const body = (await response.json()) as {
-        data?: { description: string; titleIdeas: string[]; tags: string[]; ctaIdeas: string[] };
+        data?: {
+          description: string;
+          titleIdeas: string[];
+          tags: string[];
+          ctaIdeas: string[];
+          chapters?: Array<{ timestamp: string; title: string }>;
+        };
         error?: string;
       };
       if (!response.ok || !body.data) {
@@ -504,7 +553,13 @@ function AddVideo() {
       setDescriptionTouched(true);
       setTitleIdeas(body.data.titleIdeas);
       setTags(body.data.tags);
+      // The tags to publish start as the video's own tags plus the new suggestions.
+      setTagsDraft((draft) => cleanTags([...draft, ...body.data!.tags]));
       setCtaIdeas(body.data.ctaIdeas);
+      const suggested = (body.data.chapters ?? [])
+        .map((c) => parseChapterLine(`${c.timestamp} ${c.title}`))
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      if (suggested.length) setChaptersText(chaptersBlock(suggested));
       toast.success("Optimization suggestions generated");
     } catch (reason: unknown) {
       setError(errorMessage(reason instanceof Error ? reason.message : "AI_PROVIDER_FAILED"));
@@ -663,6 +718,20 @@ function AddVideo() {
   }[errorAction];
 
   const loaded = status === "loaded";
+  const publisher = useYoutubePublisher({
+    channelId: selectedChannelId,
+    video: loaded && isConnectedChannelVideo ? video : null,
+    initial: loaded && isConnectedChannelVideo ? youtubeDetails : null,
+    onRestored: (now) => {
+      setDescription(now.description);
+      setTitleDraft(now.title);
+      setTagsDraft(now.tags);
+      setChaptersText(existingChapters(now.description));
+    },
+  });
+  const durationSeconds = video?.durationSeconds ?? null;
+  const parsedChapters = parseChapters(chaptersText, durationSeconds);
+  const cleanedTags = cleanTags(tagsDraft);
   const stepsDone = [loaded, Boolean(analysis), descriptionTouched, Boolean(savedVideoId)];
   const currentStepIndex = stepsDone.findIndex((done) => !done);
   const activeStepIndex = currentStepIndex === -1 ? stepMeta.length - 1 : currentStepIndex;
@@ -1328,21 +1397,17 @@ function AddVideo() {
                       {copied ? "Copied" : "Copy"}
                     </button>
                     {/* Only for a video on the connected channel; the server checks again. */}
-                    {loaded &&
-                      video &&
-                      isConnectedChannelVideo &&
-                      selectedChannelId &&
-                      youtubeDescription !== null && (
-                        <PublishToYoutube
-                          key={video.id}
-                          channelId={selectedChannelId}
-                          video={video}
-                          youtubeDescription={youtubeDescription}
-                          description={description}
-                          onRestored={setDescription}
-                          buttonClassName="h-9 rounded-full border border-border bg-transparent text-muted-foreground"
-                        />
-                      )}
+                    <UndoPublishButton
+                      publisher={publisher}
+                      className="h-9 rounded-full border border-border bg-transparent text-muted-foreground"
+                    />
+                    <PublishButton
+                      publisher={publisher}
+                      changes={{ description }}
+                      label="description"
+                      problem={descriptionProblem(description)}
+                      className="h-9"
+                    />
                   </div>
                 </div>
                 <textarea
@@ -1372,24 +1437,76 @@ function AddVideo() {
             {optimizeTab === "titles" && (
               <div className="mt-4">
                 {titleIdeas.length ? (
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-1.5" aria-label="Title ideas">
                     {titleIdeas.map((idea) => (
-                      <li
-                        key={idea}
-                        className="rounded-lg border border-border bg-background p-2.5 text-sm"
-                      >
-                        {idea}
+                      <li key={idea}>
+                        <button
+                          type="button"
+                          onClick={() => setTitleDraft(idea)}
+                          aria-pressed={titleDraft === idea}
+                          className={cn(
+                            "w-full rounded-lg border p-2.5 text-left text-sm transition-colors",
+                            titleDraft === idea
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-background hover:bg-accent/40",
+                          )}
+                        >
+                          {idea}
+                        </button>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <EmptyOptimizeState loaded={loaded} label="title ideas" />
                 )}
+                {loaded && publisher.ready && (
+                  <div className="mt-4 space-y-2">
+                    <label
+                      htmlFor="title-draft"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Title to publish{titleIdeas.length ? " (pick an idea above, or edit it)" : ""}
+                    </label>
+                    <input
+                      id="title-draft"
+                      value={titleDraft}
+                      onChange={(event) => setTitleDraft(event.target.value)}
+                      maxLength={200}
+                      className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          titleProblem(titleDraft) ? "text-destructive" : "text-muted-foreground",
+                        )}
+                      >
+                        {titleProblem(titleDraft)
+                          ? PUBLISH_PROBLEM_TEXT[titleProblem(titleDraft)!]
+                          : `${[...titleDraft].length} / ${YOUTUBE_TITLE_MAX_CHARS}`}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <UndoPublishButton publisher={publisher} />
+                        <PublishButton
+                          publisher={publisher}
+                          changes={{ title: titleDraft }}
+                          label="title"
+                          problem={titleProblem(titleDraft)}
+                        >
+                          Publish title
+                        </PublishButton>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {optimizeTab === "tags" && (
               <div className="mt-4">
-                {tags.length ? (
+                {!tags.length && !(loaded && publisher.ready) && (
+                  <EmptyOptimizeState loaded={loaded} label="tags" />
+                )}
+                {!(loaded && publisher.ready) && tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {tags.map((tag) => (
                       <span
@@ -1400,15 +1517,149 @@ function AddVideo() {
                       </span>
                     ))}
                   </div>
-                ) : (
-                  <EmptyOptimizeState loaded={loaded} label="tags" />
+                )}
+                {loaded && publisher.ready && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      {tags.length
+                        ? "Your video's current tags plus the suggestions. Remove any you don't want, then publish."
+                        : "Your video's current tags. Generate on the Description tab for suggestions, or add your own."}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5" aria-label="Tags to publish">
+                      {cleanedTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={cn(
+                            "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+                            tags.some((t) => t.toLowerCase() === tag.toLowerCase()) &&
+                              !publisher.current?.tags.includes(tag)
+                              ? "bg-primary/10 text-primary"
+                              : "bg-accent",
+                          )}
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => setTagsDraft((draft) => draft.filter((t) => t !== tag))}
+                            aria-label={`Remove tag ${tag}`}
+                            className="rounded-full p-0.5 hover:bg-foreground/10"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {!cleanedTags.length && (
+                        <span className="text-xs text-muted-foreground">No tags</span>
+                      )}
+                    </div>
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const added = newTag
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter(Boolean);
+                        if (!added.length) return;
+                        setTagsDraft((draft) => cleanTags([...draft, ...added]));
+                        setNewTag("");
+                      }}
+                    >
+                      <input
+                        value={newTag}
+                        onChange={(event) => setNewTag(event.target.value)}
+                        placeholder="Add a tag (comma-separate several)"
+                        aria-label="Add a tag"
+                        maxLength={200}
+                        className="h-9 min-w-0 flex-1 rounded-[10px] border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                      />
+                      <button type="submit" className={cn(buttonSecondary, "h-9")}>
+                        Add
+                      </button>
+                    </form>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          tagsProblem(cleanedTags) ? "text-destructive" : "text-muted-foreground",
+                        )}
+                      >
+                        {tagsProblem(cleanedTags)
+                          ? PUBLISH_PROBLEM_TEXT[tagsProblem(cleanedTags)!]
+                          : `${tagsLength(cleanedTags)} / ${YOUTUBE_TAGS_MAX_CHARS} characters`}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <UndoPublishButton publisher={publisher} />
+                        <PublishButton
+                          publisher={publisher}
+                          changes={{ tags: cleanedTags }}
+                          label="tags"
+                          problem={tagsProblem(cleanedTags)}
+                        >
+                          Publish tags
+                        </PublishButton>
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
             {optimizeTab === "chapters" && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Chapter generation isn't available yet — coming soon.
-              </p>
+              <div className="mt-4 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  YouTube shows chapters from a list of times in the description. One chapter per
+                  line, starting at 0:00, at least 3, each at least 10 seconds long. Generate on the
+                  Description tab with a timed transcript for suggestions, or write your own.
+                </p>
+                <textarea
+                  value={chaptersText}
+                  onChange={(event) => setChaptersText(event.target.value)}
+                  disabled={!loaded}
+                  rows={8}
+                  placeholder={"0:00 Intro\n1:15 The setup\n4:30 Results"}
+                  aria-label="Chapters"
+                  className="w-full resize-none rounded-[10px] border border-border bg-background p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                {loaded && chaptersText.trim() && parsedChapters.problem && (
+                  <p className="text-xs text-destructive">
+                    {PUBLISH_PROBLEM_TEXT[parsedChapters.problem]}
+                  </p>
+                )}
+                {loaded && publisher.ready && publisher.current && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <UndoPublishButton publisher={publisher} />
+                    <PublishButton
+                      publisher={publisher}
+                      changes={{
+                        description: descriptionWithChapters(
+                          publisher.current.description,
+                          chaptersBlock(parsedChapters.chapters),
+                        ),
+                      }}
+                      label="chapters"
+                      problem={
+                        parsedChapters.problem ??
+                        descriptionProblem(
+                          descriptionWithChapters(
+                            publisher.current.description,
+                            chaptersBlock(parsedChapters.chapters),
+                          ),
+                        )
+                      }
+                      onDone={(now) =>
+                        setDescription((draft) =>
+                          descriptionWithChapters(
+                            draft || now.description,
+                            chaptersBlock(parsedChapters.chapters),
+                          ),
+                        )
+                      }
+                    >
+                      Publish chapters
+                    </PublishButton>
+                  </div>
+                )}
+              </div>
             )}
             {optimizeTab === "cta" && (
               <div className="mt-4">
@@ -1417,14 +1668,39 @@ function AddVideo() {
                     {ctaIdeas.map((idea) => (
                       <li
                         key={idea}
-                        className="rounded-lg border border-border bg-background p-2.5 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background p-2.5 text-sm"
                       >
-                        {idea}
+                        <span className="min-w-0 flex-1">{idea}</span>
+                        {loaded && publisher.ready && publisher.current && (
+                          <PublishButton
+                            publisher={publisher}
+                            changes={{
+                              description: descriptionWithCallToAction(
+                                publisher.current.description,
+                                idea,
+                              ),
+                            }}
+                            label="call to action"
+                            problem={descriptionProblem(
+                              descriptionWithCallToAction(publisher.current.description, idea),
+                            )}
+                            onDone={() =>
+                              setDescription((draft) => descriptionWithCallToAction(draft, idea))
+                            }
+                          >
+                            Add to YouTube description
+                          </PublishButton>
+                        )}
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <EmptyOptimizeState loaded={loaded} label="call-to-action ideas" />
+                )}
+                {loaded && publisher.ready && publisher.undoAvailable && (
+                  <div className="mt-3 flex justify-end">
+                    <UndoPublishButton publisher={publisher} />
+                  </div>
                 )}
               </div>
             )}
@@ -1686,8 +1962,20 @@ function AddVideo() {
           onOpenChange={setPrePublishDialogOpen}
         />
       )}
+      {publisher.dialog}
     </DashboardLayout>
   );
+}
+
+/** The chapter list already in a description (the run of timestamp lines from 0:00), as text. */
+function existingChapters(description: string): string {
+  const lines = description.replace(/\r\n?/g, "\n").split("\n");
+  const start = lines.findIndex((line) => parseChapterLine(line)?.seconds === 0);
+  if (start === -1) return "";
+  const out: string[] = [];
+  for (let i = start; i < lines.length && parseChapterLine(lines[i]); i++)
+    out.push(lines[i].trim());
+  return out.join("\n");
 }
 
 function ScoreChip({

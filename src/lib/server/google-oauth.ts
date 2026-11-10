@@ -248,6 +248,8 @@ export interface YoutubeVideoSummary {
   channelId: string | null;
   title: string;
   description: string | null;
+  /** The video's tags (visible to the channel's own token; empty when none or not visible). */
+  tags?: string[];
   thumbnail: string | null;
   publishedAt: string | null;
   duration: string | null;
@@ -353,6 +355,7 @@ function mapYoutubeVideo(item: {
     publishedAt?: string;
     channelId?: string;
     thumbnails?: { medium?: { url: string }; default?: { url: string } };
+    tags?: string[];
   };
   contentDetails?: { duration?: string };
   statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
@@ -366,6 +369,7 @@ function mapYoutubeVideo(item: {
     channelId: item.snippet.channelId ?? null,
     title: item.snippet.title,
     description: item.snippet.description ?? null,
+    tags: item.snippet.tags ?? [],
     thumbnail:
       item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? null,
     publishedAt: item.snippet.publishedAt ?? null,
@@ -395,6 +399,7 @@ export async function fetchPublicYoutubeVideoById(
         publishedAt?: string;
         channelId?: string;
         thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        tags?: string[];
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
@@ -423,6 +428,7 @@ export async function fetchYoutubeVideoById(
         publishedAt?: string;
         channelId?: string;
         thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        tags?: string[];
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
@@ -510,6 +516,7 @@ export async function fetchYoutubeVideosPage(
         publishedAt?: string;
         channelId?: string;
         thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        tags?: string[];
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
@@ -953,16 +960,22 @@ export class YoutubeVideoUpdateRefusedError extends Error {
   }
 }
 
+export type YoutubeVideoDetailChanges = {
+  title?: string;
+  description?: string;
+  tags?: string[];
+};
+
 /**
- * Replaces a video's description (videos.update part=snippet, 50 quota units). `current` is the
- * snippet just read with fetchYoutubeVideoSnippet: its title, category, tags and languages are
- * sent back unchanged, so only the description changes.
+ * Changes a video's title, description and/or tags (videos.update part=snippet, 50 quota units).
+ * `current` is the snippet just read with fetchYoutubeVideoSnippet: every field not in `changes`
+ * (and the category and languages) is sent back unchanged, so only what was asked for changes.
  */
-export async function updateYoutubeVideoDescription(
+export async function updateYoutubeVideoDetails(
   accessToken: string,
   videoId: string,
   current: YoutubeVideoSnippet,
-  description: string,
+  changes: YoutubeVideoDetailChanges,
 ): Promise<void> {
   const { channelId: _channelId, ...kept } = current;
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
@@ -970,7 +983,7 @@ export async function updateYoutubeVideoDescription(
   const response = await youtubeFetch(accessToken, url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: videoId, snippet: { ...kept, description } }),
+    body: JSON.stringify({ id: videoId, snippet: { ...kept, ...changes } }),
   });
   if (response.ok) return;
   const body = await response.json().catch(() => null);

@@ -33,6 +33,8 @@ export type ProjectConceptResult = {
 
 export type OptimizationSuggestionsInput = {
   title: string;
+  /** The video's length, so suggested chapters never run past its end. */
+  durationSeconds?: number | null;
   currentDescription?: string | null;
   transcript?: string | null;
   destinations?: Array<{ name: string; url: string }>;
@@ -48,7 +50,18 @@ export type OptimizationSuggestionsResult = {
   titleIdeas: string[];
   tags: string[];
   ctaIdeas: string[];
+  /** Suggested chapters — only when the transcript carries timestamps, so the times come from the
+   * video itself and are never guessed; otherwise empty. */
+  chapters: Array<{ timestamp: string; title: string }>;
 };
+
+/** Whether a transcript carries its own timing ("0:00", "[01:23]", "1:02:03" at line starts) —
+ * the only basis on which chapters are suggested. */
+export function transcriptHasTimestamps(transcript: string | null | undefined): boolean {
+  if (!transcript) return false;
+  const lines = transcript.split(/\r?\n/);
+  return lines.filter((line) => /^\s*\[?\(?\d{1,2}:\d{2}(?::\d{2})?/.test(line)).length >= 3;
+}
 
 export type LeadSummaryInput = {
   leadName: string;
@@ -157,9 +170,13 @@ function optimizationPromptFor(input: OptimizationSuggestionsInput): {
     .join("\n");
   const voice = input.voice?.trim();
   const customInstructions = input.customInstructions?.trim().slice(0, 2_000);
+  const chapterRule = transcriptHasTimestamps(input.transcript)
+    ? ` chapters: 3-12 chapters as [{"timestamp": "M:SS" or "H:MM:SS", "title": string}] — the first at 0:00, each starting where the TRANSCRIPT's own timestamps show that section begins (never invent a time the transcript does not show), each at least 10 seconds long, with short specific titles.`
+    : " chapters: always an empty array (no timed transcript was supplied, so chapter times cannot be known).";
   return {
     system:
-      'You write accurate YouTube optimization copy for creators. Never invent claims, figures, timestamps, links, sponsors, or outcomes not supported by the supplied title, transcript, or existing description. If a tone or custom instructions are supplied, follow them for style only — they never justify inventing unsupported content. Respond with ONLY a JSON object, no markdown fences, no commentary, matching exactly this shape: {"description": string, "titleIdeas": string[], "tags": string[], "ctaIdeas": string[]}. description: a polished YouTube description — preserve factual details from the source material, a concise opening, useful sections, and a short call to action only when supported by the input; no unsupported hashtags or timestamps; if destinations are supplied, include them as labeled links near the end. titleIdeas: 3-5 alternative titles that better communicate the outcome/search intent, grounded in the actual content. tags: 5-10 short YouTube search tags/keywords relevant to the actual content. ctaIdeas: 2-4 short call-to-action suggestions appropriate for this specific video (e.g. referencing a destination that was actually supplied, or a generic subscribe/comment prompt — never invent a specific offer that wasn\'t supplied).',
+      'You write accurate YouTube optimization copy for creators. Never invent claims, figures, timestamps, links, sponsors, or outcomes not supported by the supplied title, transcript, or existing description. If a tone or custom instructions are supplied, follow them for style only — they never justify inventing unsupported content. Respond with ONLY a JSON object, no markdown fences, no commentary, matching exactly this shape: {"description": string, "titleIdeas": string[], "tags": string[], "ctaIdeas": string[], "chapters": {"timestamp": string, "title": string}[]}. description: a polished YouTube description — preserve factual details from the source material, a concise opening, useful sections, and a short call to action only when supported by the input; no unsupported hashtags or timestamps; if destinations are supplied, include them as labeled links near the end. titleIdeas: 3-5 alternative titles that better communicate the outcome/search intent, grounded in the actual content. tags: 5-10 short YouTube search tags/keywords relevant to the actual content. ctaIdeas: 2-4 short call-to-action suggestions appropriate for this specific video (e.g. referencing a destination that was actually supplied, or a generic subscribe/comment prompt — never invent a specific offer that wasn\'t supplied).' +
+      chapterRule,
     user: `Generate optimization suggestions for this YouTube video.\n\nTITLE:\n${input.title}\n\nTRANSCRIPT:\n${transcript}\n\nEXISTING DESCRIPTION:\n${currentDescription}\n\nDESTINATIONS:\n${destinations || "None supplied."}\n\nTONE:\n${voice || "No specific tone requested."}\n\nCUSTOM INSTRUCTIONS:\n${customInstructions || "None supplied."}`,
   };
 }
@@ -513,7 +530,31 @@ export async function generateOptimizationSuggestions(
   ) {
     throw providerFailure(provider);
   }
-  return parsed as unknown as OptimizationSuggestionsResult;
+  // Chapters are optional: a malformed entry is dropped, never a reason to fail the whole answer,
+  // and none are kept unless the transcript was timed.
+  const rawChapters = Array.isArray(parsed.chapters) ? parsed.chapters : [];
+  const chapters = transcriptHasTimestamps(input.transcript)
+    ? sanitizeChapters(
+        rawChapters
+          .filter(
+            (c): c is { timestamp: string; title: string } =>
+              !!c &&
+              typeof (c as Record<string, unknown>).timestamp === "string" &&
+              typeof (c as Record<string, unknown>).title === "string" &&
+              Boolean(((c as Record<string, unknown>).title as string).trim()),
+          )
+          .slice(0, 20)
+          .map((c) => ({ timestamp: c.timestamp.trim(), title: c.title.trim().slice(0, 100) })),
+        input.durationSeconds ?? null,
+      )
+    : [];
+  return {
+    description: parsed.description as string,
+    titleIdeas: parsed.titleIdeas as string[],
+    tags: parsed.tags as string[],
+    ctaIdeas: parsed.ctaIdeas as string[],
+    chapters,
+  };
 }
 
 export async function generateLeadSummary(input: LeadSummaryInput): Promise<LeadSummaryResult> {

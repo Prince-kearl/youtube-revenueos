@@ -8,6 +8,7 @@ import { enforceAiQuota } from "@/lib/server/ai-usage";
 const inputSchema = z.object({
   channelId: z.string().uuid(),
   title: z.string().trim().min(1).max(500),
+  durationSeconds: z.number().int().min(0).max(86_400).nullable().optional(),
   currentDescription: z.string().trim().max(12_000).nullable().optional(),
   transcript: z.string().trim().max(30_000).nullable().optional(),
   destinations: z
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/api/videos/optimize")({
           const suggestions = await allowance.run(() =>
             generateOptimizationSuggestions({
               title: input.title,
+              durationSeconds: input.durationSeconds,
               currentDescription: input.currentDescription,
               transcript: input.transcript,
               destinations: input.destinations,

@@ -11,48 +11,66 @@ import {
 } from "@/lib/server/youtube-tokens";
 import {
   fetchYoutubeVideoSnippet,
-  updateYoutubeVideoDescription,
+  updateYoutubeVideoDetails,
   YoutubeInsufficientScopeError,
   YoutubeQuotaExceededError,
   YoutubeVideoUpdateRefusedError,
+  type YoutubeVideoDetailChanges,
+  type YoutubeVideoSnippet,
 } from "@/lib/server/google-oauth";
 import { quotaDayStart } from "@/lib/server/youtube-quota";
 import {
   canPublishDescription,
+  cleanTags,
   DESCRIPTION_PUBLISH_DAILY_LIMIT,
   descriptionProblem,
+  tagsProblem,
+  titleProblem,
 } from "@/lib/youtube-description";
 
-// Publishing a description from the AI Description Lab straight to YouTube, and undoing it.
+// Publishing a video's title, description and/or tags to YouTube from the AI Description Lab and
+// Analyze Video (chapters and calls to action are published as part of the description), and
+// undoing the last publish.
 //
-//   GET  ?channelId&videoId          whether an undo is available for that video (no YouTube call)
-//   POST { action: "publish", channelId, videoId, description, expectedDescription }
-//   POST { action: "undo",    channelId, videoId, expectedDescription }
+//   GET  ?channelId&videoId   whether this person may publish, and whether an undo is available
+//   POST { action: "publish", channelId, videoId, changes: {title?, description?, tags?}, expected }
+//   POST { action: "undo",    channelId, videoId, expected }
+//
+// `expected` is {title, description, tags} as the page last saw them on YouTube.
 //
 // Who: workspace owners, managers and editors, with the ai_lab feature and a paid plan; the
 // channel must be one of the caller's workspace's connected channels and the video must be on
 // that channel at YouTube. Anything else is the same 404 as a video that does not exist.
 //
 // Safety:
-//   - videos.update replaces the whole snippet, so the current snippet is read first and its
-//     title, category, tags and languages are sent back unchanged (google-oauth.ts);
-//   - `expectedDescription` is what the page last saw on YouTube. If YouTube now holds something
-//     else (edited in Studio meanwhile), nothing is written: 409 DESCRIPTION_CHANGED_ON_YOUTUBE;
-//   - before writing, the description being replaced is recorded in audit_events (who, when,
-//     which video), which is also what an undo restores. If that record cannot be written,
-//     nothing is sent to YouTube;
+//   - videos.update replaces the whole snippet, so the current snippet is read first and every
+//     field not being changed (and the category and languages) is sent back as it is;
+//   - if YouTube now holds anything other than `expected` (edited in Studio meanwhile), nothing is
+//     written: 409 CHANGED_ON_YOUTUBE;
+//   - before writing, the values being replaced are recorded in audit_events (who, when, which
+//     video, which fields), which is also what an undo restores. If that record cannot be
+//     written, nothing is sent to YouTube; if YouTube refuses, the record is withdrawn;
+//   - an undo restores only over exactly what the publish wrote;
 //   - at most DESCRIPTION_PUBLISH_DAILY_LIMIT publishes and undos per workspace per quota day.
-//
-// Responses never include another workspace's data; descriptions are the caller's own channel's.
 
 const RESOURCE_TYPE = "youtube_video_description";
 const PUBLISHED = "youtube_description.published";
 const RESTORED = "youtube_description.restored";
 
+type Field = "title" | "description" | "tags";
+const FIELDS: Field[] = ["title", "description", "tags"];
+type Values = { title?: string; description?: string; tags?: string[] };
+
 const channelIdSchema = z.string().uuid();
 const videoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
-// Wider than YouTube's limit on purpose: what YouTube holds today is compared, not validated.
-const seenSchema = z.string().max(20_000);
+// What YouTube holds today is compared, not validated, so these are wider than YouTube's limits.
+const expectedSchema = z
+  .object({
+    title: z.string().max(1_000),
+    description: z.string().max(20_000),
+    tags: z.array(z.string().max(1_000)).max(500),
+  })
+  .strict();
 
 const bodySchema = z.discriminatedUnion("action", [
   z
@@ -60,8 +78,14 @@ const bodySchema = z.discriminatedUnion("action", [
       action: z.literal("publish"),
       channelId: channelIdSchema,
       videoId: videoIdSchema,
-      description: z.string().max(10_000),
-      expectedDescription: seenSchema,
+      changes: z
+        .object({
+          title: z.string().max(1_000).optional(),
+          description: z.string().max(10_000).optional(),
+          tags: z.array(z.string().max(500)).max(100).optional(),
+        })
+        .strict(),
+      expected: expectedSchema,
     })
     .strict(),
   z
@@ -69,22 +93,22 @@ const bodySchema = z.discriminatedUnion("action", [
       action: z.literal("undo"),
       channelId: channelIdSchema,
       videoId: videoIdSchema,
-      expectedDescription: seenSchema,
+      expected: expectedSchema,
     })
     .strict(),
 ]);
 
-type AuditRow = {
-  id: number;
-  action: string;
-  created_at: string;
-  metadata: {
-    workspaceId?: string;
-    videoId?: string;
-    previousDescription?: string;
-    newDescriptionSha256?: string;
-  } | null;
+type AuditMetadata = {
+  workspaceId?: string;
+  videoId?: string;
+  fields?: Field[];
+  previous?: Values;
+  writtenSha256?: string;
+  // Records made before titles and tags could be published (description only).
+  previousDescription?: string;
+  newDescriptionSha256?: string;
 };
+type AuditRow = { id: number; action: string; created_at: string; metadata: AuditMetadata | null };
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -100,6 +124,40 @@ function json(body: unknown, init?: ResponseInit) {
 const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 // YouTube stores descriptions with \n line endings; a browser textarea may hand back \r\n.
 const normalize = (text: string) => text.replace(/\r\n?/g, "\n");
+const sameTags = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((tag, i) => tag === b[i]);
+
+function valuesOf(snippet: YoutubeVideoSnippet): Required<Values> {
+  return {
+    title: snippet.title,
+    description: normalize(snippet.description),
+    tags: snippet.tags ?? [],
+  };
+}
+
+/** A fingerprint of exactly what a publish wrote. A description-only publish is fingerprinted
+ * as the description itself, as records made before titles and tags could be published were. */
+function fingerprint(fields: Field[], values: Values): string {
+  if (fields.length === 1 && fields[0] === "description") return sha256(values.description ?? "");
+  return sha256(JSON.stringify(fields.map((field) => [field, values[field] ?? null])));
+}
+
+/** What an undo of this publish record restores, and the fingerprint it must find on YouTube. */
+function undoOf(
+  row: AuditRow | null,
+): { previous: Values; fields: Field[]; written: string } | null {
+  const m = row?.action === PUBLISHED ? row.metadata : null;
+  if (!m) return null;
+  if (m.fields?.length && m.previous && m.writtenSha256)
+    return { previous: m.previous, fields: m.fields, written: m.writtenSha256 };
+  if (typeof m.previousDescription === "string" && m.newDescriptionSha256)
+    return {
+      previous: { description: m.previousDescription },
+      fields: ["description"],
+      written: m.newDescriptionSha256,
+    };
+  return null;
+}
 
 function safeReason(error: unknown): string {
   if (!(error instanceof Error)) return "unknown";
@@ -186,6 +244,33 @@ async function accessTokenFor(service: Service, channelId: string): Promise<stri
   return getValidAccessToken(service, connection);
 }
 
+/** The requested changes, cleaned, or the reason YouTube would refuse one of them. */
+function checkedChanges(
+  changes: Values,
+): { values: Values; fields: Field[] } | { problem: string } {
+  const values: Values = {};
+  if (changes.title !== undefined) {
+    const problem = titleProblem(changes.title);
+    if (problem) return { problem };
+    values.title = changes.title.trim();
+  }
+  if (changes.description !== undefined) {
+    const description = normalize(changes.description);
+    const problem = descriptionProblem(description);
+    if (problem) return { problem };
+    values.description = description;
+  }
+  if (changes.tags !== undefined) {
+    const tags = cleanTags(changes.tags);
+    const problem = tagsProblem(tags);
+    if (problem) return { problem };
+    values.tags = tags;
+  }
+  const fields = FIELDS.filter((field) => values[field] !== undefined);
+  if (!fields.length) return { problem: "NOTHING_TO_PUBLISH" };
+  return { values, fields };
+}
+
 function failure(error: unknown, action: string): Response {
   if (error instanceof Response) return error;
   if (error instanceof z.ZodError) return json({ error: "VALIDATION_ERROR" }, { status: 422 });
@@ -196,16 +281,16 @@ function failure(error: unknown, action: string): Response {
   if (error instanceof YoutubeInsufficientScopeError)
     return json({ error: "YOUTUBE_INSUFFICIENT_SCOPE" }, { status: 403 });
   if (error instanceof YoutubeVideoUpdateRefusedError) {
-    console.warn("YouTube refused a description update", { action, reason: error.reason });
+    console.warn("YouTube refused a video details update", { action, reason: error.reason });
     return json({ error: "YOUTUBE_REFUSED" }, { status: 422 });
   }
   if (error instanceof Error && error.message === "YOUTUBE_VIDEO_NOT_FOUND")
     return json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
-  console.error("Video description update failed", { action, reason: safeReason(error) });
+  console.error("Video details update failed", { action, reason: safeReason(error) });
   return json({ error: "YOUTUBE_DATA_UNAVAILABLE" }, { status: 502 });
 }
 
-export const Route = createFileRoute("/api/youtube/video-description")({
+export const Route = createFileRoute("/api/youtube/video-details")({
   server: {
     handlers: {
       GET: async ({ request }) => {
@@ -217,15 +302,18 @@ export const Route = createFileRoute("/api/youtube/video-description")({
           const canPublish = canPublishDescription(ctx.workspaceRole);
           const channel = await workspaceChannel(ctx, channelId);
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
-          const last = canPublish
-            ? await latestEvent(createServiceSupabaseClient(), ctx.workspaceId, channel.id, videoId)
+          const undo = canPublish
+            ? undoOf(
+                await latestEvent(
+                  createServiceSupabaseClient(),
+                  ctx.workspaceId,
+                  channel.id,
+                  videoId,
+                ),
+              )
             : null;
           return json({
-            data: {
-              canPublish,
-              undoAvailable: last?.action === PUBLISHED,
-              lastPublishedAt: last?.action === PUBLISHED ? last.created_at : null,
-            },
+            data: { canPublish, undoAvailable: Boolean(undo), undoFields: undo?.fields ?? [] },
           });
         } catch (error) {
           return failure(error, "status");
@@ -241,29 +329,24 @@ export const Route = createFileRoute("/api/youtube/video-description")({
           const input = bodySchema.parse(await parseJson(request));
           action = input.action;
 
-          let next: string | null = null;
+          let next: { values: Values; fields: Field[] } | null = null;
           if (input.action === "publish") {
-            next = normalize(input.description);
-            const problem = descriptionProblem(next);
-            if (problem) return json({ error: problem }, { status: 422 });
+            const checked = checkedChanges(input.changes);
+            if ("problem" in checked) return json({ error: checked.problem }, { status: 422 });
+            next = checked;
           }
 
           const channel = await workspaceChannel(ctx, input.channelId);
           if (!channel) return json({ error: "CHANNEL_NOT_FOUND" }, { status: 404 });
 
           const service = createServiceSupabaseClient();
-          const previousEvent =
-            input.action === "undo"
-              ? await latestEvent(service, ctx.workspaceId, channel.id, input.videoId)
-              : null;
+          let undo: ReturnType<typeof undoOf> = null;
           if (input.action === "undo") {
-            if (
-              previousEvent?.action !== PUBLISHED ||
-              previousEvent.metadata?.previousDescription === undefined
-            )
-              return json({ error: "NOTHING_TO_UNDO" }, { status: 409 });
-            next = previousEvent.metadata.previousDescription;
+            undo = undoOf(await latestEvent(service, ctx.workspaceId, channel.id, input.videoId));
+            if (!undo) return json({ error: "NOTHING_TO_UNDO" }, { status: 409 });
+            next = { values: undo.previous, fields: undo.fields };
           }
+          const { values, fields } = next as { values: Values; fields: Field[] };
 
           if ((await usedToday(service, ctx)) >= DESCRIPTION_PUBLISH_DAILY_LIMIT)
             return json({ error: "DAILY_LIMIT_REACHED" }, { status: 429 });
@@ -273,21 +356,29 @@ export const Route = createFileRoute("/api/youtube/video-description")({
           if (!snippet || snippet.channelId !== channel.youtube_channel_id)
             return json({ error: "VIDEO_NOT_FOUND" }, { status: 404 });
 
-          const current = normalize(snippet.description);
-          if (current !== normalize(input.expectedDescription))
-            return json({ error: "DESCRIPTION_CHANGED_ON_YOUTUBE" }, { status: 409 });
-          // An undo only restores over the exact text that publish wrote.
+          const current = valuesOf(snippet);
+          const expected = input.expected;
           if (
-            input.action === "undo" &&
-            sha256(current) !== previousEvent?.metadata?.newDescriptionSha256
+            current.title !== expected.title ||
+            current.description !== normalize(expected.description) ||
+            !sameTags(current.tags, expected.tags)
           )
-            return json({ error: "DESCRIPTION_CHANGED_ON_YOUTUBE" }, { status: 409 });
+            return json({ error: "CHANGED_ON_YOUTUBE" }, { status: 409 });
+          // An undo only restores over exactly what the publish wrote.
+          if (undo && fingerprint(fields, current) !== undo.written)
+            return json({ error: "CHANGED_ON_YOUTUBE" }, { status: 409 });
 
-          const description = next as string;
-          if (current === description)
-            return json({ data: { status: "unchanged", description, undoAvailable: false } });
+          const after = { ...current, ...values };
+          const unchanged = fields.every((field) =>
+            field === "tags"
+              ? sameTags(current.tags, values.tags ?? [])
+              : current[field] === values[field],
+          );
+          if (unchanged)
+            return json({ data: { status: "unchanged", current: after, undoAvailable: false } });
 
           // Recorded first: if the record cannot be written, YouTube is not touched.
+          const previous: Values = Object.fromEntries(fields.map((f) => [f, current[f]]));
           const { data: event, error: auditError } = await service
             .from("audit_events")
             .insert({
@@ -298,21 +389,25 @@ export const Route = createFileRoute("/api/youtube/video-description")({
               metadata: {
                 workspaceId: ctx.workspaceId,
                 videoId: input.videoId,
-                previousDescription: current,
-                newDescriptionSha256: sha256(description),
+                fields,
+                previous,
+                writtenSha256: fingerprint(fields, after),
               },
             })
             .select("id")
             .single();
           if (auditError || !event) {
-            console.error("Description publish record failed", { code: auditError?.code });
+            console.error("Video details publish record failed", { code: auditError?.code });
             return json({ error: "DATABASE_ERROR" }, { status: 500 });
           }
 
           try {
-            await updateYoutubeVideoDescription(accessToken, input.videoId, snippet, description);
+            const changes: YoutubeVideoDetailChanges = Object.fromEntries(
+              fields.map((f) => [f, values[f]]),
+            );
+            await updateYoutubeVideoDetails(accessToken, input.videoId, snippet, changes);
           } catch (error) {
-            // YouTube kept the old description, so the record of a change is withdrawn.
+            // YouTube kept the old values, so the record of a change is withdrawn.
             await service
               .from("audit_events")
               .delete()
@@ -323,7 +418,8 @@ export const Route = createFileRoute("/api/youtube/video-description")({
           return json({
             data: {
               status: input.action === "publish" ? "published" : "restored",
-              description,
+              fields,
+              current: after,
               undoAvailable: input.action === "publish",
             },
           });
