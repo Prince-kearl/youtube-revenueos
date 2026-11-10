@@ -538,3 +538,43 @@ test("the lab opens the channel's own private upload, but never someone else's n
   assert.equal(theirs.status, 422);
   assert.equal(theirs.body.error, "YOUTUBE_VIDEO_NOT_PUBLIC");
 });
+
+const aiAnalyzeRoute = await import("../src/routes/api.ai.analyze-video");
+
+test("Analyze Video may analyze the channel's own private upload, never someone else's non-public video", async () => {
+  const f = await fixture();
+  const privacy: Record<string, { channelId: string; privacyStatus: string }> = {
+    ownPrivate0: { channelId: YT_A, privacyStatus: "private" },
+    theirUnlist: { channelId: YT_B, privacyStatus: "unlisted" },
+  };
+  f.world.external = (url) => {
+    if (url.pathname !== "/youtube/v3/videos") return undefined;
+    const id = url.searchParams.get("id") ?? "";
+    const v = privacy[id];
+    return Response.json({
+      items: v
+        ? [
+            {
+              id,
+              snippet: { title: id, channelId: v.channelId },
+              status: { privacyStatus: v.privacyStatus },
+            },
+          ]
+        : [],
+    });
+  };
+  const analyze = (videoId: string) =>
+    callTeamApi(aiAnalyzeRoute, f.world, {
+      as: f.owner,
+      method: "POST",
+      path: "/api/ai/analyze-video",
+      body: { videoId, channelId: f.channelA },
+    });
+  const theirs = await analyze("theirUnlist");
+  assert.equal(theirs.status, 422);
+  assert.equal(theirs.body.error, "YOUTUBE_VIDEO_NOT_PUBLIC");
+  // The own upload gets past the privacy check (what happens next — analytics, AI — is out of
+  // scope here and not configured in this test).
+  const own = await analyze("ownPrivate0");
+  assert.notEqual(own.body.error, "YOUTUBE_VIDEO_NOT_PUBLIC");
+});

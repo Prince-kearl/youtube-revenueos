@@ -1,6 +1,6 @@
 import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Sparkles,
   FileText,
@@ -14,8 +14,6 @@ import {
   Plus,
   Trash2,
   Bookmark,
-  Upload,
-  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -35,16 +33,8 @@ import { Button } from "@/components/ui/button";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
-import {
-  DESCRIPTION_PROBLEM_TEXT,
-  descriptionBytes,
-  descriptionProblem,
-  hasNoDescription,
-  publishErrorMessage,
-  VISIBILITY_LABEL,
-  videoVisibility,
-  YOUTUBE_DESCRIPTION_MAX_BYTES,
-} from "@/lib/youtube-description";
+import { VideoStatusBadges } from "@/components/VideoStatusBadges";
+import { DescriptionProblemNote, PublishToYoutube } from "@/components/PublishToYoutube";
 
 export const Route = createFileRoute("/ai-lab")({
   component: AILab,
@@ -111,19 +101,6 @@ type DescriptionTemplate = {
 };
 type TemplatesResponse = { data?: DescriptionTemplate[]; error?: string };
 type TemplateResponse = { data?: DescriptionTemplate; error?: string };
-
-type PublishStatusResponse =
-  | { data: { canPublish: boolean; undoAvailable: boolean; lastPublishedAt: string | null } }
-  | { error: string };
-type PublishResponse =
-  | {
-      data: {
-        status: "published" | "restored" | "unchanged";
-        description: string;
-        undoAvailable: boolean;
-      };
-    }
-  | { error: string };
 
 type OptimizeResponse =
   | { data: { description: string; titleIdeas: string[]; tags: string[]; ctaIdeas: string[] } }
@@ -213,15 +190,6 @@ function AILab() {
   // held when the video was loaded (or last published): the server refuses to overwrite anything
   // else, so an edit made in YouTube Studio meanwhile is never lost.
   const [youtubeDescription, setYoutubeDescription] = useState<string | null>(null);
-  const [canPublish, setCanPublish] = useState(false);
-  const [undoAvailable, setUndoAvailable] = useState(false);
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [publishing, setPublishing] = useState<"publish" | "undo" | null>(null);
-  // The video on screen now — a toast's Undo may be clicked after another video was opened.
-  const shownVideoId = useRef<string | null>(null);
-  useEffect(() => {
-    shownVideoId.current = video?.id ?? null;
-  }, [video]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -326,8 +294,6 @@ function AILab() {
     setDescription("");
     setDescriptionTouched(false);
     setYoutubeDescription(null);
-    setCanPublish(false);
-    setUndoAvailable(false);
     try {
       const params = new URLSearchParams({ videoId: youtubeVideoId });
       if (activeChannelId) params.set("channelId", activeChannelId);
@@ -347,82 +313,10 @@ function AILab() {
       setDescriptionTouched(Boolean(body.data.savedVideo?.description));
       setYoutubeDescription(body.data.video.description ?? "");
       setVideoLoadStatus("loaded");
-      void loadPublishStatus(body.data.channel.id, body.data.video.id);
     } catch (reason: unknown) {
       const code = reason instanceof Error ? reason.message : "SERVER_ERROR";
       setVideoLoadError(errorMessage(code));
       setVideoLoadStatus("error");
-    }
-  };
-
-  // Whether this person may publish, and whether the last publish can be undone. A failure here
-  // only hides the button: the server decides either way.
-  const loadPublishStatus = async (channelId: string, youtubeVideoId: string) => {
-    try {
-      const params = new URLSearchParams({ channelId, videoId: youtubeVideoId });
-      const response = await fetch(`/api/youtube/video-description?${params.toString()}`, {
-        cache: "no-store",
-      });
-      const body = (await response.json()) as PublishStatusResponse;
-      if (!response.ok || !("data" in body)) return;
-      setCanPublish(body.data.canPublish);
-      setUndoAvailable(body.data.undoAvailable);
-    } catch {
-      // leave publishing hidden
-    }
-  };
-
-  const sendPublish = async (
-    action: "publish" | "undo",
-    target = {
-      channelId: selectedChannelId,
-      videoId: video?.id ?? null,
-      expected: youtubeDescription,
-    },
-  ) => {
-    const { channelId, videoId, expected } = target;
-    if (!channelId || !videoId || expected === null) return;
-    const onScreen = () => shownVideoId.current === videoId;
-    setPublishing(action);
-    try {
-      const response = await fetch("/api/youtube/video-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          channelId,
-          videoId,
-          expectedDescription: expected,
-          ...(action === "publish" ? { description } : {}),
-        }),
-      });
-      const body = (await response.json().catch(() => ({}))) as PublishResponse;
-      if (!response.ok || !("data" in body)) {
-        throw new Error("error" in body ? body.error : "SERVER_ERROR");
-      }
-      const published = body.data.description;
-      if (onScreen()) {
-        setYoutubeDescription(published);
-        setUndoAvailable(body.data.undoAvailable);
-      }
-      setPublishDialogOpen(false);
-      if (action === "undo") {
-        if (onScreen()) setDescription(published);
-        toast.success("The previous description is back on YouTube.");
-      } else if (body.data.status === "unchanged") {
-        toast.success("YouTube already has this description.");
-      } else {
-        toast.success("Description published to YouTube.", {
-          action: {
-            label: "Undo",
-            onClick: () => void sendPublish("undo", { channelId, videoId, expected: published }),
-          },
-        });
-      }
-    } catch (reason: unknown) {
-      toast.error(publishErrorMessage(reason instanceof Error ? reason.message : undefined));
-    } finally {
-      setPublishing(null);
     }
   };
 
@@ -598,10 +492,6 @@ function AILab() {
   );
 
   const loaded = videoLoadStatus === "loaded" && Boolean(video);
-  const publishProblem = descriptionProblem(description);
-  const sameAsYoutube =
-    youtubeDescription !== null && description.replace(/\r\n?/g, "\n") === youtubeDescription;
-  const usedBytes = descriptionBytes(description);
   const triggerVideo = video && video.id === selectedVideoId ? video : selectedVideoSummary;
 
   return (
@@ -748,7 +638,7 @@ function AILab() {
                           <span className="min-w-0 flex-1">
                             <span className="flex min-w-0 items-center gap-1.5">
                               <span className="truncate text-sm font-medium">{item.title}</span>
-                              <PickerBadges video={item} />
+                              <VideoStatusBadges video={item} />
                             </span>
                             <span className="block truncate text-xs text-muted-foreground">
                               {item.duration ?? "Duration unavailable"} ·{" "}
@@ -1026,11 +916,13 @@ function AILab() {
         {/* Right column */}
         <div className="relative rounded-xl card-gradient-outline p-5">
           <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-semibold">
+          {/* The title and the actions wrap onto two lines when the column is narrow, rather than
+              squeezing the title or pushing Publish out of the card. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <h3 className="flex items-center gap-2 whitespace-nowrap font-semibold">
               <Sparkles className="h-4 w-4 text-primary" /> Generated Description
             </h3>
-            <div className="flex items-center gap-1.5 text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
               <button
                 type="button"
                 onClick={() => void handleGenerate()}
@@ -1044,43 +936,20 @@ function AILab() {
                 type="button"
                 onClick={handleCopy}
                 disabled={!description}
-                className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground disabled:opacity-50"
+                className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground disabled:opacity-50"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copied" : "Copy"}
               </button>
-              {loaded && canPublish && undoAvailable && (
-                <button
-                  type="button"
-                  onClick={() => void sendPublish("undo")}
-                  disabled={publishing !== null}
-                  className="flex h-8 items-center gap-1.5 rounded-[var(--button-radius)] bg-accent px-3 text-sm hover:text-foreground disabled:opacity-50"
-                  title="Put back the description YouTube had before your last publish"
-                >
-                  {publishing === "undo" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Undo2 className="h-3.5 w-3.5" />
-                  )}
-                  Undo publish
-                </button>
-              )}
-              {loaded && canPublish && (
-                <button
-                  type="button"
-                  onClick={() => setPublishDialogOpen(true)}
-                  disabled={publishing !== null || Boolean(publishProblem) || sameAsYoutube}
-                  className={cn(buttonPrimary, "h-8 px-3 disabled:opacity-50")}
-                  title={
-                    publishProblem
-                      ? DESCRIPTION_PROBLEM_TEXT[publishProblem]
-                      : sameAsYoutube
-                        ? "YouTube already has this description"
-                        : "Replace this video's description on YouTube"
-                  }
-                >
-                  <Upload className="h-3.5 w-3.5" /> Publish to YouTube
-                </button>
+              {loaded && video && selectedChannelId && youtubeDescription !== null && (
+                <PublishToYoutube
+                  key={video.id}
+                  channelId={selectedChannelId}
+                  video={video}
+                  youtubeDescription={youtubeDescription}
+                  description={description}
+                  onRestored={setDescription}
+                />
               )}
             </div>
           </div>
@@ -1107,13 +976,7 @@ function AILab() {
               <Stat value={wordCount.toLocaleString()} label="Words" />
               <Stat value={String(linkCount)} label="Links" />
             </div>
-            {loaded && canPublish && description && publishProblem && (
-              <p className="w-full text-xs text-destructive">
-                {DESCRIPTION_PROBLEM_TEXT[publishProblem]}
-                {publishProblem === "TOO_LONG" &&
-                  ` (${usedBytes.toLocaleString()} of ${YOUTUBE_DESCRIPTION_MAX_BYTES.toLocaleString()} bytes)`}
-              </p>
-            )}
+            {loaded && <DescriptionProblemNote description={description} />}
             {descriptionTouched && (
               <span className="flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
                 <span className="h-1.5 w-1.5 rounded-full bg-success" /> Optimized
@@ -1122,60 +985,6 @@ function AILab() {
           </div>
         </div>
       </div>
-
-      <Dialog
-        open={publishDialogOpen}
-        onOpenChange={(open) => publishing === null && setPublishDialogOpen(open)}
-      >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-primary" /> Publish to YouTube?
-            </DialogTitle>
-            <DialogDescription>
-              This replaces the description of “{video?.title}” on YouTube
-              {video && videoVisibility(video) === "public"
-                ? ", where viewers see it right away"
-                : ""}
-              . The title, tags and everything else stay as they are. You can undo it from here
-              afterwards.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="min-w-0">
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Now on YouTube</p>
-              <div className="h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-[10px] border border-border bg-accent/20 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
-                {youtubeDescription?.trim() ? youtubeDescription : "No description"}
-              </div>
-            </div>
-            <div className="min-w-0">
-              <p className="mb-1.5 text-xs font-medium text-foreground">New description</p>
-              <div className="h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-[10px] border border-primary/40 bg-background p-3 font-mono text-xs leading-relaxed">
-                {description}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              className="rounded-full"
-              disabled={publishing !== null}
-              onClick={() => setPublishDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="rounded-full"
-              disabled={publishing !== null}
-              onClick={() => void sendPublish("publish")}
-            >
-              {publishing === "publish" ? "Publishing…" : "Publish"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="max-w-sm">
@@ -1343,25 +1152,6 @@ function NewFreebieDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// In the video picker: a badge for anything not yet public, and for a missing description.
-function PickerBadges({ video }: { video: YoutubeVideo }) {
-  const visibility = videoVisibility(video);
-  return (
-    <>
-      {visibility !== "public" && (
-        <span className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {VISIBILITY_LABEL[visibility]}
-        </span>
-      )}
-      {hasNoDescription(video) && (
-        <span className="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
-          No description
-        </span>
-      )}
-    </>
   );
 }
 

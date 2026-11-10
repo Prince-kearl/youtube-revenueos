@@ -34,6 +34,9 @@ import { PRE_PUBLISH_ENABLED } from "@/lib/feature-flags";
 import { ACTIVE_YOUTUBE_CHANNEL_KEY } from "@/components/YoutubeChannelSwitcher";
 import { useLocalStore } from "@/lib/local-store";
 import { cn } from "@/lib/utils";
+import { VISIBILITY_LABEL, videoVisibility } from "@/lib/youtube-description";
+import { DescriptionProblemNote, PublishToYoutube } from "@/components/PublishToYoutube";
+import { VideoStatusBadges } from "@/components/VideoStatusBadges";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/add-video")({
@@ -58,6 +61,8 @@ type YoutubeVideo = {
   publishedAt: string | null;
   duration: string | null;
   privacyStatus: string | null;
+  uploadStatus?: string | null;
+  publishAt?: string | null;
   url: string;
   views: number;
   likes: number | null;
@@ -190,7 +195,7 @@ function errorMessage(error: string): string {
     YOUTUBE_VIDEO_CHANNEL_MISMATCH:
       "That video belongs to a different YouTube channel. Switch channels or choose one of your own videos.",
     YOUTUBE_VIDEO_NOT_PUBLIC:
-      "This video isn’t public yet. Make it public on YouTube before adding it here.",
+      "That video isn’t public and isn’t on your connected channel, so it can’t be analyzed here.",
     CHANNEL_NOT_FOUND:
       "We couldn’t find the selected YouTube channel. Choose another channel and try again.",
     DATABASE_ERROR: "We couldn’t save your changes. Please try again.",
@@ -236,6 +241,8 @@ function AddVideo() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(activeChannelId);
   const [savedVideoId, setSavedVideoId] = useState<string | null>(null);
   const [isConnectedChannelVideo, setIsConnectedChannelVideo] = useState(false);
+  // What YouTube held when the video was loaded, for Publish to YouTube (PublishToYoutube.tsx).
+  const [youtubeDescription, setYoutubeDescription] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [description, setDescription] = useState("");
@@ -269,6 +276,7 @@ function AddVideo() {
     setVideo(null);
     setSavedVideoId(null);
     setIsConnectedChannelVideo(false);
+    setYoutubeDescription(null);
     setTranscript("");
     setTranscriptExpanded(false);
     setDescription("");
@@ -299,7 +307,9 @@ function AddVideo() {
     setMyVideosStatus("loading");
 
     const fetchVideos = async (channelId: string | null) => {
-      const params = new URLSearchParams({ limit: "12" });
+      // visibility=all: the channel's unlisted, private and scheduled uploads too, so a video
+      // can be analyzed and its description written before it goes public.
+      const params = new URLSearchParams({ limit: "12", visibility: "all" });
       if (channelId) params.set("channelId", channelId);
       const response = await fetch(`/api/youtube/videos?${params.toString()}`, {
         cache: "no-store",
@@ -403,6 +413,7 @@ function AddVideo() {
       setVideo(body.data.video);
       setSelectedChannelId(body.data.channel.id);
       setIsConnectedChannelVideo(body.data.ownership === "connected");
+      setYoutubeDescription(body.data.video.description ?? "");
       setSavedVideoId(body.data.savedVideo?.id ?? null);
       setTranscript(body.data.transcript?.transcript ?? "");
       setDescription(body.data.savedVideo?.description ?? body.data.video.description ?? "");
@@ -982,7 +993,10 @@ function AddVideo() {
                             </div>
                           )}
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium">{item.title}</span>
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="truncate text-sm font-medium">{item.title}</span>
+                              <VideoStatusBadges video={item} />
+                            </span>
                             <span className="block text-xs text-muted-foreground">
                               {item.duration ?? "Duration unavailable"} ·{" "}
                               {formatDate(item.publishedAt)} · {formatCompactNumber(item.views)}{" "}
@@ -1313,6 +1327,22 @@ function AddVideo() {
                       )}
                       {copied ? "Copied" : "Copy"}
                     </button>
+                    {/* Only for a video on the connected channel; the server checks again. */}
+                    {loaded &&
+                      video &&
+                      isConnectedChannelVideo &&
+                      selectedChannelId &&
+                      youtubeDescription !== null && (
+                        <PublishToYoutube
+                          key={video.id}
+                          channelId={selectedChannelId}
+                          video={video}
+                          youtubeDescription={youtubeDescription}
+                          description={description}
+                          onRestored={setDescription}
+                          buttonClassName="h-9 rounded-full border border-border bg-transparent text-muted-foreground"
+                        />
+                      )}
                   </div>
                 </div>
                 <textarea
@@ -1336,6 +1366,7 @@ function AddVideo() {
                   </span>
                   <span>{description.length.toLocaleString()} / 5,000</span>
                 </div>
+                {loaded && <DescriptionProblemNote description={description} />}
               </div>
             )}
             {optimizeTab === "titles" && (
@@ -1431,7 +1462,9 @@ function AddVideo() {
                       {video.duration ? ` · ${video.duration}` : ""}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {video.privacyStatus === "public" ? "Public" : "Status unavailable"}
+                      {video.privacyStatus
+                        ? VISIBILITY_LABEL[videoVisibility(video)]
+                        : "Status unavailable"}
                     </p>
                   </div>
                 </div>
