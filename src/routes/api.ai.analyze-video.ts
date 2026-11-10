@@ -5,6 +5,7 @@ import { z } from "zod";
 import { resolveRevenueAccessForRequest } from "@/lib/server/revenue-visibility";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
 import { analysisBasis } from "@/lib/youtube-description";
+import { checklistForPrompt, videoChecklist } from "@/lib/video-checklist";
 import { getValidAccessToken, normalizeYoutubeConnectionRow } from "@/lib/server/youtube-tokens";
 import { fetchPublicYoutubeVideoById, queryYoutubeAnalytics } from "@/lib/server/google-oauth";
 import {
@@ -38,6 +39,9 @@ export const inputSchema = z.object({
   // a substitute for the real YouTube-sourced title/metrics, which are always re-fetched below.
   transcript: z.string().trim().max(30_000).nullable().optional(),
   description: z.string().trim().max(12_000).nullable().optional(),
+  // The issues the analysis on the caller's screen raised, so this one re-checks them instead of
+  // starting over. The caller's own text, used only in the caller's own prompt.
+  previousIssues: z.array(z.string().trim().min(1).max(300)).max(12).optional(),
 });
 
 function json(body: unknown, init?: ResponseInit) {
@@ -249,6 +253,18 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             privacyStatus: video.privacyStatus,
           });
 
+          // The objective checklist, computed here from what YouTube holds — the AI is told it
+          // as settled fact, so it never re-raises an item that passes.
+          const checklist = checklistForPrompt(
+            videoChecklist({
+              title: video.title,
+              description: description ?? "",
+              tags: video.tags ?? [],
+              durationSeconds: video.durationSeconds,
+            }),
+          );
+          const previousIssues = input.previousIssues ?? [];
+
           const aiInput: AnalyzeVideoInput = {
             video: {
               videoId: input.videoId,
@@ -271,6 +287,8 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             channel: {
               subscriberCount: channel.subscriber_count ?? null,
             },
+            checklist,
+            previousIssues,
           };
 
           // Resolved once, from the same provider-selection logic generateVideoAnalysis itself
@@ -312,6 +330,7 @@ export const Route = createFileRoute("/api/ai/analyze-video")({
             // A video that went public, or whose tags changed, is analyzed afresh.
             `${video.privacyStatus ?? ""}|${video.publishAt ?? ""}`,
             (video.tags ?? []).join(","),
+            previousIssues.join("\n"),
           ]);
           const cached = await getCachedAiResult<AnalyzeVideoResult>(service, cacheKey);
           if (cached) {

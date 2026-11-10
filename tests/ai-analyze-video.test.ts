@@ -682,3 +682,89 @@ test("an unpublished video is analyzed as one: its status is a fact, and missing
   assert.match(live.user, /Visibility: Public/);
   assert.match(live.user, /CONTENT — tags:\ndna, biology/);
 });
+
+test("a re-analysis re-checks the previous issues, is told the checklist, and may find nothing", () => {
+  const { system, user } = analyzeVideoPromptFor({
+    ...sampleInput,
+    checklist: "- Title is 20–70 characters: PASS (45 characters, shown in full in search.)",
+    previousIssues: ["No video description", "Tags are missing"],
+  });
+  assert.match(user, /CHECKLIST:\n- Title is 20–70 characters: PASS/);
+  assert.match(user, /PREVIOUS ISSUES:\n- No video description\n- Tags are missing/);
+  assert.match(system, /never raise an issue about something the checklist marks PASS/);
+  assert.match(system, /re-check every one against the video as it is NOW/);
+  assert.match(system, /An empty issues list is a correct and welcome answer/);
+
+  const first = analyzeVideoPromptFor(sampleInput);
+  assert.match(first.user, /PREVIOUS ISSUES:\nNone — this is the first analysis/);
+});
+
+test("an answer with issues (the current format) also carries them as plain weaknesses", async () => {
+  const { weaknesses: _old, ...withoutWeaknesses } = validAiResult as Record<string, unknown>;
+  const answer = {
+    ...withoutWeaknesses,
+    issues: [
+      {
+        text: "The first line doesn't say what the video is about",
+        area: "description",
+        severity: "major",
+      },
+      { text: "No transcript to judge pacing", area: "transcript", severity: "minor" },
+    ],
+    previousIssueReview: [
+      {
+        text: "No video description",
+        status: "resolved",
+        reason: "A full description is on YouTube now.",
+      },
+    ],
+  };
+  const restore = mockFetchOnce(async () => openAiStyleResponse(answer));
+  try {
+    await withEnv({ AI_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-key" }, async () => {
+      const { result } = await generateVideoAnalysis(sampleInput);
+      assert.deepEqual(result.weaknesses, [
+        "The first line doesn't say what the video is about",
+        "No transcript to judge pacing",
+      ]);
+      assert.equal(result.issues?.[0].area, "description");
+      assert.equal(result.previousIssueReview?.[0].status, "resolved");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("an answer with no issues at all is valid", async () => {
+  const { weaknesses: _old, ...withoutWeaknesses } = validAiResult as Record<string, unknown>;
+  const restore = mockFetchOnce(async () =>
+    openAiStyleResponse({ ...withoutWeaknesses, issues: [], previousIssueReview: [] }),
+  );
+  try {
+    await withEnv({ AI_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-key" }, async () => {
+      const { result } = await generateVideoAnalysis(sampleInput);
+      assert.deepEqual(result.issues, []);
+      assert.deepEqual(result.weaknesses, []);
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("the previous issues sent back are bounded", () => {
+  assert.equal(
+    inputSchema.safeParse({ videoId: "abcdefghijk", previousIssues: ["x".repeat(301)] }).success,
+    false,
+  );
+  assert.equal(
+    inputSchema.safeParse({
+      videoId: "abcdefghijk",
+      previousIssues: Array.from({ length: 13 }, (_, i) => `issue ${i}`),
+    }).success,
+    false,
+  );
+  assert.equal(
+    inputSchema.safeParse({ videoId: "abcdefghijk", previousIssues: ["No description"] }).success,
+    true,
+  );
+});

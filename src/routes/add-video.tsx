@@ -1,6 +1,6 @@
 import { buttonPrimary, buttonSecondary } from "@/lib/button-styles";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -62,6 +62,7 @@ import {
   type YoutubeDetails,
 } from "@/components/PublishToYoutube";
 import { VideoStatusBadges } from "@/components/VideoStatusBadges";
+import { checklistComplete, videoChecklist, type FixTab } from "@/lib/video-checklist";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/add-video")({
@@ -113,11 +114,47 @@ type ContentAnalysis = {
   };
   strengths: string[];
   weaknesses: string[];
+  /** Newer analyses: each issue placed where it would be fixed (see ISSUE_AREAS on the server). */
+  issues?: Array<{ text: string; area: IssueArea; severity: "major" | "minor" }>;
+  /** Newer analyses: the previous analysis's issues, re-checked. */
+  previousIssueReview?: Array<{
+    text: string;
+    status: "resolved" | "still_present";
+    reason: string;
+  }>;
   titleSuggestions: string[];
   descriptionSuggestion: string;
   keywordSuggestions: string[];
   recommendations: string[];
   contentIdeas: string[];
+};
+
+type IssueArea =
+  | "title"
+  | "description"
+  | "tags"
+  | "chapters"
+  | "thumbnail"
+  | "content"
+  | "audience"
+  | "transcript";
+
+// Issues in these areas are fixed on this page, in the Optimize tab named here.
+const FIX_TAB_FOR_AREA: Partial<Record<IssueArea, OptimizeTab>> = {
+  title: "titles",
+  description: "description",
+  tags: "tags",
+  chapters: "chapters",
+};
+const AREA_LABEL: Record<IssueArea, string> = {
+  title: "Title",
+  description: "Description",
+  tags: "Tags",
+  chapters: "Chapters",
+  thumbnail: "Thumbnail",
+  content: "Content",
+  audience: "Audience",
+  transcript: "Transcript",
 };
 
 type SavedVideo = {
@@ -511,6 +548,9 @@ function AddVideo() {
           // description, tags and visibility), never an unpublished draft from the editor, so
           // it can be compared with YouTube afterwards (analysisBasis).
           transcript: transcript || null,
+          // What the analysis on screen raised, so the new one re-checks each instead of
+          // starting over (and does not find fresh nitpicks every time).
+          previousIssues: previousIssueTexts(analysis),
         }),
       });
       const body = (await response.json()) as { data?: ContentAnalysis; error?: string };
@@ -756,6 +796,36 @@ function AddVideo() {
         privacyStatus: video.privacyStatus,
       }),
   );
+  // The objective checklist for what is on YouTube now (lib/video-checklist.ts).
+  const checklist = onYoutube
+    ? videoChecklist({
+        title: onYoutube.title,
+        description: onYoutube.description,
+        tags: onYoutube.tags,
+        durationSeconds: video?.durationSeconds ?? null,
+      })
+    : [];
+  const failingChecks = checklist.filter((item) => item.status === "fail");
+  const fixableIssues = (analysis?.issues ?? []).filter((issue) => FIX_TAB_FOR_AREA[issue.area]);
+  const contextIssues = (analysis?.issues ?? []).filter((issue) => !FIX_TAB_FOR_AREA[issue.area]);
+  const resolvedIssues = (analysis?.previousIssueReview ?? []).filter(
+    (review) => review.status === "resolved",
+  );
+  // Done: every check passes, and a current analysis has no major issue that can be fixed here.
+  const ready =
+    loaded &&
+    checklist.length > 0 &&
+    checklistComplete(checklist) &&
+    Boolean(analysis?.issues) &&
+    !analysisOutdated &&
+    !fixableIssues.some((issue) => issue.severity === "major");
+  const optimizeSection = useRef<HTMLDivElement>(null);
+  const openFix = (tab: FixTab | OptimizeTab) => {
+    setOptimizeTab(tab);
+    optimizeSection.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const [showPassing, setShowPassing] = useState(false);
+
   // Whether the description editor holds exactly what YouTube has.
   const draftOnYoutube =
     onYoutube !== null &&
@@ -1233,6 +1303,88 @@ function AddVideo() {
                 />
               </span>
             </div>
+            {ready && (
+              <div
+                role="status"
+                className="mt-3 flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success"
+              >
+                <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>
+                  <span className="font-semibold">Ready.</span> Every check passes and the analysis
+                  has nothing major left to fix here. Anything below is optional polish.
+                </span>
+              </div>
+            )}
+
+            {loaded && checklist.length > 0 && (
+              <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Checklist
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {checklist.filter((item) => item.status === "pass").length} of{" "}
+                    {checklist.filter((item) => item.status !== "na").length} passing
+                  </p>
+                </div>
+                <ul className="mt-2 space-y-1.5">
+                  {[
+                    ...failingChecks,
+                    ...(showPassing ? checklist.filter((item) => item.status !== "fail") : []),
+                  ].map((item) => (
+                    <li key={item.id} className="flex items-start gap-2 text-sm">
+                      {item.status === "pass" ? (
+                        <Check
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
+                          aria-label="Passes"
+                        />
+                      ) : item.status === "fail" ? (
+                        <X
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
+                          aria-label="Fails"
+                        />
+                      ) : (
+                        <span
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-center text-xs text-muted-foreground"
+                          aria-label="Not applicable"
+                        >
+                          –
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className={cn(item.status === "na" && "text-muted-foreground")}>
+                          {item.label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">{item.detail}</span>
+                      </span>
+                      {item.status === "fail" && (
+                        <button
+                          type="button"
+                          onClick={() => openFix(item.fix)}
+                          className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium hover:bg-accent"
+                        >
+                          Fix
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                  {!failingChecks.length && !showPassing && (
+                    <li className="flex items-center gap-2 text-sm text-success">
+                      <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Everything on
+                      the checklist passes.
+                    </li>
+                  )}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => setShowPassing((value) => !value)}
+                  className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {showPassing ? "Hide passing checks" : "Show passing checks"}
+                </button>
+              </div>
+            )}
+
             {!analysis && !analyzing && (
               <p className="mt-3 text-sm text-muted-foreground">
                 {loading
@@ -1304,39 +1456,128 @@ function AddVideo() {
                   </p>
                   <p className="mt-1 text-sm">{analysis.summary}</p>
                 </div>
-                {(analysis.strengths.length > 0 || analysis.weaknesses.length > 0) && (
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {analysis.strengths.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-success">
-                          Strengths
-                        </p>
-                        <ul className="mt-1.5 space-y-1.5">
-                          {analysis.strengths.map((strength) => (
-                            <li key={strength} className="flex items-start gap-1.5 text-sm">
-                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                              {strength}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {analysis.weaknesses.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
-                          Weaknesses
-                        </p>
-                        <ul className="mt-1.5 space-y-1.5">
-                          {analysis.weaknesses.map((weakness) => (
-                            <li key={weakness} className="flex items-start gap-1.5 text-sm">
-                              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
-                              {weakness}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                {analysis.strengths.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-success">
+                      Strengths
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {analysis.strengths.map((strength) => (
+                        <li key={strength} className="flex items-start gap-1.5 text-sm">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                          {strength}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
+                )}
+
+                {resolvedIssues.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-success">
+                      Fixed since the last analysis
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {resolvedIssues.map((review) => (
+                        <li key={review.text} className="flex items-start gap-1.5 text-sm">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                          <span>
+                            <span className="text-muted-foreground line-through">
+                              {review.text}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {review.reason}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {analysis.issues ? (
+                  <>
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
+                        To improve here
+                      </p>
+                      {fixableIssues.length ? (
+                        <ul className="mt-1.5 space-y-1.5">
+                          {fixableIssues.map((issue) => (
+                            <li key={issue.text} className="flex items-start gap-2 text-sm">
+                              <TriangleAlert
+                                className={cn(
+                                  "mt-0.5 h-3.5 w-3.5 shrink-0",
+                                  issue.severity === "major"
+                                    ? "text-brand-amber"
+                                    : "text-muted-foreground",
+                                )}
+                              />
+                              <span className="min-w-0 flex-1">
+                                {issue.text}
+                                <span className="ml-1.5 text-xs text-muted-foreground">
+                                  {AREA_LABEL[issue.area]}
+                                  {issue.severity === "minor" ? " · optional" : ""}
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openFix(FIX_TAB_FOR_AREA[issue.area]!)}
+                                className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium hover:bg-accent"
+                              >
+                                Fix
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-success">
+                          <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> No
+                          significant issues with the title, description, tags or chapters.
+                        </p>
+                      )}
+                    </div>
+                    {contextIssues.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          About the video itself
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Worth knowing, but not something to change on this page.
+                        </p>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {contextIssues.map((issue) => (
+                            <li
+                              key={issue.text}
+                              className="flex items-start gap-1.5 text-sm text-muted-foreground"
+                            >
+                              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                              <span>
+                                {issue.text}
+                                <span className="ml-1.5 text-xs">{AREA_LABEL[issue.area]}</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  analysis.weaknesses.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
+                        Weaknesses
+                      </p>
+                      <ul className="mt-1.5 space-y-1.5">
+                        {analysis.weaknesses.map((weakness) => (
+                          <li key={weakness} className="flex items-start gap-1.5 text-sm">
+                            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
+                            {weakness}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
                 )}
 
                 <button
@@ -1430,7 +1671,10 @@ function AddVideo() {
           </div>
 
           {/* Optimize your content */}
-          <div className="relative rounded-xl card-gradient-outline p-5">
+          <div
+            ref={optimizeSection}
+            className="relative scroll-mt-24 rounded-xl card-gradient-outline p-5"
+          >
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
             <h2 className="text-base font-semibold">Optimize your content</h2>
             <p className="text-xs text-muted-foreground">
@@ -2065,6 +2309,17 @@ function AddVideo() {
       {publisher.dialog}
     </DashboardLayout>
   );
+}
+
+/** What an analysis raised, as text for the next one to re-check (newest format first). */
+function previousIssueTexts(analysis: ContentAnalysis | null): string[] | undefined {
+  if (!analysis) return undefined;
+  const texts = analysis.issues?.map((issue) => issue.text) ?? analysis.weaknesses;
+  const list = texts
+    .map((text) => text.trim().slice(0, 300))
+    .filter(Boolean)
+    .slice(0, 12);
+  return list.length ? list : undefined;
 }
 
 /** The chapter list already in a description (the run of timestamp lines from 0:00), as text. */

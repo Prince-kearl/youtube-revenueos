@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHECKLIST_WRITING_RULES } from "@/lib/video-checklist";
 import { getServerEnv } from "./env";
 
 export type ContentAnalysisInput = {
@@ -173,10 +174,12 @@ function optimizationPromptFor(input: OptimizationSuggestionsInput): {
   const chapterRule = transcriptHasTimestamps(input.transcript)
     ? ` chapters: 3-12 chapters as [{"timestamp": "M:SS" or "H:MM:SS", "title": string}] — the first at 0:00, each starting where the TRANSCRIPT's own timestamps show that section begins (never invent a time the transcript does not show), each at least 10 seconds long, with short specific titles.`
     : " chapters: always an empty array (no timed transcript was supplied, so chapter times cannot be known).";
+  const checklistRule = ` Everything you write must pass Tubify's checklist: ${CHECKLIST_WRITING_RULES}.`;
   return {
     system:
       'You write accurate YouTube optimization copy for creators. Never invent claims, figures, timestamps, links, sponsors, or outcomes not supported by the supplied title, transcript, or existing description. If a tone or custom instructions are supplied, follow them for style only — they never justify inventing unsupported content. Respond with ONLY a JSON object, no markdown fences, no commentary, matching exactly this shape: {"description": string, "titleIdeas": string[], "tags": string[], "ctaIdeas": string[], "chapters": {"timestamp": string, "title": string}[]}. description: a polished YouTube description — preserve factual details from the source material, a concise opening, useful sections, and a short call to action only when supported by the input; no unsupported hashtags or timestamps; if destinations are supplied, include them as labeled links near the end. titleIdeas: 3-5 alternative titles that better communicate the outcome/search intent, grounded in the actual content. tags: 5-10 short YouTube search tags/keywords relevant to the actual content. ctaIdeas: 2-4 short call-to-action suggestions appropriate for this specific video (e.g. referencing a destination that was actually supplied, or a generic subscribe/comment prompt — never invent a specific offer that wasn\'t supplied).' +
-      chapterRule,
+      chapterRule +
+      checklistRule,
     user: `Generate optimization suggestions for this YouTube video.\n\nTITLE:\n${input.title}\n\nTRANSCRIPT:\n${transcript}\n\nEXISTING DESCRIPTION:\n${currentDescription}\n\nDESTINATIONS:\n${destinations || "None supplied."}\n\nTONE:\n${voice || "No specific tone requested."}\n\nCUSTOM INSTRUCTIONS:\n${customInstructions || "None supplied."}`,
   };
 }
@@ -606,7 +609,7 @@ export async function generateFreebieContent(input: FreebieInput): Promise<strin
 // shape, so the prompt was rewritten shorter, and explicit FACTS/INFERENCES/RECOMMENDATIONS
 // framing was added. Also moved off openrouter/free (unreliable for this workload in real
 // testing — see the model-selection note on generateVideoAnalysis) onto a specific capable model.
-export const ANALYZE_VIDEO_PROMPT_VERSION = "v3";
+export const ANALYZE_VIDEO_PROMPT_VERSION = "v4";
 
 export type AnalyzeVideoInput = {
   video: {
@@ -625,6 +628,10 @@ export type AnalyzeVideoInput = {
   // null = legitimately unavailable (no caption track, or none pasted by the user) — never an
   // empty string standing in for "none", so the prompt below can tell the model the difference.
   transcript: string | null;
+  /** The objective checklist (lib/video-checklist.ts), computed by code, as prompt lines. */
+  checklist?: string;
+  /** The issues the previous analysis of this video raised, to be re-checked one by one. */
+  previousIssues?: string[];
   performance: {
     views: number | null;
     likes: number | null;
@@ -640,6 +647,19 @@ export type AnalyzeVideoInput = {
 };
 
 const scoreSchema = z.number().min(0).max(10);
+/** Where an issue would be fixed. The first four are fixed on Analyze Video; the rest are about
+ * the video itself or its audience and are shown as context, never as something to fix there. */
+export const ISSUE_AREAS = [
+  "title",
+  "description",
+  "tags",
+  "chapters",
+  "thumbnail",
+  "content",
+  "audience",
+  "transcript",
+] as const;
+export type IssueArea = (typeof ISSUE_AREAS)[number];
 export const AnalyzeVideoResultSchema = z.object({
   summary: z.string().min(1),
   overallScore: scoreSchema,
@@ -651,7 +671,30 @@ export const AnalyzeVideoResultSchema = z.object({
     engagement: scoreSchema,
   }),
   strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
+  /** Plain-text weaknesses. Analyses made before `issues` existed have only these; newer ones
+   * carry the same text, derived from `issues` by the server. */
+  weaknesses: z.array(z.string()).default([]),
+  /** What could be better, each placed where it would be fixed and how much it matters. Empty
+   * when there is nothing significant — a valid answer. */
+  issues: z
+    .array(
+      z.object({
+        text: z.string().min(1),
+        area: z.enum(ISSUE_AREAS),
+        severity: z.enum(["major", "minor"]),
+      }),
+    )
+    .optional(),
+  /** The previous analysis's issues, each re-checked against the video as it is now. */
+  previousIssueReview: z
+    .array(
+      z.object({
+        text: z.string(),
+        status: z.enum(["resolved", "still_present"]),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
   titleSuggestions: z.array(z.string()),
   descriptionSuggestion: z.string(),
   keywordSuggestions: z.array(z.string()),
@@ -688,7 +731,32 @@ export const ANALYZE_VIDEO_JSON_SCHEMA: JsonSchemaSpec = {
         additionalProperties: false,
       },
       strengths: { type: "array", items: { type: "string" } },
-      weaknesses: { type: "array", items: { type: "string" } },
+      issues: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            area: { type: "string", enum: [...ISSUE_AREAS] },
+            severity: { type: "string", enum: ["major", "minor"] },
+          },
+          required: ["text", "area", "severity"],
+          additionalProperties: false,
+        },
+      },
+      previousIssueReview: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            status: { type: "string", enum: ["resolved", "still_present"] },
+            reason: { type: "string" },
+          },
+          required: ["text", "status", "reason"],
+          additionalProperties: false,
+        },
+      },
       titleSuggestions: { type: "array", items: { type: "string" } },
       descriptionSuggestion: { type: "string" },
       keywordSuggestions: { type: "array", items: { type: "string" } },
@@ -700,7 +768,8 @@ export const ANALYZE_VIDEO_JSON_SCHEMA: JsonSchemaSpec = {
       "overallScore",
       "scores",
       "strengths",
-      "weaknesses",
+      "issues",
+      "previousIssueReview",
       "titleSuggestions",
       "descriptionSuggestion",
       "keywordSuggestions",
@@ -758,7 +827,12 @@ export function analyzeVideoPromptFor(input: AnalyzeVideoInput): { system: strin
     "The user message gives you three kinds of information:",
     "- FACTS: video metadata and performance metrics, sourced directly from YouTube. Never contradict, recompute, or round these. A metric marked 'Not available' does not exist for this video — never treat it as zero, and never invent a value for it (this applies especially to revenue, views, watch time, retention, and subscriber count).",
     "- CONTENT: the title, description, and transcript (if supplied) — the only source for judging what the video is actually about and how it's made.",
-    "- Your job: produce INFERENCES (scores, strengths, weaknesses — your honest read of the FACTS and CONTENT) and RECOMMENDATIONS (titleSuggestions, descriptionSuggestion, keywordSuggestions, recommendations, contentIdeas — your suggestions for what to do next). Write INFERENCES as observations about what exists; write RECOMMENDATIONS as suggestions, not claims about what already exists.",
+    "- CHECKLIST: objective checks of the title, description, tags and chapters, computed by code. They are settled facts: never raise an issue about something the checklist marks PASS, and do not repeat a FAIL item word for word (the creator already sees it) — you may add why it matters.",
+    "- PREVIOUS ISSUES (when given): what the last analysis of this video raised. In previousIssueReview, re-check every one against the video as it is NOW and mark it resolved or still_present, with a one-line reason. Never raise a resolved issue again under different words.",
+    "",
+    "Issues: only what would materially improve this video's performance — never nitpicks, never generic advice, never the same point twice. An empty issues list is a correct and welcome answer for a video in good shape. For each issue give the area where it would be fixed (title, description, tags, chapters, thumbnail — or content, audience, transcript for things that are about the video itself, its viewers, or a missing transcript) and severity: major only when it clearly holds the video back, otherwise minor. Scores must agree with the issues: with no major issues in an area, its score is at least 7.",
+    "",
+    "- Your job: produce INFERENCES (scores, strengths, issues — your honest read of the FACTS and CONTENT) and RECOMMENDATIONS (titleSuggestions, descriptionSuggestion, keywordSuggestions, recommendations, contentIdeas — your suggestions for what to do next). Write INFERENCES as observations about what exists; write RECOMMENDATIONS as suggestions, not claims about what already exists.",
     "",
     "If Visibility is anything other than Public, the video has no audience yet: never treat its zero or missing views, likes, comments, watch time or subscribers as a weakness or a sign of low engagement. Score Engagement on how well the content is set up to engage (hook, call to action, questions to viewers), and say in the summary that the video isn't published yet.",
     "",
@@ -795,6 +869,14 @@ export function analyzeVideoPromptFor(input: AnalyzeVideoInput): { system: strin
     `CONTENT — transcript:`,
     transcript ??
       "Not available — base content-quality judgments only on the title and description, and say so in the summary.",
+    "",
+    `CHECKLIST:`,
+    input.checklist?.trim() || "Not supplied.",
+    "",
+    `PREVIOUS ISSUES:`,
+    input.previousIssues?.length
+      ? input.previousIssues.map((issue) => `- ${issue}`).join("\n")
+      : "None — this is the first analysis; return an empty previousIssueReview.",
   ].join("\n");
 
   return { system, user };
@@ -831,7 +913,15 @@ export async function generateVideoAnalysis(
     jsonSchema: ANALYZE_VIDEO_JSON_SCHEMA,
     maxTokens: 3000,
   });
-  const result = parseAndValidateJson(provider, raw, AnalyzeVideoResultSchema);
+  const parsed = parseAndValidateJson(provider, raw, AnalyzeVideoResultSchema);
+  // The model answers with `issues`; `weaknesses` (what older analyses carry) is derived from
+  // them, so everything reading the plain list keeps working.
+  const result: AnalyzeVideoResult = {
+    ...parsed,
+    weaknesses: parsed.weaknesses?.length
+      ? parsed.weaknesses
+      : (parsed.issues ?? []).map((issue) => issue.text),
+  };
   return { result, usage };
 }
 
