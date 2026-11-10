@@ -179,9 +179,8 @@ export const Route = createFileRoute("/api/videos")({
               youtubeVideoId,
               channel.youtube_channel_id,
             );
-            if (video.privacyStatus !== "public") {
-              return json({ error: "YOUTUBE_VIDEO_NOT_PUBLIC" }, { status: 422 });
-            }
+            // fetchYoutubeVideoById has confirmed the video is on this channel, so its own
+            // unlisted, private and scheduled uploads are allowed (AI Description Lab).
             const { data: savedVideo, error: videoError } = await client
               .from("videos")
               .select(
@@ -247,9 +246,7 @@ export const Route = createFileRoute("/api/videos")({
             input.youtubeVideoId,
             channel.youtube_channel_id,
           );
-          if (video.privacyStatus !== "public") {
-            return json({ error: "YOUTUBE_VIDEO_NOT_PUBLIC" }, { status: 422 });
-          }
+          // On this channel (checked above), so a non-public upload may be saved too.
 
           const { data: existingVideo, error: existingVideoError } = await client
             .from("videos")
@@ -274,7 +271,9 @@ export const Route = createFileRoute("/api/videos")({
                 thumbnail: video.thumbnail,
                 published_at: video.publishedAt,
                 duration_seconds: video.durationSeconds,
-                status: "active",
+                // The same rule as the catalogue sync (api.youtube.sync.ts), so saving a private
+                // upload from the AI lab never counts it as an active video.
+                status: video.privacyStatus === "private" ? "archived" : "active",
               },
               { onConflict: "channel_id,youtube_video_id" },
             )

@@ -35,6 +35,12 @@ import {
   type VideosRevenuePage,
 } from "@/lib/videos-revenue";
 import type { RevenueVideosResponse } from "@/lib/server/revenue-videos";
+import {
+  hasNoDescription,
+  VISIBILITY_LABEL,
+  videoVisibility,
+  type VideoVisibility,
+} from "@/lib/youtube-description";
 
 export const Route = createFileRoute("/videos")({
   component: Videos,
@@ -50,6 +56,9 @@ type YoutubeVideo = {
   likes: number | null;
   comments: number | null;
   privacyStatus: string | null;
+  uploadStatus?: string | null;
+  publishAt?: string | null;
+  description?: string | null;
   url: string;
 };
 
@@ -78,6 +87,7 @@ type VideosResponse =
   | { error: string };
 
 type SortOption = "recent" | "views" | "title";
+type StatusFilter = "all" | VideoVisibility | "no_description";
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
@@ -102,6 +112,7 @@ function Videos() {
   const [prePublishDialogOpen, setPrePublishDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [retryNonce, setRetryNonce] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -127,7 +138,8 @@ function Videos() {
     }));
     // enrich=0: revenue, status and change come from the canonical API below, so the live
     // route returns the video list only and makes no YouTube Analytics request.
-    const params = new URLSearchParams({ limit: "50", enrich: "0" });
+    // visibility=all: unlisted, private and scheduled uploads are listed too, with a badge.
+    const params = new URLSearchParams({ limit: "50", enrich: "0", visibility: "all" });
     if (activeChannelId) params.set("channelId", activeChannelId);
 
     fetch(`/api/youtube/videos?${params.toString()}`, {
@@ -264,7 +276,12 @@ function Videos() {
     if (!token || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const params = new URLSearchParams({ pageToken: token, limit: "50", enrich: "0" });
+      const params = new URLSearchParams({
+        pageToken: token,
+        limit: "50",
+        enrich: "0",
+        visibility: "all",
+      });
       if (activeChannelId) params.set("channelId", activeChannelId);
       const response = await fetch(`/api/youtube/videos?${params.toString()}`, {
         cache: "default",
@@ -302,12 +319,19 @@ function Videos() {
     const normalizedSearch = search.trim().toLowerCase();
     return [...(state.data?.videos ?? [])]
       .filter((video) => !normalizedSearch || video.title.toLowerCase().includes(normalizedSearch))
+      .filter((video) =>
+        statusFilter === "all"
+          ? true
+          : statusFilter === "no_description"
+            ? hasNoDescription(video)
+            : videoVisibility(video) === statusFilter,
+      )
       .sort((a, b) => {
         if (sort === "views") return b.views - a.views;
         if (sort === "title") return a.title.localeCompare(b.title);
         return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
       });
-  }, [search, sort, state.data?.videos]);
+  }, [search, sort, statusFilter, state.data?.videos]);
 
   if (!isVideoListRoute) {
     return <Outlet />;
@@ -322,14 +346,15 @@ function Videos() {
     loaded: state.data?.videos.length ?? 0,
     hasMore: Boolean(state.data?.nextPageToken),
     channelVideoCount: totalVideoCount,
-    searching: Boolean(search.trim()),
+    searching: Boolean(search.trim()) || statusFilter !== "all",
     syncDisabled: state.status === "disabled",
+    allUploads: true,
   });
   const summary = listLoaded ? countLine.text : "Your authenticated YouTube videos";
   // null while video sync is switched off: the "sync is disabled" notice below is the only
   // true explanation for an empty list then.
   const emptyState = videosEmptyState({
-    search,
+    search: search || (statusFilter !== "all" ? STATUS_FILTER_LABEL[statusFilter] : ""),
     channelVideoCount: totalVideoCount,
     syncDisabled: state.status === "disabled",
   });
@@ -378,6 +403,21 @@ function Videos() {
               <option value="recent">Most recent</option>
               <option value="views">Most views</option>
               <option value="title">Title</option>
+            </select>
+          </label>
+          <label className="flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3 text-sm text-muted-foreground">
+            <span className="sr-only">Filter by status</span>
+            <select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              className="bg-transparent text-foreground outline-none [&>option]:bg-card [&>option]:text-foreground"
+            >
+              {(Object.keys(STATUS_FILTER_LABEL) as StatusFilter[]).map((key) => (
+                <option key={key} value={key}>
+                  {STATUS_FILTER_LABEL[key]}
+                </option>
+              ))}
             </select>
           </label>
           <Link to="/add-video" className={buttonPrimary}>
@@ -457,7 +497,7 @@ function Videos() {
                 type="button"
                 onClick={() =>
                   emptyState.action === "clear_search"
-                    ? setSearch("")
+                    ? (setSearch(""), setStatusFilter("all"))
                     : setRetryNonce((value) => value + 1)
                 }
                 className={buttonSecondary}
@@ -537,6 +577,49 @@ function Videos() {
   );
 }
 
+const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
+  all: "All statuses",
+  public: "Public",
+  unlisted: "Unlisted",
+  private: "Private",
+  scheduled: "Scheduled",
+  processing: "Processing",
+  no_description: "No description",
+};
+
+// A badge for anything other than a public video, and for a video with no description yet.
+function VideoBadges({ video }: { video: YoutubeVideo }) {
+  const visibility = videoVisibility(video);
+  const noDescription = hasNoDescription(video);
+  if (visibility === "public" && !noDescription) return null;
+  return (
+    <span className="relative z-10 inline-flex flex-wrap items-center gap-1">
+      {visibility !== "public" && (
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[11px] font-medium",
+            visibility === "scheduled"
+              ? "bg-primary/10 text-primary"
+              : "bg-accent text-muted-foreground",
+          )}
+          title={
+            visibility === "scheduled" && video.publishAt
+              ? `Goes public ${formatDate(video.publishAt)}`
+              : undefined
+          }
+        >
+          {VISIBILITY_LABEL[visibility]}
+        </span>
+      )}
+      {noDescription && (
+        <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+          No description
+        </span>
+      )}
+    </span>
+  );
+}
+
 function LoadingState() {
   return (
     <div className="mt-6 space-y-3" aria-label="Loading YouTube videos" aria-busy="true">
@@ -584,6 +667,7 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
         >
           {video.title}
         </Link>
+        <VideoBadges video={video} />
         {/* Date and length, then views, likes and comments as icons on the same line. */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>
@@ -655,8 +739,9 @@ function VideoRow({
             <span className="block max-w-[32rem] truncate font-medium group-hover:text-primary">
               {video.title}
             </span>
-            <span className="block text-xs text-muted-foreground">
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
               {formatDate(video.publishedAt)}
+              <VideoBadges video={video} />
             </span>
           </span>
         </Link>

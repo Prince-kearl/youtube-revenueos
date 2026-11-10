@@ -60,11 +60,13 @@ export const Route = createFileRoute("/api/youtube/analyze-video")({
 
           const accessToken = await getValidAccessToken(service, connection);
           const video = await fetchPublicYoutubeVideoById(accessToken, videoId);
-          if (video.privacyStatus !== "public") {
+          const isConnectedChannelVideo = video.channelId === channel.youtube_channel_id;
+          // The channel's own unlisted, private and scheduled uploads may be opened in the AI
+          // Description Lab (a description is best written before a video goes public); someone
+          // else's video only when it is public.
+          if (video.privacyStatus !== "public" && !isConnectedChannelVideo) {
             return json({ error: "YOUTUBE_VIDEO_NOT_PUBLIC" }, { status: 422 });
           }
-
-          const isConnectedChannelVideo = video.channelId === channel.youtube_channel_id;
           const { data: savedVideo, error: savedVideoError } = isConnectedChannelVideo
             ? await client
                 .from("videos")

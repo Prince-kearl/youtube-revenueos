@@ -41,6 +41,9 @@ export const Route = createFileRoute("/api/youtube/videos")({
           const rawChannelId = url.searchParams.get("channelId");
           const requestedChannelId = rawChannelId ? idSchema.parse(rawChannelId) : null;
           const pageToken = url.searchParams.get("pageToken") ?? undefined;
+          // visibility=all: unlisted, private and scheduled uploads too (the Videos page and the
+          // AI Description Lab). Anything else, or nothing: public videos only, as before.
+          const includeNonPublic = url.searchParams.get("visibility") === "all";
           const rawLimit = Number(url.searchParams.get("limit") ?? "50");
           const limit = Number.isFinite(rawLimit)
             ? Math.min(Math.max(Math.floor(rawLimit), 1), 50)
@@ -114,6 +117,7 @@ export const Route = createFileRoute("/api/youtube/videos")({
             channel.uploadsPlaylistId,
             pageToken,
             limit,
+            { includeNonPublic },
           );
 
           const { error: channelUpdateError } = await serviceClient

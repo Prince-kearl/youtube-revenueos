@@ -25,6 +25,9 @@ export interface VideosCountInput {
   /** Video sync is switched off in YouTube Integration settings: the list was not requested
    * from YouTube at all, so an empty list says nothing about the channel. */
   syncDisabled?: boolean;
+  /** The list includes unlisted, private and scheduled uploads (visibility=all). YouTube's
+   * channel total counts public videos, so it is not compared with the list then. */
+  allUploads?: boolean;
 }
 
 export const CHANNEL_COUNT_HINT =
@@ -37,6 +40,11 @@ export function videosCountLine(input: VideosCountInput): { text: string; hint: 
   if (searching)
     return {
       text: `${shown.toLocaleString()} of ${plural(loaded, "loaded video")} match`,
+      hint: null,
+    };
+  if (input.allUploads)
+    return {
+      text: hasMore ? `${plural(loaded, "video")} loaded` : plural(loaded, "video"),
       hint: null,
     };
   if (hasMore)

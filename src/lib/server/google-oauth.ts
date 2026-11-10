@@ -253,6 +253,11 @@ export interface YoutubeVideoSummary {
   duration: string | null;
   durationSeconds: number | null;
   privacyStatus: string | null;
+  /** YouTube's processing state: "uploaded" while still processing, "processed" when done, or
+   * "failed" / "rejected" / "deleted". Null when YouTube did not say. */
+  uploadStatus: string | null;
+  /** When a private video is scheduled to go public (ISO). Null when it is not scheduled. */
+  publishAt: string | null;
   views: number;
   likes: number | null;
   comments: number | null;
@@ -351,7 +356,7 @@ function mapYoutubeVideo(item: {
   };
   contentDetails?: { duration?: string };
   statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
-  status?: { privacyStatus?: string };
+  status?: { privacyStatus?: string; uploadStatus?: string; publishAt?: string };
 }): YoutubeVideoSummary {
   const durationSeconds = item.contentDetails?.duration
     ? parseIsoDurationSeconds(item.contentDetails.duration)
@@ -367,6 +372,8 @@ function mapYoutubeVideo(item: {
     duration: durationSeconds === null ? null : formatDuration(durationSeconds),
     durationSeconds,
     privacyStatus: item.status?.privacyStatus ?? null,
+    uploadStatus: item.status?.uploadStatus ?? null,
+    publishAt: item.status?.publishAt ?? null,
     views: Number(item.statistics?.viewCount ?? 0),
     likes: item.statistics?.likeCount === undefined ? null : Number(item.statistics.likeCount),
     comments:
@@ -391,7 +398,7 @@ export async function fetchPublicYoutubeVideoById(
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
-      status?: { privacyStatus?: string };
+      status?: { privacyStatus?: string; uploadStatus?: string; publishAt?: string };
     }>;
   }>(accessToken, "videos", {
     part: "snippet,contentDetails,statistics,status",
@@ -419,7 +426,7 @@ export async function fetchYoutubeVideoById(
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
-      status?: { privacyStatus?: string };
+      status?: { privacyStatus?: string; uploadStatus?: string; publishAt?: string };
     }>;
   }>(accessToken, "videos", {
     part: "snippet,contentDetails,statistics,status",
@@ -465,9 +472,10 @@ export async function fetchYoutubeVideosPage(
   uploadsPlaylistId: string | null,
   pageToken?: string,
   limit = 50,
-  // The pages shown to creators list public videos only. The catalogue sync passes
-  // includeNonPublic so unlisted/private uploads (which still earn and still have history) are
-  // not silently missing from the stored catalogue.
+  // Public videos only, unless includeNonPublic: the catalogue sync passes it so unlisted/private
+  // uploads (which still earn and still have history) are not missing from the stored catalogue,
+  // and the Videos page and AI Description Lab ask for it (visibility=all) so a creator can work
+  // on a private, unlisted or scheduled upload before it goes public.
   options: { includeNonPublic?: boolean } = {},
 ): Promise<YoutubeVideoPage> {
   if (!uploadsPlaylistId || limit <= 0) return { videos: [], listedIds: [], nextPageToken: null };
@@ -505,7 +513,7 @@ export async function fetchYoutubeVideosPage(
       };
       contentDetails?: { duration?: string };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
-      status?: { privacyStatus?: string };
+      status?: { privacyStatus?: string; uploadStatus?: string; publishAt?: string };
     }>;
   }>(accessToken, "videos", {
     part: "snippet,contentDetails,statistics,status",
@@ -903,6 +911,86 @@ export async function updateYoutubeComment(
     }
     throw new Error(`YOUTUBE_COMMENT_UPDATE_FAILED:${response.status}`);
   }
+}
+
+/** The editable details of one video, exactly as YouTube holds them (videos.list part=snippet,
+ * 1 unit). Kept whole because videos.update replaces the entire snippet: whatever is not sent
+ * back is erased. */
+export interface YoutubeVideoSnippet {
+  channelId: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  tags?: string[];
+  defaultLanguage?: string;
+  defaultAudioLanguage?: string;
+}
+
+export async function fetchYoutubeVideoSnippet(
+  accessToken: string,
+  videoId: string,
+): Promise<YoutubeVideoSnippet | null> {
+  const response = await youtubeApiRequest<{
+    items?: Array<{ id: string; snippet?: Partial<YoutubeVideoSnippet> }>;
+  }>(accessToken, "videos", { part: "snippet", id: videoId });
+  const snippet = response.items?.[0]?.snippet;
+  if (!snippet?.channelId || typeof snippet.title !== "string" || !snippet.categoryId) return null;
+  return {
+    channelId: snippet.channelId,
+    title: snippet.title,
+    description: snippet.description ?? "",
+    categoryId: snippet.categoryId,
+    ...(snippet.tags ? { tags: snippet.tags } : {}),
+    ...(snippet.defaultLanguage ? { defaultLanguage: snippet.defaultLanguage } : {}),
+    ...(snippet.defaultAudioLanguage ? { defaultAudioLanguage: snippet.defaultAudioLanguage } : {}),
+  };
+}
+
+export class YoutubeVideoUpdateRefusedError extends Error {
+  constructor(readonly reason: string) {
+    super("YOUTUBE_VIDEO_UPDATE_REFUSED");
+    this.name = "YoutubeVideoUpdateRefusedError";
+  }
+}
+
+/**
+ * Replaces a video's description (videos.update part=snippet, 50 quota units). `current` is the
+ * snippet just read with fetchYoutubeVideoSnippet: its title, category, tags and languages are
+ * sent back unchanged, so only the description changes.
+ */
+export async function updateYoutubeVideoDescription(
+  accessToken: string,
+  videoId: string,
+  current: YoutubeVideoSnippet,
+  description: string,
+): Promise<void> {
+  const { channelId: _channelId, ...kept } = current;
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.searchParams.set("part", "snippet");
+  const response = await youtubeFetch(accessToken, url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: videoId, snippet: { ...kept, description } }),
+  });
+  if (response.ok) return;
+  const body = await response.json().catch(() => null);
+  const reason =
+    (body as { error?: { errors?: Array<{ reason?: string }> } } | null)?.error?.errors?.[0]
+      ?.reason ?? "";
+  if (response.status === 403) {
+    if (reason === "insufficientPermissions") throw new YoutubeInsufficientScopeError();
+    if (
+      reason === "quotaExceeded" ||
+      reason === "dailyLimitExceeded" ||
+      reason === "rateLimitExceeded" ||
+      reason === "userRateLimitExceeded"
+    )
+      throw new YoutubeQuotaExceededError();
+  }
+  if (response.status === 404) throw new Error("YOUTUBE_VIDEO_NOT_FOUND");
+  if (response.status === 400 || response.status === 403)
+    throw new YoutubeVideoUpdateRefusedError(reason.slice(0, 60) || String(response.status));
+  throw new Error(`YOUTUBE_VIDEO_UPDATE_FAILED:${response.status}`);
 }
 
 export interface YoutubeAnalyticsQuery {

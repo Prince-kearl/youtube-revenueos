@@ -455,9 +455,12 @@ test("the Videos page reads no live revenue and asks the live route to skip its 
   const source = readFileSync("src/routes/videos.tsx", "utf8");
   for (const forbidden of ["estimatedRevenue", "revenueAvailable", "changePercent", "formatMoney"])
     assert.ok(!source.includes(forbidden), `videos.tsx no longer mentions ${forbidden}`);
-  // Both list requests (first page and "Load more") carry enrich=0.
-  assert.match(source, /new URLSearchParams\(\{ limit: "50", enrich: "0" \}\)/);
-  assert.match(source, /new URLSearchParams\(\{ pageToken: token, limit: "50", enrich: "0" \}\)/);
+  // Both list requests (first page and "Load more") carry enrich=0 (and list every upload).
+  assert.match(source, /new URLSearchParams\(\{ limit: "50", enrich: "0", visibility: "all" \}\)/);
+  assert.match(
+    source,
+    /new URLSearchParams\(\{\s*pageToken: token,\s*limit: "50",\s*enrich: "0",\s*visibility: "all",\s*\}\)/,
+  );
   // Revenue is requested for the page's own ids, scoped to the list's own channel.
   assert.match(
     source,

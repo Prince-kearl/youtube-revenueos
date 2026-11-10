@@ -58,6 +58,8 @@ export interface World {
   // Admin-granted subscriptions (none unless a test adds one).
   subscription_grants?: Row[];
   subscription_grant_events?: Row[];
+  // Descriptions published to YouTube from the AI Description Lab.
+  audit_events?: Row[];
   /** youtube_quota_usage is missing (the migration is not applied). */
   quotaUsageMissing?: boolean;
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
@@ -322,6 +324,8 @@ const OPTIONAL_TABLES = [
   "ai_usage",
   // Client connect links.
   "channel_connect_invites",
+  // Descriptions published from the AI Description Lab (and their undo).
+  "audit_events",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
