@@ -62,7 +62,12 @@ import {
   type YoutubeDetails,
 } from "@/components/PublishToYoutube";
 import { VideoStatusBadges } from "@/components/VideoStatusBadges";
-import { checklistComplete, videoChecklist, type FixTab } from "@/lib/video-checklist";
+import {
+  checklistComplete,
+  videoChecklist,
+  type ChecklistItem,
+  type FixTab,
+} from "@/lib/video-checklist";
 import { goToNextOnboardingStep } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/add-video")({
@@ -1294,291 +1299,126 @@ function AddVideo() {
           {/* Content analysis */}
           <div className="relative rounded-xl card-gradient-outline p-5">
             <GlowingEffect spread={40} glow disabled={false} proximity={64} inactiveZone={0.01} />
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-base font-semibold">Content analysis</h2>
-              <span title="Generated from this video's title, description, and transcript">
-                <Info
-                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                  aria-label="Generated from this video's title, description, and transcript"
-                />
-              </span>
-            </div>
-            {ready && (
-              <div
-                role="status"
-                className="mt-3 flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success"
-              >
-                <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>
-                  <span className="font-semibold">Ready.</span> Every check passes and the analysis
-                  has nothing major left to fix here. Anything below is optional polish.
-                </span>
-              </div>
-            )}
 
-            {loaded && checklist.length > 0 && (
-              <div className="mt-3 rounded-lg border border-border bg-background p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Checklist
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {checklist.filter((item) => item.status === "pass").length} of{" "}
-                    {checklist.filter((item) => item.status !== "na").length} passing
-                  </p>
-                </div>
-                <ul className="mt-2 space-y-1.5">
-                  {[
-                    ...failingChecks,
-                    ...(showPassing ? checklist.filter((item) => item.status !== "fail") : []),
-                  ].map((item) => (
-                    <li key={item.id} className="flex items-start gap-2 text-sm">
-                      {item.status === "pass" ? (
-                        <Check
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
-                          aria-label="Passes"
-                        />
-                      ) : item.status === "fail" ? (
-                        <X
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
-                          aria-label="Fails"
-                        />
-                      ) : (
-                        <span
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-center text-xs text-muted-foreground"
-                          aria-label="Not applicable"
-                        >
-                          –
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className={cn(item.status === "na" && "text-muted-foreground")}>
-                          {item.label}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">{item.detail}</span>
-                      </span>
-                      {item.status === "fail" && (
-                        <button
-                          type="button"
-                          onClick={() => openFix(item.fix)}
-                          className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium hover:bg-accent"
-                        >
-                          Fix
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                  {!failingChecks.length && !showPassing && (
-                    <li className="flex items-center gap-2 text-sm text-success">
-                      <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Everything on
-                      the checklist passes.
-                    </li>
-                  )}
-                </ul>
+            {/* Header: title, where things stand, and Re-analyze always in the same place. */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold">Content analysis</h2>
+                {loaded && (
+                  <StatusPill
+                    tone={
+                      ready
+                        ? "success"
+                        : analysis && analysisOutdated
+                          ? "warning"
+                          : failingChecks.length ||
+                              fixableIssues.some((i) => i.severity === "major")
+                            ? "attention"
+                            : "neutral"
+                    }
+                  >
+                    {ready
+                      ? "Ready"
+                      : analysis && analysisOutdated
+                        ? "Out of date"
+                        : failingChecks.length
+                          ? `${failingChecks.length} to fix`
+                          : analysis
+                            ? "Review"
+                            : "Not analyzed"}
+                  </StatusPill>
+                )}
+              </div>
+              {analysis && (
                 <button
                   type="button"
-                  onClick={() => setShowPassing((value) => !value)}
-                  className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => void analyzeContent()}
+                  disabled={analyzing}
+                  className={cn(buttonSecondary, "h-8 px-3 text-xs")}
                 >
-                  {showPassing ? "Hide passing checks" : "Show passing checks"}
+                  <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
+                  {analyzing ? "Analyzing…" : "Re-analyze"}
                 </button>
-              </div>
+              )}
+            </div>
+
+            {/* Readiness: the checklist and the verdict in one card. */}
+            {loaded && checklist.length > 0 && (
+              <ReadinessCard
+                ready={ready}
+                analyzed={Boolean(analysis?.issues) && !analysisOutdated}
+                checklist={checklist}
+                showPassing={showPassing}
+                onTogglePassing={() => setShowPassing((value) => !value)}
+                onFix={openFix}
+              />
             )}
 
             {!analysis && !analyzing && (
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-4 text-sm text-muted-foreground">
                 {loading
                   ? "Loading the video…"
                   : loaded
-                    ? 'Click "Analyze video" above to see it.'
+                    ? 'Run "Analyze video" above for scores, strengths and what to improve.'
                     : "Select a video above to analyze its content."}
               </p>
             )}
             {analyzing && !analysis && (
-              <div className="mt-3 space-y-3" aria-busy="true" aria-label="Analyzing content">
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              <div
+                className="mt-4 grid gap-4 sm:grid-cols-[auto_1fr]"
+                aria-busy="true"
+                aria-label="Analyzing content"
+              >
+                <Skeleton className="mx-auto h-28 w-28 rounded-full" />
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-4 w-full" />
                   ))}
-                </div>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Skeleton className="h-24 w-full rounded-lg" />
-                  <Skeleton className="h-24 w-full rounded-lg" />
                 </div>
               </div>
             )}
             {analysis && analysisOutdated && (
               <div
                 role="status"
-                className="mt-3 flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                className="mt-4 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-warning"
               >
-                <span className="flex items-start gap-1.5 text-warning">
-                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  {analysis?.basis
-                    ? "This analysis doesn't match the video on YouTube anymore: its title, description, tags or visibility have changed since."
-                    : "This analysis may be out of date: it was made before Tubify could tell what it was based on."}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void analyzeContent()}
-                  disabled={analyzing}
-                  className={cn(buttonSecondary, "h-8 shrink-0")}
-                >
-                  {analyzing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  )}
-                  {analyzing ? "Analyzing…" : "Re-analyze"}
-                </button>
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                {analysis.basis
+                  ? "Scores below are for an earlier version of this video. Re-analyze to update them."
+                  : "These scores may be out of date. Re-analyze to update them."}
               </div>
             )}
             {analysis && (
               <>
+                {/* Scores: the overall ring, and each area as a bar. */}
                 <div
                   className={cn(
-                    "mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6",
+                    "mt-4 grid items-center gap-5 rounded-xl bg-accent/30 p-4 sm:grid-cols-[auto_1fr]",
                     (analysisOutdated || analyzing) && "opacity-60",
                   )}
                 >
-                  <ScoreChip label="Overall" value={analysis.overallScore} highlight />
-                  <ScoreChip label="Hook" value={analysis.scores.hook} />
-                  <ScoreChip label="Title" value={analysis.scores.title} />
-                  <ScoreChip label="SEO" value={analysis.scores.seo} />
-                  <ScoreChip label="Content" value={analysis.scores.content} />
-                  <ScoreChip label="Engagement" value={analysis.scores.engagement} />
-                </div>
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Summary
-                  </p>
-                  <p className="mt-1 text-sm">{analysis.summary}</p>
-                </div>
-                {analysis.strengths.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-success">
-                      Strengths
-                    </p>
-                    <ul className="mt-1.5 space-y-1.5">
-                      {analysis.strengths.map((strength) => (
-                        <li key={strength} className="flex items-start gap-1.5 text-sm">
-                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                          {strength}
-                        </li>
-                      ))}
-                    </ul>
+                  <ScoreRing value={analysis.overallScore} />
+                  <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                    <ScoreBar label="Hook" value={analysis.scores.hook} />
+                    <ScoreBar label="Title" value={analysis.scores.title} />
+                    <ScoreBar label="SEO" value={analysis.scores.seo} />
+                    <ScoreBar label="Content" value={analysis.scores.content} />
+                    <ScoreBar label="Engagement" value={analysis.scores.engagement} />
                   </div>
-                )}
+                </div>
 
-                {resolvedIssues.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-success">
-                      Fixed since the last analysis
-                    </p>
-                    <ul className="mt-1.5 space-y-1.5">
-                      {resolvedIssues.map((review) => (
-                        <li key={review.text} className="flex items-start gap-1.5 text-sm">
-                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                          <span>
-                            <span className="text-muted-foreground line-through">
-                              {review.text}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {review.reason}
-                            </span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                  {analysis.summary}
+                </p>
 
-                {analysis.issues ? (
-                  <>
-                    <div className="mt-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
-                        To improve here
-                      </p>
-                      {fixableIssues.length ? (
-                        <ul className="mt-1.5 space-y-1.5">
-                          {fixableIssues.map((issue) => (
-                            <li key={issue.text} className="flex items-start gap-2 text-sm">
-                              <TriangleAlert
-                                className={cn(
-                                  "mt-0.5 h-3.5 w-3.5 shrink-0",
-                                  issue.severity === "major"
-                                    ? "text-brand-amber"
-                                    : "text-muted-foreground",
-                                )}
-                              />
-                              <span className="min-w-0 flex-1">
-                                {issue.text}
-                                <span className="ml-1.5 text-xs text-muted-foreground">
-                                  {AREA_LABEL[issue.area]}
-                                  {issue.severity === "minor" ? " · optional" : ""}
-                                </span>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => openFix(FIX_TAB_FOR_AREA[issue.area]!)}
-                                className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium hover:bg-accent"
-                              >
-                                Fix
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-success">
-                          <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> No
-                          significant issues with the title, description, tags or chapters.
-                        </p>
-                      )}
-                    </div>
-                    {contextIssues.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          About the video itself
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Worth knowing, but not something to change on this page.
-                        </p>
-                        <ul className="mt-1.5 space-y-1.5">
-                          {contextIssues.map((issue) => (
-                            <li
-                              key={issue.text}
-                              className="flex items-start gap-1.5 text-sm text-muted-foreground"
-                            >
-                              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                              <span>
-                                {issue.text}
-                                <span className="ml-1.5 text-xs">{AREA_LABEL[issue.area]}</span>
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  analysis.weaknesses.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-amber">
-                        Weaknesses
-                      </p>
-                      <ul className="mt-1.5 space-y-1.5">
-                        {analysis.weaknesses.map((weakness) => (
-                          <li key={weakness} className="flex items-start gap-1.5 text-sm">
-                            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-amber" />
-                            {weakness}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
-                )}
+                <InsightTabs
+                  strengths={analysis.strengths}
+                  fixable={fixableIssues}
+                  context={contextIssues}
+                  resolved={resolvedIssues}
+                  legacyWeaknesses={analysis.issues ? null : analysis.weaknesses}
+                  onFix={(area) => openFix(FIX_TAB_FOR_AREA[area]!)}
+                />
 
                 <button
                   type="button"
@@ -2333,30 +2173,436 @@ function existingChapters(description: string): string {
   return out.join("\n");
 }
 
-function ScoreChip({
-  label,
-  value,
-  highlight,
+// ---------- Content analysis pieces ----------
+
+const scoreTone = (value: number) =>
+  value >= 8 ? "success" : value >= 5 ? "warning" : ("destructive" as const);
+const TONE_TEXT = {
+  success: "text-success",
+  warning: "text-warning",
+  destructive: "text-destructive",
+} as const;
+const TONE_BG = {
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+} as const;
+
+function StatusPill({
+  tone,
+  children,
 }: {
-  label: string;
-  value: number;
-  highlight?: boolean;
+  tone: "success" | "warning" | "attention" | "neutral";
+  children: React.ReactNode;
 }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        tone === "success" && "bg-success/15 text-success",
+        tone === "warning" && "bg-warning/15 text-warning",
+        tone === "attention" && "bg-primary/10 text-primary",
+        tone === "neutral" && "bg-accent text-muted-foreground",
+      )}
+    >
+      {tone === "success" && <Check className="h-3 w-3" aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
+/** The overall score as a ring: how full, and coloured by how good. */
+function ScoreRing({ value }: { value: number }) {
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  const tone = scoreTone(value);
+  return (
+    <div
+      className="relative mx-auto h-28 w-28"
+      role="img"
+      aria-label={`Overall score ${value.toFixed(1)} out of 10`}
+    >
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        <circle cx="50" cy="50" r={radius} fill="none" strokeWidth="8" className="stroke-border" />
+        <circle
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - Math.min(10, Math.max(0, value)) / 10)}
+          className={cn(
+            "transition-[stroke-dashoffset] duration-700",
+            tone === "success"
+              ? "stroke-success"
+              : tone === "warning"
+                ? "stroke-warning"
+                : "stroke-destructive",
+          )}
+        />
+      </svg>
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-center"
+        aria-hidden="true"
+      >
+        <span className={cn("text-2xl font-bold tabular-nums", TONE_TEXT[tone])}>
+          {value.toFixed(1)}
+        </span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Overall
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const tone = scoreTone(value);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="font-medium">{label}</span>
+        <span className="tabular-nums text-muted-foreground">
+          <span className={cn("font-semibold", TONE_TEXT[tone])}>{value.toFixed(1)}</span>/10
+        </span>
+      </div>
+      <div
+        className="mt-1 h-1.5 overflow-hidden rounded-full bg-border"
+        role="progressbar"
+        aria-label={`${label} score`}
+        aria-valuemin={0}
+        aria-valuemax={10}
+        aria-valuenow={value}
+      >
+        <div
+          className={cn("h-full rounded-full transition-[width] duration-700", TONE_BG[tone])}
+          style={{ width: `${Math.min(100, Math.max(0, value * 10))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Where the video stands: ready or not, the checklist's progress, and what fails. */
+function ReadinessCard({
+  ready,
+  analyzed,
+  checklist,
+  showPassing,
+  onTogglePassing,
+  onFix,
+}: {
+  ready: boolean;
+  analyzed: boolean;
+  checklist: ChecklistItem[];
+  showPassing: boolean;
+  onTogglePassing: () => void;
+  onFix: (tab: FixTab) => void;
+}) {
+  const applicable = checklist.filter((item) => item.status !== "na");
+  const passing = applicable.filter((item) => item.status === "pass");
+  const failing = checklist.filter((item) => item.status === "fail");
+  const percent = applicable.length ? Math.round((passing.length / applicable.length) * 100) : 100;
+  const headline = ready
+    ? "Ready to publish"
+    : failing.length
+      ? `${failing.length} ${failing.length === 1 ? "thing" : "things"} to fix`
+      : analyzed
+        ? "Checklist complete — see what to improve below"
+        : "Checklist complete — analyze for a full review";
   return (
     <div
       className={cn(
-        "rounded-lg border p-2.5",
-        highlight ? "border-primary/40 bg-primary/5" : "border-border bg-background",
+        "mt-4 rounded-xl border p-4",
+        ready ? "border-success/30 bg-success/5" : "border-border bg-background",
       )}
     >
-      <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className={cn("mt-0.5 truncate text-sm font-semibold", highlight && "text-primary")}>
-        {value.toFixed(1)}
-        <span className="text-xs font-normal text-muted-foreground">/10</span>
-      </p>
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+            ready || !failing.length ? "bg-success/15 text-success" : "bg-primary/10 text-primary",
+          )}
+          aria-hidden="true"
+        >
+          {ready || !failing.length ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <Target className="h-4 w-4" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={cn("text-sm font-semibold", ready && "text-success")}>{headline}</p>
+          <p className="text-xs text-muted-foreground">
+            Checklist: {passing.length} of {applicable.length} passing
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border" aria-hidden="true">
+        <div
+          className={cn(
+            "h-full rounded-full transition-[width] duration-700",
+            failing.length ? "bg-primary" : "bg-success",
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      {(failing.length > 0 || showPassing) && (
+        <ul className="mt-3 divide-y divide-border">
+          {[
+            ...failing,
+            ...(showPassing ? checklist.filter((item) => item.status !== "fail") : []),
+          ].map((item) => (
+            <li key={item.id} className="flex items-center gap-3 py-2">
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                  item.status === "pass" && "bg-success/15 text-success",
+                  item.status === "fail" && "bg-destructive/10 text-destructive",
+                  item.status === "na" && "bg-accent text-muted-foreground",
+                )}
+                aria-label={
+                  item.status === "pass"
+                    ? "Passes"
+                    : item.status === "fail"
+                      ? "Fails"
+                      : "Not applicable"
+                }
+              >
+                {item.status === "pass" ? (
+                  <Check className="h-3 w-3" />
+                ) : item.status === "fail" ? (
+                  <X className="h-3 w-3" />
+                ) : (
+                  <span className="text-[10px]">–</span>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn("block text-sm", item.status === "na" && "text-muted-foreground")}
+                >
+                  {item.label}
+                </span>
+                <span className="block text-xs text-muted-foreground">{item.detail}</span>
+              </span>
+              {item.status === "fail" && (
+                <button
+                  type="button"
+                  onClick={() => onFix(item.fix)}
+                  className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Fix
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        onClick={onTogglePassing}
+        className="mt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        aria-expanded={showPassing}
+      >
+        {showPassing ? "Hide passing checks" : `Show ${passing.length} passing checks`}
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 transition-transform", showPassing && "rotate-180")}
+        />
+      </button>
     </div>
+  );
+}
+
+type Issue = { text: string; area: IssueArea; severity: "major" | "minor" };
+
+/** Strengths, what to improve here, what was fixed, and context — as tabs with counts. */
+function InsightTabs({
+  strengths,
+  fixable,
+  context,
+  resolved,
+  legacyWeaknesses,
+  onFix,
+}: {
+  strengths: string[];
+  fixable: Issue[];
+  context: Issue[];
+  resolved: Array<{ text: string; reason: string }>;
+  /** An analysis from before issues existed: its plain weaknesses, shown as they are. */
+  legacyWeaknesses: string[] | null;
+  onFix: (area: IssueArea) => void;
+}) {
+  type Key = "improve" | "strengths" | "fixed" | "context";
+  const improveCount = legacyWeaknesses ? legacyWeaknesses.length : fixable.length;
+  const tabs: Array<{ key: Key; label: string; count: number }> = [
+    { key: "improve", label: legacyWeaknesses ? "Weaknesses" : "To improve", count: improveCount },
+    { key: "strengths", label: "Strengths", count: strengths.length },
+    ...(resolved.length ? [{ key: "fixed" as Key, label: "Fixed", count: resolved.length }] : []),
+    ...(context.length ? [{ key: "context" as Key, label: "Context", count: context.length }] : []),
+  ];
+  const [active, setActive] = useState<Key>(improveCount ? "improve" : "strengths");
+  const current = tabs.some((tab) => tab.key === active) ? active : "improve";
+
+  return (
+    <div className="mt-4">
+      <div
+        role="tablist"
+        aria-label="Analysis findings"
+        className="flex gap-1 overflow-x-auto rounded-full bg-accent/50 p-1"
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={current === tab.key}
+            onClick={() => setActive(tab.key)}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              current === tab.key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {tab.label}
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-[10px] tabular-nums",
+                current === tab.key ? "bg-accent" : "bg-background/70",
+              )}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" className="mt-3">
+        {current === "improve" &&
+          (legacyWeaknesses ? (
+            <FindingList
+              items={legacyWeaknesses.map((text) => ({ text }))}
+              icon="warning"
+              empty="Nothing listed."
+            />
+          ) : fixable.length ? (
+            <ul className="space-y-2">
+              {fixable.map((issue) => (
+                <li
+                  key={issue.text}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-background p-3"
+                >
+                  <TriangleAlert
+                    className={cn(
+                      "mt-0.5 h-4 w-4 shrink-0",
+                      issue.severity === "major" ? "text-warning" : "text-muted-foreground",
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 text-sm">
+                    {issue.text}
+                    <span className="mt-1 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {AREA_LABEL[issue.area]}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          issue.severity === "major"
+                            ? "bg-warning/15 text-warning"
+                            : "bg-accent text-muted-foreground",
+                        )}
+                      >
+                        {issue.severity === "major" ? "Important" : "Optional"}
+                      </span>
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onFix(issue.area)}
+                    className="shrink-0 rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-accent"
+                  >
+                    Fix
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="flex items-center gap-2 rounded-xl bg-success/10 p-3 text-sm text-success">
+              <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Nothing significant to improve in the title, description, tags or chapters.
+            </p>
+          ))}
+        {current === "strengths" && (
+          <FindingList
+            items={strengths.map((text) => ({ text }))}
+            icon="check"
+            empty="None listed."
+          />
+        )}
+        {current === "fixed" && (
+          <FindingList
+            items={resolved.map((r) => ({ text: r.text, note: r.reason }))}
+            icon="check"
+            strike
+            empty="Nothing yet."
+          />
+        )}
+        {current === "context" && (
+          <>
+            <p className="mb-2 text-xs text-muted-foreground">
+              About the video itself — worth knowing, not something to change on this page.
+            </p>
+            <FindingList
+              items={context.map((issue) => ({ text: issue.text, note: AREA_LABEL[issue.area] }))}
+              icon="info"
+              empty="Nothing listed."
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FindingList({
+  items,
+  icon,
+  strike,
+  empty,
+}: {
+  items: Array<{ text: string; note?: string }>;
+  icon: "check" | "warning" | "info";
+  strike?: boolean;
+  empty: string;
+}) {
+  if (!items.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  const Icon = icon === "check" ? Check : icon === "warning" ? TriangleAlert : Info;
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li key={item.text} className="flex items-start gap-2.5 text-sm">
+          <span
+            className={cn(
+              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+              icon === "check" && "bg-success/15 text-success",
+              icon === "warning" && "bg-warning/15 text-warning",
+              icon === "info" && "bg-accent text-muted-foreground",
+            )}
+            aria-hidden="true"
+          >
+            <Icon className="h-3 w-3" />
+          </span>
+          <span className="min-w-0">
+            <span className={cn(strike && "text-muted-foreground line-through")}>{item.text}</span>
+            {item.note && <span className="block text-xs text-muted-foreground">{item.note}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
