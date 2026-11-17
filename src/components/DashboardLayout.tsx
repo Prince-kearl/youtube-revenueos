@@ -13,7 +13,6 @@ import {
   FileText,
   Settings,
   ChevronLeft,
-  ChevronUp,
   Search,
   Plus,
   Bell,
@@ -31,6 +30,7 @@ import {
   User as UserIcon,
   Sun,
   Moon,
+  MoreHorizontal,
   Palette,
   Send,
   Shield,
@@ -44,7 +44,6 @@ import {
 import { Logo } from "@/components/Logo";
 import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -544,7 +543,7 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
   const canSeeNavRoute = (to: string) => canReachRoute(to) && realFeatureEnabledFor(to);
   const visibleNavHubs = visibleCreatorNavHubs(canSeeNavRoute);
   const visibleAccountNav = visibleCreatorAccountNav(canSeeNavRoute);
-  // What the account button opens, in words (its tooltip and accessible name).
+  // What "More" opens, in words (its tooltip and accessible name when the sidebar is collapsed).
   const accountMenuSummary = visibleAccountNav.map((to) => navItem(to).label).join(", ");
   // The page to highlight: the page itself, or the entry a nested page belongs to (a single
   // video, Analyze Video and Pre-Publish all sit under Videos) — and the hub that page is in.
@@ -569,12 +568,6 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
   >([]);
   const searchLeadsLoadedRef = useRef(false);
   const [activeChannelId] = useLocalStore<string | null>(ACTIVE_YOUTUBE_CHANNEL_KEY, null);
-  // The sidebar's account button (the YouTube logo) opens Team, Settings, Support… A small dot
-  // points at it until it has been opened once on this device.
-  const [accountMenuSeen, setAccountMenuSeen] = useLocalStore<boolean>(
-    "yroos.accountMenuSeen.v1",
-    false,
-  );
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -947,119 +940,99 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                 </Link>
               );
             })}
+            {/* Team, Settings, Affiliate, Support (and Admin): the rest of the app, one tap away. */}
+            {visibleAccountNav.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title={collapsed ? `More: ${accountMenuSummary}` : undefined}
+                    aria-label={collapsed ? `More: ${accountMenuSummary}` : undefined}
+                    className={`group relative flex w-full items-center text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2.5"} ${activeNavRoute && visibleAccountNav.includes(activeNavRoute) ? "glass-active-nav" : "rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"}`}
+                  >
+                    <MoreHorizontal className="relative h-[18px] w-[18px] shrink-0" />
+                    {!collapsed && <span className="relative flex-1 truncate text-left">More</span>}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start" className="w-56 rounded-2xl">
+                  <DropdownMenuLabel>More</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {visibleAccountNav.map((to) => {
+                    const item = navItem(to);
+                    const Icon = item.icon;
+                    const locked = isLocked(to);
+                    return (
+                      <DropdownMenuItem key={to} asChild>
+                        <Link
+                          to={to}
+                          aria-current={activeNavRoute === to ? "page" : undefined}
+                          className={cn(
+                            "cursor-pointer",
+                            activeNavRoute === to && "font-semibold text-primary",
+                            to === "/admin" && "text-brand-purple",
+                          )}
+                        >
+                          <Icon className="mr-2 h-4 w-4" />
+                          <span className="flex-1">{item.label}</span>
+                          {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
 
+          {/* YouTube connection status. A link to YouTube Integration, nothing hidden behind it. */}
           <div className="p-3">
-            <DropdownMenu
-              onOpenChange={(open) => open && !accountMenuSeen && setAccountMenuSeen(true)}
+            <Link
+              to="/settings"
+              search={{ tab: "YouTube Integration" }}
+              title={
+                youtubeConnected === null
+                  ? "Checking YouTube connection…"
+                  : youtubeConnected
+                    ? "YouTube connected — open YouTube Integration"
+                    : "YouTube not connected — connect it in YouTube Integration"
+              }
+              className={`card-frost flex w-full items-center backdrop-blur-lg transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-3"}`}
             >
-              <TooltipProvider delayDuration={200}>
-                {/* Collapsed, the button is only a logo: the tooltip says what it opens. */}
-                <Tooltip open={collapsed ? undefined : false}>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`Account and settings: ${accountMenuSummary}`}
-                        className={`card-frost relative flex w-full items-center text-left backdrop-blur-lg transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${collapsed ? "flex-col justify-center gap-1 px-2 py-2.5" : "gap-3 px-3 py-3"} ${activeNavRoute && visibleAccountNav.includes(activeNavRoute) ? "ring-1 ring-primary/40" : ""}`}
-                      >
-                        {!accountMenuSeen && (
-                          <span className="absolute right-2 top-2 flex h-2 w-2" aria-hidden="true">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                          </span>
-                        )}
-                        <div className="relative shrink-0">
-                          <div className="flex h-8 w-8 items-center justify-center">
-                            <svg
-                              viewBox="0 0 24 18"
-                              className="h-6 w-8"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
-                                fill="#ff0000"
-                              />
-                              <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="white" />
-                            </svg>
-                          </div>
-                          <span
-                            className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
-                            title={
-                              youtubeConnected === null
-                                ? "Checking YouTube connection…"
-                                : youtubeConnected
-                                  ? "YouTube connected"
-                                  : "YouTube not connected"
-                            }
-                            role="status"
-                            aria-label={
-                              youtubeConnected === null
-                                ? "Checking YouTube connection"
-                                : youtubeConnected
-                                  ? "YouTube connected"
-                                  : "YouTube not connected"
-                            }
-                          />
-                        </div>
-                        {collapsed && (
-                          <ChevronUp
-                            className="h-3.5 w-3.5 text-muted-foreground"
-                            aria-hidden="true"
-                          />
-                        )}
-                        {!collapsed && (
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] text-muted-foreground">Team &amp; settings</p>
-                            <p className="truncate text-sm font-semibold">
-                              {youtubeConnected === null
-                                ? "Checking…"
-                                : youtubeConnected
-                                  ? "YouTube connected"
-                                  : "Not connected"}
-                            </p>
-                          </div>
-                        )}
-                        {!collapsed && (
-                          <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[14rem]">
-                    <p className="font-semibold">Account &amp; settings</p>
-                    <p className="text-xs opacity-80">{accountMenuSummary}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent side="top" align="start" className="w-56 rounded-2xl">
-                <DropdownMenuLabel>Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {visibleAccountNav.map((to) => {
-                  const item = navItem(to);
-                  const Icon = item.icon;
-                  const locked = isLocked(to);
-                  return (
-                    <DropdownMenuItem key={to} asChild>
-                      <Link
-                        to={to}
-                        aria-current={activeNavRoute === to ? "page" : undefined}
-                        className={cn(
-                          "cursor-pointer",
-                          activeNavRoute === to && "font-semibold text-primary",
-                          to === "/admin" && "text-brand-purple",
-                        )}
-                      >
-                        <Icon className="mr-2 h-4 w-4" />
-                        <span className="flex-1">{item.label}</span>
-                        {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <div className="relative shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center">
+                  <svg viewBox="0 0 24 18" className="h-6 w-8" fill="none" aria-hidden="true">
+                    <path
+                      d="M23.5 3.1a3 3 0 0 0-2.1-2.1C19.6.5 12 .5 12 .5s-7.6 0-9.4.5A3 3 0 0 0 .5 3.1 31.7 31.7 0 0 0 0 9s0 2.9.5 5.9a3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-3 .5-5.9.5-5.9s0-2.9-.5-5.9Z"
+                      fill="#ff0000"
+                    />
+                    <path d="m9.6 12.8 5.2-3.8-5.2-3.8v7.6Z" fill="white" />
+                  </svg>
+                </div>
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card ${youtubeConnected === null ? "bg-muted-foreground/40" : youtubeConnected ? "bg-success" : "bg-destructive"}`}
+                  role="status"
+                  aria-label={
+                    youtubeConnected === null
+                      ? "Checking YouTube connection"
+                      : youtubeConnected
+                        ? "YouTube connected"
+                        : "YouTube not connected"
+                  }
+                />
+              </div>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted-foreground">YouTube</p>
+                  <p className="truncate text-sm font-semibold">
+                    {youtubeConnected === null
+                      ? "Checking…"
+                      : youtubeConnected
+                        ? "Connected"
+                        : "Not connected"}
+                  </p>
+                </div>
+              )}
+            </Link>
           </div>
         </aside>
       )}
