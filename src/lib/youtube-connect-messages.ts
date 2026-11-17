@@ -21,7 +21,7 @@ export const YOUTUBE_CALLBACK_MESSAGES: Record<
   },
   already_connected: {
     type: "success",
-    text: "Google gave access to a channel that's already connected, so its access was renewed. To add a different channel, choose it on Google's screen. For a client's channel you manage through YouTube Studio permissions, send the client a connect link (Settings → YouTube Integration → Invite a client).",
+    text: "Google gave access to a channel that's already connected, so its access was renewed. To add a different channel, choose it on Google's screen. For a client's channel you manage through YouTube Studio permissions, send the client a connect link (Settings → YouTube Integration → Connect a client’s channel).",
   },
   channel_limit: {
     type: "error",
@@ -37,7 +37,7 @@ export const YOUTUBE_CALLBACK_MESSAGES: Record<
   },
   no_channels_found: {
     type: "error",
-    text: "Google didn't return a channel for that account. If you manage a client's channel through YouTube Studio permissions, Google doesn't let apps use that access — send the client a connect link instead (Settings → YouTube Integration → Invite a client).",
+    text: "Google didn't return a channel for that account. If you manage a client's channel through YouTube Studio permissions, Google doesn't let apps use that access — send the client a connect link instead (Settings → YouTube Integration → Connect a client’s channel).",
   },
   not_allowed: {
     type: "error",

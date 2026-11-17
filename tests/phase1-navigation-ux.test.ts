@@ -190,7 +190,10 @@ test("the layout renders from the shared structure and marks the current page", 
   assert.match(layout, /aria-label=\{collapsed \? "Expand sidebar" : "Collapse sidebar"\}/);
   // One structure for desktop and mobile: the sidebar and the "More" sheet use the same hubs.
   assert.equal(layout.match(/visibleNavHubs\.map\(/g)?.length, 2);
-  assert.equal(layout.match(/visibleAccountNav\.map\(/g)?.length, 2);
+  // (Rendered twice — the sidebar menu and the "More" sheet; the account button's tooltip also
+  // lists the same items' names.)
+  assert.equal(layout.match(/visibleAccountNav\.map\(\(to\) => (\{|\(\{)/g)?.length, 2);
+  assert.match(layout, /accountMenuSummary = visibleAccountNav\.map\(\(to\) => navItem\(to\)\.label\)/);
   // The tabs are only drawn for a page the user may open.
   assert.match(layout, /\{hubTabs && !pageBlocked && \(/);
 });

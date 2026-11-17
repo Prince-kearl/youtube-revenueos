@@ -1325,14 +1325,13 @@ function InviteClients({ onConnected }: { onConnected: () => void }) {
       className="space-y-3 rounded-xl border border-border bg-accent/20 p-5"
     >
       <div>
+        {/* Not a team invitation (Team page): the client shares one channel and never joins. */}
         <h4 id="invite-clients-heading" className="font-semibold">
-          Invite a client
+          Connect a client’s channel
         </h4>
         <p className="text-sm text-muted-foreground">
-          Manage a client’s channel through YouTube Studio permissions? Google doesn’t let apps use
-          that access, so send the client a link instead: they sign in with their own Google account
-          and share just that one channel with this workspace. They don’t need a Tubify account, and
-          can remove access anytime from their Google account.
+          Send a link. Your client signs in with Google and shares one channel — no Tubify account
+          needed, and they can remove access anytime.
         </p>
       </div>
       <form
