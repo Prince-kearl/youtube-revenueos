@@ -31,7 +31,6 @@ import {
   User as UserIcon,
   Sun,
   Moon,
-  Monitor,
   Palette,
   Send,
   Shield,
@@ -351,6 +350,14 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
   const navigate = useNavigate();
   const [profile, setProfile] = useProfile();
   const [themeMode, setThemeMode] = useThemeMode();
+  // The profile menu offers light and dark only; "system" (still possible from Settings or an
+  // older choice) is shown as whichever of the two the device resolves it to.
+  const shownTheme: "light" | "dark" =
+    themeMode === "system"
+      ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : themeMode;
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [deals, setDeals] = useDeals();
   const [viewerRole, setViewerRole] = useViewerRole();
@@ -1185,7 +1192,9 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                     <UserIcon className="mr-3 h-5 w-5" /> Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() => navigate({ to: "/settings", search: { tab: "Appearance" } })}
+                    onSelect={() =>
+                      navigate({ to: "/settings", search: { tab: "YouTube Integration" } })
+                    }
                     className="h-11 rounded-xl px-3 text-[15px]"
                   >
                     <Settings className="mr-3 h-5 w-5" /> Settings
@@ -1196,24 +1205,25 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                   <span className="flex items-center text-[15px]">
                     <Palette className="mr-3 h-5 w-5" aria-hidden="true" /> Theme
                   </span>
+                  {/* Light or dark only. Someone still on "system" from before sees the theme
+                      their device currently gives them selected; choosing one fixes it. */}
                   <div className="flex items-center gap-0.5" role="group" aria-label="Theme mode">
                     {(
                       [
                         ["light", "Light", Sun],
                         ["dark", "Dark", Moon],
-                        ["system", "System", Monitor],
                       ] as const
                     ).map(([mode, label, Icon]) => (
                       <button
                         key={mode}
                         type="button"
                         aria-label={`${label} theme`}
-                        aria-pressed={themeMode === mode}
+                        aria-pressed={shownTheme === mode}
                         onClick={() => setThemeMode(mode as ThemeMode)}
                         title={label}
                         className={cn(
                           "grid h-8 w-8 place-items-center rounded-full transition-colors",
-                          themeMode === mode
+                          shownTheme === mode
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:text-foreground",
                         )}
