@@ -32,6 +32,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Palette,
   Send,
   Shield,
   Pencil,
@@ -1192,7 +1193,9 @@ function DashboardLayoutContent({ children, hideAppNav }: DashboardLayoutProps) 
                 </div>
 
                 <div className="mt-1 flex items-center justify-between gap-3 px-3 py-1.5">
-                  <span className="text-[15px]">Theme</span>
+                  <span className="flex items-center text-[15px]">
+                    <Palette className="mr-3 h-5 w-5" aria-hidden="true" /> Theme
+                  </span>
                   <div className="flex items-center gap-0.5" role="group" aria-label="Theme mode">
                     {(
                       [
