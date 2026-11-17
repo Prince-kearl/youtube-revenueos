@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { isInvitationPath, rememberPostLoginPath } from "@/lib/invitations";
+import { postLoginPath } from "@/lib/safe-redirect";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import {
@@ -34,16 +36,25 @@ function Signup() {
   const [referredByCode] = useState(() =>
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("ref"),
   );
+  // Where to go once signed up — only ever a safe app page (an invitation, for instance).
+  const [nextPath] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next ? postLoginPath(next) : null;
+  });
 
   const handleResend = async () => {
     setResendState("sending");
-    const { error: resendError } = await resendSignupConfirmation(email);
+    const { error: resendError } = await resendSignupConfirmation(email, nextPath);
     setResendState(resendError ? "failed" : "sent");
   };
 
   useEffect(() => {
-    if (!sessionLoading && user) navigate({ to: "/dashboard" });
-  }, [sessionLoading, user, navigate]);
+    if (!sessionLoading && user) {
+      if (nextPath) window.location.replace(nextPath);
+      else navigate({ to: "/dashboard" });
+    }
+  }, [sessionLoading, user, navigate, nextPath]);
 
   // Real click logging — best-effort, never blocks or affects the signup form. Runs once per
   // mount; the click endpoint itself dedupes repeat visits from the same browser.
@@ -70,6 +81,7 @@ function Signup() {
       password,
       name.trim(),
       referredByCode,
+      nextPath,
     );
     setSubmitting(false);
     if (signUpError) {
@@ -79,7 +91,9 @@ function Signup() {
     // A session on the returned user means email confirmation is disabled for this project —
     // otherwise Supabase requires the confirmation link before a session exists.
     if (data.session) {
-      window.location.href = "/api/youtube/auth?returnTo=%2Fdashboard&ifNeeded=1";
+      window.location.href = isInvitationPath(nextPath)
+        ? (nextPath as string)
+        : `/api/youtube/auth?returnTo=${encodeURIComponent(nextPath ?? "/dashboard")}&ifNeeded=1`;
       return;
     }
     setConfirmationSent(true);
@@ -88,6 +102,7 @@ function Signup() {
   const handleGoogle = async () => {
     setError(null);
     setGoogleSubmitting(true);
+    if (nextPath) rememberPostLoginPath(nextPath);
     const { error: oauthError } = await signInWithGoogle();
     if (oauthError) {
       setError(oauthError.message);
@@ -272,9 +287,12 @@ function Signup() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/" className="font-medium text-primary hover:underline">
+              <a
+                href={nextPath ? `/?next=${encodeURIComponent(nextPath)}` : "/"}
+                className="font-medium text-primary hover:underline"
+              >
                 Sign in
-              </Link>
+              </a>
             </p>
           </>
         )}

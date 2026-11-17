@@ -73,6 +73,8 @@ const remove = (world: World, as: string | null, id: string) =>
   callTeamApi(route, world, { as, method: "DELETE", query: `?id=${id}` });
 const list = (world: World, as: string | null) => callTeamApi(route, world, { as, method: "GET" });
 
+const invitationFor = (world: World, email: string) =>
+  (world.workspace_invitations ?? []).find((i) => i.email === email.toLowerCase());
 const snapshot = (world: World) => JSON.stringify(world.workspace_members);
 /** Asserts a refusal that touched nothing: no write, no email, roster byte-identical. */
 function assertRefusedCleanly(
@@ -87,16 +89,24 @@ function assertRefusedCleanly(
 
 // ---------- A. the plan entitlement ----------
 
-test("an owner on Scale can invite: a pending member is created and the invite is sent", async () => {
+test("an owner on Scale can invite: an invitation and a link are created, no email and no member", async () => {
   const { world, users, workspace } = team("scale");
   const result = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
   assert.equal(result.status, 201);
-  assert.deepEqual(result.invitesSent, ["new@x.test"]);
-  const created = world.workspace_members.find((m) => m.invited_email === "new@x.test")!;
-  assert.equal(created.status, "invited");
+  assert.deepEqual(result.invitesSent, [], "Tubify sends no email");
+  assert.equal(
+    world.workspace_members.some((m) => m.invited_email === "new@x.test"),
+    false,
+  );
+  const created = invitationFor(world, "new@x.test")!;
+  assert.equal(created.status, "pending");
   assert.equal(created.revenue_visible, false, "revenue access defaults to off");
   assert.equal(created.workspace_id, workspace);
   assert.equal(created.invited_by, users.owner);
+  assert.match(
+    String((result.body.data as { inviteUrl: string }).inviteUrl),
+    /\/invite\/[A-Za-z0-9_-]{43}$/,
+  );
 });
 
 test("only the workspace owner may grant revenue visibility to an editor or setter invite", async () => {
@@ -107,11 +117,7 @@ test("only the workspace owner may grant revenue visibility to an editor or sett
     revenueVisible: true,
   });
   assert.equal(ownerInvite.status, 201);
-  assert.equal(
-    world.workspace_members.find((m) => m.invited_email === "revenue-editor@x.test")!
-      .revenue_visible,
-    true,
-  );
+  assert.equal(invitationFor(world, "revenue-editor@x.test")!.revenue_visible, true);
 
   const managerInvite = await invite(world, users.manager, {
     email: "manager-invited-setter@x.test",
@@ -120,8 +126,7 @@ test("only the workspace owner may grant revenue visibility to an editor or sett
   });
   assert.equal(managerInvite.status, 201);
   assert.equal(
-    world.workspace_members.find((m) => m.invited_email === "manager-invited-setter@x.test")!
-      .revenue_visible,
+    invitationFor(world, "manager-invited-setter@x.test")!.revenue_visible,
     false,
     "a manager cannot grant the owner-only permission by forging the request",
   );
@@ -133,14 +138,13 @@ test("only the workspace owner may grant revenue visibility to an editor or sett
   });
   assert.equal(ownerManagerInvite.status, 201);
   assert.equal(
-    world.workspace_members.find((m) => m.invited_email === "manager@new-team.test")!
-      .revenue_visible,
+    invitationFor(world, "manager@new-team.test")!.revenue_visible,
     false,
     "owners and managers already have revenue access by role",
   );
 });
 
-test("an owner may select revenue access when adding an existing account", async () => {
+test("an invitation to an existing account's address is a link too: nobody is added before accepting", async () => {
   const { world, users, workspace } = team("scale");
   const existingUser = addUser(world, "existing-editor@x.test");
   const result = await invite(world, users.owner, {
@@ -150,10 +154,11 @@ test("an owner may select revenue access when adding an existing account", async
   });
   assert.equal(result.status, 201);
   assert.deepEqual(result.invitesSent, []);
-  const created = world.workspace_members.find((m) => m.user_id === existingUser)!;
-  assert.equal(created.workspace_id, workspace);
-  assert.equal(created.status, "active");
-  assert.equal(created.revenue_visible, true);
+  assert.equal(
+    world.workspace_members.some((m) => m.user_id === existingUser && m.workspace_id === workspace),
+    false,
+  );
+  assert.equal(invitationFor(world, "existing-editor@x.test")!.revenue_visible, true);
 });
 
 test("a Scale trial grants team management", async () => {
@@ -447,10 +452,7 @@ test("a superadmin has no reach into a workspace they are not a member of", asyn
   assert.ok(!listed.text.includes(stranger), "another workspace's roster is not listed");
   // An invite always lands in the caller's own workspace, whatever the body says.
   await invite(world, staff, { email: "new@x.test", role: "editor", workspaceId: elsewhere });
-  assert.notEqual(
-    world.workspace_members.find((m) => m.invited_email === "new@x.test")!.workspace_id,
-    elsewhere,
-  );
+  assert.notEqual(invitationFor(world, "new@x.test")!.workspace_id, elsewhere);
 });
 
 test("a superadmin with no workspace membership is refused before anything else", async () => {
@@ -844,13 +846,16 @@ test("responses to writes are redacted too", async () => {
   member(world, rows.editor).cost_amount = 8765;
   const own = await patch(world, users.setter, rows.setter, { jobTitle: "Closer" });
   assert.equal((own.body.data as Listed).compensation_visible, true);
-  // A manager inviting at a role they manage sees what they just set; nothing above them leaks.
+  // An invitation response carries the link and who/what was invited — no compensation and no
+  // token hash, whoever created it.
   const invited = await invite(world, users.manager, {
     email: "new@x.test",
     role: "setter",
     commission: 9,
   });
-  assert.equal((invited.body.data as Listed).commission, 9);
+  assert.equal(invited.status, 201);
+  assert.doesNotMatch(invited.text, /commission|lead_share|cost_amount|token_hash/);
+  assert.equal(invitationFor(world, "new@x.test")!.commission, 9, "stored for when they join");
 });
 
 test("the roster is read with the service role, scoped to the caller's workspace", async () => {
@@ -933,24 +938,33 @@ test("after a downgrade to no subscription, workspace APIs are blocked and data 
 
 // ---------- I. the invite flow itself ----------
 
-test("an invite that cannot be emailed leaves no pending member behind", async () => {
+test("an invitation that cannot be recorded leaves nothing behind", async () => {
   const { world, users } = team("scale");
-  world.inviteStatus = 500;
+  world.refuseWrites = { audit_events: "42501" };
   const result = await invite(world, users.owner, { email: "new@x.test", role: "editor" });
-  assert.equal(result.status, 502);
+  assert.equal(result.status, 500);
+  assert.equal(invitationFor(world, "new@x.test"), undefined, "the invitation was withdrawn");
   assert.equal(
     world.workspace_members.some((m) => m.invited_email === "new@x.test"),
     false,
   );
 });
 
-test("an existing account with a workspace of its own is not pulled into another", async () => {
+test("an existing account with a workspace of its own is not pulled in by inviting", async () => {
   const { world, users } = team("scale");
-  addWorkspace(world, addUser(world, "taken@x.test"));
+  const taken = addUser(world, "taken@x.test");
+  addWorkspace(world, taken);
   const result = await invite(world, users.owner, { email: "taken@x.test", role: "editor" });
-  assert.equal(result.status, 409);
-  assert.deepEqual(result.body, { error: "ALREADY_HAS_WORKSPACE" });
-  assert.deepEqual(result.writes, []);
+  assert.equal(
+    result.status,
+    201,
+    "an invitation is created; whether they may join is decided on accepting",
+  );
+  assert.equal(
+    world.workspace_members.filter((m) => m.user_id === taken && m.status === "active").length,
+    1,
+    "still only in their own workspace",
+  );
 });
 
 // ---------- J. the policy functions, exhaustively ----------

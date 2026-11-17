@@ -719,7 +719,9 @@ test("MC-8 after signing in, the person lands back where they were and can conne
   const authCallback = flat("src/routes/auth.callback.tsx");
   assert.match(
     authCallback,
-    /const next = postLoginPath\(getCookie\(request, POST_LOGIN_COOKIE\)\);/,
+    // From a confirmation link's `next` (invitations), else the cookie — always through
+    // postLoginPath, so only a safe app page.
+    /const next = postLoginPath\( ?url\.searchParams\.get\("next"\) \?\? getCookie\(request, POST_LOGIN_COOKIE\),? ?\);/,
   );
   assert.match(authCallback, /buildExpiredCookie\(POST_LOGIN_COOKIE\)/);
 });

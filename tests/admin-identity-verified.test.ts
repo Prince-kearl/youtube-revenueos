@@ -26,6 +26,7 @@ import {
 const impersonate = await import("../src/routes/api.admin.users.impersonate");
 const reset = await import("../src/routes/api.admin.users.reset-password");
 const members = await import("../src/routes/api.workspace.members");
+const invitations = await import("../src/routes/api.invitations");
 
 function staff() {
   const world = emptyWorld();
@@ -125,6 +126,9 @@ test("legitimate reset: sent to the Auth email; an unconfirmed account can still
 });
 
 // ---------- invitations ----------
+//
+// Identity is checked when a link is accepted: the signed-in account's address as Supabase Auth
+// holds it, and only once confirmed. Inviting itself asks nothing of Auth and joins nobody.
 
 function inviter() {
   const world = emptyWorld();
@@ -152,79 +156,80 @@ function account(
 }
 const invite = (world: World, as: string, email: string) =>
   callTeamApi(members, world, { as, method: "POST", body: { email, role: "manager" } });
+const tokenOf = (result: CallResult) =>
+  String((result.body.data as { inviteUrl: string }).inviteUrl).split("/invite/")[1];
+const accept = (world: World, as: string, token: string) =>
+  callTeamApi(invitations, world, {
+    as,
+    method: "POST",
+    path: "/api/invitations",
+    body: { action: "accept", token },
+  });
 const activeIn = (world: World, workspace: string) =>
   world.workspace_members
     .filter((m) => m.workspace_id === workspace && m.status === "active")
     .map((m) => m.user_id);
 
-test("confirmed existing invitee: activated", async () => {
+test("confirmed existing invitee: joins by accepting the link", async () => {
   const { world, owner, workspace } = inviter();
   const invitee = account(world, "pat@team.test");
   const result = await invite(world, owner, "pat@team.test");
   assert.equal(result.status, 201);
+  assert.ok(!activeIn(world, workspace).includes(invitee), "not before accepting");
+  assert.equal((await accept(world, invitee, tokenOf(result))).status, 200);
   assert.ok(activeIn(world, workspace).includes(invitee));
   assert.deepEqual(result.invitesSent, []);
 });
 
-test("unconfirmed existing invitee: not activated; the ordinary invite email goes to the address", async () => {
+test("unconfirmed existing invitee: cannot accept until the address is confirmed", async () => {
   const { world, owner, workspace } = inviter();
   const invitee = account(world, "pat@team.test", { unconfirmed: true });
-  const result = await invite(world, owner, "pat@team.test");
-  assert.equal(result.status, 201);
+  const token = tokenOf(await invite(world, owner, "pat@team.test"));
+  const result = await accept(world, invitee, token);
+  assert.deepEqual([result.status, result.body.error], [403, "EMAIL_NOT_CONFIRMED"]);
   assert.ok(!activeIn(world, workspace).includes(invitee));
-  assert.deepEqual(result.invitesSent, ["pat@team.test"]);
+  assert.deepEqual(result.rpcCalls, [], "the database was not asked to accept");
 });
 
 test("ATTACK: an unconfirmed sign-up using someone else's address cannot claim their invitation", async () => {
   const { world, owner, workspace } = inviter();
   // The squatter's Auth email IS the address — but it was never confirmed.
   const squatter = account(world, "ceo@team.test", { auth: "ceo@team.test", unconfirmed: true });
-  await invite(world, owner, "ceo@team.test");
+  const token = tokenOf(await invite(world, owner, "ceo@team.test"));
+  assert.equal((await accept(world, squatter, token)).status, 403);
   assert.ok(!activeIn(world, workspace).includes(squatter));
 });
 
-test("ATTACK: a spoofed profile email activates nobody", async () => {
+test("ATTACK: a spoofed profile email cannot accept", async () => {
   const { world, owner, workspace } = inviter();
   const spoofer = account(world, "ceo@team.test", { auth: "mallory@evil.test" });
-  await invite(world, owner, "ceo@team.test");
+  const token = tokenOf(await invite(world, owner, "ceo@team.test"));
+  assert.equal((await accept(world, spoofer, token)).status, 403);
   assert.ok(!activeIn(world, workspace).includes(spoofer));
 });
 
-test("candidate limit: spoofers created after the real account cannot crowd it out", async () => {
-  const { world, owner, workspace } = inviter();
-  const real = account(world, "ceo@team.test");
-  for (let n = 0; n < 15; n++) account(world, "ceo@team.test", { auth: `spoof${n}@evil.test` });
-  const result = await invite(world, owner, "ceo@team.test");
-  assert.equal(result.status, 201);
-  assert.ok(activeIn(world, workspace).includes(real), "the genuine (older) account joins");
-});
-
-test("candidate limit: if pre-created spoofers fill the window, the invite stops — nobody joins, nothing is sent", async () => {
+test("Auth unavailable while accepting: 503, nothing written", async () => {
   const { world, owner } = inviter();
-  for (let n = 0; n < 10; n++) account(world, "ceo@team.test", { auth: `spoof${n}@evil.test` });
-  account(world, "ceo@team.test"); // the genuine account, created after the spoofers
-  const before = JSON.stringify(world.workspace_members);
-  const result = await invite(world, owner, "ceo@team.test");
-  assert.deepEqual([result.status, result.body], [409, { error: "INVITE_ADDRESS_AMBIGUOUS" }]);
-  assert.deepEqual(result.writes, []);
-  assert.deepEqual(result.invitesSent, []);
-  assert.equal(JSON.stringify(world.workspace_members), before);
-});
-
-test("Auth unavailable while inviting: 503, nothing written, nothing sent", async () => {
-  const { world, owner } = inviter();
-  account(world, "pat@team.test");
+  const invitee = account(world, "pat@team.test");
+  const token = tokenOf(await invite(world, owner, "pat@team.test"));
   world.authUnavailable = true;
-  const result = await invite(world, owner, "pat@team.test");
+  const result = await accept(world, invitee, token);
   assert.deepEqual([result.status, result.body], [503, { error: "AUTH_UNAVAILABLE" }]);
-  assert.deepEqual(result.writes, []);
-  assert.deepEqual(result.invitesSent, []);
+  assert.deepEqual(
+    result.writes.filter((w) => w.method !== "GET"),
+    [],
+  );
+  assert.equal(world.workspace_invitations![0].status, "pending");
 });
 
-test("legitimate new-address invitation: a pending invite and the email, unchanged", async () => {
+test("a new address: an invitation and a link, no email and no member", async () => {
   const { world, owner, workspace } = inviter();
   const result = await invite(world, owner, "brand.new@team.test");
   assert.equal(result.status, 201);
-  assert.deepEqual(result.invitesSent, ["brand.new@team.test"]);
+  assert.deepEqual(result.invitesSent, []);
+  assert.match(
+    String((result.body.data as { inviteUrl: string }).inviteUrl),
+    /\/invite\/[A-Za-z0-9_-]{43}$/,
+  );
   assert.equal(activeIn(world, workspace).length, 1);
 });

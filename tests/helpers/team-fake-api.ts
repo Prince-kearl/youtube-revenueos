@@ -60,6 +60,8 @@ export interface World {
   subscription_grant_events?: Row[];
   // Descriptions published to YouTube from the AI Description Lab.
   audit_events?: Row[];
+  // Shareable workspace invitations (202611170001_workspace_invitations.sql).
+  workspace_invitations?: Row[];
   /** youtube_quota_usage is missing (the migration is not applied). */
   quotaUsageMissing?: boolean;
   /** Answers a request to anything other than Supabase (the YouTube APIs…). Return undefined to
@@ -326,6 +328,8 @@ const OPTIONAL_TABLES = [
   "channel_connect_invites",
   // Descriptions published from the AI Description Lab (and their undo).
   "audit_events",
+  // Shareable workspace invitations.
+  "workspace_invitations",
 ];
 
 /** The columns the migrations withhold from the member-facing database role. */
@@ -637,6 +641,109 @@ export async function callTeamApi(
       }
       // Measured YouTube quota usage (202611090001_youtube_quota_accounting.sql), grouped as the
       // SQL groups it: per Pacific day, operation and the workspace of the request's channel.
+      // accept_workspace_invitation (202611170001_workspace_invitations.sql), step for step.
+      if (name === "accept_workspace_invitation") {
+        const answer = (outcome: string, workspace: unknown = null, membership: unknown = null) =>
+          json([{ outcome, workspace_id: workspace, membership_id: membership }]);
+        const invitations = (world.workspace_invitations ??= []);
+        const inv = invitations.find((i) => i.token_hash === args.p_token_hash);
+        if (!inv) return answer("invalid");
+        if (inv.status === "revoked") return answer("revoked");
+        if (inv.status === "accepted")
+          return inv.accepted_by === args.p_user_id
+            ? answer("already_member", inv.workspace_id, inv.membership_id)
+            : answer("used");
+        if (new Date(String(inv.expires_at)).getTime() <= now) return answer("expired");
+        const email = typeof args.p_email === "string" ? args.p_email.trim().toLowerCase() : null;
+        if (!email || email !== inv.email) return answer("wrong_account");
+        const inviter = world.workspace_members.find(
+          (m) =>
+            m.workspace_id === inv.workspace_id &&
+            m.user_id === inv.invited_by &&
+            m.status === "active",
+        );
+        const inviterRole = inviter?.role as string | undefined;
+        if (
+          !inviterRole ||
+          !["owner", "manager"].includes(inviterRole) ||
+          (inviterRole === "manager" && !["setter", "editor"].includes(String(inv.role)))
+        )
+          return answer("inviter_not_allowed");
+        const nowIso = new Date(now).toISOString();
+        const accept = (membershipId: unknown) => {
+          inv.status = "accepted";
+          inv.accepted_at = nowIso;
+          inv.accepted_by = args.p_user_id;
+          inv.membership_id = membershipId;
+        };
+        const here = world.workspace_members.find(
+          (m) => m.workspace_id === inv.workspace_id && m.user_id === args.p_user_id,
+        );
+        if (here && here.status === "active") {
+          accept(here.id);
+          return answer("already_member", inv.workspace_id, here.id);
+        }
+        const others = world.workspace_members.filter(
+          (m) =>
+            m.user_id === args.p_user_id &&
+            m.status === "active" &&
+            m.workspace_id !== inv.workspace_id,
+        );
+        if (others.length > 1) return answer("has_own_workspace");
+        if (others.length === 1) {
+          const own = others[0];
+          const inUse =
+            own.role !== "owner" ||
+            (world.youtube_channels ?? []).some((c) => c.workspace_id === own.workspace_id) ||
+            world.workspace_members.some(
+              (o) =>
+                o.workspace_id === own.workspace_id &&
+                o.id !== own.id &&
+                ["active", "invited"].includes(String(o.status)),
+            ) ||
+            world.subscriptions.some(
+              (sub) =>
+                sub.user_id === args.p_user_id &&
+                ["active", "trialing", "past_due"].includes(String(sub.status)),
+            ) ||
+            (world.subscription_grants ?? []).some(
+              (g) =>
+                g.user_id === args.p_user_id &&
+                g.status === "active" &&
+                (g.expires_at === null || new Date(String(g.expires_at)).getTime() > now),
+            );
+          if (inUse) return answer("has_own_workspace");
+          own.status = "removed";
+        }
+        const fields = {
+          status: "active",
+          role: inv.role,
+          revenue_visible: inv.revenue_visible,
+          lead_share: inv.lead_share,
+          commission: inv.commission,
+          job_title: inv.job_title,
+          cost_amount: inv.cost_amount,
+          invited_email: inv.email,
+          invited_by: inv.invited_by,
+          joined_at: nowIso,
+        };
+        let joinedId: unknown;
+        if (here) {
+          Object.assign(here, fields);
+          joinedId = here.id;
+        } else {
+          joinedId = uuid();
+          world.workspace_members.push({
+            id: joinedId,
+            workspace_id: inv.workspace_id,
+            user_id: args.p_user_id,
+            invited_at: inv.created_at,
+            ...fields,
+          });
+        }
+        accept(joinedId);
+        return answer("accepted", inv.workspace_id, joinedId);
+      }
       if (name === "youtube_quota_usage") {
         if (world.quotaUsageMissing)
           return json({ code: "PGRST202", message: "function not found" }, 404);

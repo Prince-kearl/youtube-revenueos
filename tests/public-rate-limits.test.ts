@@ -398,6 +398,11 @@ test("the approved policy, as configured", () => {
     { name: "10m", windowSeconds: 600, limit: 30 },
     { name: "day", windowSeconds: 86400, limit: 200 },
   ]);
+  // The workspace invitation page (lookup and accept).
+  assert.deepEqual(RATE_LIMIT_POLICY.workspaceInvite, [
+    { name: "10m", windowSeconds: 600, limit: 30 },
+    { name: "day", windowSeconds: 86400, limit: 200 },
+  ]);
   // Nothing else: no referral-click rule, and no shared allowance for unidentified senders.
   assert.deepEqual(Object.keys(RATE_LIMIT_POLICY).sort(), [
     "connectInvite",
@@ -405,6 +410,7 @@ test("the approved policy, as configured", () => {
     "linkClick",
     "optin",
     "supportContact",
+    "workspaceInvite",
   ]);
   assert.doesNotMatch(codeOf("src/lib/server/rate-limit.ts"), /unknown|MULTIPLIER|referral/i);
 });

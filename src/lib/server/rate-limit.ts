@@ -70,6 +70,11 @@ export const RATE_LIMIT_POLICY = {
     { name: "10m", windowSeconds: 10 * MINUTE, limit: 30 },
     { name: "day", windowSeconds: DAY, limit: 200 },
   ],
+  /** The workspace invitation page (lookup and accept), per client address. */
+  workspaceInvite: [
+    { name: "10m", windowSeconds: 10 * MINUTE, limit: 30 },
+    { name: "day", windowSeconds: DAY, limit: 200 },
+  ],
   supportContact: [
     { name: "hour", windowSeconds: HOUR, limit: 3 },
     { name: "day", windowSeconds: DAY, limit: 10 },
@@ -264,7 +269,7 @@ export type AbuseDecision = { refuse: false } | { refuse: true; retryAfterSecond
 export async function checkAbuseLimit(
   service: SupabaseClient,
   request: Request,
-  endpoint: "optin" | "support_contact" | "connect_invite",
+  endpoint: "optin" | "support_contact" | "connect_invite" | "workspace_invite",
   rules: readonly RateRule[],
 ): Promise<AbuseDecision> {
   const mode = rateLimitMode();

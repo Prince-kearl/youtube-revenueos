@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { isInvitationPath, rememberPostLoginPath } from "@/lib/invitations";
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -50,7 +51,11 @@ function Login() {
     setSessionExpired(params.get("reason") === "session_expired");
   }, []);
   // After signing in: the remembered page, through the same "connect YouTube if needed" step.
-  const afterSignIn = `/api/youtube/auth?returnTo=${encodeURIComponent(nextPath ?? "/dashboard")}&ifNeeded=1`;
+  // An invitation opens straight away (the person is joining another workspace, not connecting
+  // a channel of their own).
+  const afterSignIn = isInvitationPath(nextPath)
+    ? (nextPath as string)
+    : `/api/youtube/auth?returnTo=${encodeURIComponent(nextPath ?? "/dashboard")}&ifNeeded=1`;
 
   useEffect(() => {
     if (sessionLoading || !user || mfaRequired || nextPath === undefined) return;
@@ -155,6 +160,7 @@ function Login() {
   const handleGoogle = async () => {
     setError(null);
     setGoogleSubmitting(true);
+    if (nextPath) rememberPostLoginPath(nextPath);
     const { error: oauthError } = await signInWithGoogle();
     if (oauthError) {
       setError(oauthError.message);
@@ -384,9 +390,12 @@ function Login() {
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link to="/signup" className="font-semibold text-primary hover:underline">
+            <a
+              href={nextPath ? `/signup?next=${encodeURIComponent(nextPath)}` : "/signup"}
+              className="font-semibold text-primary hover:underline"
+            >
               Create one
-            </Link>
+            </a>
           </p>
           <p className="mt-3 text-center text-sm">
             <Link to="/landing" className="text-muted-foreground hover:text-foreground">

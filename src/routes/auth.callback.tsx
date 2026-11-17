@@ -5,6 +5,7 @@ import { applySetCookies, createSessionSupabaseClient } from "@/lib/server/supab
 import { getServerEnv } from "@/lib/server/env";
 import { buildExpiredCookie, getCookie } from "@/lib/server/cookies";
 import { POST_LOGIN_COOKIE, postLoginPath } from "@/lib/safe-redirect";
+import { isInvitationPath } from "@/lib/invitations";
 
 function redirectResponse(location: string): Response {
   return new Response(null, { status: 302, headers: { Location: location } });
@@ -31,11 +32,18 @@ export const Route = createFileRoute("/auth/callback")({
             return redirectResponse(`${appUrl}/?auth_error=code_exchange_failed`);
           }
 
-          // Where the person was going before signing in (set by signInRedirect), else the
-          // dashboard — always a safe app page.
-          const next = postLoginPath(getCookie(request, POST_LOGIN_COOKIE));
-          const youtubeAuthUrl = `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent(next)}&ifNeeded=1`;
-          const response = applySetCookies(redirectResponse(youtubeAuthUrl), setCookieHeaders);
+          // Where the person was going before signing in — from a confirmation link's `next`, or
+          // the cookie signInRedirect / the invitation page set — else the dashboard. Always a
+          // safe app page.
+          const next = postLoginPath(
+            url.searchParams.get("next") ?? getCookie(request, POST_LOGIN_COOKIE),
+          );
+          // An invitation is opened straight away: the person is joining someone else's
+          // workspace, so they are not sent to connect a YouTube channel of their own first.
+          const destination = isInvitationPath(next)
+            ? `${url.origin}${next}`
+            : `${url.origin}/api/youtube/auth?returnTo=${encodeURIComponent(next)}&ifNeeded=1`;
+          const response = applySetCookies(redirectResponse(destination), setCookieHeaders);
           response.headers.append("Set-Cookie", buildExpiredCookie(POST_LOGIN_COOKIE));
           return response;
         } catch (error) {

@@ -23,6 +23,7 @@ const routes = {
   impersonate: await import("../src/routes/api.admin.users.impersonate"),
   resetPassword: await import("../src/routes/api.admin.users.reset-password"),
   members: await import("../src/routes/api.workspace.members"),
+  invitations: await import("../src/routes/api.invitations"),
 };
 
 const profile = (w: World, id: string) => w.profiles.find((p) => p.id === id)!;
@@ -140,6 +141,9 @@ test("the role hierarchy is still decided first: a refused request asks nothing 
 });
 
 // ---------- workspace invitations ----------
+//
+// Inviting creates a link invitation and joins nobody. Accepting follows the address Supabase
+// Auth holds for the signed-in account (confirmed), never a profile's own copy of it.
 
 function team() {
   const w = emptyWorld();
@@ -155,22 +159,29 @@ const invite = (t: Team, email: string) =>
     path: "/api/workspace/members",
     body: { email, role: "editor" },
   });
+const tokenOf = (r: CallResult) =>
+  String((r.body.data as { inviteUrl: string }).inviteUrl).split("/invite/")[1];
+const accept = (t: Team, as: string, token: string) =>
+  callTeamApi(routes.invitations, t.w, {
+    as,
+    method: "POST",
+    path: "/api/invitations",
+    body: { action: "accept", token },
+  });
 const membershipOf = (t: Team, userId: string) =>
   t.w.workspace_members.find((m) => m.workspace_id === t.ws && m.user_id === userId);
 
-test("invitations: an account that only claims the address in its profile is never joined", async () => {
+test("invitations: an account that only claims the address in its profile cannot accept", async () => {
   const t = team();
   const squatter = addUser(t.w, "squatter@x.test");
   profile(t.w, squatter).auth_email = "squatter@x.test"; // what Auth holds…
   profile(t.w, squatter).email = "invitee@x.test"; // …and the profile copy they rewrote
   const r = await invite(t, "invitee@x.test");
   assert.equal(r.status, 201, r.text);
+  assert.deepEqual(r.invitesSent, [], "nothing emailed");
+  const refused = await accept(t, squatter, tokenOf(r));
+  assert.equal(refused.status, 403);
   assert.equal(membershipOf(t, squatter), undefined, "the squatter gained nothing");
-  // The address itself gets the invitation instead, as for anyone without an account.
-  assert.deepEqual(r.invitesSent, ["invitee@x.test"]);
-  const pending = t.w.workspace_members.find((m) => m.invited_email === "invitee@x.test")!;
-  assert.equal(pending.status, "invited");
-  assert.equal(pending.user_id ?? null, null, "no account attached");
 });
 
 test("invitations: matching follows the address Auth holds now, not a stale profile copy", async () => {
@@ -178,57 +189,48 @@ test("invitations: matching follows the address Auth holds now, not a stale prof
   const mover = addUser(t.w, "old@x.test");
   profile(t.w, mover).auth_email = "new@x.test"; // changed in Auth; the profile copy is stale
   const old = await invite(t, "old@x.test");
-  assert.equal(old.status, 201, old.text);
+  assert.equal((await accept(t, mover, tokenOf(old))).status, 403);
   assert.equal(membershipOf(t, mover), undefined, "the old address no longer reaches them");
-  assert.deepEqual(old.invitesSent, ["old@x.test"]);
 
-  // Once the copy has caught up (api.profile.ts syncs it on load), the new address joins them.
-  const u = team();
-  const synced = addUser(u.w, "new@x.test");
-  const joined = await invite(u, "NEW@x.test");
-  assert.equal(joined.status, 201, joined.text);
+  const fresh = await invite(t, "NEW@x.test");
+  const joined = await accept(t, mover, tokenOf(fresh));
+  assert.equal(joined.status, 200, joined.text);
   assert.equal(
-    membershipOf(u, synced)?.status,
+    membershipOf(t, mover)?.status,
     "active",
     "matched case-insensitively, as Auth does",
   );
-  assert.deepEqual(joined.invitesSent, []);
 });
 
-test("invitations: an account whose address Auth has not confirmed is not joined, and nothing is written", async () => {
+test("invitations: an account whose address Auth has not confirmed cannot accept, and nothing is written", async () => {
   const t = team();
   const unconfirmed = addUser(t.w, "pending@x.test");
   profile(t.w, unconfirmed).email_confirmed = false;
   const r = await invite(t, "pending@x.test");
-  // Production contract (hotfix 6f027a5): the unconfirmed account is never joined; the invite
-  // takes the ordinary new-address path instead (a pending row and the invite email), so the
-  // person who actually holds the inbox can still accept it — an unconfirmed sign-up cannot
-  // block someone else's invitation.
-  assert.equal(r.status, 201);
+  const refused = await accept(t, unconfirmed, tokenOf(r));
+  assert.deepEqual([refused.status, refused.body.error], [403, "EMAIL_NOT_CONFIRMED"]);
   assert.ok(
     !t.w.workspace_members.some((m) => m.workspace_id === t.ws && m.user_id === unconfirmed),
-    "the unconfirmed account was not joined",
   );
-  const pending = t.w.workspace_members.find(
-    (m) => m.workspace_id === t.ws && m.invited_email === "pending@x.test",
+  assert.equal(
+    t.w.workspace_invitations![0].status,
+    "pending",
+    "the real inbox holder can still accept",
   );
-  assert.equal(pending?.status, "invited");
-  assert.equal(pending?.user_id ?? null, null);
-  assert.deepEqual(r.invitesSent, ["pending@x.test"]);
 });
 
-test("invitations: the verified account is joined exactly as before", async () => {
+test("invitations: the verified account joins with the invited role; one with a workspace in use is refused", async () => {
   const t = team();
   const invitee = addUser(t.w, "invitee@x.test");
-  const r = await invite(t, "invitee@x.test");
-  assert.equal(r.status, 201, r.text);
+  const r = await accept(t, invitee, tokenOf(await invite(t, "invitee@x.test")));
+  assert.equal(r.status, 200, r.text);
   assert.equal(membershipOf(t, invitee)?.status, "active");
   assert.equal(membershipOf(t, invitee)?.role, "editor");
-  // …and one already in a workspace is still refused.
+  // …and one already in another team is still refused.
   const u = team();
   const busy = addUser(u.w, "busy@x.test");
   const elsewhere = addPaidWorkspace(u.w, addUser(u.w, "other-owner@x.test"));
   addMember(u.w, elsewhere, busy, "editor");
-  const refused = await invite(u, "busy@x.test");
-  assert.deepEqual([refused.status, refused.body], [409, { error: "ALREADY_HAS_WORKSPACE" }]);
+  const refused = await accept(u, busy, tokenOf(await invite(u, "busy@x.test")));
+  assert.deepEqual([refused.status, refused.body], [409, { error: "has_own_workspace" }]);
 });

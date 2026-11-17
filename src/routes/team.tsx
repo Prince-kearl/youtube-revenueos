@@ -1,4 +1,10 @@
 import { cn } from "@/lib/utils";
+import {
+  InvitationShareDialog,
+  InvitationsPanel,
+  invitationAction,
+  type SharedLink,
+} from "@/components/team/Invitations";
 import { buttonPrimary } from "@/lib/button-styles";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -297,9 +303,9 @@ function errorMessage(error: string | undefined): string {
     ALREADY_A_MEMBER: "That person is already on your team.",
     ALREADY_HAS_WORKSPACE:
       "That person already owns their own Tubify workspace — one account can't belong to two workspaces yet.",
-    ALREADY_INVITED: "You've already invited that email.",
-    EMAIL_NOT_CONFIGURED: "Invite emails aren't set up in this environment yet.",
-    INVITE_EMAIL_FAILED: "Couldn't send the invite email. Please try again.",
+    ALREADY_INVITED: "There's already an open invitation for that email.",
+    INVITATION_RATE_LIMITED: "You've created a lot of invitations recently. Try again in a while.",
+    TOO_MANY_PENDING_INVITATIONS: "There are too many open invitations. Revoke some first.",
     CANNOT_CHANGE_OWN_ROLE: "You can't change your own role.",
     LAST_OWNER: "A workspace needs at least one owner.",
     MEMBER_NOT_FOUND: "That member couldn't be found.",
@@ -317,6 +323,10 @@ function Team() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [retryNonce, setRetryNonce] = useState(0);
   const [inviting, setInviting] = useState(false);
+  // A just-created invitation link, shown once (components/team/Invitations.tsx).
+  const [sharedLink, setSharedLink] = useState<SharedLink | null>(null);
+  const [invitationsKey, setInvitationsKey] = useState(0);
+  const [openInvitations, setOpenInvitations] = useState(0);
   const [editing, setEditing] = useState<WorkspaceMember | null>(null);
   const [removing, setRemoving] = useState<WorkspaceMember | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -359,7 +369,8 @@ function Team() {
 
   const stats = useMemo(() => {
     const active = members.filter((m) => m.status === "active").length;
-    const invited = members.filter((m) => m.status === "invited").length;
+    // Pending people are invitations now (listed under Invitations), not roster rows.
+    const invited = openInvitations;
     // An average over a roster this viewer can only partly see would be a wrong number.
     const allVisible = members.every((m) => m.compensation_visible);
     const withCommission = members.filter((m) => (m.commission ?? 0) > 0);
@@ -369,7 +380,7 @@ function Team() {
         )
       : 0;
     return { active, invited, avgCommission: allVisible ? `${avgCommission}%` : "—" };
-  }, [members]);
+  }, [members, openInvitations]);
 
   // Per-member revenue/cost/profit and cumulative performance series, all scoped to the same
   // 6-month window as the chart — comparing "revenue this teammate's deals closed in the last 6
@@ -423,10 +434,11 @@ function Team() {
     status === "ready" ? teamInviteState({ role: myRole, entitlement }) : ("hidden" as const);
   // A profit figure needs the member's cost, which this viewer may not be shown for everyone.
   const canFilterByProfit = !dealValuesHidden && members.every((m) => m.compensation_visible);
+  const joinedMembers = members.filter((m) => m.status !== "invited");
   const visibleMembers =
     profitableOnly && canFilterByProfit
-      ? members.filter((m) => (memberPerformance.byId.get(m.id)?.profit ?? 0) >= 0)
-      : members;
+      ? joinedMembers.filter((m) => (memberPerformance.byId.get(m.id)?.profit ?? 0) >= 0)
+      : joinedMembers;
 
   const removeMember = async (member: WorkspaceMember) => {
     try {
@@ -487,7 +499,7 @@ function Team() {
 
       {/* One card at a time on a phone, like every other page's KPI row; a grid from sm up. */}
       <KpiCarousel className="mt-6" gridClassName="gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FlatKpiCard title="Total Members" value={String(members.length)} />
+        <FlatKpiCard title="Total Members" value={String(joinedMembers.length)} />
         <FlatKpiCard title="Active" value={String(stats.active)} />
         <FlatKpiCard title="Pending Invites" value={String(stats.invited)} />
         <FlatKpiCard title="Avg Commission" value={stats.avgCommission} />
@@ -779,11 +791,21 @@ function Team() {
         </>
       )}
 
+      <InvitationsPanel
+        refreshKey={invitationsKey}
+        onLink={setSharedLink}
+        onCounts={setOpenInvitations}
+      />
+      <InvitationShareDialog link={sharedLink} onOpenChange={(v) => !v && setSharedLink(null)} />
+
       <InviteDialog
         open={inviting && inviteState === "invite"}
         onOpenChange={setInviting}
         myRole={myRole}
-        onInvited={load}
+        onCreated={(link) => {
+          setSharedLink(link);
+          setInvitationsKey((k) => k + 1);
+        }}
       />
       <EditMemberDialog
         member={editing}
@@ -814,12 +836,13 @@ function InviteDialog({
   open,
   myRole,
   onOpenChange,
-  onInvited,
+  onCreated,
 }: {
   open: boolean;
   myRole: WorkspaceRole | undefined;
   onOpenChange: (v: boolean) => void;
-  onInvited: () => void;
+  /** An invitation was created (or renewed): its link, shown once. */
+  onCreated: (link: SharedLink) => void;
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("editor");
@@ -861,11 +884,33 @@ function InviteDialog({
           costAmount: Number(costAmount) || 0,
         }),
       });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "INVITE_FAILED");
-      toast.success(`Invite sent to ${email.trim()}`);
+      const body = (await response.json().catch(() => ({}))) as {
+        data?: { inviteUrl: string; invitation: { email: string } };
+        error?: string;
+        invitationId?: string;
+      };
+      if (response.status === 409 && body.error === "ALREADY_INVITED" && body.invitationId) {
+        // An open invitation exists: offer a fresh link for it instead of a second invitation.
+        const invitationId = body.invitationId;
+        toast.error("There's already an open invitation for that email.", {
+          action: {
+            label: "Create new link",
+            onClick: () =>
+              void invitationAction({ action: "regenerate", id: invitationId })
+                .then((result) => {
+                  if (result.inviteUrl)
+                    onCreated({ url: result.inviteUrl, email: result.email ?? email.trim() });
+                })
+                .catch((error: unknown) =>
+                  toast.error(error instanceof Error ? error.message : "Something went wrong."),
+                ),
+          },
+        });
+        return;
+      }
+      if (!response.ok || !body.data) throw new Error(body.error ?? "INVITE_FAILED");
       onOpenChange(false);
-      onInvited();
+      onCreated({ url: body.data.inviteUrl, email: body.data.invitation.email });
     } catch (error) {
       toast.error(errorMessage(error instanceof Error ? error.message : undefined));
     } finally {
@@ -877,9 +922,10 @@ function InviteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite a teammate</DialogTitle>
+          <DialogTitle>Invite someone to this workspace</DialogTitle>
           <DialogDescription>
-            They'll receive an invite email. Existing Tubify users are added immediately.
+            Creates a private invitation link for this email address. You share the link yourself
+            (WhatsApp, email, Slack…); Tubify doesn't send an email.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -975,7 +1021,7 @@ function InviteDialog({
               Cancel
             </Button>
             <Button type="submit" className="rounded-full" disabled={submitting}>
-              {submitting ? "Sending…" : "Send Invite"}
+              {submitting ? "Creating…" : "Create invitation link"}
             </Button>
           </DialogFooter>
         </form>

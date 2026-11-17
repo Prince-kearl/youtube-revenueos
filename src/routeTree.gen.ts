@@ -48,6 +48,7 @@ import { Route as ApiDescriptionTemplatesRouteImport } from './routes/api.descri
 import { Route as ApiDestinationsRouteImport } from './routes/api.destinations'
 import { Route as ApiFreebiesRouteImport } from './routes/api.freebies'
 import { Route as ApiIntegrationsRouteImport } from './routes/api.integrations'
+import { Route as ApiInvitationsRouteImport } from './routes/api.invitations'
 import { Route as ApiKnowledgeRouteImport } from './routes/api.knowledge'
 import { Route as ApiLeadsRouteImport } from './routes/api.leads'
 import { Route as ApiNotificationsRouteImport } from './routes/api.notifications'
@@ -62,6 +63,7 @@ import { Route as ApiVideosRouteImport } from './routes/api.videos'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ConnectTokenRouteImport } from './routes/connect.$token'
 import { Route as FSlugRouteImport } from './routes/f.$slug'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as PrePublishIdRouteImport } from './routes/pre-publish.$id'
 import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as VideosVideoIdRouteImport } from './routes/videos.$videoId'
@@ -118,6 +120,7 @@ import { Route as ApiVideosOpportunitiesRouteImport } from './routes/api.videos.
 import { Route as ApiVideosOptimizeRouteImport } from './routes/api.videos.optimize'
 import { Route as ApiWorkspaceBrandingRouteImport } from './routes/api.workspace.branding'
 import { Route as ApiWorkspaceDomainRouteImport } from './routes/api.workspace.domain'
+import { Route as ApiWorkspaceInvitationsRouteImport } from './routes/api.workspace.invitations'
 import { Route as ApiWorkspaceMembersRouteImport } from './routes/api.workspace.members'
 import { Route as ApiWorkspaceRevenueVisibilityRouteImport } from './routes/api.workspace.revenue-visibility'
 import { Route as ApiYoutubeAnalyzeVideoRouteImport } from './routes/api.youtube.analyze-video'
@@ -348,6 +351,11 @@ const ApiIntegrationsRoute = ApiIntegrationsRouteImport.update({
   path: '/api/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInvitationsRoute = ApiInvitationsRouteImport.update({
+  id: '/api/invitations',
+  path: '/api/invitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKnowledgeRoute = ApiKnowledgeRouteImport.update({
   id: '/api/knowledge',
   path: '/api/knowledge',
@@ -416,6 +424,11 @@ const ConnectTokenRoute = ConnectTokenRouteImport.update({
 const FSlugRoute = FSlugRouteImport.update({
   id: '/f/$slug',
   path: '/f/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrePublishIdRoute = PrePublishIdRouteImport.update({
@@ -703,6 +716,11 @@ const ApiWorkspaceDomainRoute = ApiWorkspaceDomainRouteImport.update({
   path: '/api/workspace/domain',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWorkspaceInvitationsRoute = ApiWorkspaceInvitationsRouteImport.update({
+  id: '/api/workspace/invitations',
+  path: '/api/workspace/invitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWorkspaceMembersRoute = ApiWorkspaceMembersRouteImport.update({
   id: '/api/workspace/members',
   path: '/api/workspace/members',
@@ -921,6 +939,7 @@ export interface FileRoutesByFullPath {
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRouteWithChildren
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/invitations': typeof ApiInvitationsRoute
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
@@ -935,6 +954,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
@@ -991,6 +1011,7 @@ export interface FileRoutesByFullPath {
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
+  '/api/workspace/invitations': typeof ApiWorkspaceInvitationsRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/workspace/revenue-visibility': typeof ApiWorkspaceRevenueVisibilityRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -1066,6 +1087,7 @@ export interface FileRoutesByTo {
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRouteWithChildren
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/invitations': typeof ApiInvitationsRoute
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
@@ -1080,6 +1102,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
@@ -1136,6 +1159,7 @@ export interface FileRoutesByTo {
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
+  '/api/workspace/invitations': typeof ApiWorkspaceInvitationsRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/workspace/revenue-visibility': typeof ApiWorkspaceRevenueVisibilityRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -1212,6 +1236,7 @@ export interface FileRoutesById {
   '/api/destinations': typeof ApiDestinationsRouteWithChildren
   '/api/freebies': typeof ApiFreebiesRouteWithChildren
   '/api/integrations': typeof ApiIntegrationsRouteWithChildren
+  '/api/invitations': typeof ApiInvitationsRoute
   '/api/knowledge': typeof ApiKnowledgeRoute
   '/api/leads': typeof ApiLeadsRouteWithChildren
   '/api/notifications': typeof ApiNotificationsRoute
@@ -1226,6 +1251,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/connect/$token': typeof ConnectTokenRoute
   '/f/$slug': typeof FSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/pre-publish/$id': typeof PrePublishIdRoute
   '/r/$slug': typeof RSlugRoute
   '/videos/$videoId': typeof VideosVideoIdRoute
@@ -1282,6 +1308,7 @@ export interface FileRoutesById {
   '/api/videos/optimize': typeof ApiVideosOptimizeRoute
   '/api/workspace/branding': typeof ApiWorkspaceBrandingRoute
   '/api/workspace/domain': typeof ApiWorkspaceDomainRoute
+  '/api/workspace/invitations': typeof ApiWorkspaceInvitationsRoute
   '/api/workspace/members': typeof ApiWorkspaceMembersRoute
   '/api/workspace/revenue-visibility': typeof ApiWorkspaceRevenueVisibilityRoute
   '/api/youtube/analyze-video': typeof ApiYoutubeAnalyzeVideoRoute
@@ -1359,6 +1386,7 @@ export interface FileRouteTypes {
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
+    | '/api/invitations'
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
@@ -1373,6 +1401,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/connect/$token'
     | '/f/$slug'
+    | '/invite/$token'
     | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
@@ -1429,6 +1458,7 @@ export interface FileRouteTypes {
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
+    | '/api/workspace/invitations'
     | '/api/workspace/members'
     | '/api/workspace/revenue-visibility'
     | '/api/youtube/analyze-video'
@@ -1504,6 +1534,7 @@ export interface FileRouteTypes {
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
+    | '/api/invitations'
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
@@ -1518,6 +1549,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/connect/$token'
     | '/f/$slug'
+    | '/invite/$token'
     | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
@@ -1574,6 +1606,7 @@ export interface FileRouteTypes {
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
+    | '/api/workspace/invitations'
     | '/api/workspace/members'
     | '/api/workspace/revenue-visibility'
     | '/api/youtube/analyze-video'
@@ -1649,6 +1682,7 @@ export interface FileRouteTypes {
     | '/api/destinations'
     | '/api/freebies'
     | '/api/integrations'
+    | '/api/invitations'
     | '/api/knowledge'
     | '/api/leads'
     | '/api/notifications'
@@ -1663,6 +1697,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/connect/$token'
     | '/f/$slug'
+    | '/invite/$token'
     | '/pre-publish/$id'
     | '/r/$slug'
     | '/videos/$videoId'
@@ -1719,6 +1754,7 @@ export interface FileRouteTypes {
     | '/api/videos/optimize'
     | '/api/workspace/branding'
     | '/api/workspace/domain'
+    | '/api/workspace/invitations'
     | '/api/workspace/members'
     | '/api/workspace/revenue-visibility'
     | '/api/youtube/analyze-video'
@@ -1795,6 +1831,7 @@ export interface RootRouteChildren {
   ApiDestinationsRoute: typeof ApiDestinationsRouteWithChildren
   ApiFreebiesRoute: typeof ApiFreebiesRouteWithChildren
   ApiIntegrationsRoute: typeof ApiIntegrationsRouteWithChildren
+  ApiInvitationsRoute: typeof ApiInvitationsRoute
   ApiKnowledgeRoute: typeof ApiKnowledgeRoute
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
   ApiNotificationsRoute: typeof ApiNotificationsRoute
@@ -1809,6 +1846,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   ConnectTokenRoute: typeof ConnectTokenRoute
   FSlugRoute: typeof FSlugRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   RSlugRoute: typeof RSlugRoute
   ApiAdminAuditRoute: typeof ApiAdminAuditRoute
   ApiAdminDashboardRoute: typeof ApiAdminDashboardRoute
@@ -1841,6 +1879,7 @@ export interface RootRouteChildren {
   ApiSupportTicketsRoute: typeof ApiSupportTicketsRoute
   ApiWorkspaceBrandingRoute: typeof ApiWorkspaceBrandingRoute
   ApiWorkspaceDomainRoute: typeof ApiWorkspaceDomainRoute
+  ApiWorkspaceInvitationsRoute: typeof ApiWorkspaceInvitationsRoute
   ApiWorkspaceMembersRoute: typeof ApiWorkspaceMembersRoute
   ApiWorkspaceRevenueVisibilityRoute: typeof ApiWorkspaceRevenueVisibilityRoute
   ApiYoutubeAnalyzeVideoRoute: typeof ApiYoutubeAnalyzeVideoRoute
@@ -2139,6 +2178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/invitations': {
+      id: '/api/invitations'
+      path: '/api/invitations'
+      fullPath: '/api/invitations'
+      preLoaderRoute: typeof ApiInvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/knowledge': {
       id: '/api/knowledge'
       path: '/api/knowledge'
@@ -2235,6 +2281,13 @@ declare module '@tanstack/react-router' {
       path: '/f/$slug'
       fullPath: '/f/$slug'
       preLoaderRoute: typeof FSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pre-publish/$id': {
@@ -2627,6 +2680,13 @@ declare module '@tanstack/react-router' {
       path: '/api/workspace/domain'
       fullPath: '/api/workspace/domain'
       preLoaderRoute: typeof ApiWorkspaceDomainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace/invitations': {
+      id: '/api/workspace/invitations'
+      path: '/api/workspace/invitations'
+      fullPath: '/api/workspace/invitations'
+      preLoaderRoute: typeof ApiWorkspaceInvitationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/workspace/members': {
@@ -3138,6 +3198,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDestinationsRoute: ApiDestinationsRouteWithChildren,
   ApiFreebiesRoute: ApiFreebiesRouteWithChildren,
   ApiIntegrationsRoute: ApiIntegrationsRouteWithChildren,
+  ApiInvitationsRoute: ApiInvitationsRoute,
   ApiKnowledgeRoute: ApiKnowledgeRoute,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,
   ApiNotificationsRoute: ApiNotificationsRoute,
@@ -3152,6 +3213,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   ConnectTokenRoute: ConnectTokenRoute,
   FSlugRoute: FSlugRoute,
+  InviteTokenRoute: InviteTokenRoute,
   RSlugRoute: RSlugRoute,
   ApiAdminAuditRoute: ApiAdminAuditRoute,
   ApiAdminDashboardRoute: ApiAdminDashboardRoute,
@@ -3184,6 +3246,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSupportTicketsRoute: ApiSupportTicketsRoute,
   ApiWorkspaceBrandingRoute: ApiWorkspaceBrandingRoute,
   ApiWorkspaceDomainRoute: ApiWorkspaceDomainRoute,
+  ApiWorkspaceInvitationsRoute: ApiWorkspaceInvitationsRoute,
   ApiWorkspaceMembersRoute: ApiWorkspaceMembersRoute,
   ApiWorkspaceRevenueVisibilityRoute: ApiWorkspaceRevenueVisibilityRoute,
   ApiYoutubeAnalyzeVideoRoute: ApiYoutubeAnalyzeVideoRoute,

@@ -27,6 +27,7 @@ import {
 const impersonate = await import("../src/routes/api.admin.users.impersonate");
 const reset = await import("../src/routes/api.admin.users.reset-password");
 const members = await import("../src/routes/api.workspace.members");
+const invitations = await import("../src/routes/api.invitations");
 
 const EMAIL_OR_LINK = /@|action_link|token|https?:\/\//i;
 
@@ -216,6 +217,10 @@ test("unauthorized callers are refused before any lookup, link or email", async 
 });
 
 // ---------- workspace invitations ----------
+//
+// Inviting creates a shareable link invitation and never joins, activates or emails anyone. Who
+// may join is decided when the link is accepted, from the address Supabase Auth holds for the
+// signed-in account (confirmed) — never from profiles.email, which its owner can rewrite.
 
 function inviter() {
   const world = emptyWorld();
@@ -234,69 +239,88 @@ function freeAccount(world: World, profileEmail: string, authEmail?: string | nu
 }
 const invite = (world: World, as: string, email: string) =>
   callTeamApi(members, world, { as, method: "POST", body: { email, role: "manager" } });
+const tokenOf = (result: Awaited<ReturnType<typeof invite>>) =>
+  String((result.body.data as { inviteUrl: string }).inviteUrl).split("/invite/")[1];
+const accept = (world: World, as: string, token: string) =>
+  callTeamApi(invitations, world, {
+    as,
+    method: "POST",
+    path: "/api/invitations",
+    body: { action: "accept", token },
+  });
 const activeIn = (world: World, workspace: string) =>
   world.workspace_members
     .filter((m) => m.workspace_id === workspace && m.status === "active")
     .map((m) => m.user_id);
 
-test("ATTACK: a profile email set to the invitee's address never activates that account", async () => {
+test("inviting joins, activates and emails nobody — even an existing account with that address", async () => {
   const { world, owner, workspace } = inviter();
-  const attacker = freeAccount(world, "victim@team.test", "attacker@evil.test");
+  const existing = freeAccount(world, "victim@team.test");
   const result = await invite(world, owner, "victim@team.test");
   assert.equal(result.status, 201);
+  assert.deepEqual(result.invitesSent, [], "no email");
+  assert.deepEqual(result.authActions, [], "nothing asked of Supabase Auth");
+  assert.deepEqual(activeIn(world, workspace), [owner], "nobody joined");
+  assert.ok(
+    !world.workspace_members.some((m) => m.user_id === existing && m.workspace_id === workspace),
+  );
+  assert.equal(world.workspace_invitations?.length, 1);
+});
+
+test("ATTACK: a profile email set to the invitee's address cannot accept the invitation", async () => {
+  const { world, owner, workspace } = inviter();
+  const attacker = freeAccount(world, "victim@team.test", "attacker@evil.test");
+  const token = tokenOf(await invite(world, owner, "victim@team.test"));
+  const result = await accept(world, attacker, token);
+  assert.deepEqual([result.status, result.body.error], [403, "wrong_account"]);
   assert.ok(!activeIn(world, workspace).includes(attacker), "the attacker did not join");
-  // The invite took the ordinary new-address path: a pending row and an email to the invitee.
-  assert.deepEqual(result.invitesSent, ["victim@team.test"]);
-  const row = world.workspace_members.find(
-    (m) => m.workspace_id === workspace && m.invited_email === "victim@team.test",
-  )!;
-  assert.equal(row.status, "invited");
-  assert.equal(row.user_id ?? null, null);
+  assert.equal(
+    world.workspace_invitations![0].status,
+    "pending",
+    "the link still works for the invitee",
+  );
 });
 
 test("ATTACK: with the real invitee and a spoofer sharing the address, only the real account joins", async () => {
   const { world, owner, workspace } = inviter();
   const victim = freeAccount(world, "victim@team.test");
   const attacker = freeAccount(world, "victim@team.test", "attacker@evil.test");
-  const result = await invite(world, owner, "victim@team.test");
-  assert.equal(result.status, 201);
+  const token = tokenOf(await invite(world, owner, "victim@team.test"));
+  assert.equal((await accept(world, attacker, token)).status, 403);
+  assert.equal((await accept(world, victim, token)).status, 200);
   const joined = activeIn(world, workspace);
   assert.ok(joined.includes(victim), "the real invitee joined");
   assert.ok(!joined.includes(attacker), "the spoofer did not");
-  assert.deepEqual(result.invitesSent, [], "an existing account is activated, not emailed");
 });
 
 test("legitimate invitation of an existing account: matched exactly, ignoring letter case", async () => {
   const { world, owner, workspace } = inviter();
   const invitee = freeAccount(world, "Jordan.Lee@team.test");
-  const result = await invite(world, owner, "jordan.lee@TEAM.test");
-  assert.equal(result.status, 201);
+  const token = tokenOf(await invite(world, owner, "jordan.lee@TEAM.test"));
+  const result = await accept(world, invitee, token);
+  assert.equal(result.status, 200, result.text);
   assert.ok(activeIn(world, workspace).includes(invitee));
 });
 
-test("legitimate invitation of a new address still creates a pending invite and sends the email", async () => {
-  const { world, owner, workspace } = inviter();
-  const result = await invite(world, owner, "brand.new@team.test");
-  assert.equal(result.status, 201);
-  assert.deepEqual(result.invitesSent, ["brand.new@team.test"]);
-  assert.equal(activeIn(world, workspace).length, 1, "only the owner is active");
-});
-
-test("an address that only matches as a pattern ('_' wildcard) activates nobody", async () => {
+test("an address that only matches as a pattern ('_' wildcard) cannot accept", async () => {
   const { world, owner, workspace } = inviter();
   const lookalike = freeAccount(world, "aXb@team.test");
-  await invite(world, owner, "a_b@team.test");
+  const token = tokenOf(await invite(world, owner, "a_b@team.test"));
+  const result = await accept(world, lookalike, token);
+  assert.equal(result.status, 403);
   assert.ok(!activeIn(world, workspace).includes(lookalike));
 });
 
-test("a candidate profile with no Auth account, or a stale profile email, activates nobody", async () => {
+test("a profile with no Auth account, or a stale profile email, cannot accept", async () => {
   const { world, owner, workspace } = inviter();
   const orphan = freeAccount(world, "ghost@team.test", null);
-  await invite(world, owner, "ghost@team.test");
+  const ghostToken = tokenOf(await invite(world, owner, "ghost@team.test"));
+  assert.notEqual((await accept(world, orphan, ghostToken)).status, 200);
   assert.ok(!activeIn(world, workspace).includes(orphan), "no Auth account behind it");
   // A profile still showing an address its owner no longer signs in with.
   const moved = freeAccount(world, "old@team.test", "new@team.test");
-  await invite(world, owner, "old@team.test");
+  const oldToken = tokenOf(await invite(world, owner, "old@team.test"));
+  assert.equal((await accept(world, moved, oldToken)).status, 403);
   assert.ok(!activeIn(world, workspace).includes(moved), "stale profile email is not identity");
 });
 
@@ -310,14 +334,7 @@ test("unauthorized callers cannot invite (unchanged): an editor is refused and n
   assert.deepEqual(result.writes, []);
   assert.deepEqual(result.invitesSent, []);
   assert.equal(JSON.stringify(world.workspace_members), before);
-});
-
-test("a failed invite email does not pass on Supabase's message (no account enumeration)", async () => {
-  const { world, owner } = inviter();
-  world.inviteStatus = 422; // e.g. Supabase: the address is already registered
-  const result = await invite(world, owner, "someone@team.test");
-  assert.deepEqual([result.status, result.body], [502, { error: "INVITE_EMAIL_FAILED" }]);
-  assert.doesNotMatch(result.text, /nope|registered|detail/);
+  assert.equal(world.workspace_invitations?.length ?? 0, 0);
 });
 
 test("impersonation and reset failures do not pass on Supabase's error text", () => {

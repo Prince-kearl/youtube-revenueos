@@ -5,11 +5,20 @@ function currentOrigin(): string {
   return typeof window !== "undefined" ? window.location.origin : "";
 }
 
+/** Where an emailed confirmation link lands: /auth/callback, carrying a safe app page to open
+ * next (an invitation, for instance) when there is one. */
+function confirmationRedirect(next?: string | null): string {
+  return next
+    ? `${currentOrigin()}/auth/callback?next=${encodeURIComponent(next)}`
+    : `${currentOrigin()}/auth/callback`;
+}
+
 export function signUpWithPassword(
   email: string,
   password: string,
   name: string,
   referredByCode?: string | null,
+  next?: string | null,
 ) {
   const supabase = getSupabaseBrowserClient();
   return supabase.auth.signUp({
@@ -17,19 +26,19 @@ export function signUpWithPassword(
     password,
     options: {
       data: { name, ...(referredByCode ? { referred_by_code: referredByCode } : {}) },
-      emailRedirectTo: `${currentOrigin()}/auth/callback`,
+      emailRedirectTo: confirmationRedirect(next),
     },
   });
 }
 
 // Sends a fresh sign-up confirmation email — the original link is short-lived, so someone who
 // opens it late needs a way to get another one.
-export function resendSignupConfirmation(email: string) {
+export function resendSignupConfirmation(email: string, next?: string | null) {
   const supabase = getSupabaseBrowserClient();
   return supabase.auth.resend({
     type: "signup",
     email,
-    options: { emailRedirectTo: `${currentOrigin()}/auth/callback` },
+    options: { emailRedirectTo: confirmationRedirect(next) },
   });
 }
 

@@ -3,10 +3,19 @@ import { z } from "zod";
 import { requireWorkspaceFeature, type WorkspaceRole } from "@/lib/server/workspace";
 import { resolveTeamManagementEntitlement } from "@/lib/server/workspace-entitlements";
 import { createServiceSupabaseClient } from "@/lib/server/supabase";
-import { requireServerEnv, getServerEnv } from "@/lib/server/env";
-import { notifyWorkspace } from "@/lib/server/notify";
-import { exactIlikePattern, sameTextIgnoringCase } from "@/lib/server/exact-match";
-import { lookupAuthIdentity } from "@/lib/server/auth-identity";
+import { exactIlikePattern } from "@/lib/server/exact-match";
+import {
+  INVITATION_COLUMNS,
+  MAX_PENDING_INVITATIONS,
+  hashInvitationToken,
+  invitationExpiry,
+  invitationRateLimited,
+  invitationUrl,
+  newInvitationToken,
+  recordInvitationEvent,
+  type InvitationRow,
+} from "@/lib/server/workspace-invitations";
+import { publicInvitation } from "@/lib/server/workspace-invitation-view";
 import {
   PLAN_REQUIRED_BODY,
   authorizeInvite,
@@ -33,12 +42,6 @@ import {
 // creates no account, no membership and no email.
 
 const workspaceRoleEnum = z.enum(["owner", "manager", "setter", "editor"]);
-
-// At most this many profiles claiming one address are checked against Auth. They are taken oldest
-// first, so profiles created later to claim an existing person's address cannot push that person's
-// account out of the window. If the window is full and none is confirmed, the invite stops with
-// INVITE_ADDRESS_AMBIGUOUS rather than guessing (the genuine account may lie beyond it).
-const INVITE_CANDIDATE_LIMIT = 10;
 
 const inviteSchema = z.object({
   email: z.string().trim().email().max(320),
@@ -168,13 +171,10 @@ export const Route = createFileRoute("/api/workspace/members")({
           return json({ error: "SERVER_MISCONFIGURED" }, { status: 500 });
         }
       },
-      // Invites either activate immediately (email already belongs to an existing Tubify
-      // account — v1 doesn't support one account holding more than one active workspace
-      // membership, so this can't be a genuine pending invite for them) or create a real pending
-      // row and send a real Supabase invite email for a brand-new email. The pending row is
-      // written BEFORE calling inviteUserByEmail: that call creates the auth.users row
-      // synchronously, which fires handle_new_user() immediately — the row has to already exist
-      // for the trigger to find and activate it instead of creating a second default workspace.
+      // Creates a shareable invitation (no email, no membership yet): the person invited opens the
+      // link, signs in or signs up with the invited address, and accepts (api.invitations.ts).
+      // The link is returned once. Authorisation is unchanged: role, hierarchy and the Team
+      // Management entitlement, all before anything is written.
       POST: async ({ request }) => {
         try {
           const ctx = await requireWorkspaceFeature(request, "team");
@@ -192,144 +192,90 @@ export const Route = createFileRoute("/api/workspace/members")({
           // Nothing below this line runs for a refused request.
           if (!decision.ok) return denied(decision);
 
-          const viewer = { userId: ctx.user.id, role: ctx.workspaceRole };
-          // Which existing account (if any) this address belongs to is decided by Supabase Auth.
-          // profiles.email is only a way to find candidates: its owner can rewrite it
-          // (profiles_self_update does not protect it), so a user who set theirs to the invitee's
-          // address must never be the one who joins. A candidate is activated only when Auth says
-          // its email IS this address (exactly, ignoring case) AND that address is confirmed —
-          // an unconfirmed sign-up proves nothing about who owns the inbox. Otherwise nobody is
-          // activated and the invite takes the ordinary new-address path below. If Auth cannot
-          // be asked, nothing is written or sent.
-          const { data: candidates, error: candidatesError } = await service
-            .from("profiles")
-            .select("id")
-            .ilike("email", exactIlikePattern(input.email))
-            .order("created_at", { ascending: true })
-            .order("id", { ascending: true })
-            .limit(INVITE_CANDIDATE_LIMIT);
-          if (candidatesError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-          const identities = await Promise.all(
-            (candidates ?? []).map((candidate) =>
-              lookupAuthIdentity(service, candidate.id as string),
-            ),
-          );
-          if (identities.some((identity) => identity.status === "unavailable"))
-            return json({ error: "AUTH_UNAVAILABLE" }, { status: 503 });
-          const verified = identities.find(
-            (identity) =>
-              identity.status === "found" &&
-              identity.emailConfirmed &&
-              sameTextIgnoringCase(identity.email, input.email),
-          );
-          const existingProfile = verified?.status === "found" ? { id: verified.id } : null;
-          if (!existingProfile && (candidates ?? []).length >= INVITE_CANDIDATE_LIMIT)
-            return json({ error: "INVITE_ADDRESS_AMBIGUOUS" }, { status: 409 });
+          const email = input.email.toLowerCase();
 
-          if (existingProfile) {
-            const { data: existingMembership } = await service
-              .from("workspace_members")
-              .select("id, status")
-              .eq("workspace_id", ctx.workspaceId)
-              .eq("user_id", existingProfile.id)
-              .maybeSingle();
-            if (existingMembership && existingMembership.status !== "removed") {
-              return json({ error: "ALREADY_A_MEMBER" }, { status: 409 });
-            }
-            const { data: ownsElsewhere } = await service
-              .from("workspace_members")
-              .select("id")
-              .eq("user_id", existingProfile.id)
-              .eq("status", "active")
-              .maybeSingle();
-            if (ownsElsewhere) {
-              return json({ error: "ALREADY_HAS_WORKSPACE" }, { status: 409 });
-            }
-            const { data, error } = await service
-              .from("workspace_members")
-              .upsert(
-                {
-                  id: existingMembership?.id,
-                  workspace_id: ctx.workspaceId,
-                  user_id: existingProfile.id,
-                  invited_email: input.email,
-                  role: input.role,
-                  revenue_visible:
-                    ctx.workspaceRole === "owner" &&
-                    (input.role === "editor" || input.role === "setter") &&
-                    input.revenueVisible,
-                  status: "active",
-                  lead_share: input.leadShare,
-                  commission: input.commission,
-                  job_title: input.jobTitle ?? null,
-                  cost_amount: input.costAmount,
-                  invited_by: ctx.user.id,
-                  joined_at: new Date().toISOString(),
-                },
-                { onConflict: "id" },
-              )
-              .select(memberColumns)
-              .single();
-            if (error) return json({ error: "DATABASE_ERROR" }, { status: 500 });
-            void notifyWorkspace(service, {
-              workspaceId: ctx.workspaceId,
-              userId: existingProfile.id,
-              type: "message",
-              title: "New teammate joined",
-              message: `${input.email} joined as ${input.role}`,
-            });
-            return json({ data: redactMember(data, viewer) }, { status: 201 });
-          }
-
-          const { data: pending, error: insertError } = await service
+          // Already on the team: nothing to invite.
+          const { data: activeMembers, error: activeError } = await service
             .from("workspace_members")
+            .select("id")
+            .eq("workspace_id", ctx.workspaceId)
+            .eq("status", "active")
+            .ilike("invited_email", exactIlikePattern(email))
+            .limit(1);
+          if (activeError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          if (activeMembers?.length) return json({ error: "ALREADY_A_MEMBER" }, { status: 409 });
+
+          // One open invitation per address: a second one is a regenerate (the Team page offers it).
+          const { data: open, error: openError } = await service
+            .from("workspace_invitations")
+            .select("id, email")
+            .eq("workspace_id", ctx.workspaceId)
+            .eq("status", "pending");
+          if (openError) return json({ error: "DATABASE_ERROR" }, { status: 500 });
+          const openRows = (open ?? []) as Array<{ id: string; email: string }>;
+          const sameAddress = openRows.find((row) => row.email === email);
+          if (sameAddress)
+            return json(
+              { error: "ALREADY_INVITED", invitationId: sameAddress.id },
+              { status: 409 },
+            );
+          if (openRows.length >= MAX_PENDING_INVITATIONS)
+            return json({ error: "TOO_MANY_PENDING_INVITATIONS" }, { status: 429 });
+          if (await invitationRateLimited(service, ctx.workspaceId))
+            return json({ error: "INVITATION_RATE_LIMITED" }, { status: 429 });
+
+          const token = newInvitationToken();
+          const { data: invitation, error: insertError } = await service
+            .from("workspace_invitations")
             .insert({
               workspace_id: ctx.workspaceId,
-              invited_email: input.email,
+              email,
               role: input.role,
               revenue_visible:
                 ctx.workspaceRole === "owner" &&
                 (input.role === "editor" || input.role === "setter") &&
                 input.revenueVisible,
-              status: "invited",
               lead_share: input.leadShare,
               commission: input.commission,
               job_title: input.jobTitle ?? null,
               cost_amount: input.costAmount,
+              token_hash: await hashInvitationToken(token),
+              status: "pending",
               invited_by: ctx.user.id,
+              expires_at: invitationExpiry(),
             })
-            .select(memberColumns)
+            .select(INVITATION_COLUMNS)
             .single();
-          if (insertError) {
+          if (insertError || !invitation) {
             return json(
-              { error: insertError.code === "23505" ? "ALREADY_INVITED" : "DATABASE_ERROR" },
-              { status: insertError.code === "23505" ? 409 : 500 },
+              { error: insertError?.code === "23505" ? "ALREADY_INVITED" : "DATABASE_ERROR" },
+              { status: insertError?.code === "23505" ? 409 : 500 },
             );
           }
-
-          if (!getServerEnv("SUPABASE_SERVICE_ROLE_KEY")) {
-            return json({ error: "EMAIL_NOT_CONFIGURED" }, { status: 503 });
-          }
-          const inviteResponse = await fetch(`${requireServerEnv("SUPABASE_URL")}/auth/v1/invite`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: requireServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
-              Authorization: `Bearer ${requireServerEnv("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
-            body: JSON.stringify({
-              email: input.email,
-              data: { invited_to_workspace: ctx.workspaceId },
-            }),
+          const row = invitation as InvitationRow;
+          // The audit row is also what the rate limit counts: without it, nothing is issued.
+          const recorded = await recordInvitationEvent(service, {
+            action: "workspace_invitation.created",
+            userId: ctx.user.id,
+            invitationId: row.id,
+            workspaceId: ctx.workspaceId,
+            role: row.role,
           });
-          if (!inviteResponse.ok) {
-            await service.from("workspace_members").delete().eq("id", pending.id);
-            // Supabase's own message is not passed on: it can say whether an account already
-            // exists for the address (account enumeration by any workspace inviter).
-            return json({ error: "INVITE_EMAIL_FAILED" }, { status: 502 });
+          if (!recorded) {
+            await service.from("workspace_invitations").delete().eq("id", row.id);
+            return json({ error: "DATABASE_ERROR" }, { status: 500 });
           }
 
-          return json({ data: redactMember(pending, viewer) }, { status: 201 });
+          // The link is returned once, here. Nothing was emailed: the inviter shares it.
+          return json(
+            {
+              data: {
+                invitation: publicInvitation(row),
+                inviteUrl: invitationUrl(request, token),
+              },
+            },
+            { status: 201 },
+          );
         } catch (error) {
           if (error instanceof Response) return error;
           if (error instanceof z.ZodError)
