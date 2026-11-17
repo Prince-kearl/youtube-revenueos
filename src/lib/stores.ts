@@ -1052,7 +1052,7 @@ const seedSiteContent = (): SiteContent => ({
   primaryColor: "#0284c7",
   buttonTextColor: "#ffffff",
   accentColor: "#3b82f6",
-  cardRadius: 4,
+  cardRadius: 16,
   buttonRadius: 0,
   inputRadius: 12,
   kpiCardRadius: 16,

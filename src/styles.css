@@ -66,10 +66,11 @@
 }
 
 :root {
-  --radius: 0rem;
-  --card-radius: 4px;
+  /* Rounded throughout: every rounded-sm/md/lg/xl/2xl in the app is built from this (6/8/10/14/18px). */
+  --radius: 0.625rem;
+  --card-radius: 16px;
   --button-radius: 0px;
-  --input-radius: 0px;
+  --input-radius: 12px;
   --kpi-card-radius: 16px;
   --background: #f3faff;
   --foreground: #18181b;
