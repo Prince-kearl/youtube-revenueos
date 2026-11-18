@@ -134,11 +134,11 @@ const videos = readFileSync("src/routes/videos.tsx", "utf8").replace(/\s+/g, " "
 const commentsPage = readFileSync("src/routes/comments.tsx", "utf8").replace(/\s+/g, " ");
 
 test("Videos (phones): a card per video, stats as icons beside the date", () => {
-  assert.match(videos, /<ul className="mt-6 space-y-3 sm:hidden">/);
+  assert.match(videos, /<ul className="mt-6 space-y-2 sm:hidden">/);
   // Each video is its own card.
   assert.match(
     videos,
-    /<li className="group relative flex h-24 items-center gap-3 overflow-hidden py-3">/,
+    /<li className="group relative flex h-\[4\.5rem\] items-center gap-3 overflow-hidden">/,
   );
   assert.match(videos, /<CardStat icon=\{Eye\} value=\{video\.views\} noun="views" \/>/);
   assert.match(videos, /<CardStat icon=\{ThumbsUp\} value=\{video\.likes\} noun="likes" \/>/);

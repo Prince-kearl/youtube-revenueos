@@ -33,7 +33,7 @@ test("phones: the card's title and thumbnail open analytics, with no separate 'V
   // whole row; only the comment count, a separate link to Comment Automation, sits above it.
   assert.match(
     card,
-    /<li className="group relative flex h-24 items-center gap-3 overflow-hidden py-3">\s*<VideoThumbnail video=\{video\} \/>/,
+    /<li className="group relative flex h-\[4\.5rem\] items-center gap-3 overflow-hidden">\s*<VideoThumbnail video=\{video\} \/>/,
   );
   assert.match(
     card,

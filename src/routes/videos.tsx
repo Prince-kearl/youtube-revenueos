@@ -509,7 +509,7 @@ function Videos() {
 
           {/* Phones: a card per video, with its stats as icons beside the date. */}
           {filteredVideos.length > 0 && (
-            <ul className="mt-6 space-y-3 sm:hidden">
+            <ul className="mt-6 space-y-2 sm:hidden">
               {filteredVideos.map((video) => (
                 <VideoCard key={video.id} video={video} />
               ))}
@@ -659,7 +659,7 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
   const visibility = videoVisibility(video);
   const noDescription = hasNoDescription(video);
   return (
-    <li className="group relative flex h-24 items-center gap-3 overflow-hidden py-3">
+    <li className="group relative flex h-[4.5rem] items-center gap-3 overflow-hidden">
       <VideoThumbnail video={video} />
       <div className="min-w-0 flex-1">
         {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
