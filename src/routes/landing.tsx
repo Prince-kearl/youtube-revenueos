@@ -19,9 +19,8 @@ import {
   BarChart3,
   Users2,
   LayoutDashboard,
-  Radio,
-  Megaphone,
-  Bot,
+  Handshake,
+  Inbox,
   Settings,
   Search,
   User,
@@ -121,6 +120,7 @@ function Landing() {
 
 const NAV_DESTINATIONS: { label: string; href?: string; to?: string }[] = [
   { label: "Home", href: "#" },
+  { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Product Showcase", href: "#product" },
   { label: "Support", to: "/support" },
@@ -193,6 +193,9 @@ function NavBar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="theme-light">
                 <DropdownMenuItem asChild>
+                  <a href="#features">All Features</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <a href="#how-it-works">How It Works</a>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -200,16 +203,9 @@ function NavBar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 outline-none hover:text-white">
-                Resources <ChevronDown className="h-3.5 w-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="theme-light">
-                <DropdownMenuItem asChild>
-                  <Link to="/support">Support</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link to="/support" className="hover:text-white">
+              Support
+            </Link>
             <a href="#faq" className="hover:text-white">
               FAQ
             </a>
@@ -228,7 +224,7 @@ function NavBar() {
               Log In
             </Link>
             <Link
-              to="/dashboard"
+              to="/signup"
               className="hidden rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 md:inline-flex"
             >
               Get Started
@@ -284,6 +280,13 @@ function NavBar() {
               </span>
               Log In
             </Link>
+            <Link
+              to="/signup"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex h-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Get Started
+            </Link>
           </nav>
         )}
       </div>
@@ -335,17 +338,18 @@ function Hero() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <Link
-              to="/dashboard"
+              to="/signup"
               className="nav-glow-motion relative flex h-12 items-center gap-2 rounded-full border border-white/10 bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-xl transition-transform hover:scale-[1.02] hover:bg-primary/90"
             >
               {content.heroPrimaryCta} <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link
-              to="/dashboard"
+            {/* There is no public demo account: this shows the product tour on this page. */}
+            <a
+              href="#product"
               className="nav-glow-motion relative flex h-12 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-6 text-sm font-semibold text-white backdrop-blur-xl transition-transform hover:scale-[1.02] hover:bg-white/15"
             >
               <Play className="h-4 w-4" /> {content.heroSecondaryCta}
-            </Link>
+            </a>
           </div>
         </div>
 
@@ -355,16 +359,17 @@ function Hero() {
   );
 }
 
+// The app's own navigation (src/lib/creator-nav.ts), so the picture promises nothing it lacks.
 const MOCKUP_NAV = [
-  { label: "Overview", icon: LayoutDashboard, active: true },
+  { label: "Dashboard", icon: LayoutDashboard, active: true },
+  { label: "Videos", icon: Play },
   { label: "Analytics", icon: BarChart3 },
-  { label: "Revenue", icon: DollarSign },
-  { label: "Content", icon: Play },
   { label: "Audience", icon: Users2 },
-  { label: "Real Time", icon: Radio },
-  { label: "Campaigns", icon: Megaphone },
-  { label: "AI Assistant", icon: Bot },
-  { label: "Link Tracker", icon: Link2 },
+  { label: "AI Description Lab", icon: Sparkles },
+  { label: "Link Tracking", icon: Link2 },
+  { label: "Brand Deals", icon: Handshake },
+  { label: "Comments", icon: MessageSquare },
+  { label: "Lead Inbox", icon: Inbox },
   { label: "Settings", icon: Settings },
 ];
 
@@ -392,7 +397,7 @@ const MOCKUP_TRAFFIC = [
 ];
 
 const MOCKUP_VIDEOS = [
-  { title: "10 Ways to Grow on YouTube in 2024", views: "312.6K", revenue: "$1,245.80" },
+  { title: "10 Ways to Grow on YouTube This Year", views: "312.6K", revenue: "$1,245.80" },
   { title: "My Studio Setup for High Quality Videos", views: "210.4K", revenue: "$842.65" },
   { title: "How I Make $10K/Month on YouTube", views: "180.7K", revenue: "$715.20" },
 ];
@@ -501,47 +506,6 @@ function DashboardMockup() {
   );
 }
 
-const FLOATING_SPARK = [4, 6, 5, 8, 7, 9, 11, 10, 13, 12, 15].map((v, i) => ({ i, v }));
-
-function FloatingStatCard() {
-  const gradientId = useId();
-  return (
-    <div className="absolute -bottom-8 -right-4 hidden w-44 rounded-[var(--card-radius)] border-2 border-foreground/10 bg-white p-3 shadow-xl sm:block">
-      <p className="text-[9px] text-muted-foreground">Estimated Revenue</p>
-      <p className="mt-0.5 text-sm font-bold">$12,540.80</p>
-      <p className="mt-0.5 text-[9px] font-medium text-success">↗ 18.6% vs last 30 days</p>
-      <div className="mt-1.5 h-7">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={FLOATING_SPARK}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area
-              type="monotone"
-              dataKey="v"
-              stroke="var(--color-primary)"
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <button className="mt-1.5 w-full rounded-[var(--button-radius)] bg-primary px-2 py-1.5 text-[10px] font-semibold text-primary-foreground">
-        View Full Analytics
-      </button>
-      <div className="mt-2 border-t border-border pt-1.5">
-        <p className="text-[9px] text-muted-foreground">Realtime</p>
-        <p className="text-xs font-bold">
-          48,230 <span className="text-[9px] font-normal text-muted-foreground">Views · 48h</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // ============ HERO ARTWORK ============
 // A single pre-rendered image (transparent background): the Tubify phone surrounded by floating
 // stat cards. Width/height are the artwork's intrinsic size, so the browser reserves the right
@@ -633,7 +597,7 @@ function ProblemSection() {
 function ProductShowcase() {
   const [content] = useSiteContent();
   return (
-    <section id="product" className="mx-auto max-w-5xl px-6 py-16 text-center">
+    <section id="product" className="mx-auto max-w-5xl scroll-mt-28 px-6 py-16 text-center">
       <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         {content.showcaseBadge}
       </span>
@@ -653,7 +617,7 @@ const HOW_IT_WORKS_ICONS = [Youtube, Sparkles, MessageSquare, DollarSign];
 function HowItWorks() {
   const [content] = useSiteContent();
   return (
-    <section id="how-it-works" className="mx-auto max-w-5xl px-6 py-16">
+    <section id="how-it-works" className="mx-auto max-w-5xl scroll-mt-28 px-6 py-16">
       <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
         {content.howItWorksHeading}
       </h2>
@@ -725,7 +689,7 @@ function BuiltForCreators() {
 function FaqSection() {
   const [content] = useSiteContent();
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-6 py-16">
+    <section id="faq" className="mx-auto max-w-3xl scroll-mt-28 px-6 py-16">
       <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         FAQ
       </span>
@@ -784,13 +748,15 @@ function ContactSection() {
       toast.success("Thanks — we got it!", {
         description: `Someone from the ${content.siteName} team will follow up by email.`,
       });
+    } catch {
+      toast.error("Couldn't reach us — check your connection and try again");
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <section id="contact" className="mx-auto max-w-2xl px-6 py-16">
+    <section id="contact" className="mx-auto max-w-2xl scroll-mt-28 px-6 py-16">
       <span className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
         <LifeBuoy className="h-3.5 w-3.5" /> Contact
       </span>
@@ -823,10 +789,15 @@ function ContactSection() {
             <HoneypotField value={trap} onChange={setTrap} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label
+                  htmlFor="contact-name"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
                   Name
                 </label>
                 <input
+                  id="contact-name"
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -834,10 +805,15 @@ function ContactSection() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label
+                  htmlFor="contact-email"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
                   Email
                 </label>
                 <input
+                  id="contact-email"
+                  autoComplete="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -847,10 +823,14 @@ function ContactSection() {
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <label
+                htmlFor="contact-message"
+                className="mb-1.5 block text-xs font-medium text-muted-foreground"
+              >
                 What's going on?
               </label>
               <textarea
+                id="contact-message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 required
@@ -936,7 +916,11 @@ function ContentMarqueeSection() {
               <img
                 referrerPolicy="no-referrer"
                 src={v.image}
-                alt={v.title}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width={700}
+                height={394}
                 className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors group-hover:bg-black/25">
@@ -990,7 +974,7 @@ function FinalCta() {
           {content.finalCtaSubtitle}
         </p>
         <Link
-          to="/dashboard"
+          to="/signup"
           className="mt-7 inline-flex h-12 items-center gap-2 rounded-[var(--button-radius)] bg-white px-6 text-sm font-semibold text-primary hover:bg-white/90"
         >
           {content.heroPrimaryCta} <ArrowRight className="h-4 w-4" />
@@ -1003,31 +987,36 @@ function FinalCta() {
 const SOCIAL_ICONS: {
   key: "youtube" | "twitter" | "instagram" | "tiktok";
   icon: typeof Youtube;
+  label: string;
 }[] = [
-  { key: "youtube", icon: Youtube },
-  { key: "twitter", icon: Twitter },
-  { key: "instagram", icon: Instagram },
-  { key: "tiktok", icon: Music2 },
+  { key: "youtube", icon: Youtube, label: "YouTube" },
+  { key: "twitter", icon: Twitter, label: "X (Twitter)" },
+  { key: "instagram", icon: Instagram, label: "Instagram" },
+  { key: "tiktok", icon: Music2, label: "TikTok" },
 ];
 
 function FooterSection() {
   const [content] = useSiteContent();
-  const columns = [
+  // Every link goes somewhere real: a section of this page or a public page.
+  const columns: { title: string; links: { label: string; href?: string; to?: string }[] }[] = [
     {
       title: "Features",
       links: [
-        "AI Descriptions",
-        "Comment Automation",
-        "Link Tracking",
-        "Analytics",
-        "Team Collaboration",
+        { label: "Revenue Analytics", href: "#features" },
+        { label: "AI Descriptions", href: "#features" },
+        { label: "Comment Automation", href: "#features" },
+        { label: "Link Tracking", href: "#features" },
+        { label: "Brand Deals", href: "#features" },
       ],
     },
     {
-      title: "Data Hub",
-      links: ["Revenue Attribution", "Brand Deals", "Affiliate", "YouTube Sync"],
+      title: "Resources",
+      links: [
+        { label: "How It Works", href: "#how-it-works" },
+        { label: "FAQ", href: "#faq" },
+        { label: "Support", to: "/support" },
+      ],
     },
-    { title: "Resources", links: ["Changelog", "Roadmap", "Docs", "Blog"] },
   ];
   const activeSocials = SOCIAL_ICONS.filter((s) => content.socialLinks[s.key]);
   return (
@@ -1052,12 +1041,12 @@ function FooterSection() {
                   href={content.socialLinks[s.key]}
                   target="_blank"
                   rel="noreferrer"
+                  aria-label={s.label}
                   className="hover:text-background"
                 >
-                  <s.icon className="h-4 w-4" />
+                  <s.icon className="h-4 w-4" aria-hidden="true" />
                 </a>
               ))}
-              <Link2 className="h-4 w-4" />
             </div>
           )}
         </div>
@@ -1066,13 +1055,16 @@ function FooterSection() {
             <p className="text-sm font-semibold">{col.title}</p>
             <ul className="mt-3 space-y-2">
               {col.links.map((l) => (
-                <li key={l}>
-                  <a
-                    href="#"
-                    className="flex items-center gap-1 text-sm text-background/60 hover:text-background"
-                  >
-                    {l}
-                  </a>
+                <li key={l.label}>
+                  {l.to ? (
+                    <Link to={l.to} className="text-sm text-background/60 hover:text-background">
+                      {l.label}
+                    </Link>
+                  ) : (
+                    <a href={l.href} className="text-sm text-background/60 hover:text-background">
+                      {l.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1080,7 +1072,12 @@ function FooterSection() {
         ))}
         <div>
           <p className="text-sm font-semibold">Contact</p>
-          <p className="mt-3 text-sm text-background/60">{content.contactEmail}</p>
+          <a
+            href={`mailto:${content.contactEmail}`}
+            className="mt-3 block break-all text-sm text-background/60 hover:text-background"
+          >
+            {content.contactEmail}
+          </a>
           <a
             href="#contact"
             className="mt-2 inline-block text-sm text-background/60 hover:text-background"

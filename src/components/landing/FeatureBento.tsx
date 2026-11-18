@@ -131,7 +131,7 @@ function LinkArt() {
       {rows.map(([slug, clicks]) => (
         <div key={slug} className="flex items-center gap-2 border-t border-white/[0.06] px-6 pt-2">
           <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/45">
-            /l/{slug}
+            /r/{slug}
           </span>
           <span className="h-px flex-1 border-t border-dashed border-white/15" />
           <span className="font-mono text-[11px] text-white/80">{clicks}</span>
@@ -250,7 +250,7 @@ function TeamArt() {
 
 export function FeatureBento() {
   return (
-    <section id="features" className="bg-[#0c0c0c] py-20 text-white sm:py-24">
+    <section id="features" className="scroll-mt-20 bg-[#0c0c0c] py-20 text-white sm:py-24">
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
@@ -261,7 +261,7 @@ export function FeatureBento() {
             </h2>
             <div className="mt-6 flex flex-wrap gap-2.5">
               <Link
-                to="/dashboard"
+                to="/signup"
                 className="rounded-[8px] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Start for free
@@ -321,7 +321,7 @@ export function FeatureBento() {
             A {em("pipeline for sponsorships")}, from pitch to signed.
           </Tile>
           <Tile icon={Globe2} title="Audience" art={<AudienceArt />}>
-            {em("See who is watching")}: countries, ages and devices.
+            {em("See who is watching")}: countries, age groups and gender.
           </Tile>
         </div>
 

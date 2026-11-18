@@ -1061,7 +1061,7 @@ const seedSiteContent = (): SiteContent => ({
   heroSubheadline:
     "Tubify turns your YouTube channel into a sales engine with AI descriptions, link tracking, comment automation, and revenue attribution per video.",
   heroPrimaryCta: "Get Started Free",
-  heroSecondaryCta: "View Live Demo",
+  heroSecondaryCta: "See It in Action",
   problemHeading: "YouTube Studio wasn't built to run your business.",
   problemItems: [
     {
