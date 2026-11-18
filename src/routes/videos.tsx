@@ -653,12 +653,13 @@ function MessageState({
 }
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
-  // Every card is the same, compact height: three single lines — the title, then date · length ·
+  // No card background or outline: each video is a plain row. Every row is the same, compact
+  // height: three single lines — the title, then date · length ·
   // status, then the counts. A line that does not fit ends in "…" instead of growing the card.
   const visibility = videoVisibility(video);
   const noDescription = hasNoDescription(video);
   return (
-    <li className="group relative flex h-24 items-center gap-3 overflow-hidden rounded-xl card-gradient-outline px-4 py-3">
+    <li className="group relative flex h-24 items-center gap-3 overflow-hidden py-3">
       <VideoThumbnail video={video} />
       <div className="min-w-0 flex-1">
         {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
