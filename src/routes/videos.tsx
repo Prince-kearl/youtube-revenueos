@@ -653,12 +653,13 @@ function MessageState({
 }
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
-  // The card grows with its content: a two-line title plus status badges is taller than a fixed
-  // height, which used to cut the text off top and bottom.
+  // Every card is the same height, sized for the fullest case (a two-line title, one line of
+  // badges, the date line and the stats line), so nothing is ever cut off and the list is even.
+  // The date and stats sit at the bottom, so they line up from card to card.
   return (
-    <li className="group relative flex min-h-24 items-start gap-3 rounded-xl card-gradient-outline px-4 py-3">
+    <li className="group relative flex h-36 items-stretch gap-3 overflow-hidden rounded-xl card-gradient-outline px-4 py-3">
       <VideoThumbnail video={video} />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
             YouTube in its header. The title's link covers the whole row (::after), so a tap
             anywhere opens it; the comment count is a separate link layered above it. */}
@@ -670,12 +671,13 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
           {video.title}
         </Link>
         {(videoVisibility(video) !== "public" || hasNoDescription(video)) && (
-          <div className="mt-1.5">
+          // One line of badges at most (they are short: Private, No description…).
+          <div className="mt-1.5 h-5 overflow-hidden">
             <VideoBadges video={video} />
           </div>
         )}
-        {/* Date and length, then views, likes and comments as icons on the same line. */}
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        {/* Date and length, then views, likes and comments as icons — at the bottom of the card. */}
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
           <span>
             {formatDate(video.publishedAt)}
             {video.duration ? ` · ${video.duration}` : ""}
