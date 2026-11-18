@@ -653,8 +653,10 @@ function MessageState({
 }
 
 function VideoCard({ video }: { video: YoutubeVideo }) {
+  // The card grows with its content: a two-line title plus status badges is taller than a fixed
+  // height, which used to cut the text off top and bottom.
   return (
-    <li className="group relative flex h-24 min-h-24 items-center gap-3 overflow-hidden rounded-xl card-gradient-outline px-4 py-3">
+    <li className="group relative flex min-h-24 items-start gap-3 rounded-xl card-gradient-outline px-4 py-3">
       <VideoThumbnail video={video} />
       <div className="min-w-0 flex-1">
         {/* Like the desktop row: the video opens its analytics page in Tubify, which links to
@@ -663,11 +665,15 @@ function VideoCard({ video }: { video: YoutubeVideo }) {
         <Link
           to="/videos/$videoId"
           params={{ videoId: video.id }}
-          className="line-clamp-2 font-medium after:absolute after:inset-0 after:content-[''] group-hover:text-primary"
+          className="line-clamp-2 font-medium leading-snug after:absolute after:inset-0 after:content-[''] group-hover:text-primary"
         >
           {video.title}
         </Link>
-        <VideoBadges video={video} />
+        {(videoVisibility(video) !== "public" || hasNoDescription(video)) && (
+          <div className="mt-1.5">
+            <VideoBadges video={video} />
+          </div>
+        )}
         {/* Date and length, then views, likes and comments as icons on the same line. */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>
